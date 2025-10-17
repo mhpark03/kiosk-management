@@ -1,0 +1,56 @@
+# Java / Spring Boot
+backend/target/
+backend/build/
+backend/.gradle/
+backend/bin/
+backend/.settings/
+backend/.classpath
+backend/.project
+backend/.factorypath
+*.class
+*.log
+*.jar
+*.war
+*.ear
+backend/.DS_Store
+
+# Node / React
+firstapp/node_modules/
+firstapp/dist/
+firstapp/build/
+firstapp/.env.local
+firstapp/.env.development.local
+firstapp/.env.test.local
+firstapp/.env.production.local
+firstapp/npm-debug.log*
+firstapp/yarn-debug.log*
+firstapp/yarn-error.log*
+firstapp/.DS_Store
+
+# IDEs
+.vscode/
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Database
+*.db
+*.sqlite
+
+# Windows reserved names
+nul
+NUL
