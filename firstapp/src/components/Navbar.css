@@ -123,6 +123,82 @@
   font-weight: 600;
 }
 
+/* Dropdown Menu */
+.navbar-links li.dropdown {
+  position: relative;
+}
+
+.dropdown-toggle {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 16px;
+  font-weight: 500;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dropdown-toggle:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.dropdown-toggle.active {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.dropdown-toggle .arrow {
+  font-size: 10px;
+  transition: transform 0.3s ease;
+}
+
+.dropdown-toggle .arrow.open {
+  transform: rotate(180deg);
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background: white;
+  min-width: 180px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  margin-top: 8px;
+  padding: 8px 0;
+  list-style: none;
+  z-index: 1000;
+}
+
+.dropdown-menu li {
+  margin: 0;
+}
+
+.dropdown-menu li a {
+  color: #333;
+  display: block;
+  padding: 10px 20px;
+  font-size: 14px;
+  transition: all 0.2s ease;
+}
+
+.dropdown-menu li a::after {
+  display: none;
+}
+
+.dropdown-menu li a:hover {
+  background: #f0f0f0;
+}
+
+.dropdown-menu li a.active {
+  background: #667eea;
+  color: white;
+}
+
 /* User Section */
 .navbar-user {
   display: flex;
@@ -214,6 +290,42 @@
 
   .navbar-links li a::after {
     display: none;
+  }
+
+  /* Mobile Dropdown */
+  .navbar-links li.dropdown {
+    width: 100%;
+  }
+
+  .dropdown-toggle {
+    width: 100%;
+    padding: 15px 20px;
+    font-size: 18px;
+    justify-content: center;
+  }
+
+  .dropdown-menu {
+    position: static;
+    box-shadow: none;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 0;
+    margin: 0;
+    padding: 0;
+  }
+
+  .dropdown-menu li a {
+    color: white;
+    padding: 12px 30px;
+    font-size: 16px;
+  }
+
+  .dropdown-menu li a:hover {
+    background: rgba(255, 255, 255, 0.15);
+  }
+
+  .dropdown-menu li a.active {
+    background: rgba(255, 255, 255, 0.25);
+    color: white;
   }
 
   .navbar-user {

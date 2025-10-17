@@ -12,6 +12,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -90,8 +92,10 @@ public class KioskController {
             @Valid @RequestBody CreateKioskRequest request,
             @RequestHeader(value = "X-User-Email", defaultValue = "system@kiosk.com") String userEmail,
             @RequestHeader(value = "X-User-Name", defaultValue = "System") String username) {
+        String decodedEmail = URLDecoder.decode(userEmail, StandardCharsets.UTF_8);
+        String decodedUsername = URLDecoder.decode(username, StandardCharsets.UTF_8);
         log.info("POST /api/kiosks - posid: {}, kioskno: {}", request.getPosid(), request.getKioskno());
-        KioskDTO createdKiosk = kioskService.createKiosk(request, userEmail, username);
+        KioskDTO createdKiosk = kioskService.createKiosk(request, decodedEmail, decodedUsername);
         return ResponseEntity.status(HttpStatus.CREATED).body(createdKiosk);
     }
 
@@ -105,8 +109,10 @@ public class KioskController {
             @Valid @RequestBody UpdateKioskRequest request,
             @RequestHeader(value = "X-User-Email", defaultValue = "system@kiosk.com") String userEmail,
             @RequestHeader(value = "X-User-Name", defaultValue = "System") String username) {
+        String decodedEmail = URLDecoder.decode(userEmail, StandardCharsets.UTF_8);
+        String decodedUsername = URLDecoder.decode(username, StandardCharsets.UTF_8);
         log.info("PUT /api/kiosks/{}", id);
-        KioskDTO updatedKiosk = kioskService.updateKiosk(id, request, userEmail, username);
+        KioskDTO updatedKiosk = kioskService.updateKiosk(id, request, decodedEmail, decodedUsername);
         return ResponseEntity.ok(updatedKiosk);
     }
 
@@ -120,8 +126,10 @@ public class KioskController {
             @RequestParam String state,
             @RequestHeader(value = "X-User-Email", defaultValue = "system@kiosk.com") String userEmail,
             @RequestHeader(value = "X-User-Name", defaultValue = "System") String username) {
+        String decodedEmail = URLDecoder.decode(userEmail, StandardCharsets.UTF_8);
+        String decodedUsername = URLDecoder.decode(username, StandardCharsets.UTF_8);
         log.info("PATCH /api/kiosks/{}/state - newState: {}", id, state);
-        kioskService.updateKioskState(id, state, userEmail, username);
+        kioskService.updateKioskState(id, state, decodedEmail, decodedUsername);
         return ResponseEntity.ok().build();
     }
 
@@ -134,8 +142,10 @@ public class KioskController {
             @PathVariable Long id,
             @RequestHeader(value = "X-User-Email", defaultValue = "system@kiosk.com") String userEmail,
             @RequestHeader(value = "X-User-Name", defaultValue = "System") String username) {
+        String decodedEmail = URLDecoder.decode(userEmail, StandardCharsets.UTF_8);
+        String decodedUsername = URLDecoder.decode(username, StandardCharsets.UTF_8);
         log.info("DELETE /api/kiosks/{}", id);
-        kioskService.softDeleteKiosk(id, userEmail, username);
+        kioskService.softDeleteKiosk(id, decodedEmail, decodedUsername);
         return ResponseEntity.noContent().build();
     }
 
@@ -148,8 +158,10 @@ public class KioskController {
             @PathVariable Long id,
             @RequestHeader(value = "X-User-Email", defaultValue = "system@kiosk.com") String userEmail,
             @RequestHeader(value = "X-User-Name", defaultValue = "System") String username) {
+        String decodedEmail = URLDecoder.decode(userEmail, StandardCharsets.UTF_8);
+        String decodedUsername = URLDecoder.decode(username, StandardCharsets.UTF_8);
         log.info("POST /api/kiosks/{}/restore", id);
-        kioskService.restoreKiosk(id, userEmail, username);
+        kioskService.restoreKiosk(id, decodedEmail, decodedUsername);
         return ResponseEntity.ok().build();
     }
 

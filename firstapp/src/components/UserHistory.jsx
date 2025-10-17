@@ -1,69 +1,45 @@
 import { useState, useEffect } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
-import { getAllHistory, getHistoryByEntityType, getHistoryByEntityTypeAndEntityId } from '../services/historyService';
+import { useLocation } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { getHistoryByUser } from '../services/historyService';
 import { getAllStores } from '../services/storeService';
+import { getAllUsers } from '../services/userService';
 import './StoreHistory.css';
 
-function History() {
-  const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
+function UserHistory() {
+  const { user } = useAuth();
+  const location = useLocation();
   const [history, setHistory] = useState([]);
   const [stores, setStores] = useState([]);
+  const [allUsers, setAllUsers] = useState([]);
+  const [selectedUserEmail, setSelectedUserEmail] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  // Search input states (temporary)
-  const [searchEntityType, setSearchEntityType] = useState('ALL');
-  const [searchAction, setSearchAction] = useState('ALL');
-  const [searchStore, setSearchStore] = useState('');
-  const [searchUserid, setSearchUserid] = useState('');
-  const [searchKioskId, setSearchKioskId] = useState('');
 
-  // Applied filter states
+  // Filter states
   const [filterEntityType, setFilterEntityType] = useState('ALL');
   const [filterAction, setFilterAction] = useState('ALL');
   const [filterStore, setFilterStore] = useState('');
-  const [filterUserid, setFilterUserid] = useState('');
   const [filterKioskId, setFilterKioskId] = useState('');
 
-  const entityType = searchParams.get('entityType');
-  const entityId = searchParams.get('entityId');
-  const posid = searchParams.get('posid');
+  // Get target user from location state (passed from UserManagement page)
+  const targetUserFromState = location.state?.targetUser;
+  // For admin with target user from state, use selected user email from dropdown, otherwise use logged-in user's email
+  const isAdmin = user?.role === 'ADMIN';
+  const targetEmail = (targetUserFromState && isAdmin && selectedUserEmail) ? selectedUserEmail : (targetUserFromState?.email || user?.email);
 
   useEffect(() => {
-    loadHistory();
     loadStores();
-
-    // Initialize search fields based on URL parameters
-    if (entityType) {
-      setSearchEntityType(entityType);
-      setFilterEntityType(entityType);
-    } else {
-      setSearchEntityType('ALL');
-      setFilterEntityType('ALL');
+    if (isAdmin && targetUserFromState) {
+      loadAllUsers();
     }
+  }, []);
 
-    if (posid) {
-      setSearchStore(posid);
-      setFilterStore(posid);
-    } else {
-      setSearchStore('');
-      setFilterStore('');
+  useEffect(() => {
+    if (targetEmail) {
+      loadUserHistory();
     }
-
-    if (entityId) {
-      setSearchKioskId(entityId);
-      setFilterKioskId(entityId);
-    } else {
-      setSearchKioskId('');
-      setFilterKioskId('');
-    }
-
-    // Always reset Action and User filters (not URL-based)
-    setSearchAction('ALL');
-    setFilterAction('ALL');
-    setSearchUserid('');
-    setFilterUserid('');
-  }, [entityType, entityId, posid]);
+  }, [targetEmail]);
 
   const loadStores = async () => {
     try {
@@ -74,61 +50,41 @@ function History() {
     }
   };
 
-  const loadHistory = async () => {
+  const loadAllUsers = async () => {
+    try {
+      const users = await getAllUsers();
+      setAllUsers(users);
+      // Set targetUser's email as default selection if it exists
+      if (targetUserFromState?.email && !selectedUserEmail) {
+        setSelectedUserEmail(targetUserFromState.email);
+      }
+    } catch (err) {
+      console.error('Failed to load users:', err);
+    }
+  };
+
+  const handleUserChange = (email) => {
+    setSelectedUserEmail(email);
+  };
+
+  const loadUserHistory = async () => {
     try {
       setLoading(true);
-      let data;
-
-      if (entityType && entityId) {
-        // Load history for specific entity (kiosk or store)
-        data = await getHistoryByEntityTypeAndEntityId(entityType, entityId);
-      } else if (entityType) {
-        // Load history for entity type only
-        data = await getHistoryByEntityType(entityType);
-      } else {
-        // Load all history
-        data = await getAllHistory();
-      }
-
-      // Filter out USER type history (device history only)
-      const filteredData = data.filter(item => item.entityType !== 'USER');
-      setHistory(filteredData);
+      const data = await getHistoryByUser(targetEmail);
+      setHistory(data);
       setError('');
     } catch (err) {
-      setError('Failed to load history: ' + err.message);
+      setError('Failed to load user history: ' + err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSearch = () => {
-    // If URL parameters exist, clear them to reload all data
-    if (entityType || entityId) {
-      navigate('/history', { replace: true });
-    }
-
-    // Apply filters
-    setFilterEntityType(searchEntityType);
-    setFilterAction(searchAction);
-    setFilterStore(searchStore);
-    setFilterUserid(searchUserid);
-    setFilterKioskId(searchKioskId);
-  };
-
-  const handleKeyPress = (e) => {
-    if (e.key === 'Enter') {
-      handleSearch();
-    }
-  };
-
   const handleReset = () => {
-    // Reset only search input fields (not filters)
-    // User must click Search button to apply the reset
-    setSearchEntityType('ALL');
-    setSearchAction('ALL');
-    setSearchStore('');
-    setSearchUserid('');
-    setSearchKioskId('');
+    setFilterEntityType('ALL');
+    setFilterAction('ALL');
+    setFilterStore('');
+    setFilterKioskId('');
   };
 
   const formatDate = (timestamp) => {
@@ -139,23 +95,6 @@ function History() {
     const hours = String(date.getHours()).padStart(2, '0');
     const minutes = String(date.getMinutes()).padStart(2, '0');
     return `${month}/${day} ${hours}:${minutes}`;
-  };
-
-  const formatUserEmail = (email) => {
-    if (!email) return 'N/A';
-    const atIndex = email.indexOf('@');
-    if (atIndex > 0) {
-      return email.substring(0, atIndex);
-    }
-    return email;
-  };
-
-  const getUserDisplayName = (item) => {
-    // Use username if available, otherwise fallback to email (without @domain)
-    if (item.username) {
-      return item.username;
-    }
-    return formatUserEmail(item.userid);
   };
 
   const getActionColor = (action) => {
@@ -196,7 +135,7 @@ function History() {
       case 'RESTORE':
         return 'Restored';
       case 'STATE_CHANGE':
-        return 'State Changed';
+        return 'Updated';
       case 'LOGIN':
         return 'Login';
       case 'LOGOUT':
@@ -238,21 +177,11 @@ function History() {
     }
   };
 
-  // Helper function to get store name by posid
   const getStoreName = (posid) => {
     if (!posid) return '-';
     const store = stores.find(s => s.posid === posid);
     return store ? store.posname : posid;
   };
-
-  // Get unique users from history - create a map of userid to username
-  const userMap = new Map();
-  history.forEach(h => {
-    if (h.userid && !userMap.has(h.userid)) {
-      userMap.set(h.userid, h.username || formatUserEmail(h.userid));
-    }
-  });
-  const uniqueUsers = Array.from(userMap.entries()).sort((a, b) => a[1].localeCompare(b[1]));
 
   // Filter history
   const filteredHistory = history.filter((item) => {
@@ -265,11 +194,7 @@ function History() {
     if (filterStore && item.posid !== filterStore) {
       return false;
     }
-    if (filterUserid && item.userid !== filterUserid) {
-      return false;
-    }
     if (filterKioskId) {
-      // Remove leading zeros from both values for comparison
       const searchValue = filterKioskId.replace(/^0+/, '') || '0';
       const entityValue = (item.entityId || '').replace(/^0+/, '') || '0';
       if (entityValue !== searchValue) {
@@ -283,43 +208,63 @@ function History() {
     <div className="store-history">
       <div className="history-header">
         <div>
-          <h1>Change History</h1>
-          {posid && <p className="store-filter-info">POS ID: {posid}</p>}
-          {entityType && <p className="store-filter-info">Type: {getEntityTypeLabel(entityType)}</p>}
+          <h1>{targetUserFromState ? '사용자 활동 이력' : '내 활동 이력'}</h1>
+          {isAdmin && targetUserFromState ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '10px' }}>
+              <label htmlFor="userSelect" style={{ fontSize: '14px', fontWeight: 600, color: '#4a5568' }}>
+                사용자:
+              </label>
+              <select
+                id="userSelect"
+                value={selectedUserEmail}
+                onChange={(e) => handleUserChange(e.target.value)}
+                style={{
+                  padding: '8px 12px',
+                  border: '1px solid #cbd5e0',
+                  borderRadius: '4px',
+                  fontSize: '14px',
+                  minWidth: '300px'
+                }}
+              >
+                {allUsers.map((u) => (
+                  <option key={u.id} value={u.email}>
+                    {u.displayName} ({u.email})
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            <p className="store-filter-info">
+              사용자: {targetUserFromState ? `${targetUserFromState.displayName} (${targetUserFromState.email})` : `${user?.displayName} (${user?.email})`}
+            </p>
+          )}
         </div>
-        {(entityType || entityId) && (
-          <button
-            onClick={() => navigate('/history')}
-            className="btn-show-all"
-          >
-            Show All History
-          </button>
-        )}
       </div>
 
       {error && <div className="alert alert-error">{error}</div>}
 
       <div className="filter-section">
         <div className="filter-group">
-          <label htmlFor="searchEntityType">Entity Type:</label>
+          <label htmlFor="filterEntityType">Entity Type:</label>
           <select
-            id="searchEntityType"
-            value={searchEntityType}
-            onChange={(e) => setSearchEntityType(e.target.value)}
+            id="filterEntityType"
+            value={filterEntityType}
+            onChange={(e) => setFilterEntityType(e.target.value)}
             className="filter-select"
           >
             <option value="ALL">All Types</option>
             <option value="KIOSK">Kiosk</option>
             <option value="STORE">Store</option>
+            <option value="USER">User</option>
           </select>
         </div>
 
         <div className="filter-group">
-          <label htmlFor="searchAction">Action:</label>
+          <label htmlFor="filterAction">Action:</label>
           <select
-            id="searchAction"
-            value={searchAction}
-            onChange={(e) => setSearchAction(e.target.value)}
+            id="filterAction"
+            value={filterAction}
+            onChange={(e) => setFilterAction(e.target.value)}
             className="filter-select"
           >
             <option value="ALL">All Actions</option>
@@ -328,15 +273,20 @@ function History() {
             <option value="DELETE">Delete</option>
             <option value="RESTORE">Restore</option>
             <option value="STATE_CHANGE">State Change</option>
+            <option value="LOGIN">Login</option>
+            <option value="LOGOUT">Logout</option>
+            <option value="PASSWORD_CHANGE">Password Change</option>
+            <option value="SUSPEND">Suspend</option>
+            <option value="ACTIVATE">Activate</option>
           </select>
         </div>
 
         <div className="filter-group">
-          <label htmlFor="searchStore">Store:</label>
+          <label htmlFor="filterStore">Store:</label>
           <select
-            id="searchStore"
-            value={searchStore}
-            onChange={(e) => setSearchStore(e.target.value)}
+            id="filterStore"
+            value={filterStore}
+            onChange={(e) => setFilterStore(e.target.value)}
             className="filter-select"
           >
             <option value="">All Stores</option>
@@ -348,33 +298,15 @@ function History() {
           </select>
         </div>
 
-        <div className="filter-group">
-          <label htmlFor="searchUserid">User:</label>
-          <select
-            id="searchUserid"
-            value={searchUserid}
-            onChange={(e) => setSearchUserid(e.target.value)}
-            className="filter-select"
-          >
-            <option value="">All Users</option>
-            {uniqueUsers.map(([userid, username]) => (
-              <option key={userid} value={userid}>
-                {username}
-              </option>
-            ))}
-          </select>
-        </div>
-
         <div style={{display: 'flex', alignItems: 'flex-end', gap: '8px'}}>
           <div style={{display: 'flex', flexDirection: 'column', gap: '5px'}}>
-            <label htmlFor="searchKioskId" style={{fontSize: '13px', fontWeight: 600, color: '#4a5568'}}>Kiosk ID:</label>
+            <label htmlFor="filterKioskId" style={{fontSize: '13px', fontWeight: 600, color: '#4a5568'}}>Kiosk ID:</label>
             <div style={{position: 'relative', width: '160px'}}>
               <input
                 type="text"
-                id="searchKioskId"
-                value={searchKioskId}
-                onChange={(e) => setSearchKioskId(e.target.value)}
-                onKeyPress={handleKeyPress}
+                id="filterKioskId"
+                value={filterKioskId}
+                onChange={(e) => setFilterKioskId(e.target.value)}
                 placeholder="Kiosk ID"
                 style={{
                   width: '100%',
@@ -385,9 +317,9 @@ function History() {
                   boxSizing: 'border-box'
                 }}
               />
-              {searchKioskId && (
+              {filterKioskId && (
                 <button
-                  onClick={() => setSearchKioskId('')}
+                  onClick={() => setFilterKioskId('')}
                   style={{
                     position: 'absolute',
                     right: '5px',
@@ -410,9 +342,6 @@ function History() {
           </div>
         </div>
 
-        <button onClick={handleSearch} className="btn-refresh" title="Search" style={{fontSize: '18px'}}>
-          🔍
-        </button>
         <button onClick={handleReset} className="btn-refresh" title="Reset" style={{marginLeft: '5px', fontSize: '18px'}}>
           🔄
         </button>
@@ -430,7 +359,6 @@ function History() {
                 <th>Store</th>
                 <th>Kiosk ID</th>
                 <th>Action</th>
-                <th>User</th>
                 <th>Field</th>
                 <th>Old Value</th>
                 <th>New Value</th>
@@ -440,7 +368,7 @@ function History() {
             <tbody>
               {filteredHistory.length === 0 ? (
                 <tr>
-                  <td colSpan="10" className="no-data">No history found</td>
+                  <td colSpan="9" className="no-data">No history found</td>
                 </tr>
               ) : (
                 filteredHistory.map((item) => (
@@ -458,7 +386,6 @@ function History() {
                         {getActionLabel(item.action)}
                       </span>
                     </td>
-                    <td>{getUserDisplayName(item)}</td>
                     <td>{item.fieldName || '-'}</td>
                     <td className="value-cell">{item.oldValue || '-'}</td>
                     <td className="value-cell">{item.newValue || '-'}</td>
@@ -478,4 +405,4 @@ function History() {
   );
 }
 
-export default History;
+export default UserHistory;

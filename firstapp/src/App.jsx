@@ -8,6 +8,9 @@ import Dashboard from './components/Dashboard';
 import KioskManagement from './components/KioskManagement';
 import StoreManagement from './components/StoreManagement';
 import History from './components/History';
+import Profile from './components/Profile';
+import UserHistory from './components/UserHistory';
+import UserManagement from './components/UserManagement';
 import ProtectedRoute from './components/ProtectedRoute';
 import './App.css';
 
@@ -50,6 +53,30 @@ function App() {
             element={
               <ProtectedRoute>
                 <History />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <Profile />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/user-history"
+            element={
+              <ProtectedRoute>
+                <UserHistory />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/user-management"
+            element={
+              <ProtectedRoute>
+                <UserManagement />
               </ProtectedRoute>
             }
           />

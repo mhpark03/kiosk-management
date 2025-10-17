@@ -388,10 +388,14 @@ function KioskManagement() {
   const formatDate = (timestamp, includeTime = false) => {
     if (!timestamp) return 'N/A';
     const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
     if (includeTime) {
-      return date.toLocaleString('ko-KR');
+      const hours = String(date.getHours()).padStart(2, '0');
+      const minutes = String(date.getMinutes()).padStart(2, '0');
+      return `${month}/${day} ${hours}:${minutes}`;
     }
-    return date.toLocaleDateString('ko-KR');
+    return `${month}/${day}`;
   };
 
   const formatUserEmail = (email) => {

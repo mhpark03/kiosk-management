@@ -20,13 +20,13 @@ api.interceptors.request.use(
       config.headers['Authorization'] = `Bearer ${token}`;
     }
 
-    // Get user email from localStorage
+    // Get user email from localStorage and encode for header safety
     const userEmail = localStorage.getItem('userEmail') || 'system@kiosk.com';
-    config.headers['X-User-Email'] = userEmail;
+    config.headers['X-User-Email'] = encodeURIComponent(userEmail);
 
-    // Get user display name from localStorage
+    // Get user display name from localStorage and encode for header safety
     const userName = localStorage.getItem('displayName') || 'System';
-    config.headers['X-User-Name'] = userName;
+    config.headers['X-User-Name'] = encodeURIComponent(userName);
 
     return config;
   },

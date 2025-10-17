@@ -8,6 +8,7 @@ function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   const handleLogout = () => {
     logout();
@@ -21,6 +22,11 @@ function Navbar() {
 
   const closeMenu = () => {
     setIsMenuOpen(false);
+    setIsSettingsOpen(false);
+  };
+
+  const toggleSettings = () => {
+    setIsSettingsOpen(!isSettingsOpen);
   };
 
   // Don't show navbar on login, signup, and forgot password pages
@@ -78,20 +84,58 @@ function Navbar() {
                 Stores
               </Link>
             </li>
-            <li>
-              <Link
-                to="/history"
-                className={location.pathname === '/history' ? 'active' : ''}
-                onClick={closeMenu}
+            <li className="dropdown">
+              <button
+                className={`dropdown-toggle ${isSettingsOpen ? 'active' : ''}`}
+                onClick={toggleSettings}
               >
-                History
-              </Link>
-            </li>
-            <li>
-              <a href="#profile" onClick={closeMenu}>Profile</a>
-            </li>
-            <li>
-              <a href="#settings" onClick={closeMenu}>Settings</a>
+                Settings
+                <span className={`arrow ${isSettingsOpen ? 'open' : ''}`}>▼</span>
+              </button>
+              {isSettingsOpen && (
+                <ul className="dropdown-menu">
+                  <li>
+                    <Link
+                      to="/profile"
+                      className={location.pathname === '/profile' ? 'active' : ''}
+                      onClick={closeMenu}
+                    >
+                      사용자정보 변경
+                    </Link>
+                  </li>
+                  {user?.role === 'ADMIN' && (
+                    <li>
+                      <Link
+                        to="/user-history"
+                        className={location.pathname === '/user-history' ? 'active' : ''}
+                        onClick={closeMenu}
+                      >
+                        사용자 이력보기
+                      </Link>
+                    </li>
+                  )}
+                  <li>
+                    <Link
+                      to="/history"
+                      className={location.pathname === '/history' ? 'active' : ''}
+                      onClick={closeMenu}
+                    >
+                      장치 이력보기
+                    </Link>
+                  </li>
+                  {user?.role === 'ADMIN' && (
+                    <li>
+                      <Link
+                        to="/user-management"
+                        className={location.pathname === '/user-management' ? 'active' : ''}
+                        onClick={closeMenu}
+                      >
+                        사용자 관리
+                      </Link>
+                    </li>
+                  )}
+                </ul>
+              )}
             </li>
           </ul>
 

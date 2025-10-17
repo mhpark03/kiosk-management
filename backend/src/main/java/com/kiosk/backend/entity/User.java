@@ -38,6 +38,13 @@ public class User {
     @Column(nullable = false)
     private Boolean emailVerified = false;
 
+    @Column(columnDefinition = "TEXT")
+    private String memo;
+
+    @Column(nullable = false, length = 20)
+    @Enumerated(EnumType.STRING)
+    private UserStatus status = UserStatus.ACTIVE;
+
     @CreationTimestamp
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -49,5 +56,11 @@ public class User {
     public enum UserRole {
         USER,
         ADMIN
+    }
+
+    public enum UserStatus {
+        ACTIVE,
+        SUSPENDED,
+        DELETED
     }
 }

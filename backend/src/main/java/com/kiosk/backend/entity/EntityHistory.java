@@ -60,7 +60,8 @@ public class EntityHistory {
 
     public enum EntityType {
         KIOSK,  // Kiosk entity
-        STORE   // Store entity
+        STORE,  // Store entity
+        USER    // User entity
     }
 
     public enum ActionType {
@@ -68,7 +69,12 @@ public class EntityHistory {
         UPDATE,         // Entity updated
         DELETE,         // Entity soft deleted
         RESTORE,        // Entity restored from deletion
-        STATE_CHANGE    // State changed
+        STATE_CHANGE,   // State changed
+        LOGIN,          // User logged in
+        LOGOUT,         // User logged out
+        PASSWORD_CHANGE,// User changed password
+        SUSPEND,        // User suspended
+        ACTIVATE        // User activated
     }
 
     @PrePersist

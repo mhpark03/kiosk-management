@@ -10,6 +10,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 @RestController
@@ -64,8 +66,10 @@ public class StoreController {
             @Valid @RequestBody CreateStoreRequest request,
             @RequestHeader(value = "X-User-Email", defaultValue = "system@kiosk.com") String userEmail,
             @RequestHeader(value = "X-User-Name", defaultValue = "System") String username) {
-        log.info("POST /api/stores - posname: {}, user: {}", request.getPosname(), userEmail);
-        StoreDTO createdStore = storeService.createStore(request, userEmail, username);
+        String decodedEmail = URLDecoder.decode(userEmail, StandardCharsets.UTF_8);
+        String decodedUsername = URLDecoder.decode(username, StandardCharsets.UTF_8);
+        log.info("POST /api/stores - posname: {}, user: {}", request.getPosname(), decodedEmail);
+        StoreDTO createdStore = storeService.createStore(request, decodedEmail, decodedUsername);
         return ResponseEntity.status(HttpStatus.CREATED).body(createdStore);
     }
 
@@ -79,8 +83,10 @@ public class StoreController {
             @Valid @RequestBody CreateStoreRequest request,
             @RequestHeader(value = "X-User-Email", defaultValue = "system@kiosk.com") String userEmail,
             @RequestHeader(value = "X-User-Name", defaultValue = "System") String username) {
-        log.info("PUT /api/stores/{} - posname: {}, user: {}", id, request.getPosname(), userEmail);
-        StoreDTO updatedStore = storeService.updateStore(id, request, userEmail, username);
+        String decodedEmail = URLDecoder.decode(userEmail, StandardCharsets.UTF_8);
+        String decodedUsername = URLDecoder.decode(username, StandardCharsets.UTF_8);
+        log.info("PUT /api/stores/{} - posname: {}, user: {}", id, request.getPosname(), decodedEmail);
+        StoreDTO updatedStore = storeService.updateStore(id, request, decodedEmail, decodedUsername);
         return ResponseEntity.ok(updatedStore);
     }
 
@@ -93,8 +99,10 @@ public class StoreController {
             @PathVariable Long id,
             @RequestHeader(value = "X-User-Email", defaultValue = "system@kiosk.com") String userEmail,
             @RequestHeader(value = "X-User-Name", defaultValue = "System") String username) {
-        log.info("DELETE /api/stores/{}, user: {}", id, userEmail);
-        storeService.softDeleteStore(id, userEmail, username);
+        String decodedEmail = URLDecoder.decode(userEmail, StandardCharsets.UTF_8);
+        String decodedUsername = URLDecoder.decode(username, StandardCharsets.UTF_8);
+        log.info("DELETE /api/stores/{}, user: {}", id, decodedEmail);
+        storeService.softDeleteStore(id, decodedEmail, decodedUsername);
         return ResponseEntity.noContent().build();
     }
 
@@ -107,8 +115,10 @@ public class StoreController {
             @PathVariable Long id,
             @RequestHeader(value = "X-User-Email", defaultValue = "system@kiosk.com") String userEmail,
             @RequestHeader(value = "X-User-Name", defaultValue = "System") String username) {
-        log.info("POST /api/stores/{}/restore, user: {}", id, userEmail);
-        storeService.restoreStore(id, userEmail, username);
+        String decodedEmail = URLDecoder.decode(userEmail, StandardCharsets.UTF_8);
+        String decodedUsername = URLDecoder.decode(username, StandardCharsets.UTF_8);
+        log.info("POST /api/stores/{}/restore, user: {}", id, decodedEmail);
+        storeService.restoreStore(id, decodedEmail, decodedUsername);
         return ResponseEntity.ok().build();
     }
 
