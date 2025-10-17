@@ -1,16 +1,17 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { updateProfile, getCurrentUser, changePassword } from '../services/userService';
+import { updateProfile, getCurrentUser, changePassword, deleteMyAccount } from '../services/userService';
 import './Auth.css';
 
 function Profile() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     name: user?.name || '',
     email: user?.email || '',
     memo: '',
+    phoneNumber: '',
     currentPassword: '',
     newPassword: '',
     confirmPassword: ''
@@ -30,6 +31,7 @@ function Profile() {
         name: userData.displayName || '',
         email: userData.email || '',
         memo: userData.memo || '',
+        phoneNumber: userData.phoneNumber || '',
         currentPassword: '',
         newPassword: '',
         confirmPassword: ''
@@ -55,8 +57,11 @@ function Profile() {
     setMessage('');
 
     try {
-      await updateProfile(formData.name, formData.memo);
-      setMessage('프로필이 성공적으로 업데이트되었습니다.');
+      await updateProfile(formData.name, formData.memo, formData.phoneNumber);
+      console.log('=== Profile Update Success ===');
+      console.log('Name:', formData.name);
+      console.log('Memo:', formData.memo || 'Empty');
+      console.log('==============================');
     } catch (err) {
       setError(err.message || '프로필 업데이트에 실패했습니다.');
     }
@@ -79,7 +84,9 @@ function Profile() {
 
     try {
       await changePassword(formData.currentPassword, formData.newPassword);
-      setMessage('비밀번호가 성공적으로 변경되었습니다.');
+      console.log('=== Password Change Success ===');
+      console.log('Password changed successfully');
+      console.log('===============================');
       setFormData({
         ...formData,
         currentPassword: '',
@@ -88,6 +95,34 @@ function Profile() {
       });
     } catch (err) {
       setError(err.response?.data?.message || err.message || '비밀번호 변경에 실패했습니다.');
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!window.confirm('정말로 회원 탈퇴하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) {
+      return;
+    }
+
+    if (!window.confirm('모든 데이터가 삭제됩니다. 정말 탈퇴하시겠습니까?')) {
+      return;
+    }
+
+    try {
+      await deleteMyAccount();
+      console.log('=== Account Deletion Success ===');
+      console.log('Account deleted successfully');
+      console.log('================================');
+      logout();
+      navigate('/login');
+    } catch (err) {
+      console.error('=== Account Deletion Error ===');
+      console.error('Full error object:', err);
+      console.error('Error message:', err.response?.data?.message || err.message);
+      console.error('Error response:', err.response);
+      console.error('Error response data:', err.response?.data);
+      console.error('Status code:', err.response?.status);
+      console.error('==============================');
+      setError(err.response?.data?.message || err.message || '회원 탈퇴에 실패했습니다.');
     }
   };
 
@@ -102,7 +137,7 @@ function Profile() {
   }
 
   const handleClose = () => {
-    navigate('/dashboard');
+    navigate(-1);
   };
 
   return (
@@ -163,6 +198,18 @@ function Profile() {
               style={{background: '#f5f5f5', cursor: 'not-allowed'}}
             />
             <small style={{color: '#666', fontSize: '12px'}}>이메일은 변경할 수 없습니다.</small>
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="phoneNumber">전화번호 (선택)</label>
+            <input
+              type="tel"
+              id="phoneNumber"
+              name="phoneNumber"
+              value={formData.phoneNumber}
+              onChange={handleChange}
+              placeholder="전화번호를 입력하세요"
+            />
           </div>
 
           <div className="form-group">
@@ -239,6 +286,35 @@ function Profile() {
             비밀번호 변경
           </button>
         </form>
+
+        {/* Account Deletion Section */}
+        <div style={{marginTop: '40px', paddingTop: '30px', borderTop: '1px solid #eee'}}>
+          <h3 style={{marginBottom: '20px', color: '#d32f2f', fontSize: '18px'}}>
+            회원 탈퇴
+          </h3>
+          <p style={{marginBottom: '20px', color: '#666', fontSize: '14px'}}>
+            계정을 삭제하면 모든 데이터가 영구적으로 삭제되며 복구할 수 없습니다.
+          </p>
+          <button
+            type="button"
+            onClick={handleDeleteAccount}
+            style={{
+              width: '100%',
+              padding: '12px',
+              backgroundColor: '#d32f2f',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              fontSize: '16px',
+              cursor: 'pointer',
+              transition: 'background-color 0.2s'
+            }}
+            onMouseEnter={(e) => e.target.style.backgroundColor = '#b71c1c'}
+            onMouseLeave={(e) => e.target.style.backgroundColor = '#d32f2f'}
+          >
+            회원 탈퇴
+          </button>
+        </div>
       </div>
     </div>
   );

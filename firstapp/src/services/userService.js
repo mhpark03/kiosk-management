@@ -2,12 +2,13 @@ import axios from 'axios';
 
 const API_URL = 'http://localhost:8080/api/auth';
 
-export const updateProfile = async (displayName, memo) => {
+export const updateProfile = async (displayName, memo, phoneNumber) => {
   try {
     const token = localStorage.getItem('jwtToken');
     const response = await axios.put(`${API_URL}/profile`, {
       displayName,
-      memo
+      memo,
+      phoneNumber
     }, {
       headers: {
         'Authorization': `Bearer ${token}`
@@ -136,6 +137,42 @@ export const updateUserRole = async (email, role) => {
   }
 };
 
+export const updateUserProfileByAdmin = async (email, displayName, memo, phoneNumber) => {
+  try {
+    const token = localStorage.getItem('jwtToken');
+    const response = await axios.put(`${API_URL}/users/${encodeURIComponent(email)}/profile`, {
+      displayName,
+      memo,
+      phoneNumber
+    }, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      },
+      withCredentials: true
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error updating user profile by admin:', error);
+    throw error;
+  }
+};
+
+export const deleteMyAccount = async () => {
+  try {
+    const token = localStorage.getItem('jwtToken');
+    const response = await axios.delete(`${API_URL}/me`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      },
+      withCredentials: true
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error deleting account:', error);
+    throw error;
+  }
+};
+
 export default {
   updateProfile,
   getCurrentUser,
@@ -144,5 +181,7 @@ export default {
   suspendUser,
   activateUser,
   deleteUser,
-  updateUserRole
+  updateUserRole,
+  updateUserProfileByAdmin,
+  deleteMyAccount
 };

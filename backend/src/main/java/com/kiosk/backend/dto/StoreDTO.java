@@ -23,7 +23,6 @@ public class StoreDTO {
     private String state;
     private String userid;
     private LocalDateTime regdate;
-    private LocalDateTime startdate;
     private LocalDateTime deldate;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
@@ -40,7 +39,6 @@ public class StoreDTO {
                 .state(store.getState().name())
                 .userid(store.getUserid())
                 .regdate(store.getRegdate())
-                .startdate(store.getStartdate())
                 .deldate(store.getDeldate())
                 .createdAt(store.getCreatedAt())
                 .updatedAt(store.getUpdatedAt())

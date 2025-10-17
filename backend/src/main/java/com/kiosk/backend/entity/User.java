@@ -31,16 +31,22 @@ public class User {
     @Column(length = 100)
     private String displayName;
 
+    @Builder.Default
     @Column(nullable = false, length = 20)
     @Enumerated(EnumType.STRING)
     private UserRole role = UserRole.USER;
 
+    @Builder.Default
     @Column(nullable = false)
     private Boolean emailVerified = false;
 
     @Column(columnDefinition = "TEXT")
     private String memo;
 
+    @Column(length = 20)
+    private String phoneNumber;
+
+    @Builder.Default
     @Column(nullable = false, length = 20)
     @Enumerated(EnumType.STRING)
     private UserStatus status = UserStatus.ACTIVE;

@@ -38,16 +38,21 @@ public class UserService {
             throw new RuntimeException("Email already exists");
         }
 
+        // Check if there is an active admin user
+        boolean hasActiveAdmin = userRepository.existsByRoleAndStatus(User.UserRole.ADMIN, User.UserStatus.ACTIVE);
+        User.UserRole assignedRole = hasActiveAdmin ? User.UserRole.USER : User.UserRole.ADMIN;
+
         User user = User.builder()
                 .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
                 .displayName(request.getDisplayName())
-                .role(User.UserRole.USER)
+                .phoneNumber(request.getPhoneNumber())
+                .role(assignedRole)
                 .emailVerified(false)
                 .build();
 
         User savedUser = userRepository.save(user);
-        log.info("User registered successfully: {}", savedUser.getEmail());
+        log.info("User registered successfully: {} with role: {}", savedUser.getEmail(), savedUser.getRole());
 
         String token = tokenProvider.generateToken(savedUser.getEmail());
 
@@ -92,16 +97,18 @@ public class UserService {
     }
 
     @Transactional
-    public User updateProfile(String displayName, String memo) {
+    public User updateProfile(String displayName, String memo, String phoneNumber) {
         User user = getCurrentUser();
         String oldDisplayName = user.getDisplayName();
         String oldMemo = user.getMemo();
+        String oldPhoneNumber = user.getPhoneNumber();
 
         if (displayName != null && !displayName.isBlank()) {
             user.setDisplayName(displayName);
         }
 
         user.setMemo(memo);
+        user.setPhoneNumber(phoneNumber);
 
         User updatedUser = userRepository.save(user);
         log.info("User profile updated: {}", updatedUser.getEmail());
@@ -114,6 +121,10 @@ public class UserService {
         if ((oldMemo == null && memo != null) || (oldMemo != null && !oldMemo.equals(memo))) {
             logUserActivity(updatedUser.getEmail(), updatedUser.getDisplayName(), "UPDATE",
                 "User memo updated", "memo", oldMemo, memo);
+        }
+        if ((oldPhoneNumber == null && phoneNumber != null) || (oldPhoneNumber != null && !oldPhoneNumber.equals(phoneNumber))) {
+            logUserActivity(updatedUser.getEmail(), updatedUser.getDisplayName(), "UPDATE",
+                "Phone number updated", "phoneNumber", oldPhoneNumber, phoneNumber);
         }
 
         return updatedUser;
@@ -233,6 +244,58 @@ public class UserService {
             "User role changed: " + targetUser.getEmail(), "role", oldRole, newRole.name());
 
         log.info("User role updated: {} to {} by {}", email, role, currentUser.getEmail());
+    }
+
+    @Transactional
+    public User updateUserProfile(String email, String displayName, String memo, String phoneNumber) {
+        User currentUser = getCurrentUser();
+        User targetUser = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        String oldDisplayName = targetUser.getDisplayName();
+        String oldMemo = targetUser.getMemo();
+        String oldPhoneNumber = targetUser.getPhoneNumber();
+
+        if (displayName != null && !displayName.isBlank()) {
+            targetUser.setDisplayName(displayName);
+        }
+
+        targetUser.setMemo(memo);
+        targetUser.setPhoneNumber(phoneNumber);
+
+        User updatedUser = userRepository.save(targetUser);
+        log.info("User profile updated by admin: {} by {}", updatedUser.getEmail(), currentUser.getEmail());
+
+        // Log profile update
+        if (!oldDisplayName.equals(updatedUser.getDisplayName())) {
+            logUserActivity(currentUser.getEmail(), currentUser.getDisplayName(), "UPDATE",
+                "Admin updated display name for: " + updatedUser.getEmail(), "displayName", oldDisplayName, updatedUser.getDisplayName());
+        }
+        if ((oldMemo == null && memo != null) || (oldMemo != null && !oldMemo.equals(memo))) {
+            logUserActivity(currentUser.getEmail(), currentUser.getDisplayName(), "UPDATE",
+                "Admin updated memo for: " + updatedUser.getEmail(), "memo", oldMemo, memo);
+        }
+        if ((oldPhoneNumber == null && phoneNumber != null) || (oldPhoneNumber != null && !oldPhoneNumber.equals(phoneNumber))) {
+            logUserActivity(currentUser.getEmail(), currentUser.getDisplayName(), "UPDATE",
+                "Admin updated phone number for: " + updatedUser.getEmail(), "phoneNumber", oldPhoneNumber, phoneNumber);
+        }
+
+        return updatedUser;
+    }
+
+    @Transactional
+    public void deleteMyAccount() {
+        User currentUser = getCurrentUser();
+
+        // Log deletion before actually deleting the user
+        logUserActivity(currentUser.getEmail(), currentUser.getDisplayName(), "DELETE",
+            "User deleted their own account (displayName: " + currentUser.getDisplayName() + ")",
+            "status", currentUser.getStatus().name(), "DELETED");
+
+        // Actually delete the user from database
+        userRepository.delete(currentUser);
+
+        log.info("User permanently deleted their own account: {}", currentUser.getEmail());
     }
 
     private void logUserActivity(String email, String displayName, String action, String description) {

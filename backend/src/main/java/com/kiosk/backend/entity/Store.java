@@ -46,8 +46,6 @@ public class Store {
 
     private LocalDateTime regdate; // Registration date
 
-    private LocalDateTime startdate; // Start date (operation start)
-
     private LocalDateTime deldate; // Delete date
 
     @CreationTimestamp
@@ -61,7 +59,6 @@ public class Store {
     public enum StoreState {
         ACTIVE,
         INACTIVE,
-        MAINTENANCE,
         DELETED
     }
 }

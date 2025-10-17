@@ -18,7 +18,7 @@ export const createStore = async (storeData) => {
       address: storeData.baseaddress || '',
       addressDetail: storeData.detailaddress || '',
       state: storeData.state || 'ACTIVE',
-      startdate: formatDateForAPI(storeData.startdate),
+      regdate: formatDateForAPI(storeData.regdate),
       enddate: formatDateForAPI(storeData.enddate)
     };
 
@@ -138,7 +138,7 @@ export const updateStore = async (storeId, updateData) => {
       address: updateData.baseaddress || updateData.address || '',
       addressDetail: updateData.detailaddress || updateData.addressDetail || '',
       state: updateData.state ? updateData.state.toUpperCase() : 'ACTIVE',
-      startdate: formatDateForAPI(updateData.startdate),
+      regdate: formatDateForAPI(updateData.regdate),
       enddate: formatDateForAPI(updateData.enddate)
     };
 
@@ -160,15 +160,15 @@ export const updateStoreState = async (storeId, newState) => {
   try {
     const store = await getStoreById(storeId);
 
-    // If changing to 'active' and startdate is empty, set it to today
+    // If changing to 'active' and regdate is empty, set it to today
     let updatedStore = { ...store, state: newState };
-    if (newState.toLowerCase() === 'active' && !store.startdate) {
+    if (newState.toLowerCase() === 'active' && !store.regdate) {
       const today = new Date();
       const year = today.getFullYear();
       const month = String(today.getMonth() + 1).padStart(2, '0');
       const day = String(today.getDate()).padStart(2, '0');
       const todayStr = `${year}-${month}-${day}`;
-      updatedStore.startdate = todayStr;
+      updatedStore.regdate = todayStr;
     }
 
     await updateStore(storeId, updatedStore);
@@ -235,8 +235,7 @@ function convertStoreFromAPI(apiStore) {
     detailaddress: apiStore.addressDetail,
     posaddress: apiStore.address + (apiStore.addressDetail ? ' ' + apiStore.addressDetail : ''),
     state: apiStore.state?.toLowerCase() || 'inactive',
-    regdate: apiStore.regdate ? { toMillis: () => new Date(apiStore.regdate).getTime(), toDate: () => new Date(apiStore.regdate) } : null,
-    startdate: apiStore.startdate,
+    regdate: apiStore.regdate,
     enddate: apiStore.deldate,
     userid: apiStore.userid || '',
     createdAt: apiStore.createdAt,

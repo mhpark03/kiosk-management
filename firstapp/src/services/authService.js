@@ -32,9 +32,9 @@ export const authService = {
   },
 
   // Signup
-  async signup(email, password, displayName) {
+  async signup(email, password, displayName, phoneNumber) {
     try {
-      const response = await authApi.post('/auth/signup', { email, password, displayName });
+      const response = await authApi.post('/auth/signup', { email, password, displayName, phoneNumber });
       const { token, email: userEmail, displayName: name, role } = response.data;
 
       // Store token and user info

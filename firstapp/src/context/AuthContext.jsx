@@ -24,9 +24,9 @@ export const AuthProvider = ({ children }) => {
     initializeAuth();
   }, []);
 
-  const signup = async (email, password, displayName) => {
+  const signup = async (email, password, displayName, phoneNumber) => {
     try {
-      const response = await authService.signup(email, password, displayName);
+      const response = await authService.signup(email, password, displayName, phoneNumber);
       setUser({
         email: response.email,
         name: response.displayName,

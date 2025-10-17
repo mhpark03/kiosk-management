@@ -28,4 +28,7 @@ public class SignupRequest {
     @NotBlank(message = "Display name is required")
     @Size(max = 100, message = "Display name must be less than 100 characters")
     private String displayName;
+
+    @Size(max = 20, message = "Phone number must be less than 20 characters")
+    private String phoneNumber;
 }

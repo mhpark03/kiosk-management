@@ -16,11 +16,17 @@ function UserHistory() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  // Filter states
+  // Filter states (user input)
   const [filterEntityType, setFilterEntityType] = useState('ALL');
   const [filterAction, setFilterAction] = useState('ALL');
   const [filterStore, setFilterStore] = useState('');
   const [filterKioskId, setFilterKioskId] = useState('');
+
+  // Applied filter states (actually used for filtering)
+  const [appliedFilterEntityType, setAppliedFilterEntityType] = useState('ALL');
+  const [appliedFilterAction, setAppliedFilterAction] = useState('ALL');
+  const [appliedFilterStore, setAppliedFilterStore] = useState('');
+  const [appliedFilterKioskId, setAppliedFilterKioskId] = useState('');
 
   // Get target user from location state (passed from UserManagement page)
   const targetUserFromState = location.state?.targetUser;
@@ -74,10 +80,17 @@ function UserHistory() {
       setHistory(data);
       setError('');
     } catch (err) {
-      setError('Failed to load user history: ' + err.message);
+      setError('사용자 이력을 불러오는데 실패했습니다: ' + err.message);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSearch = () => {
+    setAppliedFilterEntityType(filterEntityType);
+    setAppliedFilterAction(filterAction);
+    setAppliedFilterStore(filterStore);
+    setAppliedFilterKioskId(filterKioskId);
   };
 
   const handleReset = () => {
@@ -127,25 +140,25 @@ function UserHistory() {
   const getActionLabel = (action) => {
     switch (action) {
       case 'CREATE':
-        return 'Created';
+        return '생성됨';
       case 'UPDATE':
-        return 'Updated';
+        return '수정됨';
       case 'DELETE':
-        return 'Deleted';
+        return '삭제됨';
       case 'RESTORE':
-        return 'Restored';
+        return '복원됨';
       case 'STATE_CHANGE':
-        return 'Updated';
+        return '수정됨';
       case 'LOGIN':
-        return 'Login';
+        return '로그인';
       case 'LOGOUT':
-        return 'Logout';
+        return '로그아웃';
       case 'PASSWORD_CHANGE':
-        return 'Password Change';
+        return '비밀번호 변경';
       case 'SUSPEND':
-        return 'Suspended';
+        return '정지됨';
       case 'ACTIVATE':
-        return 'Activated';
+        return '활성화됨';
       default:
         return action;
     }
@@ -154,11 +167,11 @@ function UserHistory() {
   const getEntityTypeLabel = (type) => {
     switch (type) {
       case 'KIOSK':
-        return 'Kiosk';
+        return '키오스크';
       case 'STORE':
-        return 'Store';
+        return '매장';
       case 'USER':
-        return 'User';
+        return '사용자';
       default:
         return type;
     }
@@ -183,19 +196,25 @@ function UserHistory() {
     return store ? store.posname : posid;
   };
 
-  // Filter history
+  // Format kiosk ID by removing leading zeros
+  const formatKioskId = (kioskid) => {
+    if (!kioskid) return '-';
+    return kioskid.replace(/^0+/, '') || '0';
+  };
+
+  // Filter history using applied filters
   const filteredHistory = history.filter((item) => {
-    if (filterEntityType !== 'ALL' && item.entityType !== filterEntityType) {
+    if (appliedFilterEntityType !== 'ALL' && item.entityType !== appliedFilterEntityType) {
       return false;
     }
-    if (filterAction !== 'ALL' && item.action !== filterAction) {
+    if (appliedFilterAction !== 'ALL' && item.action !== appliedFilterAction) {
       return false;
     }
-    if (filterStore && item.posid !== filterStore) {
+    if (appliedFilterStore && item.posid !== appliedFilterStore) {
       return false;
     }
-    if (filterKioskId) {
-      const searchValue = filterKioskId.replace(/^0+/, '') || '0';
+    if (appliedFilterKioskId) {
+      const searchValue = appliedFilterKioskId.replace(/^0+/, '') || '0';
       const entityValue = (item.entityId || '').replace(/^0+/, '') || '0';
       if (entityValue !== searchValue) {
         return false;
@@ -245,51 +264,51 @@ function UserHistory() {
 
       <div className="filter-section">
         <div className="filter-group">
-          <label htmlFor="filterEntityType">Entity Type:</label>
+          <label htmlFor="filterEntityType">엔티티 유형:</label>
           <select
             id="filterEntityType"
             value={filterEntityType}
             onChange={(e) => setFilterEntityType(e.target.value)}
             className="filter-select"
           >
-            <option value="ALL">All Types</option>
-            <option value="KIOSK">Kiosk</option>
-            <option value="STORE">Store</option>
-            <option value="USER">User</option>
+            <option value="ALL">모든 유형</option>
+            <option value="KIOSK">키오스크</option>
+            <option value="STORE">매장</option>
+            <option value="USER">사용자</option>
           </select>
         </div>
 
         <div className="filter-group">
-          <label htmlFor="filterAction">Action:</label>
+          <label htmlFor="filterAction">작업:</label>
           <select
             id="filterAction"
             value={filterAction}
             onChange={(e) => setFilterAction(e.target.value)}
             className="filter-select"
           >
-            <option value="ALL">All Actions</option>
-            <option value="CREATE">Create</option>
-            <option value="UPDATE">Update</option>
-            <option value="DELETE">Delete</option>
-            <option value="RESTORE">Restore</option>
-            <option value="STATE_CHANGE">State Change</option>
-            <option value="LOGIN">Login</option>
-            <option value="LOGOUT">Logout</option>
-            <option value="PASSWORD_CHANGE">Password Change</option>
-            <option value="SUSPEND">Suspend</option>
-            <option value="ACTIVATE">Activate</option>
+            <option value="ALL">모든 작업</option>
+            <option value="CREATE">생성</option>
+            <option value="UPDATE">수정</option>
+            <option value="DELETE">삭제</option>
+            <option value="RESTORE">복원</option>
+            <option value="STATE_CHANGE">상태 변경</option>
+            <option value="LOGIN">로그인</option>
+            <option value="LOGOUT">로그아웃</option>
+            <option value="PASSWORD_CHANGE">비밀번호 변경</option>
+            <option value="SUSPEND">정지</option>
+            <option value="ACTIVATE">활성화</option>
           </select>
         </div>
 
         <div className="filter-group">
-          <label htmlFor="filterStore">Store:</label>
+          <label htmlFor="filterStore">매장:</label>
           <select
             id="filterStore"
             value={filterStore}
             onChange={(e) => setFilterStore(e.target.value)}
             className="filter-select"
           >
-            <option value="">All Stores</option>
+            <option value="">모든 매장</option>
             {stores.map((store) => (
               <option key={store.id} value={store.posid}>
                 {store.posname}
@@ -300,14 +319,14 @@ function UserHistory() {
 
         <div style={{display: 'flex', alignItems: 'flex-end', gap: '8px'}}>
           <div style={{display: 'flex', flexDirection: 'column', gap: '5px'}}>
-            <label htmlFor="filterKioskId" style={{fontSize: '13px', fontWeight: 600, color: '#4a5568'}}>Kiosk ID:</label>
+            <label htmlFor="filterKioskId" style={{fontSize: '13px', fontWeight: 600, color: '#4a5568'}}>키오스크 ID:</label>
             <div style={{position: 'relative', width: '160px'}}>
               <input
                 type="text"
                 id="filterKioskId"
                 value={filterKioskId}
                 onChange={(e) => setFilterKioskId(e.target.value)}
-                placeholder="Kiosk ID"
+                placeholder="키오스크 ID"
                 style={{
                   width: '100%',
                   padding: '8px 35px 8px 12px',
@@ -342,33 +361,37 @@ function UserHistory() {
           </div>
         </div>
 
-        <button onClick={handleReset} className="btn-refresh" title="Reset" style={{marginLeft: '5px', fontSize: '18px'}}>
+        <button onClick={handleSearch} className="btn-refresh" title="검색" style={{marginLeft: '5px', fontSize: '18px', background: 'none', border: 'none', cursor: 'pointer'}}>
+          🔍
+        </button>
+
+        <button onClick={handleReset} className="btn-refresh" title="초기화" style={{marginLeft: '5px', fontSize: '18px', background: 'none', border: 'none', cursor: 'pointer'}}>
           🔄
         </button>
       </div>
 
       {loading ? (
-        <div className="loading">Loading history...</div>
+        <div className="loading">이력 로딩 중...</div>
       ) : (
         <div className="history-table-container">
           <table className="history-table">
             <thead>
               <tr>
-                <th>Type</th>
-                <th>Timestamp</th>
-                <th>Store</th>
-                <th>Kiosk ID</th>
-                <th>Action</th>
-                <th>Field</th>
-                <th>Old Value</th>
-                <th>New Value</th>
-                <th>Description</th>
+                <th>유형</th>
+                <th>시각</th>
+                <th>매장</th>
+                <th>키오스크 ID</th>
+                <th>작업</th>
+                <th>필드</th>
+                <th>이전 값</th>
+                <th>새 값</th>
+                <th>설명</th>
               </tr>
             </thead>
             <tbody>
               {filteredHistory.length === 0 ? (
                 <tr>
-                  <td colSpan="9" className="no-data">No history found</td>
+                  <td colSpan="9" className="no-data">이력을 찾을 수 없습니다</td>
                 </tr>
               ) : (
                 filteredHistory.map((item) => (
@@ -380,7 +403,7 @@ function UserHistory() {
                     </td>
                     <td>{formatDate(item.timestamp)}</td>
                     <td>{getStoreName(item.posid)}</td>
-                    <td>{item.entityType === 'KIOSK' ? (item.entityId || '-') : '-'}</td>
+                    <td style={{textAlign: 'center'}}>{item.entityType === 'KIOSK' ? formatKioskId(item.entityId) : '-'}</td>
                     <td>
                       <span className={`action-badge ${getActionColor(item.action)}`}>
                         {getActionLabel(item.action)}
@@ -399,7 +422,7 @@ function UserHistory() {
       )}
 
       <div className="history-summary">
-        <p>Total Records: {filteredHistory.length} / {history.length}</p>
+        <p>전체 기록: {filteredHistory.length} / {history.length}</p>
       </div>
     </div>
   );

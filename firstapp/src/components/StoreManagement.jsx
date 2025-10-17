@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   getAllStores,
   createStore,
@@ -17,7 +17,9 @@ import './StoreManagement.css';
 function StoreManagement() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [stores, setStores] = useState([]);
+  const [filteredStores, setFilteredStores] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -25,6 +27,7 @@ function StoreManagement() {
   const [showDeleted, setShowDeleted] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [filterRegion, setFilterRegion] = useState(null);
 
   const [formData, setFormData] = useState({
     posid: '',
@@ -32,8 +35,8 @@ function StoreManagement() {
     zonecode: '',
     posaddress: '',
     posaddress_detail: '',
-    state: 'inactive',
-    startdate: '',
+    state: 'active',
+    regdate: '',
     enddate: ''
   });
 
@@ -42,6 +45,80 @@ function StoreManagement() {
     loadStores();
   }, [showDeleted]);
 
+  // Capture filter from navigation state
+  useEffect(() => {
+    if (location.state?.filterRegion) {
+      setFilterRegion(location.state.filterRegion);
+    }
+  }, [location]);
+
+  // Extract region from address
+  const extractRegion = (address) => {
+    if (!address) return '주소 미상';
+
+    const regions = [
+      '서울특별시', '서울시', '서울',
+      '부산광역시', '부산시', '부산',
+      '대구광역시', '대구시', '대구',
+      '인천광역시', '인천시', '인천',
+      '광주광역시', '광주시', '광주',
+      '대전광역시', '대전시', '대전',
+      '울산광역시', '울산시', '울산',
+      '세종특별자치시', '세종시', '세종',
+      '경기도', '경기',
+      '강원특별자치도', '강원도', '강원',
+      '충청북도', '충북',
+      '충청남도', '충남',
+      '전북특별자치도', '전라북도', '전북',
+      '전라남도', '전남',
+      '경상북도', '경북',
+      '경상남도', '경남',
+      '제주특별자치도', '제주도', '제주'
+    ];
+
+    const normalizeRegion = (region) => {
+      if (region.includes('서울')) return '서울특별시';
+      if (region.includes('부산')) return '부산광역시';
+      if (region.includes('대구')) return '대구광역시';
+      if (region.includes('인천')) return '인천광역시';
+      if (region.includes('광주')) return '광주광역시';
+      if (region.includes('대전')) return '대전광역시';
+      if (region.includes('울산')) return '울산광역시';
+      if (region.includes('세종')) return '세종특별자치시';
+      if (region.includes('경기')) return '경기도';
+      if (region.includes('강원')) return '강원특별자치도';
+      if (region.includes('충청북') || region.includes('충북')) return '충청북도';
+      if (region.includes('충청남') || region.includes('충남')) return '충청남도';
+      if (region.includes('전북') || region.includes('전라북')) return '전북특별자치도';
+      if (region.includes('전남') || region.includes('전라남')) return '전라남도';
+      if (region.includes('경상북') || region.includes('경북')) return '경상북도';
+      if (region.includes('경상남') || region.includes('경남')) return '경상남도';
+      if (region.includes('제주')) return '제주특별자치도';
+      return region;
+    };
+
+    for (const region of regions) {
+      if (address.startsWith(region)) {
+        return normalizeRegion(region);
+      }
+    }
+
+    return '기타';
+  };
+
+  // Apply filter when stores or filterRegion changes
+  useEffect(() => {
+    if (!filterRegion) {
+      setFilteredStores(stores);
+    } else {
+      const filtered = stores.filter(store => {
+        const region = extractRegion(store.baseaddress);
+        return region === filterRegion;
+      });
+      setFilteredStores(filtered);
+    }
+  }, [stores, filterRegion]);
+
   const loadStores = async () => {
     try {
       setLoading(true);
@@ -49,7 +126,8 @@ function StoreManagement() {
       setStores(data);
       setError('');
     } catch (err) {
-      setError('Failed to load stores: ' + err.message);
+      console.error('Failed to load stores:', err.message);
+      setError(''); // Don't show error on screen
     } finally {
       setLoading(false);
     }
@@ -57,26 +135,10 @@ function StoreManagement() {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-
-    // If state is changed to 'active' and startdate is empty, set startdate to today
-    if (name === 'state' && value === 'active' && !formData.startdate) {
-      const today = new Date();
-      const year = today.getFullYear();
-      const month = String(today.getMonth() + 1).padStart(2, '0');
-      const day = String(today.getDate()).padStart(2, '0');
-      const todayStr = `${year}-${month}-${day}`;
-
-      setFormData(prev => ({
-        ...prev,
-        [name]: value,
-        startdate: todayStr
-      }));
-    } else {
-      setFormData(prev => ({
-        ...prev,
-        [name]: value
-      }));
-    }
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
   };
 
   const handleAddressSearch = () => {
@@ -116,15 +178,19 @@ function StoreManagement() {
         posaddress: fullAddress, // Full address for display
         state: formData.state,
         userid: user?.email || '',
-        startdate: dateLocalToTimestamp(formData.startdate),
+        regdate: formData.regdate,
         enddate: dateLocalToTimestamp(formData.enddate)
       };
 
       await createStore(storeData);
 
-      setSuccess('Store created successfully!');
+      console.log('=== Store Created Successfully ===');
+      console.log('Store name:', formData.posname);
+      console.log('Address:', fullAddress);
+      console.log('State:', formData.state);
+      console.log('==================================');
       setShowAddModal(false);
-      setFormData({ posid: '', posname: '', zonecode: '', posaddress: '', posaddress_detail: '', state: 'inactive', startdate: '', enddate: '' });
+      setFormData({ posid: '', posname: '', zonecode: '', posaddress: '', posaddress_detail: '', state: 'active', regdate: '', enddate: '' });
       loadStores();
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
@@ -146,16 +212,21 @@ function StoreManagement() {
         detailaddress: formData.posaddress_detail,
         posaddress: fullAddress, // Full address for display
         state: formData.state,
-        startdate: dateLocalToTimestamp(formData.startdate),
+        regdate: formData.regdate,
         enddate: dateLocalToTimestamp(formData.enddate)
       };
 
       await updateStore(selectedStore.id, updateData);
 
-      setSuccess('Store updated successfully!');
+      console.log('=== Store Updated Successfully ===');
+      console.log('Store ID:', selectedStore.posid);
+      console.log('Store name:', formData.posname);
+      console.log('Address:', fullAddress);
+      console.log('State:', formData.state);
+      console.log('==================================');
       setShowEditModal(false);
       setSelectedStore(null);
-      setFormData({ posid: '', posname: '', zonecode: '', posaddress: '', posaddress_detail: '', state: 'inactive', startdate: '', enddate: '' });
+      setFormData({ posid: '', posname: '', zonecode: '', posaddress: '', posaddress_detail: '', state: 'inactive', regdate: '', enddate: '' });
       loadStores();
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
@@ -169,7 +240,9 @@ function StoreManagement() {
       try {
         await softDeleteStore(storeId);
 
-        setSuccess('Store deactivated successfully!');
+        console.log('=== Store Deactivated Successfully ===');
+        console.log('Store ID:', storeId);
+        console.log('======================================');
         loadStores();
         setTimeout(() => setSuccess(''), 3000);
       } catch (err) {
@@ -183,7 +256,9 @@ function StoreManagement() {
     try {
       await restoreStore(storeId);
 
-      setSuccess('Store restored successfully!');
+      console.log('=== Store Restored Successfully ===');
+      console.log('Store ID:', storeId);
+      console.log('===================================');
       loadStores();
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
@@ -197,7 +272,9 @@ function StoreManagement() {
       try {
         await deleteStore(storeId);
 
-        setSuccess('Store permanently deleted!');
+        console.log('=== Store Permanently Deleted ===');
+        console.log('Store ID:', storeId);
+        console.log('=================================');
         loadStores();
         setTimeout(() => setSuccess(''), 3000);
       } catch (err) {
@@ -211,7 +288,10 @@ function StoreManagement() {
     try {
       await updateStoreState(storeId, newState);
 
-      setSuccess('Store state updated successfully!');
+      console.log('=== Store State Updated Successfully ===');
+      console.log('Store ID:', storeId);
+      console.log('New state:', newState);
+      console.log('========================================');
       loadStores();
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
@@ -252,7 +332,7 @@ function StoreManagement() {
       posaddress: baseAddress,
       posaddress_detail: detailAddress,
       state: store.state,
-      startdate: timestampToDateLocal(store.startdate),
+      regdate: timestampToDateLocal(store.regdate),
       enddate: timestampToDateLocal(store.enddate)
     });
     setShowEditModal(true);
@@ -262,7 +342,7 @@ function StoreManagement() {
     setShowAddModal(false);
     setShowEditModal(false);
     setSelectedStore(null);
-    setFormData({ posid: '', posname: '', zonecode: '', posaddress: '', posaddress_detail: '', state: 'inactive', startdate: '', enddate: '' });
+    setFormData({ posid: '', posname: '', zonecode: '', posaddress: '', posaddress_detail: '', state: 'active', regdate: '', enddate: '' });
   };
 
   const formatDate = (timestamp, includeTime = false) => {
@@ -310,8 +390,6 @@ function StoreManagement() {
         return 'state-active';
       case 'inactive':
         return 'state-inactive';
-      case 'maintenance':
-        return 'state-maintenance';
       case 'deleted':
         return 'state-deleted';
       default:
@@ -319,10 +397,31 @@ function StoreManagement() {
     }
   };
 
+  // Remove leading zeros from POS ID for display
+  const formatPosId = (posid) => {
+    if (!posid) return 'N/A';
+    return posid.replace(/^0+/, '') || '0';
+  };
+
+  const openAddModal = () => {
+    // Set regdate to current date when opening add modal
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const currentDate = `${year}-${month}-${day}`;
+
+    setFormData(prev => ({
+      ...prev,
+      regdate: currentDate
+    }));
+    setShowAddModal(true);
+  };
+
   return (
     <div className="store-management">
       <div className="store-header">
-        <h1>Store Management</h1>
+        <h1>매장 관리</h1>
         <div className="header-actions">
           <label className="toggle-deleted">
             <input
@@ -330,10 +429,10 @@ function StoreManagement() {
               checked={showDeleted}
               onChange={(e) => setShowDeleted(e.target.checked)}
             />
-            Show Deleted
+            삭제된 항목 표시
           </label>
-          <button onClick={() => setShowAddModal(true)} className="btn-add">
-            + Add Store
+          <button onClick={openAddModal} className="btn-add">
+            + 매장 추가
           </button>
         </div>
       </div>
@@ -342,43 +441,48 @@ function StoreManagement() {
       {success && <div className="alert alert-success">{success}</div>}
 
       {loading ? (
-        <div className="loading">Loading stores...</div>
+        <div className="loading">매장 로딩 중...</div>
       ) : (
         <div className="store-table-container">
           <table className="store-table">
             <thead>
               <tr>
-                <th>POS ID</th>
-                <th>Store Name</th>
-                <th>Address</th>
-                <th>Registration Date</th>
-                <th>Start Date</th>
-                <th>End Date</th>
-                <th>State</th>
-                <th>User ID</th>
-                <th>Actions</th>
+                <th>ID</th>
+                <th>매장명</th>
+                <th>주소</th>
+                <th>등록일</th>
+                <th>종료일</th>
+                <th>상태</th>
+                <th>작업</th>
               </tr>
             </thead>
             <tbody>
-              {stores.length === 0 ? (
+              {filteredStores.length === 0 ? (
                 <tr>
-                  <td colSpan="9" className="no-data">No stores found</td>
+                  <td colSpan="7" className="no-data">매장이 없습니다</td>
                 </tr>
               ) : (
-                stores.map((store) => (
+                filteredStores.map((store) => (
                   <tr key={store.id}>
-                    <td>{store.posid}</td>
+                    <td
+                      style={{textAlign: 'center', cursor: 'pointer', color: '#667eea', fontWeight: '600'}}
+                      onClick={() => openEditModal(store)}
+                      className="clickable-posid"
+                      title="클릭하여 편집"
+                    >
+                      {formatPosId(store.posid)}
+                    </td>
                     <td>{store.posname}</td>
                     <td>{store.posaddress}</td>
-                    <td>{formatDate(store.regdate, true)}</td>
-                    <td>{formatDate(store.startdate)}</td>
+                    <td>{formatDate(store.regdate)}</td>
                     <td>{formatDate(store.enddate)}</td>
                     <td>
                       <span className={`state-badge ${getStateColor(store.state)}`}>
-                        {store.state}
+                        {store.state === 'active' ? '활성' :
+                         store.state === 'inactive' ? '비활성' :
+                         store.state === 'deleted' ? '삭제됨' : store.state}
                       </span>
                     </td>
-                    <td>{formatUserEmail(store.userid)}</td>
                     <td>
                       <div className="action-buttons">
                         {store.state !== 'deleted' ? (
@@ -445,12 +549,12 @@ function StoreManagement() {
         <div className="modal-overlay" onClick={closeModals}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h2>Add New Store</h2>
+              <h2>새 매장 추가</h2>
               <button onClick={closeModals} className="close-btn">&times;</button>
             </div>
             <form onSubmit={handleAddStore} className="modal-form">
               <div className="form-group">
-                <label htmlFor="posname">Store Name</label>
+                <label htmlFor="posname">매장명</label>
                 <input
                   type="text"
                   id="posname"
@@ -458,11 +562,11 @@ function StoreManagement() {
                   value={formData.posname}
                   onChange={handleInputChange}
                   required
-                  placeholder="Enter store name"
+                  placeholder="매장명을 입력하세요"
                 />
               </div>
               <div className="form-group">
-                <label htmlFor="zonecode">Postal Code</label>
+                <label htmlFor="zonecode">우편번호</label>
                 <div className="address-search-group">
                   <input
                     type="text"
@@ -483,7 +587,7 @@ function StoreManagement() {
                 </div>
               </div>
               <div className="form-group">
-                <label htmlFor="posaddress">Address</label>
+                <label htmlFor="posaddress">주소</label>
                 <input
                   type="text"
                   id="posaddress"
@@ -495,7 +599,7 @@ function StoreManagement() {
                 />
               </div>
               <div className="form-group">
-                <label htmlFor="posaddress_detail">Detailed Address</label>
+                <label htmlFor="posaddress_detail">상세 주소</label>
                 <input
                   type="text"
                   id="posaddress_detail"
@@ -506,7 +610,7 @@ function StoreManagement() {
                 />
               </div>
               <div className="form-group">
-                <label htmlFor="state">State</label>
+                <label htmlFor="state">상태</label>
                 <select
                   id="state"
                   name="state"
@@ -514,30 +618,29 @@ function StoreManagement() {
                   onChange={handleInputChange}
                   required
                 >
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
-                  <option value="maintenance">Maintenance</option>
+                  <option value="active">활성</option>
+                  <option value="inactive">비활성</option>
                 </select>
               </div>
               <div className="form-group">
-                <label htmlFor="startdate">Start Date</label>
+                <label htmlFor="regdate">등록일</label>
                 <input
                   type="date"
-                  id="startdate"
-                  name="startdate"
-                  value={formData.startdate}
+                  id="regdate"
+                  name="regdate"
+                  value={formData.regdate}
                   onChange={handleInputChange}
                 />
                 <small style={{color: '#666', fontSize: '12px', marginTop: '4px', display: 'block'}}>
-                  Leave empty if not started yet
+                  기본값은 오늘 날짜입니다
                 </small>
               </div>
               <div className="modal-actions">
                 <button type="button" onClick={closeModals} className="btn-cancel">
-                  Cancel
+                  취소
                 </button>
                 <button type="submit" className="btn-submit">
-                  Add Store
+                  매장 추가
                 </button>
               </div>
             </form>
@@ -550,12 +653,12 @@ function StoreManagement() {
         <div className="modal-overlay" onClick={closeModals}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h2>Edit Store</h2>
+              <h2>매장 편집</h2>
               <button onClick={closeModals} className="close-btn">&times;</button>
             </div>
             <form onSubmit={handleEditStore} className="modal-form">
               <div className="form-group">
-                <label htmlFor="edit-posid">POS ID</label>
+                <label htmlFor="edit-posid">ID</label>
                 <input
                   type="text"
                   id="edit-posid"
@@ -567,7 +670,7 @@ function StoreManagement() {
                 />
               </div>
               <div className="form-group">
-                <label htmlFor="edit-posname">Store Name</label>
+                <label htmlFor="edit-posname">매장명</label>
                 <input
                   type="text"
                   id="edit-posname"
@@ -575,11 +678,11 @@ function StoreManagement() {
                   value={formData.posname}
                   onChange={handleInputChange}
                   required
-                  placeholder="Enter store name"
+                  placeholder="매장명을 입력하세요"
                 />
               </div>
               <div className="form-group">
-                <label htmlFor="edit-zonecode">Postal Code</label>
+                <label htmlFor="edit-zonecode">우편번호</label>
                 <div className="address-search-group">
                   <input
                     type="text"
@@ -600,7 +703,7 @@ function StoreManagement() {
                 </div>
               </div>
               <div className="form-group">
-                <label htmlFor="edit-posaddress">Address</label>
+                <label htmlFor="edit-posaddress">주소</label>
                 <input
                   type="text"
                   id="edit-posaddress"
@@ -612,7 +715,7 @@ function StoreManagement() {
                 />
               </div>
               <div className="form-group">
-                <label htmlFor="edit-posaddress_detail">Detailed Address</label>
+                <label htmlFor="edit-posaddress_detail">상세 주소</label>
                 <input
                   type="text"
                   id="edit-posaddress_detail"
@@ -623,7 +726,7 @@ function StoreManagement() {
                 />
               </div>
               <div className="form-group">
-                <label htmlFor="edit-state">State</label>
+                <label htmlFor="edit-state">상태</label>
                 <select
                   id="edit-state"
                   name="state"
@@ -631,26 +734,25 @@ function StoreManagement() {
                   onChange={handleInputChange}
                   required
                 >
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
-                  <option value="maintenance">Maintenance</option>
+                  <option value="active">활성</option>
+                  <option value="inactive">비활성</option>
                 </select>
               </div>
               <div className="form-group">
-                <label htmlFor="edit-startdate">Start Date</label>
+                <label htmlFor="edit-regdate">등록일</label>
                 <input
                   type="date"
-                  id="edit-startdate"
-                  name="startdate"
-                  value={formData.startdate}
+                  id="edit-regdate"
+                  name="regdate"
+                  value={formData.regdate}
                   onChange={handleInputChange}
                 />
                 <small style={{color: '#666', fontSize: '12px', marginTop: '4px', display: 'block'}}>
-                  Leave empty if not started yet
+                  매장이 처음 등록된 날짜입니다
                 </small>
               </div>
               <div className="form-group">
-                <label htmlFor="edit-enddate">End Date</label>
+                <label htmlFor="edit-enddate">종료일</label>
                 <input
                   type="date"
                   id="edit-enddate"
@@ -659,15 +761,15 @@ function StoreManagement() {
                   onChange={handleInputChange}
                 />
                 <small style={{color: '#666', fontSize: '12px', marginTop: '4px', display: 'block'}}>
-                  Leave empty if still active
+                  아직 활성 상태라면 비워두세요
                 </small>
               </div>
               <div className="modal-actions">
                 <button type="button" onClick={closeModals} className="btn-cancel">
-                  Cancel
+                  취소
                 </button>
                 <button type="submit" className="btn-submit">
-                  Update Store
+                  매장 수정
                 </button>
               </div>
             </form>

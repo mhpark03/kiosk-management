@@ -23,8 +23,18 @@ function Login() {
       setError('');
       setLoading(true);
       await login(email, password);
+      console.log('=== Login Success ===');
+      console.log('Login successful, navigating to dashboard');
+      console.log('=====================');
       navigate('/dashboard');
     } catch (err) {
+      console.error('=== Login Error ===');
+      console.error('Full error object:', err);
+      console.error('Error message:', err.message);
+      console.error('Error response:', err.response);
+      console.error('Error response data:', err.response?.data);
+      console.error('Error response message:', err.response?.data?.message);
+      console.error('==================');
       setError(err.message);
     } finally {
       setLoading(false);

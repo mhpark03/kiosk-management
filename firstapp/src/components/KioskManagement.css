@@ -28,6 +28,13 @@
   flex-wrap: wrap;
 }
 
+.action-group {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
 .search-filters {
   display: flex;
   gap: 10px;
@@ -213,6 +220,13 @@
   letter-spacing: 0.5px;
 }
 
+/* Reduce width for setdate column (7th column) */
+.kiosk-table th:nth-child(7),
+.kiosk-table td:nth-child(7) {
+  width: 80px;
+  white-space: nowrap;
+}
+
 .kiosk-table tbody tr {
   border-bottom: 1px solid #eee;
   transition: background 0.2s ease;
@@ -226,6 +240,16 @@
   padding: 16px;
   font-size: 14px;
   color: #555;
+}
+
+.clickable-kioskid {
+  transition: all 0.2s ease;
+}
+
+.clickable-kioskid:hover {
+  color: #5568d3 !important;
+  text-decoration: underline;
+  transform: scale(1.05);
 }
 
 .no-data {
@@ -596,8 +620,28 @@
     width: 100%;
   }
 
-  .btn-add {
+  .action-group {
     width: 100%;
+    flex-direction: row;
+    justify-content: space-between;
+  }
+
+  .action-group .toggle-deleted {
+    flex: 0 0 auto;
+  }
+
+  .action-group .btn-add {
+    flex: 1;
+    max-width: 200px;
+  }
+
+  /* Hide toggle-deleted on mobile */
+  .action-group .toggle-deleted {
+    display: none;
+  }
+
+  .action-group .btn-add {
+    max-width: none;
   }
 
   .kiosk-table-container {
@@ -605,13 +649,59 @@
   }
 
   .kiosk-table {
-    min-width: 800px;
+    min-width: 650px;
   }
 
   .kiosk-table th,
   .kiosk-table td {
     padding: 12px 8px;
     font-size: 12px;
+  }
+
+  /* Hide regdate, deldate, and action columns on mobile */
+  .kiosk-table th:nth-child(6),
+  .kiosk-table td:nth-child(6),
+  .kiosk-table th:nth-child(8),
+  .kiosk-table td:nth-child(8),
+  .kiosk-table th:nth-child(10),
+  .kiosk-table td:nth-child(10) {
+    display: none;
+  }
+
+  /* Adjust column widths for better visibility on mobile */
+  .kiosk-table th:nth-child(1),
+  .kiosk-table td:nth-child(1) {
+    width: 70px;
+  }
+
+  .kiosk-table th:nth-child(2),
+  .kiosk-table td:nth-child(2) {
+    width: 70px;
+  }
+
+  .kiosk-table th:nth-child(3),
+  .kiosk-table td:nth-child(3) {
+    width: 100px;
+  }
+
+  .kiosk-table th:nth-child(4),
+  .kiosk-table td:nth-child(4) {
+    width: 100px;
+  }
+
+  .kiosk-table th:nth-child(5),
+  .kiosk-table td:nth-child(5) {
+    width: 80px;
+  }
+
+  .kiosk-table th:nth-child(7),
+  .kiosk-table td:nth-child(7) {
+    width: 90px;
+  }
+
+  .kiosk-table th:nth-child(9),
+  .kiosk-table td:nth-child(9) {
+    width: 70px;
   }
 
   .action-buttons {

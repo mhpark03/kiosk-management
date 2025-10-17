@@ -16,4 +16,6 @@ public class ProfileUpdateRequest {
     private String displayName;
 
     private String memo;
+
+    private String phoneNumber;
 }

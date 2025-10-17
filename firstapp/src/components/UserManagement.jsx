@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getAllUsers, suspendUser, activateUser, deleteUser, updateUserRole } from '../services/userService';
+import { getAllUsers, suspendUser, activateUser, deleteUser, updateUserRole, updateUserProfileByAdmin } from '../services/userService';
 import './StoreManagement.css';
 
 function UserManagement() {
@@ -9,6 +9,13 @@ function UserManagement() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [editFormData, setEditFormData] = useState({
+    displayName: '',
+    phoneNumber: '',
+    memo: ''
+  });
 
   useEffect(() => {
     loadUsers();
@@ -34,12 +41,19 @@ function UserManagement() {
 
     try {
       await suspendUser(email);
-      setMessage(`사용자 ${email}가 정지되었습니다.`);
+      console.log('=== User Suspend Success ===');
+      console.log('User suspended successfully');
+      console.log('============================');
       setError('');
       loadUsers();
     } catch (err) {
-      setError(err.response?.data?.message || '사용자 정지에 실패했습니다.');
-      setMessage('');
+      console.error('=== User Suspend Error ===');
+      console.error('Full error object:', err);
+      console.error('Error message:', err.response?.data?.message || err.message);
+      console.error('Error response:', err.response);
+      console.error('Error response data:', err.response?.data);
+      console.error('Status code:', err.response?.status);
+      console.error('==========================');
     }
   };
 
@@ -50,12 +64,19 @@ function UserManagement() {
 
     try {
       await activateUser(email);
-      setMessage(`사용자 ${email}가 활성화되었습니다.`);
+      console.log('=== User Activate Success ===');
+      console.log('User activated successfully');
+      console.log('=============================');
       setError('');
       loadUsers();
     } catch (err) {
-      setError(err.response?.data?.message || '사용자 활성화에 실패했습니다.');
-      setMessage('');
+      console.error('=== User Activate Error ===');
+      console.error('Full error object:', err);
+      console.error('Error message:', err.response?.data?.message || err.message);
+      console.error('Error response:', err.response);
+      console.error('Error response data:', err.response?.data);
+      console.error('Status code:', err.response?.status);
+      console.error('===========================');
     }
   };
 
@@ -66,25 +87,95 @@ function UserManagement() {
 
     try {
       await deleteUser(email);
-      setMessage(`사용자 ${email}가 삭제되었습니다.`);
+      console.log('=== User Delete Success ===');
+      console.log('User deleted successfully');
+      console.log('===========================');
       setError('');
       loadUsers();
     } catch (err) {
-      setError(err.response?.data?.message || '사용자 삭제에 실패했습니다.');
-      setMessage('');
+      console.error('=== User Delete Error ===');
+      console.error('Full error object:', err);
+      console.error('Error message:', err.response?.data?.message || err.message);
+      console.error('Error response:', err.response);
+      console.error('Error response data:', err.response?.data);
+      console.error('Status code:', err.response?.status);
+      console.error('=========================');
     }
   };
 
   const handleRoleChange = async (email, newRole) => {
     try {
       await updateUserRole(email, newRole);
-      setMessage(`사용자 ${email}의 역할이 ${newRole === 'ADMIN' ? '관리자' : '사용자'}로 변경되었습니다.`);
+      console.log('=== User Role Change Success ===');
+      console.log('New role:', newRole);
+      console.log('================================');
       setError('');
       loadUsers();
     } catch (err) {
-      setError(err.response?.data?.message || '역할 변경에 실패했습니다.');
-      setMessage('');
+      console.error('=== User Role Change Error ===');
+      console.error('Full error object:', err);
+      console.error('Error message:', err.response?.data?.message || err.message);
+      console.error('Error response:', err.response);
+      console.error('Error response data:', err.response?.data);
+      console.error('Status code:', err.response?.status);
+      console.error('==============================');
     }
+  };
+
+  const handleEditClick = (user) => {
+    setSelectedUser(user);
+    setEditFormData({
+      displayName: user.displayName || '',
+      phoneNumber: user.phoneNumber || '',
+      memo: user.memo || ''
+    });
+    setShowEditModal(true);
+  };
+
+  const handleEditFormChange = (e) => {
+    const { name, value } = e.target;
+    setEditFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      await updateUserProfileByAdmin(
+        selectedUser.email,
+        editFormData.displayName,
+        editFormData.memo,
+        editFormData.phoneNumber
+      );
+      console.log('=== User Profile Updated by Admin ===');
+      console.log('Display name:', editFormData.displayName);
+      console.log('Memo:', editFormData.memo);
+      console.log('====================================');
+      setShowEditModal(false);
+      setSelectedUser(null);
+      setError('');
+      loadUsers();
+    } catch (err) {
+      console.error('=== User Profile Update Error ===');
+      console.error('Full error object:', err);
+      console.error('Error message:', err.response?.data?.message || err.message);
+      console.error('Error response:', err.response);
+      console.error('Error response data:', err.response?.data);
+      console.error('Status code:', err.response?.status);
+      console.error('=================================');
+    }
+  };
+
+  const handleCloseEditModal = () => {
+    setShowEditModal(false);
+    setSelectedUser(null);
+    setEditFormData({
+      displayName: '',
+      phoneNumber: '',
+      memo: ''
+    });
   };
 
   const getStatusBadge = (status) => {
@@ -134,7 +225,7 @@ function UserManagement() {
     <div className="store-management">
       <div className="store-header">
         <h1>사용자 관리</h1>
-        <button onClick={loadUsers} className="btn-refresh" title="새로고침">
+        <button onClick={loadUsers} className="btn-refresh" title="새로고침" style={{background: 'none', border: 'none', cursor: 'pointer'}}>
           🔄
         </button>
       </div>
@@ -148,6 +239,7 @@ function UserManagement() {
             <tr>
               <th>이메일</th>
               <th>이름</th>
+              <th>전화번호</th>
               <th>역할</th>
               <th>상태</th>
               <th>생성일</th>
@@ -159,13 +251,14 @@ function UserManagement() {
           <tbody>
             {users.length === 0 ? (
               <tr>
-                <td colSpan="8" className="no-data">사용자가 없습니다</td>
+                <td colSpan="9" className="no-data">사용자가 없습니다</td>
               </tr>
             ) : (
               users.map((user) => (
                 <tr key={user.id}>
                   <td>{user.email}</td>
                   <td>{user.displayName}</td>
+                  <td>{user.phoneNumber || '-'}</td>
                   <td>{getRoleSelect(user)}</td>
                   <td>{getStatusBadge(user.status)}</td>
                   <td>{formatDate(user.createdAt)}</td>
@@ -173,6 +266,14 @@ function UserManagement() {
                   <td className="memo-cell">{user.memo || '-'}</td>
                   <td>
                     <div className="action-buttons">
+                      <button
+                        onClick={() => handleEditClick(user)}
+                        className="btn-edit"
+                        title="편집"
+                        style={{fontSize: '18px', padding: '6px 12px', background: 'none', border: 'none', cursor: 'pointer'}}
+                      >
+                        ✏️
+                      </button>
                       <button
                         onClick={() => navigate('/user-history', {
                           state: {
@@ -185,7 +286,7 @@ function UserManagement() {
                         })}
                         className="btn-view"
                         title="이력보기"
-                        style={{fontSize: '18px', padding: '6px 12px'}}
+                        style={{fontSize: '18px', padding: '6px 12px', background: 'none', border: 'none', cursor: 'pointer'}}
                       >
                         📋
                       </button>
@@ -194,7 +295,7 @@ function UserManagement() {
                           onClick={() => handleSuspend(user.email)}
                           className="btn-suspend"
                           title="정지"
-                          style={{fontSize: '18px', padding: '6px 12px'}}
+                          style={{fontSize: '18px', padding: '6px 12px', background: 'none', border: 'none', cursor: 'pointer'}}
                         >
                           ⏸️
                         </button>
@@ -204,7 +305,7 @@ function UserManagement() {
                           onClick={() => handleActivate(user.email)}
                           className="btn-activate"
                           title="활성화"
-                          style={{fontSize: '18px', padding: '6px 12px'}}
+                          style={{fontSize: '18px', padding: '6px 12px', background: 'none', border: 'none', cursor: 'pointer'}}
                         >
                           ▶️
                         </button>
@@ -213,7 +314,7 @@ function UserManagement() {
                         onClick={() => handleDelete(user.email)}
                         className="btn-delete"
                         title="삭제"
-                        style={{fontSize: '18px', padding: '6px 12px'}}
+                        style={{fontSize: '18px', padding: '6px 12px', background: 'none', border: 'none', cursor: 'pointer'}}
                       >
                         🗑️
                       </button>
@@ -229,6 +330,88 @@ function UserManagement() {
       <div className="store-summary">
         <p>전체 사용자 수: {users.length}</p>
       </div>
+
+      {/* Edit User Modal */}
+      {showEditModal && selectedUser && (
+        <div className="modal-overlay" onClick={handleCloseEditModal}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{maxWidth: '500px'}}>
+            <div className="modal-header">
+              <h2>사용자 정보 편집</h2>
+              <button onClick={handleCloseEditModal} className="close-btn">&times;</button>
+            </div>
+            <form onSubmit={handleEditSubmit} className="modal-form">
+              <div className="form-group">
+                <label htmlFor="edit-email">이메일</label>
+                <input
+                  type="email"
+                  id="edit-email"
+                  value={selectedUser.email}
+                  readOnly
+                  style={{background: '#f0f0f0', cursor: 'not-allowed'}}
+                />
+                <small style={{color: '#666', fontSize: '12px', marginTop: '4px', display: 'block'}}>
+                  이메일은 변경할 수 없습니다
+                </small>
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="edit-displayName">이름</label>
+                <input
+                  type="text"
+                  id="edit-displayName"
+                  name="displayName"
+                  value={editFormData.displayName}
+                  onChange={handleEditFormChange}
+                  required
+                  placeholder="이름을 입력하세요"
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="edit-phoneNumber">전화번호 (선택)</label>
+                <input
+                  type="tel"
+                  id="edit-phoneNumber"
+                  name="phoneNumber"
+                  value={editFormData.phoneNumber}
+                  onChange={handleEditFormChange}
+                  placeholder="전화번호를 입력하세요"
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="edit-memo">메모</label>
+                <textarea
+                  id="edit-memo"
+                  name="memo"
+                  value={editFormData.memo}
+                  onChange={handleEditFormChange}
+                  rows="5"
+                  placeholder="메모를 입력하세요"
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    border: '1px solid #ddd',
+                    borderRadius: '4px',
+                    fontSize: '14px',
+                    fontFamily: 'inherit',
+                    resize: 'vertical'
+                  }}
+                />
+              </div>
+
+              <div className="modal-actions">
+                <button type="button" onClick={handleCloseEditModal} className="btn-cancel">
+                  취소
+                </button>
+                <button type="submit" className="btn-submit">
+                  저장
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

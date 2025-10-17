@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   getAllKiosks,
   createKiosk,
@@ -27,6 +27,7 @@ import './KioskManagement.css';
 function KioskManagement() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [kiosks, setKiosks] = useState([]);
   const [stores, setStores] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -38,6 +39,9 @@ function KioskManagement() {
   const [searchMaker, setSearchMaker] = useState('');
   const [appliedSearchStoreName, setAppliedSearchStoreName] = useState('');
   const [appliedSearchMaker, setAppliedSearchMaker] = useState('');
+  const [dashboardFilterRegion, setDashboardFilterRegion] = useState(null);
+  const [dashboardFilterState, setDashboardFilterState] = useState(null);
+  const [dashboardFilterInstallMonth, setDashboardFilterInstallMonth] = useState(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
@@ -61,6 +65,73 @@ function KioskManagement() {
   useEffect(() => {
     setSearchMaker('');
   }, [searchStoreName]);
+
+  // Capture dashboard filters from navigation state
+  useEffect(() => {
+    if (location.state?.filterRegion) {
+      setDashboardFilterRegion(location.state.filterRegion);
+    }
+    if (location.state?.filterState) {
+      setDashboardFilterState(location.state.filterState);
+    }
+    if (location.state?.filterInstallMonth) {
+      setDashboardFilterInstallMonth(location.state.filterInstallMonth);
+    }
+  }, [location]);
+
+  // Extract region from address
+  const extractRegion = (address) => {
+    if (!address) return '주소 미상';
+
+    const regions = [
+      '서울특별시', '서울시', '서울',
+      '부산광역시', '부산시', '부산',
+      '대구광역시', '대구시', '대구',
+      '인천광역시', '인천시', '인천',
+      '광주광역시', '광주시', '광주',
+      '대전광역시', '대전시', '대전',
+      '울산광역시', '울산시', '울산',
+      '세종특별자치시', '세종시', '세종',
+      '경기도', '경기',
+      '강원특별자치도', '강원도', '강원',
+      '충청북도', '충북',
+      '충청남도', '충남',
+      '전북특별자치도', '전라북도', '전북',
+      '전라남도', '전남',
+      '경상북도', '경북',
+      '경상남도', '경남',
+      '제주특별자치도', '제주도', '제주'
+    ];
+
+    const normalizeRegion = (region) => {
+      if (region.includes('서울')) return '서울특별시';
+      if (region.includes('부산')) return '부산광역시';
+      if (region.includes('대구')) return '대구광역시';
+      if (region.includes('인천')) return '인천광역시';
+      if (region.includes('광주')) return '광주광역시';
+      if (region.includes('대전')) return '대전광역시';
+      if (region.includes('울산')) return '울산광역시';
+      if (region.includes('세종')) return '세종특별자치시';
+      if (region.includes('경기')) return '경기도';
+      if (region.includes('강원')) return '강원특별자치도';
+      if (region.includes('충청북') || region.includes('충북')) return '충청북도';
+      if (region.includes('충청남') || region.includes('충남')) return '충청남도';
+      if (region.includes('전북') || region.includes('전라북')) return '전북특별자치도';
+      if (region.includes('전남') || region.includes('전라남')) return '전라남도';
+      if (region.includes('경상북') || region.includes('경북')) return '경상북도';
+      if (region.includes('경상남') || region.includes('경남')) return '경상남도';
+      if (region.includes('제주')) return '제주특별자치도';
+      return region;
+    };
+
+    for (const region of regions) {
+      if (address.startsWith(region)) {
+        return normalizeRegion(region);
+      }
+    }
+
+    return '기타';
+  };
 
   const loadKiosks = async () => {
     try {
@@ -102,6 +173,21 @@ function KioskManagement() {
   // Check if there are any kiosks with empty maker (in filtered set)
   const hasEmptyMaker = kiosksForMakerFilter.some(k => !k.maker || k.maker.trim() === '');
 
+  // Create store address map for region filtering
+  const storeMap = {};
+  stores.forEach(store => {
+    storeMap[store.posid] = store.baseaddress || '';
+  });
+
+  // Helper function to format timestamp to "2025년 5월" format
+  const formatMonthLabel = (timestamp) => {
+    if (!timestamp) return '';
+    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+    const year = date.getFullYear();
+    const month = date.getMonth() + 1;
+    return `${year}년 ${month}월`;
+  };
+
   // Filter kiosks based on applied filters (only when search button is clicked)
   const filteredKiosks = kiosks.filter(kiosk => {
     // Filter by store name
@@ -121,7 +207,28 @@ function KioskManagement() {
       }
     }
 
-    return matchesStoreName && matchesMaker;
+    // Filter by dashboard region
+    let matchesRegion = true;
+    if (dashboardFilterRegion) {
+      const storeAddress = storeMap[kiosk.posid];
+      const region = extractRegion(storeAddress);
+      matchesRegion = region === dashboardFilterRegion;
+    }
+
+    // Filter by dashboard state
+    let matchesState = true;
+    if (dashboardFilterState) {
+      matchesState = kiosk.state === dashboardFilterState;
+    }
+
+    // Filter by installation month
+    let matchesInstallMonth = true;
+    if (dashboardFilterInstallMonth) {
+      const kioskMonth = formatMonthLabel(kiosk.regdate);
+      matchesInstallMonth = kioskMonth === dashboardFilterInstallMonth;
+    }
+
+    return matchesStoreName && matchesMaker && matchesRegion && matchesState && matchesInstallMonth;
   });
 
   // Handle search button click
@@ -205,7 +312,14 @@ function KioskManagement() {
         }
       }
 
-      setSuccess('Kiosk created successfully!');
+      console.log('=== Kiosk Created Successfully ===');
+      console.log('Kiosk ID:', kioskid);
+      console.log('Store ID:', formData.posid);
+      console.log('Kiosk number:', kiosknoValue);
+      console.log('Maker:', formData.maker || 'Not specified');
+      console.log('Serial number:', formData.serialno || 'Not specified');
+      console.log('State:', formData.state);
+      console.log('==================================');
       setShowAddModal(false);
       setFormData({ posid: '', kioskno: '', maker: '', serialno: '', state: 'inactive', setdate: '', deldate: '' });
       loadKiosks();
@@ -272,7 +386,11 @@ function KioskManagement() {
         await logKioskUpdate(selectedKiosk.kioskid, formData.posid, user.email, changes);
       }
 
-      setSuccess('Kiosk updated successfully!');
+      console.log('=== Kiosk Updated Successfully ===');
+      console.log('Kiosk ID:', selectedKiosk.kioskid);
+      console.log('Store ID:', formData.posid);
+      console.log('Changes:', changes);
+      console.log('==================================');
       setShowEditModal(false);
       setSelectedKiosk(null);
       setFormData({ posid: '', kioskno: '', maker: '', serialno: '', state: 'inactive', setdate: '', deldate: '' });
@@ -295,7 +413,9 @@ function KioskManagement() {
           await logKioskDeletion(kiosk.kioskid, kiosk.posid, user.email);
         }
 
-        setSuccess('Kiosk deleted successfully!');
+        console.log('=== Kiosk Deleted Successfully ===');
+        console.log('Kiosk ID:', kiosk?.kioskid || kioskId);
+        console.log('==================================');
         loadKiosks();
         setTimeout(() => setSuccess(''), 3000);
       } catch (err) {
@@ -315,7 +435,9 @@ function KioskManagement() {
         await logKioskRestoration(kiosk.kioskid, kiosk.posid, user.email);
       }
 
-      setSuccess('Kiosk restored successfully!');
+      console.log('=== Kiosk Restored Successfully ===');
+      console.log('Kiosk ID:', kiosk?.kioskid || kioskId);
+      console.log('===================================');
       loadKiosks();
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
@@ -329,7 +451,9 @@ function KioskManagement() {
     if (window.confirm(`Are you sure you want to PERMANENTLY delete this kiosk (${kiosk?.kioskid || kioskId})?\n\nThis action CANNOT be undone!\n\nThe kiosk data will be completely removed from the database.`)) {
       try {
         await permanentDeleteKiosk(kioskId);
-        setSuccess('Kiosk permanently deleted!');
+        console.log('=== Kiosk Permanently Deleted ===');
+        console.log('Kiosk ID:', kiosk?.kioskid || kioskId);
+        console.log('=================================');
         loadKiosks();
         setTimeout(() => setSuccess(''), 3000);
       } catch (err) {
@@ -351,7 +475,11 @@ function KioskManagement() {
         await logKioskStateChange(kiosk.kioskid, kiosk.posid, user.email, oldState, newState);
       }
 
-      setSuccess('Kiosk state updated successfully!');
+      console.log('=== Kiosk State Updated Successfully ===');
+      console.log('Kiosk ID:', kiosk?.kioskid || kioskId);
+      console.log('Old state:', oldState);
+      console.log('New state:', newState);
+      console.log('========================================');
       loadKiosks();
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
@@ -440,10 +568,16 @@ function KioskManagement() {
     }
   };
 
+  // Remove leading zeros from kiosk ID for display
+  const formatKioskId = (kioskid) => {
+    if (!kioskid) return 'N/A';
+    return kioskid.replace(/^0+/, '') || '0';
+  };
+
   return (
     <div className="kiosk-management">
       <div className="kiosk-header">
-        <h1>Kiosk Management</h1>
+        <h1>키오스크 관리</h1>
         <div className="header-actions">
           <div className="search-filters">
             <select
@@ -451,7 +585,7 @@ function KioskManagement() {
               value={searchStoreName}
               onChange={(e) => setSearchStoreName(e.target.value)}
             >
-              <option value="">All Stores</option>
+              <option value="">전체 매장</option>
               {stores.map((store) => (
                 <option key={store.id} value={store.posid}>
                   {store.posname}
@@ -463,7 +597,7 @@ function KioskManagement() {
               value={searchMaker}
               onChange={(e) => setSearchMaker(e.target.value)}
             >
-              <option value="">All Makers</option>
+              <option value="">전체 제조사</option>
               {hasEmptyMaker && (
                 <option value="(None)">(None)</option>
               )}
@@ -476,9 +610,9 @@ function KioskManagement() {
             <button
               className="btn-search"
               onClick={handleSearch}
-              title="Search"
+              title="검색"
             >
-              Search
+              검색
             </button>
             {(appliedSearchStoreName || appliedSearchMaker) && (
               <button
@@ -490,17 +624,19 @@ function KioskManagement() {
               </button>
             )}
           </div>
-          <label className="toggle-deleted">
-            <input
-              type="checkbox"
-              checked={showDeleted}
-              onChange={(e) => setShowDeleted(e.target.checked)}
-            />
-            Show Deleted
-          </label>
-          <button onClick={() => setShowAddModal(true)} className="btn-add">
-            + Add Kiosk
-          </button>
+          <div className="action-group">
+            <label className="toggle-deleted">
+              <input
+                type="checkbox"
+                checked={showDeleted}
+                onChange={(e) => setShowDeleted(e.target.checked)}
+              />
+              삭제된 항목 표시
+            </label>
+            <button onClick={() => setShowAddModal(true)} className="btn-add">
+              + 키오스크 추가
+            </button>
+          </div>
         </div>
       </div>
 
@@ -508,37 +644,44 @@ function KioskManagement() {
       {success && <div className="alert alert-success">{success}</div>}
 
       {loading ? (
-        <div className="loading">Loading kiosks...</div>
+        <div className="loading">키오스크 로딩 중...</div>
       ) : (
         <div className="kiosk-table-container">
           <table className="kiosk-table">
             <thead>
               <tr>
-                <th>Kiosk ID</th>
-                <th>Store Name</th>
-                <th>Kiosk No</th>
-                <th>Maker</th>
-                <th>Serial No</th>
-                <th>Registration Date</th>
-                <th>Setup Date</th>
-                <th>Delete Date</th>
-                <th>State</th>
-                <th>Actions</th>
+                <th>키오스크 ID</th>
+                <th>매장명</th>
+                <th>번호</th>
+                <th>제조사</th>
+                <th>시리얼 번호</th>
+                <th>등록일</th>
+                <th>시작일</th>
+                <th>종료일</th>
+                <th>상태</th>
+                <th>작업</th>
               </tr>
             </thead>
             <tbody>
               {filteredKiosks.length === 0 ? (
                 <tr>
                   <td colSpan="10" className="no-data">
-                    {(appliedSearchStoreName || appliedSearchMaker) ? 'No kiosks match your filters' : 'No kiosks found'}
+                    {(appliedSearchStoreName || appliedSearchMaker) ? '필터와 일치하는 키오스크가 없습니다' : '키오스크가 없습니다'}
                   </td>
                 </tr>
               ) : (
                 filteredKiosks.map((kiosk) => (
                   <tr key={kiosk.id}>
-                    <td>{kiosk.kioskid || 'N/A'}</td>
+                    <td
+                      style={{textAlign: 'center', cursor: 'pointer', color: '#667eea', fontWeight: '600'}}
+                      onClick={() => openEditModal(kiosk)}
+                      className="clickable-kioskid"
+                      title="클릭하여 편집"
+                    >
+                      {formatKioskId(kiosk.kioskid)}
+                    </td>
                     <td>{getStoreName(kiosk.posid)}</td>
-                    <td>{kiosk.kioskno || 'N/A'}</td>
+                    <td style={{textAlign: 'center'}}>{kiosk.kioskno || 'N/A'}</td>
                     <td>{kiosk.maker || '-'}</td>
                     <td>{kiosk.serialno || '-'}</td>
                     <td>{formatDate(kiosk.regdate, true)}</td>
@@ -546,7 +689,10 @@ function KioskManagement() {
                     <td>{formatDate(kiosk.deldate)}</td>
                     <td>
                       <span className={`state-badge ${getStateColor(kiosk.state)}`}>
-                        {kiosk.state}
+                        {kiosk.state === 'active' ? '활성' :
+                         kiosk.state === 'inactive' ? '비활성' :
+                         kiosk.state === 'maintenance' ? '정비중' :
+                         kiosk.state === 'deleted' ? '삭제됨' : kiosk.state}
                       </span>
                     </td>
                     <td>
@@ -608,12 +754,12 @@ function KioskManagement() {
         <div className="modal-overlay" onClick={closeModals}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h2>Add New Kiosk</h2>
+              <h2>새 키오스크 추가</h2>
               <button onClick={closeModals} className="close-btn">&times;</button>
             </div>
             <form onSubmit={handleAddKiosk} className="modal-form">
               <div className="form-group">
-                <label htmlFor="posid">Store</label>
+                <label htmlFor="posid">매장</label>
                 <select
                   id="posid"
                   name="posid"
@@ -621,7 +767,7 @@ function KioskManagement() {
                   onChange={handleInputChange}
                   required
                 >
-                  <option value="">Select a store...</option>
+                  <option value="">매장을 선택하세요...</option>
                   {stores
                     .filter(store => store.state === 'active' || store.state === 'maintenance')
                     .map((store) => (
@@ -632,7 +778,7 @@ function KioskManagement() {
                 </select>
               </div>
               <div className="form-group">
-                <label htmlFor="kioskno">Kiosk Number</label>
+                <label htmlFor="kioskno">키오스크 번호</label>
                 <input
                   type="number"
                   id="kioskno"
@@ -641,36 +787,36 @@ function KioskManagement() {
                   onChange={handleInputChange}
                   required
                   min="1"
-                  placeholder="Auto-generated"
+                  placeholder="자동 생성"
                 />
                 <small style={{color: '#666', fontSize: '12px', marginTop: '4px', display: 'block'}}>
-                  Auto-generated when store is selected, but can be modified
+                  매장 선택 시 자동 생성되지만 수정 가능합니다
                 </small>
               </div>
               <div className="form-group">
-                <label htmlFor="maker">Maker</label>
+                <label htmlFor="maker">제조사</label>
                 <input
                   type="text"
                   id="maker"
                   name="maker"
                   value={formData.maker}
                   onChange={handleInputChange}
-                  placeholder="Enter manufacturer name"
+                  placeholder="제조사명을 입력하세요"
                 />
               </div>
               <div className="form-group">
-                <label htmlFor="serialno">Serial Number</label>
+                <label htmlFor="serialno">시리얼 번호</label>
                 <input
                   type="text"
                   id="serialno"
                   name="serialno"
                   value={formData.serialno}
                   onChange={handleInputChange}
-                  placeholder="Enter serial number"
+                  placeholder="시리얼 번호를 입력하세요"
                 />
               </div>
               <div className="form-group">
-                <label htmlFor="state">State</label>
+                <label htmlFor="state">상태</label>
                 <select
                   id="state"
                   name="state"
@@ -678,17 +824,17 @@ function KioskManagement() {
                   onChange={handleInputChange}
                   required
                 >
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
-                  <option value="maintenance">Maintenance</option>
+                  <option value="active">활성</option>
+                  <option value="inactive">비활성</option>
+                  <option value="maintenance">정비중</option>
                 </select>
               </div>
               <div className="modal-actions">
                 <button type="button" onClick={closeModals} className="btn-cancel">
-                  Cancel
+                  취소
                 </button>
                 <button type="submit" className="btn-submit">
-                  Add Kiosk
+                  키오스크 추가
                 </button>
               </div>
             </form>
@@ -701,12 +847,12 @@ function KioskManagement() {
         <div className="modal-overlay" onClick={closeModals}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h2>Edit Kiosk</h2>
+              <h2>키오스크 편집</h2>
               <button onClick={closeModals} className="close-btn">&times;</button>
             </div>
             <form onSubmit={handleEditKiosk} className="modal-form">
               <div className="form-group">
-                <label htmlFor="edit-store">Store</label>
+                <label htmlFor="edit-store">매장</label>
                 {stores.find(s => s.posid === formData.posid) ? (
                   <>
                     <input
@@ -717,7 +863,7 @@ function KioskManagement() {
                       style={{background: '#f0f0f0', cursor: 'not-allowed', fontWeight: '600', color: '#333'}}
                     />
                     <small style={{color: '#666', fontSize: '12px', marginTop: '4px', display: 'block'}}>
-                      Store cannot be changed (POS ID: {formData.posid})
+                      매장은 변경할 수 없습니다 (POS ID: {formData.posid})
                     </small>
                   </>
                 ) : (
@@ -729,7 +875,7 @@ function KioskManagement() {
                       onChange={handleInputChange}
                       required
                     >
-                      <option value="">Select a store...</option>
+                      <option value="">매장을 선택하세요...</option>
                       {stores
                         .filter(store => store.state === 'active' || store.state === 'maintenance')
                         .map((store) => (
@@ -739,13 +885,13 @@ function KioskManagement() {
                         ))}
                     </select>
                     <small style={{color: '#999', fontSize: '12px', marginTop: '4px', display: 'block'}}>
-                      ⚠️ Original store (POS ID: {formData.posid}) not found. Please select a new store.
+                      ⚠️ 원래 매장 (POS ID: {formData.posid})을 찾을 수 없습니다. 새 매장을 선택하세요.
                     </small>
                   </>
                 )}
               </div>
               <div className="form-group">
-                <label htmlFor="edit-kioskno">Kiosk Number</label>
+                <label htmlFor="edit-kioskno">키오스크 번호</label>
                 <input
                   type="number"
                   id="edit-kioskno"
@@ -754,33 +900,33 @@ function KioskManagement() {
                   onChange={handleInputChange}
                   required
                   min="1"
-                  placeholder="Enter kiosk number"
+                  placeholder="키오스크 번호를 입력하세요"
                 />
               </div>
               <div className="form-group">
-                <label htmlFor="edit-maker">Maker</label>
+                <label htmlFor="edit-maker">제조사</label>
                 <input
                   type="text"
                   id="edit-maker"
                   name="maker"
                   value={formData.maker}
                   onChange={handleInputChange}
-                  placeholder="Enter manufacturer name"
+                  placeholder="제조사명을 입력하세요"
                 />
               </div>
               <div className="form-group">
-                <label htmlFor="edit-serialno">Serial Number</label>
+                <label htmlFor="edit-serialno">시리얼 번호</label>
                 <input
                   type="text"
                   id="edit-serialno"
                   name="serialno"
                   value={formData.serialno}
                   onChange={handleInputChange}
-                  placeholder="Enter serial number"
+                  placeholder="시리얼 번호를 입력하세요"
                 />
               </div>
               <div className="form-group">
-                <label htmlFor="edit-state">State</label>
+                <label htmlFor="edit-state">상태</label>
                 <select
                   id="edit-state"
                   name="state"
@@ -788,13 +934,13 @@ function KioskManagement() {
                   onChange={handleInputChange}
                   required
                 >
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
-                  <option value="maintenance">Maintenance</option>
+                  <option value="active">활성</option>
+                  <option value="inactive">비활성</option>
+                  <option value="maintenance">정비중</option>
                 </select>
               </div>
               <div className="form-group">
-                <label htmlFor="edit-setdate">Setup Date</label>
+                <label htmlFor="edit-setdate">시작일</label>
                 <input
                   type="date"
                   id="edit-setdate"
@@ -803,11 +949,11 @@ function KioskManagement() {
                   onChange={handleInputChange}
                 />
                 <small style={{color: '#666', fontSize: '12px', marginTop: '4px', display: 'block'}}>
-                  Leave empty if not set up yet
+                  아직 시작하지 않았다면 비워두세요
                 </small>
               </div>
               <div className="form-group">
-                <label htmlFor="edit-deldate">Delete Date</label>
+                <label htmlFor="edit-deldate">종료일</label>
                 <input
                   type="date"
                   id="edit-deldate"
@@ -816,15 +962,15 @@ function KioskManagement() {
                   onChange={handleInputChange}
                 />
                 <small style={{color: '#666', fontSize: '12px', marginTop: '4px', display: 'block'}}>
-                  Leave empty if not deleted
+                  아직 운영 중이라면 비워두세요
                 </small>
               </div>
               <div className="modal-actions">
                 <button type="button" onClick={closeModals} className="btn-cancel">
-                  Cancel
+                  취소
                 </button>
                 <button type="submit" className="btn-submit">
-                  Update Kiosk
+                  키오스크 수정
                 </button>
               </div>
             </form>

@@ -328,6 +328,11 @@
     color: white;
   }
 
+  /* Hide specific menu items on mobile */
+  .dropdown-menu li.hide-mobile {
+    display: none;
+  }
+
   .navbar-user {
     flex-direction: column;
     gap: 15px;

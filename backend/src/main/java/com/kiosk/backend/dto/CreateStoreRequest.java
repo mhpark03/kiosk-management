@@ -26,7 +26,7 @@ public class CreateStoreRequest {
 
     private String state; // ACTIVE, INACTIVE
 
-    private String startdate; // ISO 8601 date string (YYYY-MM-DD)
+    private String regdate; // ISO 8601 date string (YYYY-MM-DD)
 
     private String enddate; // ISO 8601 date string (YYYY-MM-DD)
 }

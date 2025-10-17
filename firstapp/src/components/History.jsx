@@ -245,6 +245,12 @@ function History() {
     return store ? store.posname : posid;
   };
 
+  // Format kiosk ID by removing leading zeros
+  const formatKioskId = (kioskid) => {
+    if (!kioskid) return '-';
+    return kioskid.replace(/^0+/, '') || '0';
+  };
+
   // Get unique users from history - create a map of userid to username
   const userMap = new Map();
   history.forEach(h => {
@@ -452,7 +458,7 @@ function History() {
                     </td>
                     <td>{formatDate(item.timestamp)}</td>
                     <td>{getStoreName(item.posid)}</td>
-                    <td>{item.entityType === 'KIOSK' ? (item.entityId || '-') : '-'}</td>
+                    <td style={{textAlign: 'center'}}>{item.entityType === 'KIOSK' ? formatKioskId(item.entityId) : '-'}</td>
                     <td>
                       <span className={`action-badge ${getActionColor(item.action)}`}>
                         {getActionLabel(item.action)}

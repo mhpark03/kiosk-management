@@ -8,6 +8,7 @@ function Signup() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [passwordValidation, setPasswordValidation] = useState({
@@ -61,33 +62,44 @@ function Signup() {
     e.preventDefault();
 
     if (!name || !email || !password || !confirmPassword) {
-      setError('Please fill in all fields');
+      setError('모든 필드를 입력해주세요');
       return;
     }
 
     if (password !== confirmPassword) {
-      setError('Passwords do not match');
+      setError('비밀번호가 일치하지 않습니다');
       return;
     }
 
     if (password.length < 8) {
-      setError('Password must be at least 8 characters');
+      setError('비밀번호는 최소 8자 이상이어야 합니다');
       return;
     }
 
     // Password must contain at least one letter, one number, and one special character
     const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*#?&])[A-Za-z\d@$!%*#?&]{8,}$/;
     if (!passwordRegex.test(password)) {
-      setError('Password must contain at least one letter, one number, and one special character (@$!%*#?&)');
+      setError('비밀번호는 최소 하나의 문자, 숫자, 특수문자(@$!%*#?&)를 포함해야 합니다');
       return;
     }
 
     try {
       setError('');
       setLoading(true);
-      await signup(email, password, name);
+      await signup(email, password, name, phoneNumber);
+      console.log('=== Signup Success ===');
+      console.log('User name:', name);
+      console.log('Signup successful, navigating to dashboard');
+      console.log('======================');
       navigate('/dashboard');
     } catch (err) {
+      console.error('=== Signup Error ===');
+      console.error('Full error object:', err);
+      console.error('Error message:', err.message);
+      console.error('Error response:', err.response);
+      console.error('Error response data:', err.response?.data);
+      console.error('Error response message:', err.response?.data?.message);
+      console.error('===================');
       setError(err.message);
     } finally {
       setLoading(false);
@@ -97,42 +109,54 @@ function Signup() {
   return (
     <div className="auth-container">
       <div className="auth-card">
-        <h2>Sign Up</h2>
+        <h2>회원가입</h2>
         <form onSubmit={handleSubmit}>
           {error && <div className="error-message">{error}</div>}
 
           <div className="form-group">
-            <label htmlFor="name">Name</label>
+            <label htmlFor="name">이름</label>
             <input
               type="text"
               id="name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Enter your name"
+              placeholder="이름을 입력하세요"
               disabled={loading}
             />
           </div>
 
           <div className="form-group">
-            <label htmlFor="email">Email</label>
+            <label htmlFor="email">이메일</label>
             <input
               type="email"
               id="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="Enter your email"
+              placeholder="이메일을 입력하세요"
               disabled={loading}
             />
           </div>
 
           <div className="form-group">
-            <label htmlFor="password">Password</label>
+            <label htmlFor="phoneNumber">전화번호 (선택사항)</label>
+            <input
+              type="tel"
+              id="phoneNumber"
+              value={phoneNumber}
+              onChange={(e) => setPhoneNumber(e.target.value)}
+              placeholder="전화번호를 입력하세요"
+              disabled={loading}
+            />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="password">비밀번호</label>
             <input
               type="password"
               id="password"
               value={password}
               onChange={handlePasswordChange}
-              placeholder="Enter your password (min 8 characters)"
+              placeholder="비밀번호를 입력하세요 (최소 8자)"
               disabled={loading}
             />
             {password && (
@@ -140,11 +164,11 @@ function Signup() {
                 {passwordValidation.minLength && passwordValidation.hasLetter &&
                  passwordValidation.hasNumber && passwordValidation.hasSpecial ? (
                   <div style={{ color: '#10b981' }}>
-                    ✓ Password meets all requirements
+                    ✓ 비밀번호가 모든 요구사항을 충족합니다
                   </div>
                 ) : (
                   <div style={{ color: '#ef4444' }}>
-                    ✗ Password must be 8+ characters with letter, number, and special character (@$!%*#?&)
+                    ✗ 비밀번호는 8자 이상이어야 하며 문자, 숫자, 특수문자(@$!%*#?&)를 포함해야 합니다
                   </div>
                 )}
               </div>
@@ -152,24 +176,24 @@ function Signup() {
           </div>
 
           <div className="form-group">
-            <label htmlFor="confirmPassword">Confirm Password</label>
+            <label htmlFor="confirmPassword">비밀번호 확인</label>
             <input
               type="password"
               id="confirmPassword"
               value={confirmPassword}
               onChange={handleConfirmPasswordChange}
-              placeholder="Confirm your password"
+              placeholder="비밀번호를 다시 입력하세요"
               disabled={loading}
             />
             {confirmPassword && (
               <div style={{ marginTop: '8px', fontSize: '13px' }}>
                 {confirmPasswordValidation.matches ? (
                   <div style={{ color: '#10b981' }}>
-                    ✓ Passwords match
+                    ✓ 비밀번호가 일치합니다
                   </div>
                 ) : (
                   <div style={{ color: '#ef4444' }}>
-                    ✗ Passwords do not match
+                    ✗ 비밀번호가 일치하지 않습니다
                   </div>
                 )}
               </div>
@@ -177,12 +201,12 @@ function Signup() {
           </div>
 
           <button type="submit" disabled={loading} className="btn-primary">
-            {loading ? 'Creating account...' : 'Sign Up'}
+            {loading ? '계정 생성 중...' : '회원가입'}
           </button>
         </form>
 
         <p className="auth-link">
-          Already have an account? <Link to="/login">Login</Link>
+          이미 계정이 있으신가요? <Link to="/login">로그인</Link>
         </p>
       </div>
     </div>

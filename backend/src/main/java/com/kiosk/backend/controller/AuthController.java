@@ -42,7 +42,7 @@ public class AuthController {
 
     @PutMapping("/profile")
     public ResponseEntity<User> updateProfile(@Valid @RequestBody ProfileUpdateRequest request) {
-        User updatedUser = userService.updateProfile(request.getDisplayName(), request.getMemo());
+        User updatedUser = userService.updateProfile(request.getDisplayName(), request.getMemo(), request.getPhoneNumber());
         return ResponseEntity.ok(updatedUser);
     }
 
@@ -79,6 +79,18 @@ public class AuthController {
     @PutMapping("/users/{email}/role")
     public ResponseEntity<Void> updateUserRole(@PathVariable String email, @RequestParam String role) {
         userService.updateUserRole(email, role);
+        return ResponseEntity.ok().build();
+    }
+
+    @PutMapping("/users/{email}/profile")
+    public ResponseEntity<User> updateUserProfile(@PathVariable String email, @Valid @RequestBody ProfileUpdateRequest request) {
+        User updatedUser = userService.updateUserProfile(email, request.getDisplayName(), request.getMemo(), request.getPhoneNumber());
+        return ResponseEntity.ok(updatedUser);
+    }
+
+    @DeleteMapping("/me")
+    public ResponseEntity<Void> deleteMyAccount() {
+        userService.deleteMyAccount();
         return ResponseEntity.ok().build();
     }
 }

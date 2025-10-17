@@ -40,7 +40,7 @@ function Navbar() {
     <nav className="navbar">
       <div className="navbar-container">
         <Link to="/dashboard" className="navbar-logo" onClick={closeMenu}>
-          <h1>My App</h1>
+          <h1>AiOZ 플랫폼</h1>
         </Link>
 
         {/* Hamburger Menu Icon */}
@@ -63,7 +63,7 @@ function Navbar() {
                 className={location.pathname === '/dashboard' ? 'active' : ''}
                 onClick={closeMenu}
               >
-                Dashboard
+                대시보드
               </Link>
             </li>
             <li>
@@ -72,7 +72,7 @@ function Navbar() {
                 className={location.pathname === '/kiosks' ? 'active' : ''}
                 onClick={closeMenu}
               >
-                Kiosks
+                키오스크
               </Link>
             </li>
             <li>
@@ -81,7 +81,7 @@ function Navbar() {
                 className={location.pathname === '/stores' ? 'active' : ''}
                 onClick={closeMenu}
               >
-                Stores
+                매장
               </Link>
             </li>
             <li className="dropdown">
@@ -89,7 +89,7 @@ function Navbar() {
                 className={`dropdown-toggle ${isSettingsOpen ? 'active' : ''}`}
                 onClick={toggleSettings}
               >
-                Settings
+                설정
                 <span className={`arrow ${isSettingsOpen ? 'open' : ''}`}>▼</span>
               </button>
               {isSettingsOpen && (
@@ -104,7 +104,7 @@ function Navbar() {
                     </Link>
                   </li>
                   {user?.role === 'ADMIN' && (
-                    <li>
+                    <li className="hide-mobile">
                       <Link
                         to="/user-history"
                         className={location.pathname === '/user-history' ? 'active' : ''}
@@ -114,7 +114,7 @@ function Navbar() {
                       </Link>
                     </li>
                   )}
-                  <li>
+                  <li className="hide-mobile">
                     <Link
                       to="/history"
                       className={location.pathname === '/history' ? 'active' : ''}
@@ -124,7 +124,7 @@ function Navbar() {
                     </Link>
                   </li>
                   {user?.role === 'ADMIN' && (
-                    <li>
+                    <li className="hide-mobile">
                       <Link
                         to="/user-management"
                         className={location.pathname === '/user-management' ? 'active' : ''}
@@ -140,9 +140,9 @@ function Navbar() {
           </ul>
 
           <div className="navbar-user">
-            <span className="user-name">Welcome, {user?.name}!</span>
+            <span className="user-name">환영합니다, {user?.name}!</span>
             <button onClick={handleLogout} className="btn-logout">
-              Logout
+              로그아웃
             </button>
           </div>
         </div>

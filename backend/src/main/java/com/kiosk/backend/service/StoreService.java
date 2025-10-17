@@ -4,10 +4,8 @@ import com.kiosk.backend.dto.CreateStoreRequest;
 import com.kiosk.backend.dto.StoreDTO;
 import com.kiosk.backend.entity.EntityHistory;
 import com.kiosk.backend.entity.Store;
-import com.kiosk.backend.entity.StoreHistory;
 import com.kiosk.backend.repository.EntityHistoryRepository;
 import com.kiosk.backend.repository.StoreRepository;
-import com.kiosk.backend.repository.StoreHistoryRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -24,7 +22,6 @@ import java.util.stream.Collectors;
 public class StoreService {
 
     private final StoreRepository storeRepository;
-    private final StoreHistoryRepository storeHistoryRepository;
     private final EntityHistoryRepository entityHistoryRepository;
     private final KioskService kioskService;
 
@@ -63,8 +60,7 @@ public class StoreService {
                     Store.StoreState.valueOf(request.getState().toUpperCase()) :
                     Store.StoreState.ACTIVE)
                 .userid(userEmail)
-                .regdate(LocalDateTime.now())
-                .startdate(parseDate(request.getStartdate()))
+                .regdate(parseDate(request.getRegdate()))
                 .deldate(parseDate(request.getEnddate()))
                 .build();
 
@@ -72,7 +68,7 @@ public class StoreService {
         log.info("Created store with posid: {} by user: {}", savedStore.getPosid(), userEmail);
 
         // Log history
-        logHistory(savedStore.getId(), savedStore.getPosid(), StoreHistory.ActionType.CREATE,
+        logHistory(savedStore.getId(), savedStore.getPosid(), "CREATE",
                 userEmail, username, null, null, null,
                 "Created store: " + savedStore.getPosname());
 
@@ -141,7 +137,7 @@ public class StoreService {
         String oldAddress = store.getAddress();
         String oldAddressDetail = store.getAddressDetail();
         Store.StoreState oldState = store.getState();
-        LocalDateTime oldStartdate = store.getStartdate();
+        LocalDateTime oldRegdate = store.getRegdate();
         LocalDateTime oldDeldate = store.getDeldate();
 
         store.setPosname(request.getPosname());
@@ -154,7 +150,7 @@ public class StoreService {
             store.setState(Store.StoreState.valueOf(request.getState().toUpperCase()));
         }
 
-        store.setStartdate(parseDate(request.getStartdate()));
+        store.setRegdate(parseDate(request.getRegdate()));
         store.setDeldate(parseDate(request.getEnddate()));
 
         Store updatedStore = storeRepository.save(store);
@@ -162,47 +158,46 @@ public class StoreService {
 
         // Log history for each changed field
         if (!oldPosname.equals(updatedStore.getPosname())) {
-            logHistory(updatedStore.getId(), updatedStore.getPosid(), StoreHistory.ActionType.UPDATE,
+            logHistory(updatedStore.getId(), updatedStore.getPosid(), "UPDATE",
                     userEmail, username, "posname", oldPosname, updatedStore.getPosname(),
                     "Changed store name from '" + oldPosname + "' to '" + updatedStore.getPosname() + "'");
         }
         if (!java.util.Objects.equals(oldPostcode, updatedStore.getPostcode())) {
-            logHistory(updatedStore.getId(), updatedStore.getPosid(), StoreHistory.ActionType.UPDATE,
+            logHistory(updatedStore.getId(), updatedStore.getPosid(), "UPDATE",
                     userEmail, username, "postcode", oldPostcode, updatedStore.getPostcode(),
                     "Changed postcode");
         }
         if (!java.util.Objects.equals(oldAddress, updatedStore.getAddress())) {
-            logHistory(updatedStore.getId(), updatedStore.getPosid(), StoreHistory.ActionType.UPDATE,
+            logHistory(updatedStore.getId(), updatedStore.getPosid(), "UPDATE",
                     userEmail, username, "address", oldAddress, updatedStore.getAddress(),
                     "Changed address");
         }
         if (!java.util.Objects.equals(oldAddressDetail, updatedStore.getAddressDetail())) {
-            logHistory(updatedStore.getId(), updatedStore.getPosid(), StoreHistory.ActionType.UPDATE,
+            logHistory(updatedStore.getId(), updatedStore.getPosid(), "UPDATE",
                     userEmail, username, "addressDetail", oldAddressDetail, updatedStore.getAddressDetail(),
                     "Changed address detail");
         }
         if (oldState != updatedStore.getState()) {
-            logHistory(updatedStore.getId(), updatedStore.getPosid(), StoreHistory.ActionType.UPDATE,
+            logHistory(updatedStore.getId(), updatedStore.getPosid(), "UPDATE",
                     userEmail, username, "state", oldState.toString(), updatedStore.getState().toString(),
                     "Changed state from " + oldState + " to " + updatedStore.getState());
 
-            // Auto-update kiosk states if store state changed to INACTIVE or MAINTENANCE
-            if (updatedStore.getState() == Store.StoreState.INACTIVE ||
-                updatedStore.getState() == Store.StoreState.MAINTENANCE) {
+            // Auto-update kiosk states if store state changed to INACTIVE
+            if (updatedStore.getState() == Store.StoreState.INACTIVE) {
                 log.info("Store state changed to {}, updating all kiosks for posid: {}",
                         updatedStore.getState(), updatedStore.getPosid());
                 kioskService.updateKioskStateByPosid(updatedStore.getPosid(), updatedStore.getState().toString());
             }
         }
-        if (!java.util.Objects.equals(oldStartdate, updatedStore.getStartdate())) {
-            logHistory(updatedStore.getId(), updatedStore.getPosid(), StoreHistory.ActionType.UPDATE,
-                    userEmail, username, "startdate",
-                    oldStartdate != null ? oldStartdate.toString() : null,
-                    updatedStore.getStartdate() != null ? updatedStore.getStartdate().toString() : null,
-                    "Changed start date");
+        if (!java.util.Objects.equals(oldRegdate, updatedStore.getRegdate())) {
+            logHistory(updatedStore.getId(), updatedStore.getPosid(), "UPDATE",
+                    userEmail, username, "regdate",
+                    oldRegdate != null ? oldRegdate.toString() : null,
+                    updatedStore.getRegdate() != null ? updatedStore.getRegdate().toString() : null,
+                    "Changed registration date");
         }
         if (!java.util.Objects.equals(oldDeldate, updatedStore.getDeldate())) {
-            logHistory(updatedStore.getId(), updatedStore.getPosid(), StoreHistory.ActionType.UPDATE,
+            logHistory(updatedStore.getId(), updatedStore.getPosid(), "UPDATE",
                     userEmail, username, "deldate",
                     oldDeldate != null ? oldDeldate.toString() : null,
                     updatedStore.getDeldate() != null ? updatedStore.getDeldate().toString() : null,
@@ -228,7 +223,7 @@ public class StoreService {
         log.info("Soft deleted store with posid: {} by user: {}", store.getPosid(), userEmail);
 
         // Log history
-        logHistory(store.getId(), store.getPosid(), StoreHistory.ActionType.DELETE,
+        logHistory(store.getId(), store.getPosid(), "DELETE",
                 userEmail, username, "state", oldState.toString(), "DELETED",
                 "Soft deleted store: " + store.getPosname());
     }
@@ -248,7 +243,7 @@ public class StoreService {
         log.info("Restored store with posid: {} by user: {}", store.getPosid(), userEmail);
 
         // Log history
-        logHistory(store.getId(), store.getPosid(), StoreHistory.ActionType.RESTORE,
+        logHistory(store.getId(), store.getPosid(), "RESTORE",
                 userEmail, username, "state", "DELETED", "ACTIVE",
                 "Restored store: " + store.getPosname());
     }
@@ -265,29 +260,15 @@ public class StoreService {
     }
 
     /**
-     * Log history entry
+     * Log history entry to unified entity_history table
      */
-    private void logHistory(Long storeId, String posid, StoreHistory.ActionType action,
+    private void logHistory(Long storeId, String posid, String action,
                            String userEmail, String username, String fieldName, String oldValue, String newValue,
                            String description) {
-        // Save to old storehis table for backwards compatibility
-        StoreHistory history = StoreHistory.builder()
-                .storeId(storeId)
-                .posid(posid)
-                .action(action)
-                .userid(userEmail)
-                .fieldName(fieldName)
-                .oldValue(oldValue)
-                .newValue(newValue)
-                .description(description)
-                .timestamp(LocalDateTime.now())
-                .build();
-        storeHistoryRepository.save(history);
-
         // Save to unified entity_history table
         EntityHistory.ActionType entityAction;
         try {
-            entityAction = EntityHistory.ActionType.valueOf(action.name());
+            entityAction = EntityHistory.ActionType.valueOf(action);
         } catch (IllegalArgumentException e) {
             entityAction = EntityHistory.ActionType.UPDATE; // Default
         }

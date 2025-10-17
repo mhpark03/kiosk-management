@@ -124,6 +124,16 @@
   color: #555;
 }
 
+.clickable-posid {
+  transition: all 0.2s ease;
+}
+
+.clickable-posid:hover {
+  color: #5568d3 !important;
+  text-decoration: underline;
+  transform: scale(1.05);
+}
+
 .no-data {
   text-align: center;
   padding: 40px !important;
@@ -435,6 +445,11 @@
     align-items: stretch;
   }
 
+  /* Hide toggle-deleted checkbox on mobile */
+  .toggle-deleted {
+    display: none;
+  }
+
   .btn-add {
     width: 100%;
   }
@@ -444,13 +459,49 @@
   }
 
   .store-table {
-    min-width: 900px;
+    min-width: 600px;
   }
 
   .store-table th,
   .store-table td {
     padding: 12px 8px;
     font-size: 12px;
+  }
+
+  /* Hide regdate (4th), enddate (6th), and action (8th) columns on mobile */
+  .store-table th:nth-child(4),
+  .store-table td:nth-child(4),
+  .store-table th:nth-child(6),
+  .store-table td:nth-child(6),
+  .store-table th:nth-child(8),
+  .store-table td:nth-child(8) {
+    display: none;
+  }
+
+  /* Adjust column widths for better visibility on mobile */
+  .store-table th:nth-child(1),
+  .store-table td:nth-child(1) {
+    width: 60px;
+  }
+
+  .store-table th:nth-child(2),
+  .store-table td:nth-child(2) {
+    width: 100px;
+  }
+
+  .store-table th:nth-child(3),
+  .store-table td:nth-child(3) {
+    min-width: 150px;
+  }
+
+  .store-table th:nth-child(5),
+  .store-table td:nth-child(5) {
+    width: 80px;
+  }
+
+  .store-table th:nth-child(7),
+  .store-table td:nth-child(7) {
+    width: 80px;
   }
 
   .action-buttons {
