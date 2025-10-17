@@ -5,9 +5,7 @@ import com.kiosk.backend.dto.KioskDTO;
 import com.kiosk.backend.dto.UpdateKioskRequest;
 import com.kiosk.backend.entity.EntityHistory;
 import com.kiosk.backend.entity.Kiosk;
-import com.kiosk.backend.entity.KioskHistory;
 import com.kiosk.backend.repository.EntityHistoryRepository;
-import com.kiosk.backend.repository.KioskHistoryRepository;
 import com.kiosk.backend.repository.KioskRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,7 +23,6 @@ import java.util.stream.Collectors;
 public class KioskService {
 
     private final KioskRepository kioskRepository;
-    private final KioskHistoryRepository kioskHistoryRepository;
     private final EntityHistoryRepository entityHistoryRepository;
 
     /**
@@ -336,21 +333,11 @@ public class KioskService {
     }
 
     /**
-     * Log kiosk history
+     * Log kiosk history to unified entity_history table
      */
     private void logHistory(String kioskid, String posid, String userid, String username, String action,
                            String fieldName, String oldValue, String newValue, String detail) {
-        // Save to old kiosk_history table for backwards compatibility
-        KioskHistory history = KioskHistory.builder()
-                .kioskid(kioskid)
-                .posid(posid)
-                .userid(userid)
-                .action(action)
-                .detail(detail)
-                .build();
-        kioskHistoryRepository.save(history);
-
-        // Save to unified entity_history table
+        // Save to unified entity_history table only
         EntityHistory.ActionType actionType;
         try {
             actionType = EntityHistory.ActionType.valueOf(action.toUpperCase());
@@ -370,18 +357,9 @@ public class KioskService {
                 .oldValue(oldValue)
                 .newValue(newValue)
                 .description(detail)
-                .detail(detail)
                 .build();
 
         entityHistoryRepository.save(entityHistory);
-    }
-
-    /**
-     * Get kiosk history
-     */
-    @Transactional(readOnly = true)
-    public List<KioskHistory> getKioskHistory(String kioskid) {
-        return kioskHistoryRepository.findByKioskidOrderByUpdatetimeDesc(kioskid);
     }
 
     /**

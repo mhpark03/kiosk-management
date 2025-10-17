@@ -3,7 +3,6 @@ package com.kiosk.backend.controller;
 import com.kiosk.backend.dto.CreateKioskRequest;
 import com.kiosk.backend.dto.KioskDTO;
 import com.kiosk.backend.dto.UpdateKioskRequest;
-import com.kiosk.backend.entity.KioskHistory;
 import com.kiosk.backend.service.KioskService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -174,16 +173,5 @@ public class KioskController {
         log.info("DELETE /api/kiosks/{}/permanent", id);
         kioskService.permanentDeleteKiosk(id);
         return ResponseEntity.noContent().build();
-    }
-
-    /**
-     * Get kiosk history
-     * GET /api/kiosks/{kioskid}/history
-     */
-    @GetMapping("/{kioskid}/history")
-    public ResponseEntity<List<KioskHistory>> getKioskHistory(@PathVariable String kioskid) {
-        log.info("GET /api/kiosks/{}/history", kioskid);
-        List<KioskHistory> history = kioskService.getKioskHistory(kioskid);
-        return ResponseEntity.ok(history);
     }
 }

@@ -24,6 +24,8 @@ function History() {
   const [filterStore, setFilterStore] = useState('');
   const [filterUserid, setFilterUserid] = useState('');
   const [filterKioskId, setFilterKioskId] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   const entityType = searchParams.get('entityType');
   const entityId = searchParams.get('entityId');
@@ -188,25 +190,25 @@ function History() {
   const getActionLabel = (action) => {
     switch (action) {
       case 'CREATE':
-        return 'Created';
+        return '생성';
       case 'UPDATE':
-        return 'Updated';
+        return '수정';
       case 'DELETE':
-        return 'Deleted';
+        return '삭제';
       case 'RESTORE':
-        return 'Restored';
+        return '복원';
       case 'STATE_CHANGE':
-        return 'State Changed';
+        return '상태 변경';
       case 'LOGIN':
-        return 'Login';
+        return '로그인';
       case 'LOGOUT':
-        return 'Logout';
+        return '로그아웃';
       case 'PASSWORD_CHANGE':
-        return 'Password Change';
+        return '비밀번호 변경';
       case 'SUSPEND':
-        return 'Suspended';
+        return '정지';
       case 'ACTIVATE':
-        return 'Activated';
+        return '활성화';
       default:
         return action;
     }
@@ -215,11 +217,11 @@ function History() {
   const getEntityTypeLabel = (type) => {
     switch (type) {
       case 'KIOSK':
-        return 'Kiosk';
+        return '키오스크';
       case 'STORE':
-        return 'Store';
+        return '매장';
       case 'USER':
-        return 'User';
+        return '사용자';
       default:
         return type;
     }
@@ -285,20 +287,47 @@ function History() {
     return true;
   });
 
+  // Pagination logic
+  const totalPages = Math.ceil(filteredHistory.length / itemsPerPage);
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentHistory = filteredHistory.slice(indexOfFirstItem, indexOfLastItem);
+
+  const handlePageChange = (pageNumber) => {
+    setCurrentPage(pageNumber);
+  };
+
+  const handlePreviousPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filteredHistory.length]);
+
   return (
     <div className="store-history">
       <div className="history-header">
         <div>
-          <h1>Change History</h1>
-          {posid && <p className="store-filter-info">POS ID: {posid}</p>}
-          {entityType && <p className="store-filter-info">Type: {getEntityTypeLabel(entityType)}</p>}
+          <h1>이력 조회</h1>
+          {posid && <p className="store-filter-info">매장 ID: {posid}</p>}
+          {entityType && <p className="store-filter-info">유형: {getEntityTypeLabel(entityType)}</p>}
         </div>
         {(entityType || entityId) && (
           <button
             onClick={() => navigate('/history')}
             className="btn-show-all"
           >
-            Show All History
+            전체 이력 보기
           </button>
         )}
       </div>
@@ -307,45 +336,45 @@ function History() {
 
       <div className="filter-section">
         <div className="filter-group">
-          <label htmlFor="searchEntityType">Entity Type:</label>
+          <label htmlFor="searchEntityType">유형:</label>
           <select
             id="searchEntityType"
             value={searchEntityType}
             onChange={(e) => setSearchEntityType(e.target.value)}
             className="filter-select"
           >
-            <option value="ALL">All Types</option>
-            <option value="KIOSK">Kiosk</option>
-            <option value="STORE">Store</option>
+            <option value="ALL">전체</option>
+            <option value="KIOSK">키오스크</option>
+            <option value="STORE">매장</option>
           </select>
         </div>
 
         <div className="filter-group">
-          <label htmlFor="searchAction">Action:</label>
+          <label htmlFor="searchAction">작업:</label>
           <select
             id="searchAction"
             value={searchAction}
             onChange={(e) => setSearchAction(e.target.value)}
             className="filter-select"
           >
-            <option value="ALL">All Actions</option>
-            <option value="CREATE">Create</option>
-            <option value="UPDATE">Update</option>
-            <option value="DELETE">Delete</option>
-            <option value="RESTORE">Restore</option>
-            <option value="STATE_CHANGE">State Change</option>
+            <option value="ALL">전체</option>
+            <option value="CREATE">생성</option>
+            <option value="UPDATE">수정</option>
+            <option value="DELETE">삭제</option>
+            <option value="RESTORE">복원</option>
+            <option value="STATE_CHANGE">상태 변경</option>
           </select>
         </div>
 
         <div className="filter-group">
-          <label htmlFor="searchStore">Store:</label>
+          <label htmlFor="searchStore">매장:</label>
           <select
             id="searchStore"
             value={searchStore}
             onChange={(e) => setSearchStore(e.target.value)}
             className="filter-select"
           >
-            <option value="">All Stores</option>
+            <option value="">전체 매장</option>
             {stores.map((store) => (
               <option key={store.id} value={store.posid}>
                 {store.posname}
@@ -355,14 +384,14 @@ function History() {
         </div>
 
         <div className="filter-group">
-          <label htmlFor="searchUserid">User:</label>
+          <label htmlFor="searchUserid">사용자:</label>
           <select
             id="searchUserid"
             value={searchUserid}
             onChange={(e) => setSearchUserid(e.target.value)}
             className="filter-select"
           >
-            <option value="">All Users</option>
+            <option value="">전체 사용자</option>
             {uniqueUsers.map(([userid, username]) => (
               <option key={userid} value={userid}>
                 {username}
@@ -373,7 +402,7 @@ function History() {
 
         <div style={{display: 'flex', alignItems: 'flex-end', gap: '8px'}}>
           <div style={{display: 'flex', flexDirection: 'column', gap: '5px'}}>
-            <label htmlFor="searchKioskId" style={{fontSize: '13px', fontWeight: 600, color: '#4a5568'}}>Kiosk ID:</label>
+            <label htmlFor="searchKioskId" style={{fontSize: '13px', fontWeight: 600, color: '#4a5568'}}>키오스크 ID:</label>
             <div style={{position: 'relative', width: '160px'}}>
               <input
                 type="text"
@@ -381,7 +410,7 @@ function History() {
                 value={searchKioskId}
                 onChange={(e) => setSearchKioskId(e.target.value)}
                 onKeyPress={handleKeyPress}
-                placeholder="Kiosk ID"
+                placeholder="키오스크 ID"
                 style={{
                   width: '100%',
                   padding: '8px 35px 8px 12px',
@@ -407,7 +436,7 @@ function History() {
                     padding: '0 5px'
                   }}
                   type="button"
-                  title="Clear"
+                  title="지우기"
                 >
                   ✕
                 </button>
@@ -416,40 +445,40 @@ function History() {
           </div>
         </div>
 
-        <button onClick={handleSearch} className="btn-refresh" title="Search" style={{fontSize: '18px'}}>
+        <button onClick={handleSearch} className="btn-refresh" title="검색" style={{fontSize: '18px', background: 'none', border: 'none', cursor: 'pointer'}}>
           🔍
         </button>
-        <button onClick={handleReset} className="btn-refresh" title="Reset" style={{marginLeft: '5px', fontSize: '18px'}}>
+        <button onClick={handleReset} className="btn-refresh" title="초기화" style={{marginLeft: '5px', fontSize: '18px', background: 'none', border: 'none', cursor: 'pointer'}}>
           🔄
         </button>
       </div>
 
       {loading ? (
-        <div className="loading">Loading history...</div>
+        <div className="loading">이력을 불러오는 중...</div>
       ) : (
         <div className="history-table-container">
           <table className="history-table">
             <thead>
               <tr>
-                <th>Type</th>
-                <th>Timestamp</th>
-                <th>Store</th>
-                <th>Kiosk ID</th>
-                <th>Action</th>
-                <th>User</th>
-                <th>Field</th>
-                <th>Old Value</th>
-                <th>New Value</th>
-                <th>Description</th>
+                <th>유형</th>
+                <th>시간</th>
+                <th>매장</th>
+                <th>키오스크 ID</th>
+                <th>작업</th>
+                <th>사용자</th>
+                <th>필드</th>
+                <th>이전 값</th>
+                <th>새 값</th>
+                <th>설명</th>
               </tr>
             </thead>
             <tbody>
-              {filteredHistory.length === 0 ? (
+              {currentHistory.length === 0 ? (
                 <tr>
-                  <td colSpan="10" className="no-data">No history found</td>
+                  <td colSpan="10" className="no-data">이력이 없습니다</td>
                 </tr>
               ) : (
-                filteredHistory.map((item) => (
+                currentHistory.map((item) => (
                   <tr key={item.id}>
                     <td>
                       <span className={`action-badge ${getEntityTypeBadgeColor(item.entityType)}`}>
@@ -477,8 +506,78 @@ function History() {
         </div>
       )}
 
+      {filteredHistory.length > 10 && (
+        <div style={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          gap: '10px',
+          marginTop: '20px',
+          padding: '20px'
+        }}>
+          <button
+            onClick={handlePreviousPage}
+            disabled={currentPage === 1}
+            style={{
+              padding: '8px 16px',
+              border: '1px solid #cbd5e0',
+              borderRadius: '4px',
+              background: currentPage === 1 ? '#f7fafc' : 'white',
+              cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
+              color: currentPage === 1 ? '#a0aec0' : '#2d3748',
+              fontSize: '14px',
+              fontWeight: '500'
+            }}
+          >
+            이전
+          </button>
+
+          <div style={{ display: 'flex', gap: '5px' }}>
+            {[...Array(totalPages)].map((_, index) => {
+              const pageNumber = index + 1;
+              return (
+                <button
+                  key={pageNumber}
+                  onClick={() => handlePageChange(pageNumber)}
+                  style={{
+                    padding: '8px 12px',
+                    border: '1px solid #cbd5e0',
+                    borderRadius: '4px',
+                    background: currentPage === pageNumber ? '#4299e1' : 'white',
+                    color: currentPage === pageNumber ? 'white' : '#2d3748',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    fontWeight: currentPage === pageNumber ? '600' : '500',
+                    minWidth: '40px'
+                  }}
+                >
+                  {pageNumber}
+                </button>
+              );
+            })}
+          </div>
+
+          <button
+            onClick={handleNextPage}
+            disabled={currentPage === totalPages}
+            style={{
+              padding: '8px 16px',
+              border: '1px solid #cbd5e0',
+              borderRadius: '4px',
+              background: currentPage === totalPages ? '#f7fafc' : 'white',
+              cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
+              color: currentPage === totalPages ? '#a0aec0' : '#2d3748',
+              fontSize: '14px',
+              fontWeight: '500'
+            }}
+          >
+            다음
+          </button>
+        </div>
+      )}
+
       <div className="history-summary">
-        <p>Total Records: {filteredHistory.length} / {history.length}</p>
+        <p>전체 레코드: {filteredHistory.length} / {history.length} | 페이지: {currentPage} / {totalPages}</p>
       </div>
     </div>
   );

@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -88,6 +89,17 @@ public class StoreService {
             log.warn("Failed to parse date: {}", dateStr);
             return null;
         }
+    }
+
+    /**
+     * Format LocalDateTime to MM/dd format for history display
+     */
+    private String formatDateForHistory(LocalDateTime dateTime) {
+        if (dateTime == null) {
+            return null;
+        }
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MM/dd");
+        return dateTime.format(formatter);
     }
 
     /**
@@ -192,8 +204,8 @@ public class StoreService {
         if (!java.util.Objects.equals(oldRegdate, updatedStore.getRegdate())) {
             logHistory(updatedStore.getId(), updatedStore.getPosid(), "UPDATE",
                     userEmail, username, "regdate",
-                    oldRegdate != null ? oldRegdate.toString() : null,
-                    updatedStore.getRegdate() != null ? updatedStore.getRegdate().toString() : null,
+                    formatDateForHistory(oldRegdate),
+                    formatDateForHistory(updatedStore.getRegdate()),
                     "Changed registration date");
         }
         if (!java.util.Objects.equals(oldDeldate, updatedStore.getDeldate())) {

@@ -15,6 +15,8 @@ function UserHistory() {
   const [selectedUserEmail, setSelectedUserEmail] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   // Filter states (user input)
   const [filterEntityType, setFilterEntityType] = useState('ALL');
@@ -223,6 +225,33 @@ function UserHistory() {
     return true;
   });
 
+  // Pagination logic
+  const totalPages = Math.ceil(filteredHistory.length / itemsPerPage);
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentHistory = filteredHistory.slice(indexOfFirstItem, indexOfLastItem);
+
+  const handlePageChange = (pageNumber) => {
+    setCurrentPage(pageNumber);
+  };
+
+  const handlePreviousPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filteredHistory.length]);
+
   return (
     <div className="store-history">
       <div className="history-header">
@@ -394,7 +423,7 @@ function UserHistory() {
                   <td colSpan="9" className="no-data">이력을 찾을 수 없습니다</td>
                 </tr>
               ) : (
-                filteredHistory.map((item) => (
+                currentHistory.map((item) => (
                   <tr key={item.id}>
                     <td>
                       <span className={`action-badge ${getEntityTypeBadgeColor(item.entityType)}`}>
@@ -421,8 +450,79 @@ function UserHistory() {
         </div>
       )}
 
+      {/* Pagination */}
+      {filteredHistory.length > 0 && totalPages > 1 && (
+        <div style={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          gap: '10px',
+          marginTop: '20px',
+          marginBottom: '10px'
+        }}>
+          <button
+            onClick={handlePreviousPage}
+            disabled={currentPage === 1}
+            style={{
+              padding: '8px 16px',
+              fontSize: '14px',
+              fontWeight: '600',
+              border: '1px solid #cbd5e0',
+              borderRadius: '4px',
+              background: currentPage === 1 ? '#f7fafc' : '#fff',
+              color: currentPage === 1 ? '#a0aec0' : '#2d3748',
+              cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
+              transition: 'all 0.2s'
+            }}
+          >
+            이전
+          </button>
+
+          <div style={{display: 'flex', gap: '5px'}}>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map(pageNum => (
+              <button
+                key={pageNum}
+                onClick={() => handlePageChange(pageNum)}
+                style={{
+                  padding: '8px 12px',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  border: '1px solid #cbd5e0',
+                  borderRadius: '4px',
+                  background: currentPage === pageNum ? '#667eea' : '#fff',
+                  color: currentPage === pageNum ? '#fff' : '#2d3748',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  minWidth: '40px'
+                }}
+              >
+                {pageNum}
+              </button>
+            ))}
+          </div>
+
+          <button
+            onClick={handleNextPage}
+            disabled={currentPage === totalPages}
+            style={{
+              padding: '8px 16px',
+              fontSize: '14px',
+              fontWeight: '600',
+              border: '1px solid #cbd5e0',
+              borderRadius: '4px',
+              background: currentPage === totalPages ? '#f7fafc' : '#fff',
+              color: currentPage === totalPages ? '#a0aec0' : '#2d3748',
+              cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
+              transition: 'all 0.2s'
+            }}
+          >
+            다음
+          </button>
+        </div>
+      )}
+
       <div className="history-summary">
-        <p>전체 기록: {filteredHistory.length} / {history.length}</p>
+        <p>전체 기록: {filteredHistory.length} / {history.length} {filteredHistory.length > 0 && `(${currentPage} / ${totalPages} 페이지)`}</p>
       </div>
     </div>
   );

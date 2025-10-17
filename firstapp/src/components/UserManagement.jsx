@@ -16,6 +16,8 @@ function UserManagement() {
     phoneNumber: '',
     memo: ''
   });
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   useEffect(() => {
     loadUsers();
@@ -213,6 +215,33 @@ function UserManagement() {
     return `${month}/${day} ${hours}:${minutes}`;
   };
 
+  // Pagination logic
+  const totalPages = Math.ceil(users.length / itemsPerPage);
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentUsers = users.slice(indexOfFirstItem, indexOfLastItem);
+
+  const handlePageChange = (pageNumber) => {
+    setCurrentPage(pageNumber);
+  };
+
+  const handlePreviousPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+
+  // Reset to page 1 when users list changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [users.length]);
+
   if (loading) {
     return (
       <div className="store-management">
@@ -249,12 +278,12 @@ function UserManagement() {
             </tr>
           </thead>
           <tbody>
-            {users.length === 0 ? (
+            {currentUsers.length === 0 ? (
               <tr>
                 <td colSpan="9" className="no-data">사용자가 없습니다</td>
               </tr>
             ) : (
-              users.map((user) => (
+              currentUsers.map((user) => (
                 <tr key={user.id}>
                   <td>{user.email}</td>
                   <td>{user.displayName}</td>
@@ -327,8 +356,78 @@ function UserManagement() {
         </table>
       </div>
 
+      {users.length > 10 && (
+        <div style={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          gap: '10px',
+          marginTop: '20px',
+          padding: '20px'
+        }}>
+          <button
+            onClick={handlePreviousPage}
+            disabled={currentPage === 1}
+            style={{
+              padding: '8px 16px',
+              border: '1px solid #cbd5e0',
+              borderRadius: '4px',
+              background: currentPage === 1 ? '#f7fafc' : 'white',
+              cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
+              color: currentPage === 1 ? '#a0aec0' : '#2d3748',
+              fontSize: '14px',
+              fontWeight: '500'
+            }}
+          >
+            이전
+          </button>
+
+          <div style={{ display: 'flex', gap: '5px' }}>
+            {[...Array(totalPages)].map((_, index) => {
+              const pageNumber = index + 1;
+              return (
+                <button
+                  key={pageNumber}
+                  onClick={() => handlePageChange(pageNumber)}
+                  style={{
+                    padding: '8px 12px',
+                    border: '1px solid #cbd5e0',
+                    borderRadius: '4px',
+                    background: currentPage === pageNumber ? '#4299e1' : 'white',
+                    color: currentPage === pageNumber ? 'white' : '#2d3748',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    fontWeight: currentPage === pageNumber ? '600' : '500',
+                    minWidth: '40px'
+                  }}
+                >
+                  {pageNumber}
+                </button>
+              );
+            })}
+          </div>
+
+          <button
+            onClick={handleNextPage}
+            disabled={currentPage === totalPages}
+            style={{
+              padding: '8px 16px',
+              border: '1px solid #cbd5e0',
+              borderRadius: '4px',
+              background: currentPage === totalPages ? '#f7fafc' : 'white',
+              cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
+              color: currentPage === totalPages ? '#a0aec0' : '#2d3748',
+              fontSize: '14px',
+              fontWeight: '500'
+            }}
+          >
+            다음
+          </button>
+        </div>
+      )}
+
       <div className="store-summary">
-        <p>전체 사용자 수: {users.length}</p>
+        <p>전체 사용자 수: {users.length} | 페이지: {currentPage} / {totalPages}</p>
       </div>
 
       {/* Edit User Modal */}

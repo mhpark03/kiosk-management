@@ -44,6 +44,8 @@ function KioskManagement() {
   const [dashboardFilterInstallMonth, setDashboardFilterInstallMonth] = useState(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   const [formData, setFormData] = useState({
     posid: '',
@@ -137,7 +139,9 @@ function KioskManagement() {
     try {
       setLoading(true);
       const data = await getAllKiosks(showDeleted);
-      setKiosks(data);
+      // Sort by ID in descending order (newest first)
+      const sortedData = [...data].sort((a, b) => b.id - a.id);
+      setKiosks(sortedData);
       setError('');
     } catch (err) {
       setError('Failed to load kiosks: ' + err.message);
@@ -574,6 +578,33 @@ function KioskManagement() {
     return kioskid.replace(/^0+/, '') || '0';
   };
 
+  // Pagination logic
+  const totalPages = Math.ceil(filteredKiosks.length / itemsPerPage);
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentKiosks = filteredKiosks.slice(indexOfFirstItem, indexOfLastItem);
+
+  const handlePageChange = (pageNumber) => {
+    setCurrentPage(pageNumber);
+  };
+
+  const handlePreviousPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filteredKiosks.length]);
+
   return (
     <div className="kiosk-management">
       <div className="kiosk-header">
@@ -670,7 +701,7 @@ function KioskManagement() {
                   </td>
                 </tr>
               ) : (
-                filteredKiosks.map((kiosk) => (
+                currentKiosks.map((kiosk) => (
                   <tr key={kiosk.id}>
                     <td
                       style={{textAlign: 'center', cursor: 'pointer', color: '#667eea', fontWeight: '600'}}
@@ -748,6 +779,87 @@ function KioskManagement() {
           </table>
         </div>
       )}
+
+      {/* Pagination */}
+      {filteredKiosks.length > 0 && totalPages > 1 && (
+        <div style={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          gap: '10px',
+          marginTop: '20px',
+          marginBottom: '10px'
+        }}>
+          <button
+            onClick={handlePreviousPage}
+            disabled={currentPage === 1}
+            style={{
+              padding: '8px 16px',
+              fontSize: '14px',
+              fontWeight: '600',
+              border: '1px solid #cbd5e0',
+              borderRadius: '4px',
+              background: currentPage === 1 ? '#f7fafc' : '#fff',
+              color: currentPage === 1 ? '#a0aec0' : '#2d3748',
+              cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
+              transition: 'all 0.2s'
+            }}
+          >
+            이전
+          </button>
+
+          <div style={{display: 'flex', gap: '5px'}}>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map(pageNum => (
+              <button
+                key={pageNum}
+                onClick={() => handlePageChange(pageNum)}
+                style={{
+                  padding: '8px 12px',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  border: '1px solid #cbd5e0',
+                  borderRadius: '4px',
+                  background: currentPage === pageNum ? '#667eea' : '#fff',
+                  color: currentPage === pageNum ? '#fff' : '#2d3748',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  minWidth: '40px'
+                }}
+              >
+                {pageNum}
+              </button>
+            ))}
+          </div>
+
+          <button
+            onClick={handleNextPage}
+            disabled={currentPage === totalPages}
+            style={{
+              padding: '8px 16px',
+              fontSize: '14px',
+              fontWeight: '600',
+              border: '1px solid #cbd5e0',
+              borderRadius: '4px',
+              background: currentPage === totalPages ? '#f7fafc' : '#fff',
+              color: currentPage === totalPages ? '#a0aec0' : '#2d3748',
+              cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
+              transition: 'all 0.2s'
+            }}
+          >
+            다음
+          </button>
+        </div>
+      )}
+
+      {/* Page info */}
+      <div style={{
+        textAlign: 'center',
+        fontSize: '14px',
+        color: '#718096',
+        marginBottom: '20px'
+      }}>
+        전체 {filteredKiosks.length}개 키오스크 {filteredKiosks.length > 0 && `(${currentPage} / ${totalPages} 페이지)`}
+      </div>
 
       {/* Add Kiosk Modal */}
       {showAddModal && (

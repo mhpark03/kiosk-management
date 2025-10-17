@@ -28,6 +28,8 @@ function StoreManagement() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [filterRegion, setFilterRegion] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   const [formData, setFormData] = useState({
     posid: '',
@@ -123,7 +125,9 @@ function StoreManagement() {
     try {
       setLoading(true);
       const data = await getAllStores(showDeleted);
-      setStores(data);
+      // Sort by ID in descending order (newest first)
+      const sortedData = [...data].sort((a, b) => b.id - a.id);
+      setStores(sortedData);
       setError('');
     } catch (err) {
       console.error('Failed to load stores:', err.message);
@@ -403,6 +407,33 @@ function StoreManagement() {
     return posid.replace(/^0+/, '') || '0';
   };
 
+  // Pagination logic
+  const totalPages = Math.ceil(filteredStores.length / itemsPerPage);
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentStores = filteredStores.slice(indexOfFirstItem, indexOfLastItem);
+
+  const handlePageChange = (pageNumber) => {
+    setCurrentPage(pageNumber);
+  };
+
+  const handlePreviousPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filteredStores.length]);
+
   const openAddModal = () => {
     // Set regdate to current date when opening add modal
     const now = new Date();
@@ -457,12 +488,12 @@ function StoreManagement() {
               </tr>
             </thead>
             <tbody>
-              {filteredStores.length === 0 ? (
+              {currentStores.length === 0 ? (
                 <tr>
                   <td colSpan="7" className="no-data">매장이 없습니다</td>
                 </tr>
               ) : (
-                filteredStores.map((store) => (
+                currentStores.map((store) => (
                   <tr key={store.id}>
                     <td
                       style={{textAlign: 'center', cursor: 'pointer', color: '#667eea', fontWeight: '600'}}
@@ -543,6 +574,82 @@ function StoreManagement() {
           </table>
         </div>
       )}
+
+      {/* Pagination */}
+      {filteredStores.length > 0 && totalPages > 1 && (
+        <div style={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          margin: '20px 0',
+          gap: '10px'
+        }}>
+          <button
+            onClick={handlePreviousPage}
+            disabled={currentPage === 1}
+            style={{
+              padding: '8px 16px',
+              border: '1px solid #cbd5e0',
+              borderRadius: '4px',
+              background: currentPage === 1 ? '#f7fafc' : '#fff',
+              color: currentPage === 1 ? '#a0aec0' : '#2d3748',
+              cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
+              fontSize: '14px',
+              fontWeight: '500'
+            }}
+          >
+            이전
+          </button>
+
+          <div style={{display: 'flex', gap: '5px'}}>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map(pageNum => (
+              <button
+                key={pageNum}
+                onClick={() => handlePageChange(pageNum)}
+                style={{
+                  padding: '8px 12px',
+                  border: pageNum === currentPage ? '2px solid #667eea' : '1px solid #cbd5e0',
+                  borderRadius: '4px',
+                  background: pageNum === currentPage ? '#667eea' : '#fff',
+                  color: pageNum === currentPage ? '#fff' : '#2d3748',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: pageNum === currentPage ? '600' : '500',
+                  minWidth: '36px'
+                }}
+              >
+                {pageNum}
+              </button>
+            ))}
+          </div>
+
+          <button
+            onClick={handleNextPage}
+            disabled={currentPage === totalPages}
+            style={{
+              padding: '8px 16px',
+              border: '1px solid #cbd5e0',
+              borderRadius: '4px',
+              background: currentPage === totalPages ? '#f7fafc' : '#fff',
+              color: currentPage === totalPages ? '#a0aec0' : '#2d3748',
+              cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
+              fontSize: '14px',
+              fontWeight: '500'
+            }}
+          >
+            다음
+          </button>
+        </div>
+      )}
+
+      <div style={{
+        textAlign: 'center',
+        color: '#718096',
+        fontSize: '14px',
+        margin: '10px 0 20px'
+      }}>
+        전체 {filteredStores.length}개 매장 {filteredStores.length > 0 && `(${currentPage} / ${totalPages} 페이지)`}
+      </div>
 
       {/* Add Store Modal */}
       {showAddModal && (
