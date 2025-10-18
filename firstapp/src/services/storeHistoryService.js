@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = 'http://localhost:8080/api/store-history';
+const API_URL = 'https://localhost:8443/api/store-history';
 
 // Get all store history
 export const getAllStoreHistory = async () => {

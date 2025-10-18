@@ -18,7 +18,7 @@ import java.util.List;
 @RequestMapping("/api/stores")
 @RequiredArgsConstructor
 @Slf4j
-@CrossOrigin(origins = "http://localhost:5173") // Allow React frontend
+@CrossOrigin(origins = "https://localhost:5173") // Allow React frontend
 public class StoreController {
 
     private final StoreService storeService;

@@ -13,7 +13,7 @@ import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/history")
-@CrossOrigin(origins = "http://localhost:5173")
+@CrossOrigin(origins = "https://localhost:5173")
 @RequiredArgsConstructor
 @Slf4j
 public class EntityHistoryController {

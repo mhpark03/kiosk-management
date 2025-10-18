@@ -1,6 +1,6 @@
 import api from './api';
 
-const API_BASE_URL = 'http://localhost:8080/api';
+const API_BASE_URL = 'https://localhost:8443/api';
 
 // Create separate axios instance for auth endpoints (no interceptor)
 import axios from 'axios';

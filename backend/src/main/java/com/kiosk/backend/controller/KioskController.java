@@ -21,7 +21,7 @@ import java.util.Map;
 @RequestMapping("/api/kiosks")
 @RequiredArgsConstructor
 @Slf4j
-@CrossOrigin(origins = "http://localhost:5173") // Allow React frontend
+@CrossOrigin(origins = "https://localhost:5173") // Allow React frontend
 public class KioskController {
 
     private final KioskService kioskService;
