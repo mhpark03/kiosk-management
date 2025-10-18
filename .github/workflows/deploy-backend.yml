@@ -1,0 +1,76 @@
+name: Deploy Backend to AWS
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'backend/**'
+      - '.github/workflows/deploy-backend.yml'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up JDK 17
+      uses: actions/setup-java@v3
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+
+    - name: Grant execute permission for gradlew
+      run: chmod +x backend/gradlew
+
+    - name: Build with Gradle
+      run: |
+        cd backend
+        ./gradlew clean build -x test
+
+    - name: Get timestamp
+      id: timestamp
+      run: echo "timestamp=$(date +'%Y%m%d-%H%M%S')" >> $GITHUB_OUTPUT
+
+    - name: Generate deployment package
+      run: |
+        cd backend
+        mkdir -p deploy
+        cp build/libs/*.jar deploy/application.jar
+        cp -r .ebextensions deploy/ 2>/dev/null || true
+        cp -r .platform deploy/ 2>/dev/null || true
+        cd deploy
+        zip -r ../deploy-${{ steps.timestamp.outputs.timestamp }}.zip .
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ap-northeast-2
+
+    - name: Deploy to Elastic Beanstalk
+      run: |
+        cd backend
+        aws s3 cp deploy-${{ steps.timestamp.outputs.timestamp }}.zip s3://${{ secrets.EB_S3_BUCKET }}/backend-${{ steps.timestamp.outputs.timestamp }}.zip
+        aws elasticbeanstalk create-application-version \
+          --application-name ${{ secrets.EB_APPLICATION_NAME }} \
+          --version-label backend-${{ steps.timestamp.outputs.timestamp }} \
+          --source-bundle S3Bucket="${{ secrets.EB_S3_BUCKET }}",S3Key="backend-${{ steps.timestamp.outputs.timestamp }}.zip"
+        aws elasticbeanstalk update-environment \
+          --application-name ${{ secrets.EB_APPLICATION_NAME }} \
+          --environment-name ${{ secrets.EB_ENVIRONMENT_NAME }} \
+          --version-label backend-${{ steps.timestamp.outputs.timestamp }}
+
+    - name: Wait for deployment
+      run: |
+        aws elasticbeanstalk wait environment-updated \
+          --application-name ${{ secrets.EB_APPLICATION_NAME }} \
+          --environment-name ${{ secrets.EB_ENVIRONMENT_NAME }}
+
+    - name: Verify deployment
+      run: |
+        echo "Deployment completed successfully!"
+        echo "Application URL: ${{ secrets.EB_ENVIRONMENT_URL }}"

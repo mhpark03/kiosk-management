@@ -1,0 +1,72 @@
+name: Deploy Backend to EC2 (Alternative)
+
+# EC2로 직접 배포하는 경우 사용
+# Elastic Beanstalk 대신 EC2를 사용할 때 이 워크플로우를 활성화하세요
+
+on:
+  workflow_dispatch:  # 수동 실행만 허용
+  # push:
+  #   branches:
+  #     - main
+  #   paths:
+  #     - 'backend/**'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up JDK 17
+      uses: actions/setup-java@v3
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+
+    - name: Grant execute permission for gradlew
+      run: chmod +x backend/gradlew
+
+    - name: Build with Gradle
+      run: |
+        cd backend
+        ./gradlew clean build -x test
+
+    - name: Create deployment package
+      run: |
+        cd backend/build/libs
+        mv *.jar application.jar
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ap-northeast-2
+
+    - name: Upload to S3
+      run: |
+        cd backend/build/libs
+        aws s3 cp application.jar s3://${{ secrets.DEPLOYMENT_BUCKET }}/backend/application.jar
+
+    - name: Deploy to EC2 via SSM
+      run: |
+        aws ssm send-command \
+          --document-name "AWS-RunShellScript" \
+          --targets "Key=tag:Name,Values=${{ secrets.EC2_TAG_NAME }}" \
+          --parameters 'commands=[
+            "cd /home/ubuntu/kiosk-backend",
+            "aws s3 cp s3://${{ secrets.DEPLOYMENT_BUCKET }}/backend/application.jar application.jar",
+            "sudo systemctl stop kiosk-backend",
+            "mv application.jar /home/ubuntu/kiosk-backend/",
+            "sudo systemctl start kiosk-backend",
+            "sleep 10",
+            "sudo systemctl status kiosk-backend"
+          ]' \
+          --region ap-northeast-2
+
+    - name: Verify deployment
+      run: |
+        echo "Deployment completed!"
+        echo "Check EC2 instance logs for verification"
