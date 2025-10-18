@@ -12,7 +12,8 @@ import {
   CartesianGrid,
   Tooltip,
   Legend,
-  ResponsiveContainer
+  ResponsiveContainer,
+  LabelList
 } from 'recharts';
 import './Dashboard.css';
 
@@ -40,11 +41,11 @@ function Dashboard() {
 
       // Process data for last 6 months
       const monthlyInstallations = processMonthlyInstallations(kiosks, sixMonthsAgo);
-      const monthlyActiveKiosks = processMonthlyActiveKiosks(kiosks, sixMonthsAgo);
+      const weeklyActiveKiosks = processWeeklyActiveKiosks(kiosks, sixMonthsAgo);
       const regionalStats = processRegionalData(kiosks, stores);
 
       setInstallationData(monthlyInstallations);
-      setActiveKioskData(monthlyActiveKiosks);
+      setActiveKioskData(weeklyActiveKiosks);
       setRegionData(regionalStats);
       setError('');
     } catch (err) {
@@ -67,8 +68,11 @@ function Dashboard() {
       monthsData[monthKey] = { month: monthLabel, count: 0 };
     }
 
-    // Count kiosks by installation month
+    // Count kiosks by installation month (exclude inactive and deleted)
     kiosks.forEach(kiosk => {
+      // Skip inactive and deleted kiosks
+      if (kiosk.state === 'inactive' || kiosk.state === 'deleted') return;
+
       if (kiosk.regdate) {
         const regDate = kiosk.regdate.toDate ? kiosk.regdate.toDate() : new Date(kiosk.regdate);
         if (regDate >= startDate) {
@@ -83,47 +87,77 @@ function Dashboard() {
     return Object.values(monthsData);
   };
 
-  const processMonthlyActiveKiosks = (kiosks, startDate) => {
-    // Initialize last 6 months
-    const monthsData = {};
+  const processWeeklyActiveKiosks = (kiosks, startDate) => {
+    // Initialize weekly data for last 6 months
+    const weeksData = {};
     const currentDate = new Date();
+    currentDate.setHours(0, 0, 0, 0);
 
-    for (let i = 5; i >= 0; i--) {
-      const date = new Date();
-      date.setMonth(currentDate.getMonth() - i);
-      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-      const monthLabel = `${date.getFullYear()}년 ${date.getMonth() + 1}월`;
-      monthsData[monthKey] = { month: monthLabel, preparing: 0, active: 0, maintenance: 0 };
+    // Set startDate to beginning of week (Sunday)
+    const weekStartDate = new Date(startDate);
+    const dayOfWeek = weekStartDate.getDay();
+    weekStartDate.setDate(weekStartDate.getDate() - dayOfWeek);
+    weekStartDate.setHours(0, 0, 0, 0);
+
+    // Calculate number of weeks from startDate to today
+    const millisecondsPerWeek = 7 * 24 * 60 * 60 * 1000;
+    const weeksDiff = Math.ceil((currentDate - weekStartDate) / millisecondsPerWeek);
+
+    // Initialize all weeks
+    for (let i = 0; i <= weeksDiff; i++) {
+      const weekStart = new Date(weekStartDate);
+      weekStart.setDate(weekStart.getDate() + (i * 7));
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekEnd.getDate() + 6);
+      weekEnd.setHours(23, 59, 59, 999);
+
+      const weekKey = `${weekStart.getFullYear()}-${String(weekStart.getMonth() + 1).padStart(2, '0')}-${String(weekStart.getDate()).padStart(2, '0')}`;
+      const weekLabel = `${weekStart.getMonth() + 1}/${weekStart.getDate()}`;
+      weeksData[weekKey] = {
+        week: weekLabel,
+        weekEnd: weekEnd,
+        preparing: 0,
+        active: 0,
+        maintenance: 0
+      };
     }
 
-    // For each month, count kiosks by state that were registered before or during that month
-    Object.keys(monthsData).forEach(monthKey => {
-      const [year, month] = monthKey.split('-');
-      const monthEndDate = new Date(parseInt(year), parseInt(month), 0); // Last day of month
+    // For each week, count kiosks by state using different date criteria
+    // preparing: regdate, active: setdate, maintenance: deldate
+    Object.keys(weeksData).forEach(weekKey => {
+      const weekEnd = weeksData[weekKey].weekEnd;
 
       kiosks.forEach(kiosk => {
-        if (!kiosk.regdate) return;
-
-        const regDate = kiosk.regdate.toDate ? kiosk.regdate.toDate() : new Date(kiosk.regdate);
-
-        // Kiosk must be registered before or during this month
-        if (regDate > monthEndDate) return;
-
         // Skip deleted kiosks
         if (kiosk.state === 'deleted') return;
 
-        // Count by state
-        if (kiosk.state === 'preparing') {
-          monthsData[monthKey].preparing++;
-        } else if (kiosk.state === 'active') {
-          monthsData[monthKey].active++;
-        } else if (kiosk.state === 'maintenance') {
-          monthsData[monthKey].maintenance++;
+        // Count preparing state based on regdate
+        if (kiosk.state === 'preparing' && kiosk.regdate) {
+          const regDate = kiosk.regdate.toDate ? kiosk.regdate.toDate() : new Date(kiosk.regdate);
+          if (regDate <= weekEnd) {
+            weeksData[weekKey].preparing++;
+          }
+        }
+
+        // Count active state based on setdate
+        else if (kiosk.state === 'active' && kiosk.setdate) {
+          const setDate = kiosk.setdate.toDate ? kiosk.setdate.toDate() : new Date(kiosk.setdate);
+          if (setDate <= weekEnd) {
+            weeksData[weekKey].active++;
+          }
+        }
+
+        // Count maintenance state based on deldate
+        else if (kiosk.state === 'maintenance' && kiosk.deldate) {
+          const delDate = kiosk.deldate.toDate ? kiosk.deldate.toDate() : new Date(kiosk.deldate);
+          if (delDate <= weekEnd) {
+            weeksData[weekKey].maintenance++;
+          }
         }
       });
     });
 
-    return Object.values(monthsData);
+    return Object.values(weeksData);
   };
 
   const processRegionalData = (kiosks, stores) => {
@@ -311,7 +345,7 @@ function Dashboard() {
       <div className="charts-container">
         {/* Monthly Installation Chart */}
         <div className="chart-card">
-          <h2>월별 키오스크 설치 수</h2>
+          <h2>월별 키오스크 설치 수 (총: {installationData.reduce((sum, item) => sum + item.count, 0)}개)</h2>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={installationData}>
               <CartesianGrid strokeDasharray="3 3" />
@@ -325,24 +359,26 @@ function Dashboard() {
                 name="설치 수"
                 cursor="pointer"
                 onClick={handleInstallationBarClick}
-              />
+              >
+                <LabelList dataKey="count" position="top" />
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
         </div>
 
         {/* Active Kiosks Chart */}
         <div className="chart-card">
-          <h2>월별 키오스크 상태 추이</h2>
+          <h2>주간 키오스크 상태 추이</h2>
           <ResponsiveContainer width="100%" height={300}>
             <LineChart data={activeKioskData}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="month" angle={-45} textAnchor="end" height={80} />
+              <XAxis dataKey="week" angle={-45} textAnchor="end" height={80} />
               <YAxis allowDecimals={false} />
               <Tooltip />
               <Legend />
-              <Line type="monotone" dataKey="preparing" stroke="#f6ad55" strokeWidth={2} name="준비중" />
-              <Line type="monotone" dataKey="active" stroke="#48bb78" strokeWidth={2} name="운영중" />
-              <Line type="monotone" dataKey="maintenance" stroke="#fc8181" strokeWidth={2} name="정비중" />
+              <Line type="monotone" dataKey="preparing" stroke="#f6ad55" strokeWidth={2} name="준비중" dot={false} />
+              <Line type="monotone" dataKey="active" stroke="#48bb78" strokeWidth={2} name="운영중" dot={false} />
+              <Line type="monotone" dataKey="maintenance" stroke="#fc8181" strokeWidth={2} name="정비중" dot={false} />
             </LineChart>
           </ResponsiveContainer>
         </div>

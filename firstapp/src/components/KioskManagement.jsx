@@ -284,8 +284,8 @@ function KioskManagement() {
         [name]: value,
         setdate: todayStr
       }));
-    } else if (name === 'state' && value === 'inactive' && !formData.deldate) {
-      // If state is changed to 'inactive' and deldate is empty, set deldate to today
+    } else if (name === 'state' && (value === 'inactive' || value === 'maintenance') && !formData.deldate) {
+      // If state is changed to 'inactive' or 'maintenance' and deldate is empty, set deldate to today
       const today = new Date();
       const year = today.getFullYear();
       const month = String(today.getMonth() + 1).padStart(2, '0');
@@ -385,7 +385,7 @@ function KioskManagement() {
         state: formData.state,
         regdate: dateLocalToTimestamp(formData.regdate),
         setdate: formData.state === 'preparing' ? null : dateLocalToTimestamp(formData.setdate),
-        deldate: formData.state !== 'inactive' ? null : dateLocalToTimestamp(formData.deldate)
+        deldate: (formData.state !== 'inactive' && formData.state !== 'maintenance') ? null : dateLocalToTimestamp(formData.deldate)
       };
 
       // Track changes for history
