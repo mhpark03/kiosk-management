@@ -1,0 +1,3 @@
+@echo off
+echo Opening Kiosk Management System...
+start http://kiosk-frontend-20251018.s3-website.ap-northeast-2.amazonaws.com

@@ -1,6 +1,7 @@
 import axios from 'axios';
 
-const API_URL = 'https://localhost:8443/api/history';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://localhost:8443/api';
+const API_URL = `${API_BASE_URL}/history`;
 
 // Get all history (both kiosk and store)
 export const getAllHistory = async () => {

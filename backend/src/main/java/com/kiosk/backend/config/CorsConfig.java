@@ -16,7 +16,11 @@ public class CorsConfig {
         CorsConfiguration configuration = new CorsConfiguration();
 
         // Allow React frontend origin (both HTTP and HTTPS)
-        configuration.setAllowedOrigins(Arrays.asList("http://localhost:5173", "https://localhost:5173"));
+        configuration.setAllowedOrigins(Arrays.asList(
+            "http://localhost:5173",
+            "https://localhost:5173",
+            "http://kiosk-frontend-20251018.s3-website.ap-northeast-2.amazonaws.com"  // Production S3 website
+        ));
 
         // Allow all HTTP methods
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));

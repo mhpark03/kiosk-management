@@ -1,6 +1,6 @@
 import api from './api';
 
-const API_BASE_URL = 'https://localhost:8443/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://localhost:8443/api';
 
 // Create separate axios instance for auth endpoints (no interceptor)
 import axios from 'axios';
