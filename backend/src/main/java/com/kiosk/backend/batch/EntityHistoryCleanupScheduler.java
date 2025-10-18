@@ -24,10 +24,10 @@ public class EntityHistoryCleanupScheduler {
     private final EntityHistoryService entityHistoryService;
 
     /**
-     * Runs daily at 2:00 AM to clean up old entity history records.
+     * Runs daily at 2:00 AM KST (Korea Standard Time) to clean up old entity history records.
      * Deletes KIOSK and STORE entity history older than 1 month.
      */
-    @Scheduled(cron = "0 0 2 * * ?") // Every day at 2:00 AM
+    @Scheduled(cron = "0 0 2 * * ?", zone = "Asia/Seoul") // Every day at 2:00 AM KST
     public void cleanupOldHistoryRecords() {
         log.info("Starting entity history cleanup batch job...");
 
