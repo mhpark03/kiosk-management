@@ -38,7 +38,8 @@ jobs:
       run: |
         cd backend
         mkdir -p deploy
-        cp build/libs/*.jar deploy/application.jar
+        # Copy the Spring Boot executable JAR (exclude -plain.jar)
+        find build/libs -name "*.jar" ! -name "*-plain.jar" -exec cp {} deploy/application.jar \;
         cp -r .ebextensions deploy/ 2>/dev/null || true
         cp -r .platform deploy/ 2>/dev/null || true
         cd deploy
