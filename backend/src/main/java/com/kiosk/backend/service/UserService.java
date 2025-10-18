@@ -38,9 +38,9 @@ public class UserService {
             throw new RuntimeException("Email already exists");
         }
 
-        // Check if there is an active admin user
-        boolean hasActiveAdmin = userRepository.existsByRoleAndStatus(User.UserRole.ADMIN, User.UserStatus.ACTIVE);
-        User.UserRole assignedRole = hasActiveAdmin ? User.UserRole.USER : User.UserRole.ADMIN;
+        // Check if there are less than 2 active admin users (first 2 users become ADMIN)
+        List<User> activeAdmins = userRepository.findByRoleAndStatus(User.UserRole.ADMIN, User.UserStatus.ACTIVE);
+        User.UserRole assignedRole = activeAdmins.size() < 2 ? User.UserRole.ADMIN : User.UserRole.USER;
 
         User user = User.builder()
                 .email(request.getEmail())
