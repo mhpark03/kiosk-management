@@ -1,19 +1,16 @@
 name: Deploy Backend to AWS
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'backend/**'
-      - '.github/workflows/deploy-backend.yml'
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: 'Deployment reason'
+        required: false
+        default: 'Manual deployment'
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment:
-      name: production
-      url: http://${{ secrets.EB_ENVIRONMENT_URL }}
 
     steps:
     - name: Checkout code

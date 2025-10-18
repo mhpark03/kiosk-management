@@ -1,19 +1,16 @@
 name: Deploy Frontend to S3
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'firstapp/**'
-      - '.github/workflows/deploy-frontend.yml'
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: 'Deployment reason'
+        required: false
+        default: 'Manual deployment'
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment:
-      name: production
-      url: http://${{ secrets.S3_BUCKET_NAME }}.s3-website.ap-northeast-2.amazonaws.com
 
     steps:
     - name: Checkout code
