@@ -26,6 +26,7 @@ public class KioskDTO {
     private LocalDateTime deldate;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private LocalDateTime storeRegdate; // Store's registration date for validation
 
     // Convert Entity to DTO
     public static KioskDTO fromEntity(Kiosk kiosk) {

@@ -143,6 +143,7 @@ export const updateKiosk = async (kioskId, updateData) => {
       maker: updateData.maker || '',
       serialno: updateData.serialno || '',
       state: updateData.state ? updateData.state.toUpperCase() : 'INACTIVE',
+      regdate: formatDateTimeForAPI(updateData.regdate),
       setdate: formatDateTimeForAPI(updateData.setdate),
       deldate: formatDateTimeForAPI(updateData.deldate)
     };
@@ -231,6 +232,7 @@ function convertKioskFromAPI(apiKiosk) {
     regdate: apiKiosk.regdate ? { toMillis: () => new Date(apiKiosk.regdate).getTime(), toDate: () => new Date(apiKiosk.regdate) } : null,
     setdate: apiKiosk.setdate ? { toMillis: () => new Date(apiKiosk.setdate).getTime(), toDate: () => new Date(apiKiosk.setdate) } : null,
     deldate: apiKiosk.deldate ? { toMillis: () => new Date(apiKiosk.deldate).getTime(), toDate: () => new Date(apiKiosk.deldate) } : null,
+    storeRegdate: apiKiosk.storeRegdate ? { toMillis: () => new Date(apiKiosk.storeRegdate).getTime(), toDate: () => new Date(apiKiosk.storeRegdate) } : null,
     createdAt: apiKiosk.createdAt,
     updatedAt: apiKiosk.updatedAt
   };

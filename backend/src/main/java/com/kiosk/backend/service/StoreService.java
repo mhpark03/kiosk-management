@@ -163,7 +163,13 @@ public class StoreService {
         }
 
         store.setRegdate(parseDate(request.getRegdate()));
-        store.setDeldate(parseDate(request.getEnddate()));
+
+        // Validate enddate (must be on or after regdate)
+        LocalDateTime newEnddate = parseDate(request.getEnddate());
+        if (newEnddate != null && store.getRegdate() != null && newEnddate.toLocalDate().isBefore(store.getRegdate().toLocalDate())) {
+            throw new RuntimeException("Store end date cannot be before registration date (" + store.getRegdate().toLocalDate() + ")");
+        }
+        store.setDeldate(newEnddate);
 
         Store updatedStore = storeRepository.save(store);
         log.info("Updated store with posid: {} by user: {}", updatedStore.getPosid(), userEmail);

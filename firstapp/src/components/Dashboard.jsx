@@ -93,27 +93,34 @@ function Dashboard() {
       date.setMonth(currentDate.getMonth() - i);
       const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
       const monthLabel = `${date.getFullYear()}년 ${date.getMonth() + 1}월`;
-      monthsData[monthKey] = { month: monthLabel, count: 0 };
+      monthsData[monthKey] = { month: monthLabel, preparing: 0, active: 0, maintenance: 0 };
     }
 
-    // For each month, count active kiosks that were registered before or during that month
+    // For each month, count kiosks by state that were registered before or during that month
     Object.keys(monthsData).forEach(monthKey => {
       const [year, month] = monthKey.split('-');
       const monthEndDate = new Date(parseInt(year), parseInt(month), 0); // Last day of month
 
-      const activeCount = kiosks.filter(kiosk => {
-        if (!kiosk.regdate) return false;
+      kiosks.forEach(kiosk => {
+        if (!kiosk.regdate) return;
 
         const regDate = kiosk.regdate.toDate ? kiosk.regdate.toDate() : new Date(kiosk.regdate);
 
         // Kiosk must be registered before or during this month
-        if (regDate > monthEndDate) return false;
+        if (regDate > monthEndDate) return;
 
-        // Kiosk must be active and not deleted
-        return kiosk.state === 'active' && kiosk.deleted !== true;
-      }).length;
+        // Skip deleted kiosks
+        if (kiosk.state === 'deleted') return;
 
-      monthsData[monthKey].count = activeCount;
+        // Count by state
+        if (kiosk.state === 'preparing') {
+          monthsData[monthKey].preparing++;
+        } else if (kiosk.state === 'active') {
+          monthsData[monthKey].active++;
+        } else if (kiosk.state === 'maintenance') {
+          monthsData[monthKey].maintenance++;
+        }
+      });
     });
 
     return Object.values(monthsData);
@@ -190,8 +197,9 @@ function Dashboard() {
       regionStats[region] = {
         region: region,
         stores: 0,
+        preparing: 0,
+        active: 0,
         maintenance: 0,
-        operational: 0,
         total: 0
       };
     });
@@ -215,34 +223,33 @@ function Dashboard() {
 
     // Count kiosks by region
     kiosks.forEach(kiosk => {
-      // Skip deleted kiosks
-      if (kiosk.deldate) return;
+      // Skip deleted kiosks (state === 'deleted')
+      if (kiosk.state === 'deleted') return;
 
       const storeAddress = storeMap[kiosk.posid];
       const region = extractRegion(storeAddress);
 
       if (regionStats[region]) {
-        // Count operational kiosks (active)
-        if (kiosk.state === 'active') {
-          regionStats[region].operational++;
-        }
-
-        // Count maintenance kiosks
-        if (kiosk.state === 'maintenance') {
+        // Count kiosks by state
+        if (kiosk.state === 'preparing') {
+          regionStats[region].preparing++;
+        } else if (kiosk.state === 'active') {
+          regionStats[region].active++;
+        } else if (kiosk.state === 'maintenance') {
           regionStats[region].maintenance++;
         }
       }
     });
 
-    // Calculate total kiosks for each region
+    // Calculate total kiosks for each region (excluding deleted)
     sortOrder.forEach(region => {
-      regionStats[region].total = regionStats[region].maintenance + regionStats[region].operational;
+      regionStats[region].total = regionStats[region].preparing + regionStats[region].active + regionStats[region].maintenance;
     });
 
     // Convert to array and filter regions with stores or kiosks
     return sortOrder
       .map(region => regionStats[region])
-      .filter(region => region.stores > 0 || region.maintenance > 0 || region.operational > 0);
+      .filter(region => region.stores > 0 || region.total > 0);
   };
 
   const handleStoreClick = (region, count) => {
@@ -250,19 +257,24 @@ function Dashboard() {
     navigate('/stores', { state: { filterRegion: region } });
   };
 
-  const handleMaintenanceClick = (region, count) => {
+  const handleTotalClick = (region, count) => {
     if (count === 0) return;
-    navigate('/kiosks', { state: { filterRegion: region, filterState: 'maintenance' } });
+    navigate('/kiosks', { state: { filterRegion: region } });
   };
 
-  const handleOperationalClick = (region, count) => {
+  const handlePreparingClick = (region, count) => {
+    if (count === 0) return;
+    navigate('/kiosks', { state: { filterRegion: region, filterState: 'preparing' } });
+  };
+
+  const handleActiveClick = (region, count) => {
     if (count === 0) return;
     navigate('/kiosks', { state: { filterRegion: region, filterState: 'active' } });
   };
 
-  const handleTotalClick = (region, count) => {
+  const handleMaintenanceClick = (region, count) => {
     if (count === 0) return;
-    navigate('/kiosks', { state: { filterRegion: region } });
+    navigate('/kiosks', { state: { filterRegion: region, filterState: 'maintenance' } });
   };
 
   const handleInstallationBarClick = (data) => {
@@ -320,7 +332,7 @@ function Dashboard() {
 
         {/* Active Kiosks Chart */}
         <div className="chart-card">
-          <h2>월별 활성화된 키오스크 수</h2>
+          <h2>월별 키오스크 상태 추이</h2>
           <ResponsiveContainer width="100%" height={300}>
             <LineChart data={activeKioskData}>
               <CartesianGrid strokeDasharray="3 3" />
@@ -328,7 +340,9 @@ function Dashboard() {
               <YAxis allowDecimals={false} />
               <Tooltip />
               <Legend />
-              <Line type="monotone" dataKey="count" stroke="#48bb78" strokeWidth={2} name="활성 키오스크 수" />
+              <Line type="monotone" dataKey="preparing" stroke="#f6ad55" strokeWidth={2} name="준비중" />
+              <Line type="monotone" dataKey="active" stroke="#48bb78" strokeWidth={2} name="운영중" />
+              <Line type="monotone" dataKey="maintenance" stroke="#fc8181" strokeWidth={2} name="정비중" />
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -342,11 +356,15 @@ function Dashboard() {
             <table className="region-table">
               <thead>
                 <tr>
-                  <th>광역 지역</th>
-                  <th>매장</th>
+                  <th rowSpan="2">광역 지역</th>
+                  <th rowSpan="2">매장</th>
+                  <th colSpan="4">키오스크</th>
+                </tr>
+                <tr>
                   <th>전체</th>
-                  <th>정비중</th>
+                  <th>준비중</th>
                   <th>운영중</th>
+                  <th>정비중</th>
                 </tr>
               </thead>
               <tbody>
@@ -366,16 +384,22 @@ function Dashboard() {
                       {region.total}
                     </td>
                     <td
+                      className={region.preparing > 0 ? 'clickable-cell' : ''}
+                      onClick={() => handlePreparingClick(region.region, region.preparing)}
+                    >
+                      {region.preparing}
+                    </td>
+                    <td
+                      className={region.active > 0 ? 'clickable-cell' : ''}
+                      onClick={() => handleActiveClick(region.region, region.active)}
+                    >
+                      {region.active}
+                    </td>
+                    <td
                       className={region.maintenance > 0 ? 'clickable-cell' : ''}
                       onClick={() => handleMaintenanceClick(region.region, region.maintenance)}
                     >
                       {region.maintenance}
-                    </td>
-                    <td
-                      className={region.operational > 0 ? 'clickable-cell' : ''}
-                      onClick={() => handleOperationalClick(region.region, region.operational)}
-                    >
-                      {region.operational}
                     </td>
                   </tr>
                 ))}
@@ -384,8 +408,9 @@ function Dashboard() {
                   <td>전체</td>
                   <td>{regionData.reduce((sum, region) => sum + region.stores, 0)}</td>
                   <td>{regionData.reduce((sum, region) => sum + region.total, 0)}</td>
+                  <td>{regionData.reduce((sum, region) => sum + region.preparing, 0)}</td>
+                  <td>{regionData.reduce((sum, region) => sum + region.active, 0)}</td>
                   <td>{regionData.reduce((sum, region) => sum + region.maintenance, 0)}</td>
-                  <td>{regionData.reduce((sum, region) => sum + region.operational, 0)}</td>
                 </tr>
               </tbody>
             </table>

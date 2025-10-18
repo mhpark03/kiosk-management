@@ -866,9 +866,12 @@ function StoreManagement() {
                   name="enddate"
                   value={formData.enddate}
                   onChange={handleInputChange}
+                  min={formData.regdate || undefined}
                 />
                 <small style={{color: '#666', fontSize: '12px', marginTop: '4px', display: 'block'}}>
-                  아직 활성 상태라면 비워두세요
+                  {formData.regdate
+                    ? `등록일(${formData.regdate}) 이후(포함) 날짜만 선택 가능합니다`
+                    : '아직 활성 상태라면 비워두세요'}
                 </small>
               </div>
               <div className="modal-actions">

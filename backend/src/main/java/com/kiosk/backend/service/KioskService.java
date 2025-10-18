@@ -5,8 +5,10 @@ import com.kiosk.backend.dto.KioskDTO;
 import com.kiosk.backend.dto.UpdateKioskRequest;
 import com.kiosk.backend.entity.EntityHistory;
 import com.kiosk.backend.entity.Kiosk;
+import com.kiosk.backend.entity.Store;
 import com.kiosk.backend.repository.EntityHistoryRepository;
 import com.kiosk.backend.repository.KioskRepository;
+import com.kiosk.backend.repository.StoreRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -24,6 +26,7 @@ public class KioskService {
 
     private final KioskRepository kioskRepository;
     private final EntityHistoryRepository entityHistoryRepository;
+    private final StoreRepository storeRepository;
 
     /**
      * Generate next sequential 12-digit Kiosk ID
@@ -53,6 +56,21 @@ public class KioskService {
     }
 
     /**
+     * Convert Kiosk entity to DTO with store regdate included
+     */
+    private KioskDTO toDTO(Kiosk kiosk) {
+        KioskDTO dto = KioskDTO.fromEntity(kiosk);
+
+        // Fetch store to get regdate
+        Store store = storeRepository.findByPosid(kiosk.getPosid()).orElse(null);
+        if (store != null) {
+            dto.setStoreRegdate(store.getRegdate());
+        }
+
+        return dto;
+    }
+
+    /**
      * Create new kiosk
      */
     public KioskDTO createKiosk(CreateKioskRequest request, String userEmail, String username) {
@@ -76,7 +94,7 @@ public class KioskService {
                 .serialno(request.getSerialno())
                 .state(request.getState() != null ?
                     Kiosk.KioskState.valueOf(request.getState().toUpperCase()) :
-                    Kiosk.KioskState.INACTIVE)
+                    Kiosk.KioskState.PREPARING)
                 .regdate(LocalDateTime.now())
                 .build();
 
@@ -88,7 +106,7 @@ public class KioskService {
             null, null, null,
             String.format("Created kiosk %s for store %s", savedKiosk.getKioskid(), savedKiosk.getPosid()));
 
-        return KioskDTO.fromEntity(savedKiosk);
+        return toDTO(savedKiosk);
     }
 
     /**
@@ -101,7 +119,7 @@ public class KioskService {
             kioskRepository.findActiveKiosks();
 
         return kiosks.stream()
-                .map(KioskDTO::fromEntity)
+                .map(this::toDTO)
                 .collect(Collectors.toList());
     }
 
@@ -112,7 +130,7 @@ public class KioskService {
     public List<KioskDTO> getKiosksWithFilter(String posid, String maker, boolean includeDeleted) {
         List<Kiosk> kiosks = kioskRepository.findKiosksByFilter(posid, maker, includeDeleted);
         return kiosks.stream()
-                .map(KioskDTO::fromEntity)
+                .map(this::toDTO)
                 .collect(Collectors.toList());
     }
 
@@ -123,7 +141,7 @@ public class KioskService {
     public KioskDTO getKioskById(Long id) {
         Kiosk kiosk = kioskRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Kiosk not found with id: " + id));
-        return KioskDTO.fromEntity(kiosk);
+        return toDTO(kiosk);
     }
 
     /**
@@ -133,7 +151,7 @@ public class KioskService {
     public KioskDTO getKioskByKioskid(String kioskid) {
         Kiosk kiosk = kioskRepository.findByKioskid(kioskid)
                 .orElseThrow(() -> new RuntimeException("Kiosk not found with kioskid: " + kioskid));
-        return KioskDTO.fromEntity(kiosk);
+        return toDTO(kiosk);
     }
 
     /**
@@ -192,10 +210,34 @@ public class KioskService {
             }
         }
 
+        // Update regdate if provided
+        LocalDateTime newRegdate = parseDateTime(request.getRegdate());
+        if (newRegdate != null) {
+            // Validate regdate against store regdate
+            Store store = storeRepository.findByPosid(kiosk.getPosid())
+                .orElseThrow(() -> new RuntimeException("Store not found with posid: " + kiosk.getPosid()));
+
+            if (store.getRegdate() != null && newRegdate.toLocalDate().isBefore(store.getRegdate().toLocalDate())) {
+                throw new RuntimeException("Kiosk registration date cannot be before store registration date (" + store.getRegdate().toLocalDate() + ")");
+            }
+
+            if (!newRegdate.equals(kiosk.getRegdate())) {
+                changes.append(String.format("regdate changed; "));
+                kiosk.setRegdate(newRegdate);
+            }
+        }
+
         LocalDateTime newSetdate = parseDateTime(request.getSetdate());
-        if (newSetdate != null && !newSetdate.equals(kiosk.getSetdate())) {
-            changes.append(String.format("setdate changed; "));
-            kiosk.setSetdate(newSetdate);
+        if (newSetdate != null) {
+            // Validate setdate against kiosk regdate
+            if (kiosk.getRegdate() != null && newSetdate.toLocalDate().isBefore(kiosk.getRegdate().toLocalDate())) {
+                throw new RuntimeException("Kiosk start date cannot be before kiosk registration date (" + kiosk.getRegdate().toLocalDate() + ")");
+            }
+
+            if (!newSetdate.equals(kiosk.getSetdate())) {
+                changes.append(String.format("setdate changed; "));
+                kiosk.setSetdate(newSetdate);
+            }
         } else if (request.getSetdate() == null || request.getSetdate().isEmpty()) {
             if (kiosk.getSetdate() != null) {
                 changes.append("setdate cleared; ");
@@ -204,9 +246,16 @@ public class KioskService {
         }
 
         LocalDateTime newDeldate = parseDateTime(request.getDeldate());
-        if (newDeldate != null && !newDeldate.equals(kiosk.getDeldate())) {
-            changes.append(String.format("deldate changed; "));
-            kiosk.setDeldate(newDeldate);
+        if (newDeldate != null) {
+            // Validate that deldate is not before setdate
+            if (kiosk.getSetdate() != null && newDeldate.toLocalDate().isBefore(kiosk.getSetdate().toLocalDate())) {
+                throw new RuntimeException("Kiosk end date cannot be before kiosk start date (" + kiosk.getSetdate().toLocalDate() + ")");
+            }
+
+            if (!newDeldate.equals(kiosk.getDeldate())) {
+                changes.append(String.format("deldate changed; "));
+                kiosk.setDeldate(newDeldate);
+            }
         } else if (request.getDeldate() == null || request.getDeldate().isEmpty()) {
             if (kiosk.getDeldate() != null) {
                 changes.append("deldate cleared; ");
@@ -224,7 +273,7 @@ public class KioskService {
                 "Updated: " + changes.toString());
         }
 
-        return KioskDTO.fromEntity(updatedKiosk);
+        return toDTO(updatedKiosk);
     }
 
     /**

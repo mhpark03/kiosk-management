@@ -19,11 +19,11 @@ public interface KioskRepository extends JpaRepository<Kiosk, Long> {
     List<Kiosk> findByPosid(String posid);
 
     // Find kiosk by posid and kioskno
-    @Query("SELECT k FROM Kiosk k WHERE k.posid = :posid AND k.kioskno = :kioskno AND k.deldate IS NULL")
+    @Query("SELECT k FROM Kiosk k WHERE k.posid = :posid AND k.kioskno = :kioskno AND k.state != 'DELETED'")
     Optional<Kiosk> findByPosidAndKioskno(@Param("posid") String posid, @Param("kioskno") Integer kioskno);
 
     // Check duplicate for posid + kioskno (excluding specific kiosk ID for edit operation)
-    @Query("SELECT COUNT(k) > 0 FROM Kiosk k WHERE k.posid = :posid AND k.kioskno = :kioskno AND k.deldate IS NULL AND k.id != :excludeId")
+    @Query("SELECT COUNT(k) > 0 FROM Kiosk k WHERE k.posid = :posid AND k.kioskno = :kioskno AND k.state != 'DELETED' AND k.id != :excludeId")
     Boolean existsByPosidAndKiosknoExcludingId(@Param("posid") String posid, @Param("kioskno") Integer kioskno, @Param("excludeId") Long excludeId);
 
     // Get max kioskid for generating next sequential ID
@@ -38,14 +38,14 @@ public interface KioskRepository extends JpaRepository<Kiosk, Long> {
     List<Kiosk> findAllByOrderByRegdateDesc();
 
     // Get only active kiosks (not deleted)
-    @Query("SELECT k FROM Kiosk k WHERE k.deldate IS NULL ORDER BY k.regdate DESC")
+    @Query("SELECT k FROM Kiosk k WHERE k.state != 'DELETED' ORDER BY k.regdate DESC")
     List<Kiosk> findActiveKiosks();
 
     // Filter kiosks by store and/or maker
     @Query("SELECT k FROM Kiosk k WHERE " +
            "(:posid IS NULL OR k.posid = :posid) AND " +
            "(:maker IS NULL OR k.maker = :maker) AND " +
-           "(:includeDeleted = true OR k.deldate IS NULL) " +
+           "(:includeDeleted = true OR k.state != 'DELETED') " +
            "ORDER BY k.regdate DESC")
     List<Kiosk> findKiosksByFilter(
         @Param("posid") String posid,

@@ -269,6 +269,11 @@
   letter-spacing: 0.5px;
 }
 
+.state-preparing {
+  background: #bee3f8;
+  color: #2c5282;
+}
+
 .state-active {
   background: #def7ec;
   color: #22543d;

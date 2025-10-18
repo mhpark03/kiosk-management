@@ -495,8 +495,8 @@ function History() {
                     </td>
                     <td>{getUserDisplayName(item)}</td>
                     <td>{item.fieldName || '-'}</td>
-                    <td className="value-cell">{item.oldValue || '-'}</td>
-                    <td className="value-cell">{item.newValue || '-'}</td>
+                    <td className="value-cell" title={item.oldValue || '-'}>{item.oldValue || '-'}</td>
+                    <td className="value-cell" title={item.newValue || '-'}>{item.newValue || '-'}</td>
                     <td className="description-cell">{item.description}</td>
                   </tr>
                 ))

@@ -63,6 +63,7 @@ public class Kiosk {
     // private Store store;
 
     public enum KioskState {
+        PREPARING,
         ACTIVE,
         INACTIVE,
         MAINTENANCE,

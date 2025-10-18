@@ -52,9 +52,12 @@ function KioskManagement() {
     kioskno: '',
     maker: '',
     serialno: '',
-    state: 'inactive',
+    state: 'preparing',
+    regdate: '',
     setdate: '',
-    deldate: ''
+    deldate: '',
+    storeRegdate: '', // Store registration date for validation
+    storeMinDate: '' // Minimum allowed start date (store regdate + 1 day)
   });
 
   // Load kiosks and stores on component mount
@@ -281,6 +284,33 @@ function KioskManagement() {
         [name]: value,
         setdate: todayStr
       }));
+    } else if (name === 'state' && value === 'inactive' && !formData.deldate) {
+      // If state is changed to 'inactive' and deldate is empty, set deldate to today
+      const today = new Date();
+      const year = today.getFullYear();
+      const month = String(today.getMonth() + 1).padStart(2, '0');
+      const day = String(today.getDate()).padStart(2, '0');
+      const todayStr = `${year}-${month}-${day}`;
+
+      setFormData(prev => ({
+        ...prev,
+        [name]: value,
+        deldate: todayStr
+      }));
+    } else if (name === 'setdate' && value && formData.state === 'preparing') {
+      // If setdate is set and current state is preparing, change state to active
+      setFormData(prev => ({
+        ...prev,
+        [name]: value,
+        state: 'active'
+      }));
+    } else if (name === 'deldate' && value && formData.state === 'active') {
+      // If deldate is set and current state is active, change state to preparing
+      setFormData(prev => ({
+        ...prev,
+        [name]: value,
+        state: 'preparing'
+      }));
     } else {
       setFormData(prev => ({
         ...prev,
@@ -325,7 +355,7 @@ function KioskManagement() {
       console.log('State:', formData.state);
       console.log('==================================');
       setShowAddModal(false);
-      setFormData({ posid: '', kioskno: '', maker: '', serialno: '', state: 'inactive', setdate: '', deldate: '' });
+      setFormData({ posid: '', kioskno: '', maker: '', serialno: '', state: 'preparing', regdate: '', setdate: '', deldate: '', storeRegdate: '', storeMinDate: '' });
       loadKiosks();
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
@@ -353,8 +383,9 @@ function KioskManagement() {
         maker: formData.maker || '',
         serialno: formData.serialno || '',
         state: formData.state,
-        setdate: dateLocalToTimestamp(formData.setdate),
-        deldate: dateLocalToTimestamp(formData.deldate)
+        regdate: dateLocalToTimestamp(formData.regdate),
+        setdate: formData.state === 'preparing' ? null : dateLocalToTimestamp(formData.setdate),
+        deldate: formData.state !== 'inactive' ? null : dateLocalToTimestamp(formData.deldate)
       };
 
       // Track changes for history
@@ -373,6 +404,10 @@ function KioskManagement() {
       }
       if (selectedKiosk.state !== formData.state) {
         changes.state = { old: selectedKiosk.state, new: formData.state };
+      }
+      const oldRegdate = timestampToDateLocal(selectedKiosk.regdate);
+      if (oldRegdate !== formData.regdate) {
+        changes.regdate = { old: oldRegdate || 'none', new: formData.regdate || 'none' };
       }
       const oldSetdate = timestampToDateLocal(selectedKiosk.setdate);
       if (oldSetdate !== formData.setdate) {
@@ -397,7 +432,7 @@ function KioskManagement() {
       console.log('==================================');
       setShowEditModal(false);
       setSelectedKiosk(null);
-      setFormData({ posid: '', kioskno: '', maker: '', serialno: '', state: 'inactive', setdate: '', deldate: '' });
+      setFormData({ posid: '', kioskno: '', maker: '', serialno: '', state: 'preparing', regdate: '', setdate: '', deldate: '', storeRegdate: '', storeMinDate: '' });
       loadKiosks();
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
@@ -494,14 +529,22 @@ function KioskManagement() {
 
   const openEditModal = (kiosk) => {
     setSelectedKiosk(kiosk);
+
+    // Minimum allowed start date is the store registration date (inclusive)
+    const storeRegdateStr = timestampToDateLocal(kiosk.storeRegdate);
+    const storeMinDateStr = storeRegdateStr; // Same as store regdate (no +1 day)
+
     setFormData({
       posid: kiosk.posid,
       kioskno: kiosk.kioskno || '',
       maker: kiosk.maker || '',
       serialno: kiosk.serialno || '',
       state: kiosk.state,
+      regdate: timestampToDateLocal(kiosk.regdate),
       setdate: timestampToDateLocal(kiosk.setdate),
-      deldate: timestampToDateLocal(kiosk.deldate)
+      deldate: timestampToDateLocal(kiosk.deldate),
+      storeRegdate: storeRegdateStr,
+      storeMinDate: storeMinDateStr
     });
     setShowEditModal(true);
   };
@@ -514,7 +557,7 @@ function KioskManagement() {
     setShowAddModal(false);
     setShowEditModal(false);
     setSelectedKiosk(null);
-    setFormData({ posid: '', kioskno: '', maker: '', serialno: '', state: 'inactive', setdate: '', deldate: '' });
+    setFormData({ posid: '', kioskno: '', maker: '', serialno: '', state: 'preparing', regdate: '', setdate: '', deldate: '', storeRegdate: '', storeMinDate: '' });
   };
 
   const formatDate = (timestamp, includeTime = false) => {
@@ -559,6 +602,8 @@ function KioskManagement() {
 
   const getStateColor = (state) => {
     switch (state) {
+      case 'preparing':
+        return 'state-preparing';
       case 'active':
         return 'state-active';
       case 'inactive':
@@ -715,12 +760,13 @@ function KioskManagement() {
                     <td style={{textAlign: 'center'}}>{kiosk.kioskno || 'N/A'}</td>
                     <td>{kiosk.maker || '-'}</td>
                     <td>{kiosk.serialno || '-'}</td>
-                    <td>{formatDate(kiosk.regdate, true)}</td>
+                    <td>{formatDate(kiosk.regdate)}</td>
                     <td>{formatDate(kiosk.setdate)}</td>
                     <td>{formatDate(kiosk.deldate)}</td>
                     <td>
                       <span className={`state-badge ${getStateColor(kiosk.state)}`}>
-                        {kiosk.state === 'active' ? '활성' :
+                        {kiosk.state === 'preparing' ? '준비중' :
+                         kiosk.state === 'active' ? '활성' :
                          kiosk.state === 'inactive' ? '비활성' :
                          kiosk.state === 'maintenance' ? '정비중' :
                          kiosk.state === 'deleted' ? '삭제됨' : kiosk.state}
@@ -936,6 +982,7 @@ function KioskManagement() {
                   onChange={handleInputChange}
                   required
                 >
+                  <option value="preparing">준비중</option>
                   <option value="active">활성</option>
                   <option value="inactive">비활성</option>
                   <option value="maintenance">정비중</option>
@@ -1046,10 +1093,27 @@ function KioskManagement() {
                   onChange={handleInputChange}
                   required
                 >
+                  <option value="preparing">준비중</option>
                   <option value="active">활성</option>
                   <option value="inactive">비활성</option>
                   <option value="maintenance">정비중</option>
                 </select>
+              </div>
+              <div className="form-group">
+                <label htmlFor="edit-regdate">등록일</label>
+                <input
+                  type="date"
+                  id="edit-regdate"
+                  name="regdate"
+                  value={formData.regdate}
+                  onChange={handleInputChange}
+                  min={formData.storeMinDate || undefined}
+                />
+                <small style={{color: '#666', fontSize: '12px', marginTop: '4px', display: 'block'}}>
+                  {formData.storeRegdate
+                    ? `매장 등록일(${formData.storeRegdate}) 이후(포함) 날짜만 선택 가능합니다`
+                    : '키오스크가 시스템에 등록된 날짜'}
+                </small>
               </div>
               <div className="form-group">
                 <label htmlFor="edit-setdate">시작일</label>
@@ -1059,9 +1123,12 @@ function KioskManagement() {
                   name="setdate"
                   value={formData.setdate}
                   onChange={handleInputChange}
+                  min={formData.regdate || undefined}
                 />
                 <small style={{color: '#666', fontSize: '12px', marginTop: '4px', display: 'block'}}>
-                  아직 시작하지 않았다면 비워두세요
+                  {formData.regdate
+                    ? `키오스크 등록일(${formData.regdate}) 이후(포함) 날짜만 선택 가능합니다`
+                    : '아직 시작하지 않았다면 비워두세요'}
                 </small>
               </div>
               <div className="form-group">
@@ -1072,9 +1139,13 @@ function KioskManagement() {
                   name="deldate"
                   value={formData.deldate}
                   onChange={handleInputChange}
+                  min={formData.setdate || undefined}
+                  disabled={!formData.setdate}
                 />
                 <small style={{color: '#666', fontSize: '12px', marginTop: '4px', display: 'block'}}>
-                  아직 운영 중이라면 비워두세요
+                  {formData.setdate
+                    ? `시작일(${formData.setdate}) 이후(포함) 날짜만 선택 가능합니다`
+                    : '시작일을 먼저 설정해야 합니다'}
                 </small>
               </div>
               <div className="modal-actions">
