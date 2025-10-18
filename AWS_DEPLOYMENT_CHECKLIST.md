@@ -174,9 +174,9 @@ aws cloudfront create-invalidation --distribution-id YOUR_DISTRIBUTION_ID --path
 # application-dev.yml
 spring:
   datasource:
-    url: jdbc:mysql://kiosk-db.cj0k46yy6vv6.ap-northeast-2.rds.amazonaws.com:3306/kioskdb
+    url: jdbc:mysql://your-rds-endpoint.ap-northeast-2.rds.amazonaws.com:3306/kioskdb
     username: admin
-    password: aioztesting
+    password: your-db-password
 ```
 
 #### Prod 환경 (설정 필요):

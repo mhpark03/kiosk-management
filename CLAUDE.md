@@ -17,13 +17,13 @@ This is a kiosk management system with a Spring Boot backend and React frontend.
 **Run the backend server:**
 ```bash
 cd backend
-DB_PASSWORD=aioztesting JAVA_HOME="C:/Program Files/Eclipse Adoptium/jdk-17.0.16.8-hotspot" ./gradlew.bat bootRun
+DB_PASSWORD=your-db-password JAVA_HOME="C:/Program Files/Eclipse Adoptium/jdk-17.0.16.8-hotspot" ./gradlew.bat bootRun
 ```
 
 **Clean build and run:**
 ```bash
 cd backend
-DB_PASSWORD=aioztesting JAVA_HOME="C:/Program Files/Eclipse Adoptium/jdk-17.0.16.8-hotspot" ./gradlew.bat clean bootRun
+DB_PASSWORD=your-db-password JAVA_HOME="C:/Program Files/Eclipse Adoptium/jdk-17.0.16.8-hotspot" ./gradlew.bat clean bootRun
 ```
 
 **Run tests:**
@@ -141,7 +141,7 @@ All list views use client-side pagination with:
 - Database: MySQL on `localhost:3306`
 - Database name: `kioskdb` (auto-created)
 - Username: `root`
-- Password: Set via `DB_PASSWORD` environment variable (default: `aioztesting`)
+- Password: Set via `DB_PASSWORD` environment variable (default: `your-db-password`)
 - Timezone: `Asia/Seoul`
 
 **JPA:**

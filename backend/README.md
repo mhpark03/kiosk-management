@@ -61,19 +61,19 @@ DB_PASSWORD=your_mysql_password
 **Windows (PowerShell):**
 ```powershell
 $env:DB_USERNAME="root"
-$env:DB_PASSWORD="aioztesting"
+$env:DB_PASSWORD="your-db-password"
 ```
 
 **Windows (Command Prompt):**
 ```cmd
 set DB_USERNAME=root
-set DB_PASSWORD=aioztesting
+set DB_PASSWORD=your-db-password
 ```
 
 **Linux/Mac:**
 ```bash
 export DB_USERNAME=root
-export DB_PASSWORD=aioztesting
+export DB_PASSWORD=your-db-password
 ```
 
 ## Running the Application
@@ -83,16 +83,16 @@ export DB_PASSWORD=aioztesting
 ```bash
 # Windows (PowerShell)
 cd C:\claudtest\backend
-$env:DB_PASSWORD="aioztesting"
+$env:DB_PASSWORD="your-db-password"
 .\gradlew.bat bootRun
 
 # Windows (Command Prompt)
 cd C:\claudtest\backend
-set DB_PASSWORD=aioztesting
+set DB_PASSWORD=your-db-password
 gradlew.bat bootRun
 
 # Linux/Mac
-export DB_PASSWORD=aioztesting
+export DB_PASSWORD=your-db-password
 ./gradlew bootRun
 ```
 
@@ -110,7 +110,7 @@ gradlew.bat bootRun --args='--spring.profiles.active=dev'
 
 - Open project in IntelliJ IDEA or Eclipse
 - Set environment variables in Run Configuration:
-  - `DB_PASSWORD=aioztesting`
+  - `DB_PASSWORD=your-db-password`
 - Run `BackendApplication.java`
 
 ### 4. Build JAR

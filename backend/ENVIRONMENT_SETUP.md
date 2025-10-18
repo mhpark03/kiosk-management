@@ -10,16 +10,16 @@
 - **접속 정보**:
   - URL: `jdbc:mysql://localhost:3306/kioskdb`
   - Username: `root`
-  - Password: `aioztesting`
+  - Password: `your-db-password`
 - **로그 레벨**: DEBUG
 
 ### 2. Dev (AWS 개발 서버)
 - **파일**: `application-dev.yml`
 - **데이터베이스**: AWS RDS MySQL
 - **접속 정보**:
-  - URL: `jdbc:mysql://kiosk-db.cj0k46yy6vv6.ap-northeast-2.rds.amazonaws.com:3306/kioskdb`
+  - URL: `jdbc:mysql://your-rds-endpoint.ap-northeast-2.rds.amazonaws.com:3306/kioskdb`
   - Username: `admin`
-  - Password: `aioztesting`
+  - Password: `your-db-password`
 - **로그 레벨**: INFO
 
 ### 3. Prod (AWS 상용 서버)

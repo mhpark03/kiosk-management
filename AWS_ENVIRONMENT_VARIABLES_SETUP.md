@@ -16,9 +16,9 @@ DB 비밀번호와 같은 민감한 정보를 코드에서 제거하고 AWS Elas
 
 | 변수명 | 설명 | 예시 |
 |--------|------|------|
-| `DB_URL` | 데이터베이스 URL | `jdbc:mysql://kiosk-db...amazonaws.com:3306/kioskdb` |
+| `DB_URL` | 데이터베이스 URL | `jdbc:mysql://your-rds-endpoint.rds.amazonaws.com:3306/kioskdb` |
 | `DB_USERNAME` | 데이터베이스 사용자명 | `admin` |
-| `DB_PASSWORD` | 데이터베이스 비밀번호 | `aioztesting` |
+| `DB_PASSWORD` | 데이터베이스 비밀번호 | `your-db-password` |
 
 ---
 
@@ -44,9 +44,9 @@ DB 비밀번호와 같은 민감한 정보를 코드에서 제거하고 AWS Elas
 다음 환경 변수를 추가:
 
 ```
-DB_URL = jdbc:mysql://kiosk-db.cj0k46yy6vv6.ap-northeast-2.rds.amazonaws.com:3306/kioskdb
+DB_URL = jdbc:mysql://your-rds-endpoint.rds.amazonaws.com:3306/kioskdb
 DB_USERNAME = admin
-DB_PASSWORD = aioztesting
+DB_PASSWORD = your-db-password
 ```
 
 **주의사항:**
@@ -69,9 +69,9 @@ DB_PASSWORD = aioztesting
 cd backend
 
 # 환경 변수 설정
-eb setenv DB_URL="jdbc:mysql://kiosk-db.cj0k46yy6vv6.ap-northeast-2.rds.amazonaws.com:3306/kioskdb" \
+eb setenv DB_URL="jdbc:mysql://your-rds-endpoint.rds.amazonaws.com:3306/kioskdb" \
           DB_USERNAME="admin" \
-          DB_PASSWORD="aioztesting"
+          DB_PASSWORD="your-db-password"
 
 # 설정 확인
 eb printenv
@@ -99,9 +99,9 @@ cd backend
 `backend/.env` 내용:
 ```properties
 # Database Configuration
-DB_URL=jdbc:mysql://kiosk-db.cj0k46yy6vv6.ap-northeast-2.rds.amazonaws.com:3306/kioskdb
+DB_URL=jdbc:mysql://your-rds-endpoint.rds.amazonaws.com:3306/kioskdb
 DB_USERNAME=admin
-DB_PASSWORD=aioztesting
+DB_PASSWORD=your-db-password
 
 # JWT Configuration (optional)
 # JWT_SECRET=your-secret-key
@@ -132,8 +132,8 @@ eb printenv
 예상 출력:
 ```
 Environment Variables:
-  DB_PASSWORD = aioztesting
-  DB_URL = jdbc:mysql://kiosk-db...
+  DB_PASSWORD = your-db-password
+  DB_URL = jdbc:mysql://your-rds-endpoint...
   DB_USERNAME = admin
   SPRING_PROFILES_ACTIVE = dev
 ```

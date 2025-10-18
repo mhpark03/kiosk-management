@@ -75,9 +75,9 @@ S3 정적 웹사이트 URL이 이미 설정되어 있습니다.
 | **백엔드 포트** | 8080 | 8080 | 8080 |
 | **프로토콜** | HTTP | HTTP | HTTP |
 | **데이터베이스** | localhost MySQL | AWS RDS | AWS RDS (TODO) |
-| **DB 호스트** | localhost:3306 | kiosk-db.cj0k46yy6vv6... | TODO |
+| **DB 호스트** | localhost:3306 | your-rds-endpoint... | TODO |
 | **DB 사용자** | root | admin | admin |
-| **DB 비밀번호** | aioztesting | aioztesting | TODO (환경변수) |
+| **DB 비밀번호** | your-db-password | your-db-password | TODO (환경변수) |
 | **로그 레벨** | DEBUG | INFO | WARN |
 | **프론트엔드 URL** | localhost:5173 | S3 Static Website | S3 / CloudFront |
 | **백엔드 URL** | localhost:8080 | Elastic Beanstalk | EC2 / ELB |
