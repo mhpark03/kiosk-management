@@ -45,8 +45,24 @@ export const authService = {
 
       return response.data;
     } catch (error) {
-      console.error('Signup error:', error);
-      throw new Error(error.response?.data?.message || 'Signup failed');
+      console.error('=== Detailed Signup Error ===');
+      console.error('Error object:', error);
+      console.error('Error code:', error.code);
+      console.error('Error message:', error.message);
+      console.error('Response status:', error.response?.status);
+      console.error('Response data:', error.response?.data);
+      console.error('===========================');
+
+      // Network error (CORS, SSL, connection refused, etc.)
+      if (!error.response) {
+        if (error.code === 'ERR_NETWORK') {
+          throw new Error('네트워크 에러: 백엔드 서버(https://localhost:8443)에 연결할 수 없습니다. SSL 인증서를 수락했는지 확인하세요.');
+        }
+        throw new Error('서버에 연결할 수 없습니다. 네트워크 연결과 서버 상태를 확인하세요.');
+      }
+
+      // Server responded with error
+      throw new Error(error.response?.data?.message || `서버 에러 (${error.response?.status})`);
     }
   },
 

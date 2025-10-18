@@ -166,8 +166,17 @@ function UserHistory() {
     }
   };
 
-  const getEntityTypeLabel = (type) => {
-    switch (type) {
+  // Helper function to check if item is a batch job
+  const isBatchJob = (item) => {
+    return item.entityId === 'BATCH_JOB';
+  };
+
+  const getEntityTypeLabel = (item) => {
+    if (isBatchJob(item)) {
+      return '배치';
+    }
+
+    switch (item.entityType) {
       case 'KIOSK':
         return '키오스크';
       case 'STORE':
@@ -175,12 +184,16 @@ function UserHistory() {
       case 'USER':
         return '사용자';
       default:
-        return type;
+        return item.entityType;
     }
   };
 
-  const getEntityTypeBadgeColor = (type) => {
-    switch (type) {
+  const getEntityTypeBadgeColor = (item) => {
+    if (isBatchJob(item)) {
+      return 'action-restore'; // Purple for batch jobs
+    }
+
+    switch (item.entityType) {
       case 'KIOSK':
         return 'action-create';
       case 'STORE':
@@ -206,8 +219,15 @@ function UserHistory() {
 
   // Filter history using applied filters
   const filteredHistory = history.filter((item) => {
-    if (appliedFilterEntityType !== 'ALL' && item.entityType !== appliedFilterEntityType) {
-      return false;
+    if (appliedFilterEntityType !== 'ALL') {
+      if (appliedFilterEntityType === 'BATCH') {
+        // For BATCH filter, match items where entityId is BATCH_JOB
+        if (!isBatchJob(item)) {
+          return false;
+        }
+      } else if (item.entityType !== appliedFilterEntityType) {
+        return false;
+      }
     }
     if (appliedFilterAction !== 'ALL' && item.action !== appliedFilterAction) {
       return false;
@@ -304,6 +324,7 @@ function UserHistory() {
             <option value="KIOSK">키오스크</option>
             <option value="STORE">매장</option>
             <option value="USER">사용자</option>
+            <option value="BATCH">배치</option>
           </select>
         </div>
 
@@ -426,8 +447,8 @@ function UserHistory() {
                 currentHistory.map((item) => (
                   <tr key={item.id}>
                     <td>
-                      <span className={`action-badge ${getEntityTypeBadgeColor(item.entityType)}`}>
-                        {getEntityTypeLabel(item.entityType)}
+                      <span className={`action-badge ${getEntityTypeBadgeColor(item)}`}>
+                        {getEntityTypeLabel(item)}
                       </span>
                     </td>
                     <td>{formatDate(item.timestamp)}</td>

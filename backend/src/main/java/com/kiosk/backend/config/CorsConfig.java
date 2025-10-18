@@ -15,8 +15,8 @@ public class CorsConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        // Allow React frontend origin
-        configuration.setAllowedOrigins(Arrays.asList("http://localhost:5173"));
+        // Allow React frontend origin (both HTTP and HTTPS)
+        configuration.setAllowedOrigins(Arrays.asList("http://localhost:5173", "https://localhost:5173"));
 
         // Allow all HTTP methods
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));

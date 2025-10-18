@@ -11,6 +11,7 @@ import History from './components/History';
 import Profile from './components/Profile';
 import UserHistory from './components/UserHistory';
 import UserManagement from './components/UserManagement';
+import BatchManagement from './components/BatchManagement';
 import ProtectedRoute from './components/ProtectedRoute';
 import './App.css';
 
@@ -77,6 +78,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <UserManagement />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/batch-management"
+            element={
+              <ProtectedRoute>
+                <BatchManagement />
               </ProtectedRoute>
             }
           />

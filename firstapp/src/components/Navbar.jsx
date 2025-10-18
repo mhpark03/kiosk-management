@@ -134,6 +134,17 @@ function Navbar() {
                       </Link>
                     </li>
                   )}
+                  {user?.role === 'ADMIN' && (
+                    <li className="hide-mobile">
+                      <Link
+                        to="/batch-management"
+                        className={location.pathname === '/batch-management' ? 'active' : ''}
+                        onClick={closeMenu}
+                      >
+                        배치 관리
+                      </Link>
+                    </li>
+                  )}
                 </ul>
               )}
             </li>

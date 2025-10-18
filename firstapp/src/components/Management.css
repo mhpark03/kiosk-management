@@ -1,0 +1,212 @@
+.management-container {
+  min-height: 100vh;
+  background: #f5f5f5;
+  padding: 20px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.management-container h1 {
+  margin: 0 0 30px 0;
+  color: #333;
+  font-size: 32px;
+}
+
+.batch-section {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.batch-card {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.batch-card h2 {
+  margin: 0 0 12px 0;
+  color: #333;
+  font-size: 24px;
+}
+
+.batch-description {
+  color: #666;
+  font-size: 14px;
+  line-height: 1.6;
+  margin-bottom: 20px;
+}
+
+.batch-info {
+  background: #f9f9f9;
+  border-left: 4px solid #667eea;
+  padding: 16px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.batch-info h3 {
+  margin: 0 0 8px 0;
+  color: #333;
+  font-size: 16px;
+}
+
+.batch-info p {
+  margin: 0;
+  color: #666;
+  font-size: 14px;
+}
+
+.batch-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+}
+
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.error-message {
+  padding: 15px 20px;
+  border-radius: 8px;
+  background: #fee;
+  border-left: 4px solid #e53e3e;
+  color: #c53030;
+  font-size: 14px;
+  animation: slideDown 0.3s ease;
+}
+
+.success-message {
+  padding: 20px;
+  border-radius: 8px;
+  background: #def7ec;
+  border-left: 4px solid #48bb78;
+  color: #22543d;
+  font-size: 14px;
+  animation: slideDown 0.3s ease;
+}
+
+.success-message h3 {
+  margin: 0 0 12px 0;
+  color: #22543d;
+  font-size: 16px;
+}
+
+.success-message p {
+  margin: 8px 0;
+  color: #22543d;
+}
+
+.success-message strong {
+  font-weight: 700;
+  color: #1a4c31;
+}
+
+.batch-info-card {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  border-left: 4px solid #805ad5;
+}
+
+.batch-info-card h3 {
+  margin: 0 0 12px 0;
+  color: #333;
+  font-size: 20px;
+}
+
+.batch-info-card p {
+  margin: 8px 0;
+  color: #666;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.batch-info-card ul {
+  margin-top: 10px;
+  color: #666;
+  font-size: 14px;
+}
+
+.batch-info-card li {
+  margin: 6px 0;
+  color: #555;
+}
+
+.batch-info-card strong {
+  color: #333;
+  font-weight: 600;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Mobile Responsive */
+@media screen and (max-width: 768px) {
+  .management-container {
+    padding: 15px;
+  }
+
+  .management-container h1 {
+    font-size: 24px;
+  }
+
+  .batch-card h2 {
+    font-size: 20px;
+  }
+
+  .batch-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .btn-primary {
+    width: 100%;
+  }
+}
+
+@media screen and (max-width: 480px) {
+  .management-container {
+    padding: 10px;
+  }
+
+  .management-container h1 {
+    font-size: 20px;
+    margin-bottom: 20px;
+  }
+
+  .batch-card,
+  .batch-info-card {
+    padding: 16px;
+  }
+}
