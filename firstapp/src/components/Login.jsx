@@ -15,7 +15,7 @@ function Login() {
     e.preventDefault();
 
     if (!email || !password) {
-      setError('Please fill in all fields');
+      setError('모든 필드를 입력해주세요');
       return;
     }
 
@@ -44,47 +44,47 @@ function Login() {
   return (
     <div className="auth-container">
       <div className="auth-card">
-        <h2>Login</h2>
+        <h2>로그인</h2>
         <form onSubmit={handleSubmit}>
           {error && <div className="error-message">{error}</div>}
 
           <div className="form-group">
-            <label htmlFor="email">Email</label>
+            <label htmlFor="email">이메일</label>
             <input
               type="email"
               id="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="Enter your email"
+              placeholder="이메일을 입력하세요"
               disabled={loading}
             />
           </div>
 
           <div className="form-group">
-            <label htmlFor="password">Password</label>
+            <label htmlFor="password">비밀번호</label>
             <input
               type="password"
               id="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter your password"
+              placeholder="비밀번호를 입력하세요"
               disabled={loading}
             />
           </div>
 
           <div style={{ textAlign: 'right', marginBottom: '15px' }}>
             <Link to="/forgot-password" style={{ fontSize: '14px', color: '#667eea', textDecoration: 'none' }}>
-              Forgot Password?
+              비밀번호를 잊으셨나요?
             </Link>
           </div>
 
           <button type="submit" disabled={loading} className="btn-primary">
-            {loading ? 'Logging in...' : 'Login'}
+            {loading ? '로그인 중...' : '로그인'}
           </button>
         </form>
 
         <p className="auth-link">
-          Don't have an account? <Link to="/signup">Sign up</Link>
+          계정이 없으신가요? <Link to="/signup">회원가입</Link>
         </p>
       </div>
     </div>
