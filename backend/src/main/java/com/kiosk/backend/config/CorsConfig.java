@@ -19,6 +19,10 @@ public class CorsConfig {
         configuration.setAllowedOrigins(Arrays.asList(
             "http://localhost:5173",
             "https://localhost:5173",
+            "http://localhost:5174",
+            "https://localhost:5174",
+            "http://localhost:5175",
+            "https://localhost:5175",
             "http://kiosk-frontend-20251018.s3-website.ap-northeast-2.amazonaws.com"  // Production S3 website
         ));
 

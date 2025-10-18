@@ -1,0 +1,26 @@
+# AWS Production Environment
+spring:
+  datasource:
+    # TODO: Update with production RDS endpoint when available
+    url: jdbc:mysql://your-prod-rds-endpoint.rds.amazonaws.com:3306/kioskdb
+    username: admin
+    password: your-prod-password
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate  # Production should use validate, not update
+    show-sql: false  # Disable SQL logging in production
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+        format_sql: false
+
+  h2:
+    console:
+      enabled: false
+
+logging:
+  level:
+    com.kiosk.backend: WARN
+    org.springframework.security: WARN
