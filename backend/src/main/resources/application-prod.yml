@@ -1,10 +1,9 @@
 # AWS Production Environment
 spring:
   datasource:
-    # TODO: Update with production RDS endpoint when available
-    url: jdbc:mysql://your-prod-rds-endpoint.rds.amazonaws.com:3306/kioskdb
-    username: admin
-    password: your-prod-password
+    url: ${DB_URL:jdbc:mysql://your-prod-rds-endpoint.rds.amazonaws.com:3306/kioskdb}
+    username: ${DB_USERNAME:admin}
+    password: ${DB_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
 
   jpa:
