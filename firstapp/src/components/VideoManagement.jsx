@@ -14,6 +14,8 @@ function VideoManagement() {
   const [success, setSuccess] = useState('');
   const [playingVideo, setPlayingVideo] = useState(null);
   const [videoUrl, setVideoUrl] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   useEffect(() => {
     loadVideos();
@@ -23,11 +25,13 @@ function VideoManagement() {
     try {
       setLoading(true);
       const data = await videoService.getAllVideos();
-      setVideos(data);
+      // Sort by ID in descending order (newest first)
+      const sortedData = [...data].sort((a, b) => b.id - a.id);
+      setVideos(sortedData);
       setError('');
     } catch (err) {
       console.error('Failed to load videos:', err);
-      setError(err.message);
+      setError('');
     } finally {
       setLoading(false);
     }
@@ -41,6 +45,7 @@ function VideoManagement() {
       setPlayingVideo(video);
     } catch (err) {
       setError(err.message);
+      setTimeout(() => setError(''), 3000);
     }
   };
 
@@ -59,10 +64,10 @@ function VideoManagement() {
       await videoService.deleteVideo(videoId);
       setSuccess('비디오가 성공적으로 삭제되었습니다.');
       await loadVideos();
-
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
       setError(err.message);
+      setTimeout(() => setError(''), 3000);
     }
   };
 
@@ -70,102 +75,200 @@ function VideoManagement() {
     navigate('/videos/upload');
   };
 
+  const formatDate = (timestamp) => {
+    if (!timestamp) return 'N/A';
+    const date = new Date(timestamp);
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return `${month}/${day} ${hours}:${minutes}`;
+  };
+
+  // Pagination logic
+  const totalPages = Math.ceil(videos.length / itemsPerPage);
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentVideos = videos.slice(indexOfFirstItem, indexOfLastItem);
+
+  const handlePageChange = (pageNumber) => {
+    setCurrentPage(pageNumber);
+  };
+
+  const handlePreviousPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+
+  // Reset to page 1 when videos change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [videos.length]);
+
   if (loading) {
-    return <div className="video-loading">비디오 목록을 불러오는 중...</div>;
+    return <div className="loading">비디오 목록을 불러오는 중...</div>;
   }
 
   return (
-    <div className="video-management">
-      <div className="video-header">
-        <div>
-          <h1>비디오 관리</h1>
-          <p className="video-subtitle">업로드된 비디오 목록을 관리합니다</p>
+    <div className="store-management">
+      <div className="store-header">
+        <h1>비디오 관리</h1>
+        <div className="header-actions">
+          <button onClick={handleUploadClick} className="btn-add">
+            + 비디오 업로드
+          </button>
         </div>
-        <button onClick={handleUploadClick} className="btn btn-primary">
-          <FiUpload className="icon" /> 비디오 업로드
-        </button>
       </div>
 
-      {error && (
-        <div className="alert alert-error">
-          <span>{error}</span>
-          <button onClick={() => setError('')} className="alert-close">×</button>
-        </div>
-      )}
+      {error && <div className="alert alert-error">{error}</div>}
+      {success && <div className="alert alert-success">{success}</div>}
 
-      {success && (
-        <div className="alert alert-success">
-          <span>{success}</span>
-          <button onClick={() => setSuccess('')} className="alert-close">×</button>
-        </div>
-      )}
-
-      {/* Video List Section */}
-      <div className="video-list-section">
-        <h2>업로드된 비디오 ({videos.length})</h2>
-
-        {videos.length === 0 ? (
-          <div className="no-videos">
-            <p>업로드된 비디오가 없습니다.</p>
-          </div>
-        ) : (
-          <div className="video-table-wrapper">
-            <table className="video-table">
-              <thead>
-                <tr>
-                  <th>파일명</th>
-                  <th>설명</th>
-                  <th>크기</th>
-                  <th>업로드 일시</th>
-                  <th>업로더</th>
-                  <th>작업</th>
+      <div className="store-table-container">
+        <table className="store-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>파일명</th>
+              <th>설명</th>
+              <th>크기</th>
+              <th>업로드 일시</th>
+              <th>업로더</th>
+              <th>작업</th>
+            </tr>
+          </thead>
+          <tbody>
+            {currentVideos.length === 0 ? (
+              <tr>
+                <td colSpan="7" className="no-data">업로드된 비디오가 없습니다</td>
+              </tr>
+            ) : (
+              currentVideos.map((video) => (
+                <tr key={video.id}>
+                  <td style={{textAlign: 'center', fontWeight: '600'}}>
+                    {video.id}
+                  </td>
+                  <td>
+                    <div className="filename-wrapper">
+                      <FiPlay
+                        className="play-icon-small"
+                        onClick={() => handlePlay(video)}
+                        style={{cursor: 'pointer', color: '#667eea', marginRight: '8px'}}
+                      />
+                      <span>{video.originalFilename}</span>
+                    </div>
+                  </td>
+                  <td style={{maxWidth: '250px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}>
+                    {video.description || '-'}
+                  </td>
+                  <td>{videoService.formatFileSize(video.fileSize)}</td>
+                  <td>{formatDate(video.uploadedAt)}</td>
+                  <td>{video.uploadedBy}</td>
+                  <td>
+                    <div className="action-buttons">
+                      <button
+                        onClick={() => handlePlay(video)}
+                        className="btn-edit"
+                        title="재생"
+                      >
+                        <FiPlay />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(video.id)}
+                        className="btn-deactivate"
+                        title="삭제"
+                      >
+                        <FiTrash2 />
+                      </button>
+                    </div>
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {videos.map((video) => (
-                  <tr key={video.id} className="video-row">
-                    <td className="video-filename" data-label="파일명">
-                      <div className="filename-wrapper">
-                        <FiPlay className="play-icon-small" onClick={() => handlePlay(video)} />
-                        <span>{video.originalFilename}</span>
-                      </div>
-                    </td>
-                    <td className="video-description-cell" data-label="설명">
-                      {video.description || '-'}
-                    </td>
-                    <td className="video-size" data-label="크기">
-                      {videoService.formatFileSize(video.fileSize)}
-                    </td>
-                    <td className="video-date" data-label="업로드 일시">
-                      {videoService.formatDate(video.uploadedAt)}
-                    </td>
-                    <td className="video-uploader" data-label="업로더">
-                      {video.uploadedBy}
-                    </td>
-                    <td className="video-actions-cell" data-label="작업">
-                      <div className="video-actions">
-                        <button
-                          onClick={() => handlePlay(video)}
-                          className="btn btn-secondary btn-sm"
-                          title="재생"
-                        >
-                          <FiPlay className="icon" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(video.id)}
-                          className="btn btn-danger btn-sm"
-                          title="삭제"
-                        >
-                          <FiTrash2 className="icon" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Pagination */}
+      {videos.length > 0 && totalPages > 1 && (
+        <div style={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          margin: '20px 0',
+          gap: '10px'
+        }}>
+          <button
+            onClick={handlePreviousPage}
+            disabled={currentPage === 1}
+            style={{
+              padding: '8px 16px',
+              border: '1px solid #cbd5e0',
+              borderRadius: '4px',
+              background: currentPage === 1 ? '#f7fafc' : '#fff',
+              color: currentPage === 1 ? '#a0aec0' : '#2d3748',
+              cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
+              fontSize: '14px',
+              fontWeight: '500'
+            }}
+          >
+            이전
+          </button>
+
+          <div style={{display: 'flex', gap: '5px'}}>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map(pageNum => (
+              <button
+                key={pageNum}
+                onClick={() => handlePageChange(pageNum)}
+                style={{
+                  padding: '8px 12px',
+                  border: pageNum === currentPage ? '2px solid #667eea' : '1px solid #cbd5e0',
+                  borderRadius: '4px',
+                  background: pageNum === currentPage ? '#667eea' : '#fff',
+                  color: pageNum === currentPage ? '#fff' : '#2d3748',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: pageNum === currentPage ? '600' : '500',
+                  minWidth: '36px'
+                }}
+              >
+                {pageNum}
+              </button>
+            ))}
           </div>
-        )}
+
+          <button
+            onClick={handleNextPage}
+            disabled={currentPage === totalPages}
+            style={{
+              padding: '8px 16px',
+              border: '1px solid #cbd5e0',
+              borderRadius: '4px',
+              background: currentPage === totalPages ? '#f7fafc' : '#fff',
+              color: currentPage === totalPages ? '#a0aec0' : '#2d3748',
+              cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
+              fontSize: '14px',
+              fontWeight: '500'
+            }}
+          >
+            다음
+          </button>
+        </div>
+      )}
+
+      <div style={{
+        textAlign: 'center',
+        color: '#718096',
+        fontSize: '14px',
+        margin: '10px 0 20px'
+      }}>
+        전체 {videos.length}개 비디오 {videos.length > 0 && `(${currentPage} / ${totalPages} 페이지)`}
       </div>
 
       {/* Video Player Modal */}
