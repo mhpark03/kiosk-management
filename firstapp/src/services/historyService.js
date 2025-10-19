@@ -1,18 +1,9 @@
-import axios from 'axios';
-
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://localhost:8443/api';
-const API_URL = `${API_BASE_URL}/history`;
+import api from './api';
 
 // Get all history (both kiosk and store)
 export const getAllHistory = async () => {
   try {
-    const token = localStorage.getItem('jwtToken');
-    const response = await axios.get(API_URL, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      },
-      withCredentials: true
-    });
+    const response = await api.get('/history');
     return response.data;
   } catch (error) {
     console.error('Error fetching history:', error);
@@ -23,13 +14,7 @@ export const getAllHistory = async () => {
 // Get history by entity type (KIOSK or STORE)
 export const getHistoryByEntityType = async (entityType) => {
   try {
-    const token = localStorage.getItem('jwtToken');
-    const response = await axios.get(`${API_URL}/type/${entityType}`, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      },
-      withCredentials: true
-    });
+    const response = await api.get(`${/history}/type/${entityType}`);
     return response.data;
   } catch (error) {
     console.error(`Error fetching ${entityType} history:`, error);
@@ -40,13 +25,7 @@ export const getHistoryByEntityType = async (entityType) => {
 // Get history by entity ID
 export const getHistoryByEntityId = async (entityId) => {
   try {
-    const token = localStorage.getItem('jwtToken');
-    const response = await axios.get(`${API_URL}/entity/${entityId}`, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      },
-      withCredentials: true
-    });
+    const response = await api.get(`${/history}/entity/${entityId}`);
     return response.data;
   } catch (error) {
     console.error('Error fetching history by entity ID:', error);
@@ -57,13 +36,7 @@ export const getHistoryByEntityId = async (entityId) => {
 // Get history by POS ID
 export const getHistoryByPosId = async (posid) => {
   try {
-    const token = localStorage.getItem('jwtToken');
-    const response = await axios.get(`${API_URL}/posid/${posid}`, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      },
-      withCredentials: true
-    });
+    const response = await api.get(`${/history}/posid/${posid}`);
     return response.data;
   } catch (error) {
     console.error('Error fetching history by POS ID:', error);
@@ -74,13 +47,7 @@ export const getHistoryByPosId = async (posid) => {
 // Get history by entity type and POS ID
 export const getHistoryByEntityTypeAndPosId = async (entityType, posid) => {
   try {
-    const token = localStorage.getItem('jwtToken');
-    const response = await axios.get(`${API_URL}/type/${entityType}/posid/${posid}`, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      },
-      withCredentials: true
-    });
+    const response = await api.get(`${/history}/type/${entityType}/posid/${posid}`);
     return response.data;
   } catch (error) {
     console.error(`Error fetching ${entityType} history by POS ID:`, error);
@@ -91,13 +58,7 @@ export const getHistoryByEntityTypeAndPosId = async (entityType, posid) => {
 // Get history by user
 export const getHistoryByUser = async (userid) => {
   try {
-    const token = localStorage.getItem('jwtToken');
-    const response = await axios.get(`${API_URL}/user/${userid}`, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      },
-      withCredentials: true
-    });
+    const response = await api.get(`${/history}/user/${userid}`);
     return response.data;
   } catch (error) {
     console.error('Error fetching history by user:', error);
@@ -108,13 +69,7 @@ export const getHistoryByUser = async (userid) => {
 // Get history by action type
 export const getHistoryByAction = async (action) => {
   try {
-    const token = localStorage.getItem('jwtToken');
-    const response = await axios.get(`${API_URL}/action/${action}`, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      },
-      withCredentials: true
-    });
+    const response = await api.get(`${/history}/action/${action}`);
     return response.data;
   } catch (error) {
     console.error('Error fetching history by action:', error);
@@ -125,13 +80,7 @@ export const getHistoryByAction = async (action) => {
 // Get history by entity type and action
 export const getHistoryByEntityTypeAndAction = async (entityType, action) => {
   try {
-    const token = localStorage.getItem('jwtToken');
-    const response = await axios.get(`${API_URL}/type/${entityType}/action/${action}`, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      },
-      withCredentials: true
-    });
+    const response = await api.get(`${/history}/type/${entityType}/action/${action}`);
     return response.data;
   } catch (error) {
     console.error(`Error fetching ${entityType} history by action:`, error);
@@ -142,13 +91,7 @@ export const getHistoryByEntityTypeAndAction = async (entityType, action) => {
 // Get history by entity type and entity ID
 export const getHistoryByEntityTypeAndEntityId = async (entityType, entityId) => {
   try {
-    const token = localStorage.getItem('jwtToken');
-    const response = await axios.get(`${API_URL}/type/${entityType}/entity/${entityId}`, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      },
-      withCredentials: true
-    });
+    const response = await api.get(`${/history}/type/${entityType}/entity/${entityId}`);
     return response.data;
   } catch (error) {
     console.error(`Error fetching ${entityType} history by entity ID:`, error);

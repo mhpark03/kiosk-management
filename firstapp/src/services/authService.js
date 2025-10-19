@@ -1,6 +1,6 @@
 import api from './api';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://localhost:8443/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
 
 // Create separate axios instance for auth endpoints (no interceptor)
 import axios from 'axios';
@@ -56,7 +56,7 @@ export const authService = {
       // Network error (CORS, SSL, connection refused, etc.)
       if (!error.response) {
         if (error.code === 'ERR_NETWORK') {
-          throw new Error('네트워크 에러: 백엔드 서버(https://localhost:8443)에 연결할 수 없습니다. SSL 인증서를 수락했는지 확인하세요.');
+          throw new Error(`네트워크 에러: 백엔드 서버(${API_BASE_URL})에 연결할 수 없습니다. 서버 상태를 확인하세요.`);
         }
         throw new Error('서버에 연결할 수 없습니다. 네트워크 연결과 서버 상태를 확인하세요.');
       }
