@@ -296,14 +296,14 @@ function UserHistory() {
               >
                 {allUsers.map((u) => (
                   <option key={u.id} value={u.email}>
-                    {u.displayName} ({u.email})
+                    {u.displayName || u.email} ({u.email})
                   </option>
                 ))}
               </select>
             </div>
           ) : (
             <p className="store-filter-info">
-              사용자: {targetUserFromState ? `${targetUserFromState.displayName} (${targetUserFromState.email})` : `${user?.displayName} (${user?.email})`}
+              사용자: {targetUserFromState ? `${targetUserFromState.displayName || targetUserFromState.email} (${targetUserFromState.email})` : `${user?.displayName || user?.email} (${user?.email})`}
             </p>
           )}
         </div>

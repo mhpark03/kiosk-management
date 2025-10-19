@@ -15,6 +15,7 @@ export const AuthProvider = ({ children }) => {
         setUser({
           email: currentUser.email,
           name: currentUser.displayName,
+          displayName: currentUser.displayName,
           role: currentUser.role
         });
       }
@@ -30,11 +31,13 @@ export const AuthProvider = ({ children }) => {
       setUser({
         email: response.email,
         name: response.displayName,
+        displayName: response.displayName,
         role: response.role
       });
       return {
         email: response.email,
         name: response.displayName,
+        displayName: response.displayName,
         role: response.role
       };
     } catch (error) {
@@ -48,11 +51,13 @@ export const AuthProvider = ({ children }) => {
       setUser({
         email: response.email,
         name: response.displayName,
+        displayName: response.displayName,
         role: response.role
       });
       return {
         email: response.email,
         name: response.displayName,
+        displayName: response.displayName,
         role: response.role
       };
     } catch (error) {
