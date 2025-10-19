@@ -174,4 +174,92 @@ public class KioskController {
         kioskService.permanentDeleteKiosk(id);
         return ResponseEntity.noContent().build();
     }
+
+    /**
+     * Assign videos to a kiosk
+     * POST /api/kiosks/{id}/videos
+     */
+    @PostMapping("/{id}/videos")
+    public ResponseEntity<Map<String, Object>> assignVideos(
+            @PathVariable Long id,
+            @RequestBody Map<String, List<? extends Number>> request,
+            @RequestHeader(value = "X-User-Email", defaultValue = "system@kiosk.com") String userEmail) {
+        String decodedEmail = URLDecoder.decode(userEmail, StandardCharsets.UTF_8);
+        List<? extends Number> rawVideoIds = request.get("videoIds");
+        List<Long> videoIds = rawVideoIds.stream()
+                .map(Number::longValue)
+                .collect(java.util.stream.Collectors.toList());
+
+        log.info("POST /api/kiosks/{}/videos - assigning {} videos", id, videoIds.size());
+        kioskService.assignVideosToKiosk(id, videoIds, decodedEmail);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("message", "Videos assigned successfully");
+        response.put("count", videoIds.size());
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Get videos assigned to a kiosk
+     * GET /api/kiosks/{id}/videos
+     */
+    @GetMapping("/{id}/videos")
+    public ResponseEntity<Map<String, List<Long>>> getKioskVideos(@PathVariable Long id) {
+        log.info("GET /api/kiosks/{}/videos", id);
+        List<Long> videoIds = kioskService.getKioskVideos(id);
+
+        Map<String, List<Long>> response = new HashMap<>();
+        response.put("videoIds", videoIds);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Remove a video from a kiosk
+     * DELETE /api/kiosks/{id}/videos/{videoId}
+     */
+    @DeleteMapping("/{id}/videos/{videoId}")
+    public ResponseEntity<Map<String, String>> removeVideo(
+            @PathVariable Long id,
+            @PathVariable Long videoId,
+            @RequestHeader(value = "X-User-Email", defaultValue = "system@kiosk.com") String userEmail) {
+        String decodedEmail = URLDecoder.decode(userEmail, StandardCharsets.UTF_8);
+
+        log.info("DELETE /api/kiosks/{}/videos/{}", id, videoId);
+        kioskService.removeVideoFromKiosk(id, videoId, decodedEmail);
+
+        Map<String, String> response = new HashMap<>();
+        response.put("message", "Video removed successfully");
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Get videos assigned to a kiosk with download status
+     * GET /api/kiosks/{id}/videos-with-status
+     */
+    @GetMapping("/{id}/videos-with-status")
+    public ResponseEntity<List<com.kiosk.backend.dto.KioskVideoDTO>> getKioskVideosWithStatus(@PathVariable Long id) {
+        log.info("GET /api/kiosks/{}/videos-with-status", id);
+        List<com.kiosk.backend.dto.KioskVideoDTO> videos = kioskService.getKioskVideosWithStatus(id);
+        return ResponseEntity.ok(videos);
+    }
+
+    /**
+     * Update download status for a video on a kiosk
+     * PATCH /api/kiosks/{id}/videos/{videoId}/status
+     */
+    @PatchMapping("/{id}/videos/{videoId}/status")
+    public ResponseEntity<Map<String, String>> updateVideoDownloadStatus(
+            @PathVariable Long id,
+            @PathVariable Long videoId,
+            @RequestParam String status,
+            @RequestHeader(value = "X-User-Email", defaultValue = "system@kiosk.com") String userEmail) {
+        String decodedEmail = URLDecoder.decode(userEmail, StandardCharsets.UTF_8);
+
+        log.info("PATCH /api/kiosks/{}/videos/{}/status - status: {}", id, videoId, status);
+        kioskService.updateVideoDownloadStatus(id, videoId, status, decodedEmail);
+
+        Map<String, String> response = new HashMap<>();
+        response.put("message", "Download status updated successfully");
+        return ResponseEntity.ok(response);
+    }
 }
