@@ -332,14 +332,14 @@
 .filename-wrapper {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
 }
 
 .video-thumbnail {
-  width: 80px;
-  height: 45px;
+  width: 50px;
+  height: 28px;
   object-fit: cover;
-  border-radius: 6px;
+  border-radius: 4px;
   cursor: pointer;
   transition: all 0.2s;
   border: 2px solid #e9ecef;
@@ -353,16 +353,16 @@
 }
 
 .video-thumbnail-placeholder {
-  width: 80px;
-  height: 45px;
+  width: 50px;
+  height: 28px;
   background: #f8f9fa;
   border: 2px solid #e9ecef;
-  border-radius: 6px;
+  border-radius: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
   color: #adb5bd;
-  font-size: 24px;
+  font-size: 16px;
   cursor: pointer;
   transition: all 0.2s;
   flex-shrink: 0;
