@@ -11,6 +11,8 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -34,10 +36,13 @@ public class VideoController {
             @RequestParam("file") MultipartFile file,
             @RequestParam(value = "title", required = false) String title,
             @RequestParam(value = "description", required = false) String description,
+            @RequestHeader(value = "X-User-Name", required = false) String userName,
             Authentication authentication) {
         try {
             String userEmail = authentication.getName();
-            Video video = videoService.uploadVideo(file, userEmail, title, description);
+            // Decode URL-encoded username (한글 디코딩)
+            String decodedUserName = userName != null ? URLDecoder.decode(userName, StandardCharsets.UTF_8) : null;
+            Video video = videoService.uploadVideo(file, userEmail, decodedUserName, title, description);
 
             Map<String, Object> response = new HashMap<>();
             response.put("message", "Video uploaded successfully");
@@ -208,6 +213,27 @@ public class VideoController {
             log.error("Failed to delete video", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "Failed to delete video: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Migrate existing videos to populate uploadedByName field (Admin only)
+     * POST /api/videos/migrate-uploader-names
+     * This is a one-time migration endpoint to update existing videos
+     */
+    @PostMapping("/migrate-uploader-names")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> migrateUploaderNames() {
+        try {
+            int updatedCount = videoService.migrateVideoUploaderNames();
+            return ResponseEntity.ok(Map.of(
+                "message", "Migration completed successfully",
+                "updatedCount", updatedCount
+            ));
+        } catch (Exception e) {
+            log.error("Failed to migrate video uploader names", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to migrate: " + e.getMessage()));
         }
     }
 }
