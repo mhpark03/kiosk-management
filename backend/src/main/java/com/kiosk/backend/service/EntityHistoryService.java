@@ -39,6 +39,41 @@ public class EntityHistoryService {
     }
 
     /**
+     * Records video-related activity to entity_history table.
+     *
+     * @param videoId Video ID
+     * @param videoTitle Video title
+     * @param user User who performed the action
+     * @param action Action type (VIDEO_UPLOAD, VIDEO_PLAY, VIDEO_DOWNLOAD, VIDEO_DELETE)
+     * @param description Description of the action
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void recordVideoActivity(Long videoId, String videoTitle, User user,
+                                    EntityHistory.ActionType action, String description) {
+        try {
+            EntityHistory history = EntityHistory.builder()
+                    .entityType(EntityHistory.EntityType.VIDEO)
+                    .entityId(String.valueOf(videoId))
+                    .posid(null)
+                    .userid(user.getEmail())
+                    .username(user.getDisplayName())
+                    .action(action)
+                    .timestamp(LocalDateTime.now())
+                    .fieldName("video_activity")
+                    .oldValue(null)
+                    .newValue(videoTitle)
+                    .description(description)
+                    .detail(null)
+                    .build();
+
+            entityHistoryRepository.save(history);
+            log.debug("Video activity recorded: {} - {} by {}", action, videoTitle, user.getEmail());
+        } catch (Exception e) {
+            log.error("Failed to record video activity to entity_history", e);
+        }
+    }
+
+    /**
      * Records batch execution result to entity_history table.
      * Runs in its own transaction (REQUIRES_NEW) to ensure it commits independently.
      *
