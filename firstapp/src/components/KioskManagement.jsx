@@ -754,6 +754,7 @@ function KioskManagement() {
                 <th>등록일</th>
                 <th>시작일</th>
                 <th>종료일</th>
+                <th>영상</th>
                 <th>상태</th>
                 <th>작업</th>
               </tr>
@@ -761,7 +762,7 @@ function KioskManagement() {
             <tbody>
               {filteredKiosks.length === 0 ? (
                 <tr>
-                  <td colSpan="10" className="no-data">
+                  <td colSpan="11" className="no-data">
                     {(appliedSearchStoreName || appliedSearchMaker) ? '필터와 일치하는 키오스크가 없습니다' : '키오스크가 없습니다'}
                   </td>
                 </tr>
@@ -783,6 +784,22 @@ function KioskManagement() {
                     <td>{formatDate(kiosk.regdate)}</td>
                     <td>{formatDate(kiosk.setdate)}</td>
                     <td>{formatDate(kiosk.deldate)}</td>
+                    <td style={{textAlign: 'center'}}>
+                      <span style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        fontSize: '0.9em'
+                      }}>
+                        <span style={{fontWeight: '600', color: '#48bb78'}}>
+                          {kiosk.downloadedVideoCount || 0}
+                        </span>
+                        <span style={{color: '#666'}}>/</span>
+                        <span style={{fontWeight: '600', color: '#667eea'}}>
+                          {kiosk.totalVideoCount || 0}
+                        </span>
+                      </span>
+                    </td>
                     <td>
                       <span className={`state-badge ${getStateColor(kiosk.state)}`}>
                         {kiosk.state === 'preparing' ? '준비중' :

@@ -60,7 +60,7 @@ public class KioskService {
     }
 
     /**
-     * Convert Kiosk entity to DTO with store regdate included
+     * Convert Kiosk entity to DTO with store regdate and video statistics included
      */
     private KioskDTO toDTO(Kiosk kiosk) {
         KioskDTO dto = KioskDTO.fromEntity(kiosk);
@@ -70,6 +70,15 @@ public class KioskService {
         if (store != null) {
             dto.setStoreRegdate(store.getRegdate());
         }
+
+        // Calculate video statistics
+        List<KioskVideo> kioskVideos = kioskVideoRepository.findByKioskIdOrderByDisplayOrderAsc(kiosk.getId());
+        dto.setTotalVideoCount(kioskVideos.size());
+
+        long downloadedCount = kioskVideos.stream()
+                .filter(kv -> "COMPLETED".equals(kv.getDownloadStatus()))
+                .count();
+        dto.setDownloadedVideoCount((int) downloadedCount);
 
         return dto;
     }

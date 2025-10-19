@@ -234,7 +234,9 @@ function convertKioskFromAPI(apiKiosk) {
     deldate: apiKiosk.deldate ? { toMillis: () => new Date(apiKiosk.deldate).getTime(), toDate: () => new Date(apiKiosk.deldate) } : null,
     storeRegdate: apiKiosk.storeRegdate ? { toMillis: () => new Date(apiKiosk.storeRegdate).getTime(), toDate: () => new Date(apiKiosk.storeRegdate) } : null,
     createdAt: apiKiosk.createdAt,
-    updatedAt: apiKiosk.updatedAt
+    updatedAt: apiKiosk.updatedAt,
+    totalVideoCount: apiKiosk.totalVideoCount || 0,
+    downloadedVideoCount: apiKiosk.downloadedVideoCount || 0
   };
 }
 
