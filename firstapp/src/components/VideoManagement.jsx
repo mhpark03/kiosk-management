@@ -85,6 +85,23 @@ function VideoManagement() {
     return `${month}/${day} ${hours}:${minutes}`;
   };
 
+  const getUploaderName = (video) => {
+    // 1순위: uploadedByName이 있으면 사용
+    if (video.uploadedByName) {
+      return video.uploadedByName;
+    }
+    // 2순위: uploadedBy(이메일)의 @ 앞부분 사용
+    if (video.uploadedBy) {
+      const atIndex = video.uploadedBy.indexOf('@');
+      if (atIndex > 0) {
+        return video.uploadedBy.substring(0, atIndex);
+      }
+      return video.uploadedBy;
+    }
+    // 3순위: 정보 없음
+    return 'N/A';
+  };
+
   // Pagination logic
   const totalPages = Math.ceil(videos.length / itemsPerPage);
   const indexOfLastItem = currentPage * itemsPerPage;
@@ -140,7 +157,7 @@ function VideoManagement() {
               <th>설명</th>
               <th>크기</th>
               <th>업로드 일시</th>
-              <th>업로더</th>
+              <th>사용자명</th>
               <th>작업</th>
             </tr>
           </thead>
@@ -186,7 +203,7 @@ function VideoManagement() {
                   </td>
                   <td>{videoService.formatFileSize(video.fileSize)}</td>
                   <td>{formatDate(video.uploadedAt)}</td>
-                  <td>{video.uploadedBy}</td>
+                  <td>{getUploaderName(video)}</td>
                   <td>
                     <div className="action-buttons">
                       <button

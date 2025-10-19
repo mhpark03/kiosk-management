@@ -22,6 +22,7 @@ public class VideoService {
 
     private final VideoRepository videoRepository;
     private final S3Service s3Service;
+    private final com.kiosk.backend.repository.UserRepository userRepository;
 
     private static final String VIDEO_FOLDER = "videos/";
     private static final String THUMBNAIL_FOLDER = "thumbnails/";
@@ -102,12 +103,13 @@ public class VideoService {
      * Upload a video file to S3 and save metadata to database
      * @param file Video file to upload
      * @param uploadedBy Email of the user uploading the video
+     * @param uploadedByName Display name of the user uploading the video
      * @param title Title of the video
      * @param description Optional description of the video
      * @return Saved Video entity
      */
     @Transactional
-    public Video uploadVideo(MultipartFile file, String uploadedBy, String title, String description) throws IOException {
+    public Video uploadVideo(MultipartFile file, String uploadedBy, String uploadedByName, String title, String description) throws IOException {
         // Validate file
         validateFile(file);
 
@@ -142,6 +144,7 @@ public class VideoService {
                 .thumbnailS3Key(thumbnailS3Key)
                 .thumbnailUrl(thumbnailUrl)
                 .uploadedBy(uploadedBy)
+                .uploadedByName(uploadedByName)
                 .title(title)
                 .description(description)
                 .build();
@@ -298,5 +301,43 @@ public class VideoService {
      */
     private String extractFilename(String s3Key) {
         return s3Key.substring(s3Key.lastIndexOf("/") + 1);
+    }
+
+    /**
+     * Migrate existing videos to populate uploadedByName field
+     * This is a one-time migration method to update existing videos
+     * @return Number of videos updated
+     */
+    @Transactional
+    public int migrateVideoUploaderNames() {
+        List<Video> allVideos = videoRepository.findAll();
+        int updatedCount = 0;
+
+        for (Video video : allVideos) {
+            // Only update if uploadedByName is null or empty
+            if (video.getUploadedByName() == null || video.getUploadedByName().trim().isEmpty()) {
+                String email = video.getUploadedBy();
+                if (email != null && !email.isEmpty()) {
+                    // Try to find user by email and get displayName
+                    userRepository.findByEmail(email).ifPresentOrElse(
+                        user -> {
+                            String displayName = user.getDisplayName();
+                            if (displayName != null && !displayName.trim().isEmpty()) {
+                                video.setUploadedByName(displayName);
+                                videoRepository.save(video);
+                                log.info("Updated video {} uploadedByName to: {}", video.getId(), displayName);
+                            } else {
+                                log.warn("User {} has no displayName, skipping video {}", email, video.getId());
+                            }
+                        },
+                        () -> log.warn("User not found for email: {}, skipping video {}", email, video.getId())
+                    );
+                    updatedCount++;
+                }
+            }
+        }
+
+        log.info("Migration completed: {} videos processed", updatedCount);
+        return updatedCount;
     }
 }
