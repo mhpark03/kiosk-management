@@ -4,7 +4,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a kiosk management system with a Spring Boot backend and React frontend. The system manages stores, kiosks, and users with comprehensive audit logging.
+Kiosk Management System - A full-stack application for managing retail kiosks, stores, users, and video content with comprehensive audit logging.
+
+**Tech Stack:**
+- Backend: Spring Boot 3.2.0 (Java 17), MySQL, AWS S3
+- Frontend: React 19, Vite, React Router
+- Infrastructure: AWS Elastic Beanstalk, RDS, S3
 
 **Repository Structure:**
 - `/backend` - Spring Boot REST API (Java 17, Gradle)
@@ -14,16 +19,23 @@ This is a kiosk management system with a Spring Boot backend and React frontend.
 
 ### Backend (Spring Boot)
 
-**Run the backend server:**
+**Run development server (local MySQL):**
 ```bash
 cd backend
-DB_PASSWORD=your-db-password JAVA_HOME="C:/Program Files/Eclipse Adoptium/jdk-17.0.16.8-hotspot" ./gradlew.bat bootRun
+DB_PASSWORD=aioztesting JAVA_HOME="C:/Program Files/Eclipse Adoptium/jdk-17.0.16.8-hotspot" ./gradlew.bat bootRun
 ```
 
-**Clean build and run:**
+**Run with dev profile (AWS RDS):**
 ```bash
 cd backend
-DB_PASSWORD=your-db-password JAVA_HOME="C:/Program Files/Eclipse Adoptium/jdk-17.0.16.8-hotspot" ./gradlew.bat clean bootRun
+SPRING_PROFILES_ACTIVE=dev DB_PASSWORD=<password> ./gradlew.bat bootRun
+```
+
+**Build production JAR:**
+```bash
+cd backend
+./gradlew.bat clean build -x test
+# Output: build/libs/backend-0.0.1-SNAPSHOT.jar
 ```
 
 **Run tests:**
@@ -32,27 +44,33 @@ cd backend
 ./gradlew.bat test
 ```
 
-**Build without running:**
-```bash
-cd backend
-./gradlew.bat build
-```
+**API Documentation:**
+- Swagger UI: http://localhost:8080/swagger-ui.html
+- Health check: http://localhost:8080/actuator/health
 
 ### Frontend (React + Vite)
+
+**Install dependencies:**
+```bash
+cd firstapp
+npm install
+```
 
 **Run development server:**
 ```bash
 cd firstapp
 npm run dev
+# Runs on http://localhost:5173
 ```
 
 **Build for production:**
 ```bash
 cd firstapp
 npm run build
+# Output: dist/
 ```
 
-**Lint:**
+**Lint code:**
 ```bash
 cd firstapp
 npm run lint
@@ -70,137 +88,99 @@ netstat -ano | findstr :8080
 taskkill //F //PID <pid>
 ```
 
-## Architecture
+## Architecture Overview
 
 ### Backend Architecture
 
 **Core Domain Entities:**
 - `Store` - Store/POS locations with auto-generated 8-digit `posid`
-- `Kiosk` - Kiosk devices with auto-generated 12-digit `kioskid`, linked to stores via `posid`
-- `User` - Users with Firebase authentication integration
+- `Kiosk` - Kiosk devices with auto-generated 12-digit `kioskid` and per-store `kioskno`
+- `User` - User accounts with JWT authentication, role-based access
+- `Video` - Video files stored in S3 with metadata and thumbnails
 - `EntityHistory` - **Unified audit log** for all entity changes
 
-**Unified History System:**
-All entity changes (stores, kiosks, users) are logged to a single `entity_history` table with:
-- `EntityType` enum (KIOSK, STORE, USER) to distinguish entity types
-- `ActionType` enum (CREATE, UPDATE, DELETE, RESTORE, STATE_CHANGE, LOGIN, LOGOUT, etc.)
-- Tracks: timestamp, user, field changes (old/new values), descriptions
+**Entity Relationships:**
+```
+Store (1) ----< (N) Kiosk
+  |                   |
+  v                   v
+EntityHistory <-- EntityHistory
 
-**Service Layer Patterns:**
-- Services automatically log to `entity_history` via private `logHistory()` methods
-- ID generation handled by services (`generatePosId()`, `generateKioskId()`)
-- State management with cascading updates (e.g., store state change → kiosk state updates)
+User (1) ----< (N) Video
+  |                   |
+  v                   v
+EntityHistory <-- EntityHistory
+```
+
+**Key Business Rules:**
+- Store has unique 8-digit `posid` (auto-generated sequential)
+- Kiosk has unique 12-digit `kioskid` (auto-generated sequential)
+- Kiosk has `kioskno` within store (1, 2, 3...) - **composite unique with `posid`**
+- `kioskno` is **never reused** even after deletion
+- When store state → INACTIVE, all its ACTIVE kiosks → INACTIVE
+- All state changes are logged to `entity_history`
+
+**Service Layer Pattern:**
+- Services handle business logic, ID generation, and validation
+- Automatic history logging via `EntityHistoryService`
+- Transaction management with `@Transactional`
 - Soft deletes: entities marked as DELETED with `deldate` timestamp
 
 **Security:**
-- JWT-based authentication with Firebase integration
-- User roles: USER, ADMIN
-- Security headers passed via: `X-User-Email`, `X-User-Name`
-- CORS configured for `http://localhost:5173`
-
-**Data Relationships:**
-```
-Store (posid) ←─ 1:N ─→ Kiosk (posid + kioskno)
-   ↓                        ↓
-EntityHistory          EntityHistory
-```
+- JWT-based stateless authentication
+- Roles: USER (read-only), ADMIN (full access)
+- Custom headers: `X-User-Email`, `X-User-Name` (Base64 encoded)
+- CORS enabled for React frontend
 
 ### Frontend Architecture
 
 **Key Components:**
-- `StoreManagement`, `KioskManagement`, `UserManagement` - CRUD interfaces with pagination
-- `History`, `StoreHistory`, `UserHistory` - Entity-specific history views
-- `Dashboard` - Statistics and overview
-- `Navbar` - Navigation with role-based menu items
-- `ProtectedRoute` - Route guards checking authentication and roles
+- `Dashboard` - Analytics with Recharts (monthly installations, status trends, regional stats)
+- `KioskManagement`, `StoreManagement`, `UserManagement` - CRUD with pagination
+- `VideoManagement`, `VideoUpload` - Video library with S3 integration
+- `KioskVideoManagement` - Per-kiosk video assignment interface
+- `History`, `StoreHistory`, `UserHistory` - Entity-specific audit views
+- `Navbar` - Role-based navigation
+- `ProtectedRoute` - Authentication guard
 
-**Service Layer:**
-- `authService.js` - Authentication, token management
-- `storeService.js` - Store CRUD operations
-- `kioskService.js` - Kiosk CRUD operations
-- `userService.js` - User management (admin operations)
-- `historyService.js` - Unified entity history fetching
+**State Management:**
+- **AuthContext**: Global auth state (user, token, login/logout)
+- **Local state**: Component-level with useState/useEffect
+- **No Redux**: Uses React Context + local state pattern
 
-**Pagination Pattern:**
-All list views use client-side pagination with:
-- State: `currentPage`, `itemsPerPage` (10)
-- Logic: slice array based on current page
-- UI: Previous/Next buttons + numbered page buttons
-- Auto-reset to page 1 when data changes
+**Routing (HashRouter):**
+- Uses `/#/path` format for S3 static hosting compatibility
+- Protected routes wrap with `<ProtectedRoute>`
+- All routes resolve to `index.html` for client-side routing
 
-**Authentication Flow:**
-1. Firebase authentication via `authService`
-2. Backend validates Firebase token
-3. JWT issued for subsequent requests
-4. Token stored in localStorage
-5. Axios interceptor adds token to all requests
-
-## Environment Profiles
-
-The backend uses Spring Profiles to manage different environments:
-
-### Local Environment (default)
-```bash
-cd backend
-SPRING_PROFILES_ACTIVE=local JAVA_HOME="C:/Program Files/Eclipse Adoptium/jdk-17.0.16.8-hotspot" ./gradlew.bat bootRun
-```
-- Database: localhost:3306
-- Database name: kioskdb
-- Uses local MySQL (XAMPP or standalone)
-
-### Dev Environment (AWS RDS)
-```bash
-cd backend
-SPRING_PROFILES_ACTIVE=dev JAVA_HOME="C:/Program Files/Eclipse Adoptium/jdk-17.0.16.8-hotspot" ./gradlew.bat bootRun
-```
-- Database: AWS RDS instance
-- Configuration in `application-dev.properties`
-
-### Prod Environment (AWS RDS)
-```bash
-cd backend
-SPRING_PROFILES_ACTIVE=prod JAVA_HOME="C:/Program Files/Eclipse Adoptium/jdk-17.0.16.8-hotspot" ./gradlew.bat bootRun
-```
-- Database: AWS RDS production instance
-- Configuration in `application-prod.properties`
-
-**Note:** Environment-specific properties files (`application-{profile}.properties`) contain sensitive database credentials and should never be committed to version control.
-
-## Database Configuration
-
-**Local Connection:**
-- Database: MySQL on `localhost:3306`
-- Database name: `kioskdb` (auto-created)
-- Username: `root`
-- Password: Set via `DB_PASSWORD` environment variable (default: `your-db-password`)
-- Timezone: `Asia/Seoul`
-
-**JPA:**
-- DDL mode: `update` (auto-create/update tables)
-- SQL logging enabled with formatting
+**API Service Layer:**
+- Centralized axios instance in `services/api.js`
+- Request interceptor adds JWT token and custom headers
+- Service modules: `authService`, `kioskService`, `storeService`, `videoService`, etc.
+- Converts Timestamp objects to ISO strings for API compatibility
 
 ## Critical Business Rules
 
 ### Kiosk and Store State Management
 
 **Kiosk States:**
-- `PREPARING` - Initial state, kiosk registered but not yet active
-- `ACTIVE` - Kiosk is operational
-- `INACTIVE` - Kiosk has been decommissioned/ended
-- `MAINTENANCE` - Kiosk is under maintenance
-- `DELETED` - Soft deleted (excluded from most queries)
-
-**Store States:**
-- `ACTIVE` - Store is operational
-- `INACTIVE` - Store is closed/inactive
+- `PREPARING` - Initial state, not yet active
+- `ACTIVE` - Operational
+- `INACTIVE` - Decommissioned/ended
+- `MAINTENANCE` - Under maintenance
 - `DELETED` - Soft deleted
 
-**Date Fields and Their Meanings:**
-- Kiosk `regdate` - Registration date (when kiosk was created)
-- Kiosk `setdate` - Start/activation date (when kiosk became active)
-- Kiosk `deldate` - End/termination date (when kiosk ended or entered maintenance)
+**Store States:**
+- `ACTIVE` - Operational
+- `INACTIVE` - Closed/inactive
+- `DELETED` - Soft deleted
+
+**Date Fields:**
+- Kiosk `regdate` - Registration date (when created)
+- Kiosk `setdate` - Start/activation date (when became active)
+- Kiosk `deldate` - End/termination date (when ended or maintenance)
 - Store `regdate` - Store registration date
-- Store `deldate` - Store closure/soft delete date
+- Store `deldate` - Store closure date
 
 ### Date Validation Rules
 
@@ -213,108 +193,178 @@ Chronological order must be maintained:
 4. Kiosk `deldate` (must be ≥ kiosk setdate)
 5. Store `deldate` (must be ≥ store regdate)
 
-These validations are enforced in `KioskService` and `StoreService`.
+Enforced in `KioskService` and `StoreService`.
 
-### Automatic State Transitions (Frontend)
+### Automatic State Transitions
 
-When editing kiosks in `KioskManagement.jsx`:
-
-**Changing to ACTIVE:**
+**When changing to ACTIVE:**
 - If `setdate` is empty, auto-set to today
 
-**Changing to INACTIVE or MAINTENANCE:**
+**When changing to INACTIVE/MAINTENANCE:**
 - If `deldate` is empty, auto-set to today
 
-**Setting `setdate`:**
-- If current state is PREPARING, auto-change to ACTIVE
-
-**Setting `deldate`:**
-- If current state is ACTIVE, auto-change to PREPARING (this appears to be legacy behavior)
-
-### Date Field Persistence Rules
-
-When saving kiosk updates (`handleEditKiosk`):
-- If state is PREPARING: `setdate` and `deldate` are cleared (set to null)
-- If state is ACTIVE: `deldate` is cleared (set to null)
-- If state is INACTIVE or MAINTENANCE: `deldate` is preserved
-- These rules ensure data consistency with state meanings
-
-### Dashboard Chart Calculations
-
-**Monthly Installation Count:**
-- Counts kiosks by `regdate` (registration date)
-- **Excludes** kiosks with state INACTIVE or DELETED
-- Shows last 6 months with total in title
-- Bars are clickable to filter kiosks by installation month
-
-**Weekly Status Trend:**
-- Uses **different date fields per state**:
-  - PREPARING: counted by `regdate` (when registered)
-  - ACTIVE: counted by `setdate` (when activated)
-  - MAINTENANCE: counted by `deldate` (when maintenance started)
-- Displays 6 months of data, weeks start on Sunday
-- Line chart with `dot={false}` for clean visualization
-
-**Regional Statistics Table:**
-- Groups by Korean administrative regions (시/도 level)
-- Shows store count and kiosk counts by state (Preparing, Active, Maintenance)
-- Excludes DELETED kiosks from counts
-- Clickable cells filter to respective management pages
-
-### Korean Regional Categorization
-
-Addresses are parsed to extract 17 standard Korean regions:
-- Metropolitan cities: Seoul, Busan, Daegu, Incheon, Gwangju, Daejeon, Ulsan
-- Special/autonomous cities: Sejong, Gangwon, Jeonbuk, Jeju
-- Provinces: Gyeonggi, Chungbuk, Chungnam, Jeonnam, Gyeongbuk, Gyeongnam
-
-Normalization handles variations (e.g., "서울시" → "서울특별시").
-
-See `extractRegion()` function in `Dashboard.jsx` for implementation.
+**Date field persistence by state:**
+- PREPARING: `setdate` and `deldate` are null
+- ACTIVE: `deldate` is null
+- INACTIVE/MAINTENANCE: `deldate` is preserved
 
 ### Composite Unique Constraint
 
-Kiosks have a unique constraint on `(posid, kioskno)`:
-- Each store can have kiosks numbered 1, 2, 3, etc.
-- `kioskno` is auto-generated per store by finding MAX(kioskno) for that posid
-- Includes deleted kiosks in MAX calculation to prevent number reuse
-- Duplicate validation checked both frontend and backend
+Kiosks have unique `(posid, kioskno)`:
+- Each store has kiosks numbered 1, 2, 3, etc.
+- `kioskno` auto-generated by finding MAX(kioskno) for that posid
+- **Includes deleted kiosks** in MAX calculation to prevent number reuse
+- Duplicate validation in both frontend and backend
 
-### Cascading Store-to-Kiosk Updates
+### Cascading Updates
 
-When a Store's state changes to INACTIVE:
-- All ACTIVE kiosks for that store are automatically updated to INACTIVE
-- Implemented in `StoreService.updateStore()` calling `KioskService.updateKioskStateByPosid()`
-- This ensures kiosks can't be active in an inactive store
+When Store state → INACTIVE:
+- All ACTIVE kiosks for that store → INACTIVE
+- Implemented in `StoreService.updateStore()` → `KioskService.updateKioskStateByPosid()`
 
-## Important Patterns
+## Unified Entity History System
 
-### When Adding Entity History Logging
+**All entity changes logged to `entity_history` table:**
+- `EntityType`: KIOSK, STORE, USER, VIDEO
+- `ActionType`: CREATE, UPDATE, DELETE, RESTORE, STATE_CHANGE, LOGIN, LOGOUT, PASSWORD_CHANGE, VIDEO_UPLOAD, VIDEO_PLAY, VIDEO_DELETE, etc.
+- Tracks: timestamp, user (email + display name), entity ID, field changes (old/new values), description
 
-All service methods that modify entities must call the private `logHistory()` method:
-
+**Logging Pattern:**
 ```java
-private void logHistory(String entityId, String posid, String action,
-                       String userEmail, String username, String fieldName,
-                       String oldValue, String newValue, String description) {
-    EntityHistory entityHistory = EntityHistory.builder()
-        .entityType(EntityHistory.EntityType.KIOSK) // or STORE, USER
-        .entityId(entityId)
-        .posid(posid)
-        .userid(userEmail)
-        .username(username)
-        .action(EntityHistory.ActionType.valueOf(action))
-        .timestamp(LocalDateTime.now())
-        .fieldName(fieldName)
-        .oldValue(oldValue)
-        .newValue(newValue)
-        .description(description)
-        .build();
-    entityHistoryRepository.save(entityHistory);
-}
+// After successful operation in service layer
+entityHistoryService.recordVideoActivity(
+    video.getId(),
+    video.getTitle(),
+    user,
+    EntityHistory.ActionType.VIDEO_UPLOAD,
+    "영상 업로드: " + video.getTitle()
+);
 ```
 
-### ID Generation Patterns
+**Transaction Propagation:**
+- Use `@Transactional(propagation = Propagation.REQUIRES_NEW)` for history logging
+- Ensures history commits independently even if main transaction fails
+
+## Video Management with S3
+
+**Upload Flow:**
+1. Validate file (≤ 100MB, video/* MIME types)
+2. Generate thumbnail using FFmpeg (frame at 1 second, 320px width)
+3. Upload video to S3 `videos/` folder
+4. Upload thumbnail to S3 `thumbnails/` folder
+5. Store metadata in Video entity
+6. Record VIDEO_UPLOAD in entity_history
+
+**S3 Configuration:**
+- Bucket: `${AWS_S3_BUCKET_NAME}` from environment
+- Region: ap-northeast-2 (Seoul)
+- Pre-signed URLs: 7-day expiration
+
+**FFmpeg Dependency:**
+- Installed via `.ebextensions/03_ffmpeg.config` on AWS EB
+- Required for thumbnail generation on video upload
+
+**Video Entity:**
+- Links to User via `uploadedById`
+- Stores S3 keys, URLs, thumbnails, title, description
+- Activity tracked: UPLOAD, PLAY, DELETE
+
+## Dashboard Analytics
+
+**Monthly Installations Chart:**
+- Groups kiosks by `regdate` month
+- **Excludes** INACTIVE and DELETED states
+- Last 6 months rolling window
+- Clickable bars filter to KioskManagement
+
+**Weekly Status Trend:**
+- Uses **different date fields per state**:
+  - PREPARING: `regdate`
+  - ACTIVE: `setdate`
+  - INACTIVE/MAINTENANCE: `deldate`
+- Last 6 months, weeks start Sunday
+- Line chart with `dot={false}`
+
+**Regional Statistics:**
+- Groups by 17 Korean administrative regions
+- Shows store count + kiosk counts by state
+- Excludes DELETED kiosks
+- Clickable cells filter management pages
+
+**Region Extraction:**
+- Parses store addresses for: Seoul, Busan, Daegu, Incheon, Gwangju, Daejeon, Ulsan, Sejong, Gyeonggi, Gangwon, Chungbuk, Chungnam, Jeonbuk, Jeonnam, Gyeongbuk, Gyeongnam, Jeju
+- Normalizes variations (e.g., "서울시" → "서울특별시")
+
+## Environment Configuration
+
+### Backend Profiles
+
+**Local (default):**
+```bash
+SPRING_PROFILES_ACTIVE=local ./gradlew.bat bootRun
+```
+- Database: localhost:3306/kioskdb
+- Username: root
+- Password: from `DB_PASSWORD` env var
+
+**Dev (AWS RDS):**
+```bash
+SPRING_PROFILES_ACTIVE=dev DB_PASSWORD=<pass> ./gradlew.bat bootRun
+```
+- Database: AWS RDS endpoint from `DB_URL`
+- Credentials from environment variables
+
+**Prod (AWS RDS):**
+```bash
+SPRING_PROFILES_ACTIVE=prod ./gradlew.bat bootRun
+```
+- Production RDS instance
+- All credentials from environment
+
+**Required Environment Variables:**
+- `SPRING_PROFILES_ACTIVE` (local/dev/prod)
+- `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`
+- `JWT_SECRET` (format: `<secret>:<expiration-hours>`, default 24h)
+- `AWS_S3_BUCKET_NAME`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`
+
+### Frontend Environment
+
+**.env.production:**
+```
+VITE_API_URL=http://Kiosk-backend-env.eba-32jx2nbm.ap-northeast-2.elasticbeanstalk.com/api
+```
+
+**Local development:**
+- Automatically uses `http://localhost:8080/api`
+
+## Database Configuration
+
+**Local MySQL Setup:**
+```sql
+CREATE DATABASE kioskdb CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+```
+
+**JPA Configuration:**
+```yaml
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: update  # Auto-create/update schema
+    show-sql: true
+```
+
+**Timezone:** Asia/Seoul (server and database)
+
+**Tables:**
+- `stores` - Store/POS locations
+- `kiosks` - Kiosk devices
+- `users` - User accounts
+- `videos` - Video metadata
+- `entity_history` - Unified audit log
+
+## Common Development Patterns
+
+### ID Generation
 
 **Store POS ID (8 digits):**
 ```java
@@ -330,65 +380,199 @@ long nextId = (maxKioskid == null) ? 1 : Long.parseLong(maxKioskid) + 1;
 return String.format("%012d", nextId);
 ```
 
-### Cascading State Updates
+**Kiosk Number (per store):**
+```java
+Integer maxKioskno = kioskRepository.findMaxKiosknoByPosid(posid);
+return (maxKioskno == null) ? 1 : maxKioskno + 1;
+```
 
-When a store's state changes to INACTIVE, all ACTIVE kiosks for that store are automatically updated to INACTIVE (see `StoreService.updateStore()` → `KioskService.updateKioskStateByPosid()`).
+### Soft Delete Pattern
 
-### Frontend Date Formatting
+**Mark as deleted:**
+- Set `state` to DELETED
+- Set `deldate` to current timestamp
+- **Do not physically delete** from database
 
-History dates are displayed in `MM/dd HH:mm` format (Korean timezone).
+**Restore:**
+- Set `state` back to INACTIVE (or previous state)
+- Clear `deldate`
+
+**Queries:**
+- Default: exclude DELETED items
+- Optional parameter to include deleted
+
+### Adding New Entity with History
+
+1. **Create entity** with JPA annotations
+2. **Add to EntityHistory.EntityType** enum
+3. **Create repository** extending JpaRepository
+4. **Create service** with `@Transactional` methods
+5. **Inject EntityHistoryService** and log changes
+6. **Create controller** with `@PreAuthorize` for security
+7. **Add frontend service** in `services/`
+8. **Create React component** for CRUD
+9. **Add route** in App.jsx
+10. **Update Navbar** with new menu item
+
+### Scheduled Tasks (Batch Jobs)
+
+**Example:** `EntityHistoryCleanupScheduler.java`
+- Uses `@Scheduled` annotation
+- Runs in separate transaction (`REQUIRES_NEW`)
+- Records batch execution to entity_history
+- Cron: `@Scheduled(cron = "0 0 2 * * ?")` = 2 AM daily
+
+**Manual trigger:**
+```bash
+POST /api/batch/cleanup-entity-history
+Authorization: Bearer <admin-token>
+```
 
 ## UI Localization
 
-The frontend UI is in Korean:
-- Button labels, form fields, error messages all in Korean
-- Date/time formatting uses Korean timezone (Asia/Seoul)
-- Maintain Korean text when modifying UI components
+**Korean UI:**
+- All user-facing text in Korean
+- Code and comments in English
+- Date/time formatting: Korea timezone (Asia/Seoul)
+- Display format: `MM/dd HH:mm`
+
+**Maintain Korean text when modifying UI components.**
 
 ## Deployment
 
 ### AWS Infrastructure
 
-**Backend:**
-- Deployed to AWS Elastic Beanstalk
-- Automatic deployment via GitHub Actions on push to `main` branch
+**Backend (Elastic Beanstalk):**
+- Platform: Java 17 Corretto on Amazon Linux 2
+- Port: 5000 (EB standard)
+- Health check: `/actuator/health`
+- Deployment: GitHub Actions on push to `main`
 - Workflow: `.github/workflows/deploy-backend.yml`
-- Environment variables configured in EB console (DB credentials, Spring profiles)
 
-**Frontend:**
-- Static hosting on AWS S3
-- Automatic deployment via GitHub Actions on push to `main` branch
-- Workflow: `.github/workflows/deploy-frontend.yml`
-- API URL configured via `VITE_API_URL` environment variable
-
-**Database:**
-- AWS RDS MySQL instances (dev and prod)
-- Credentials stored in EB environment configuration
-- Last credential rotation: 2025-10-19
-
-### Frontend API Configuration
-
-The frontend uses a centralized API configuration in `src/services/api.js`:
-
-```javascript
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
+**Procfile:**
+```
+web: java -Dserver.port=5000 -Dspring.profiles.active=${SPRING_PROFILES_ACTIVE:-local} -jar application.jar
 ```
 
-**Environment Variables:**
-- Local development: Uses default `http://localhost:8080/api`
-- Production builds: Set `VITE_API_URL` in `.env` or build environment
+**Frontend (S3 Static Hosting):**
+- Bucket: `kiosk-frontend-20251018`
+- Region: ap-northeast-2
+- Deployment: GitHub Actions on push to `main`
+- Workflow: `.github/workflows/deploy-frontend.yml`
+- Website URL: `http://kiosk-frontend-20251018.s3-website.ap-northeast-2.amazonaws.com`
 
-**Important:** All service files (`storeService.js`, `kioskService.js`, `userService.js`, `historyService.js`, `storeHistoryService.js`) import and use the `api` instance from `api.js`. The `authService.js` uses a separate `authApi` instance without interceptors.
+**Database (AWS RDS):**
+- Engine: MySQL 8.0
+- Instance: db.t3.micro (dev)
+- Automated backups enabled
+- Endpoint: `kiosk-db.cj0k46yy6vv6.ap-northeast-2.rds.amazonaws.com:3306`
 
-### Security Notes
+**S3 Video Storage:**
+- Bucket: From `AWS_S3_BUCKET_NAME` env var
+- Folders: `videos/`, `thumbnails/`
+- Pre-signed URLs for playback
+
+### GitHub Secrets Required
+
+- `AWS_ACCESS_KEY_ID`
+- `AWS_SECRET_ACCESS_KEY`
+- `EB_S3_BUCKET` - EB deployment artifacts
+- `EB_APPLICATION_NAME`
+- `EB_ENVIRONMENT_NAME`
+- `EB_ENVIRONMENT_URL`
+- `S3_BUCKET_NAME` - Frontend hosting
+
+### Manual Deployment
+
+**Backend:**
+```bash
+cd backend
+./gradlew.bat clean build -x test
+# Upload build/libs/backend-0.0.1-SNAPSHOT.jar to EB via AWS Console
+```
+
+**Frontend:**
+```bash
+cd firstapp
+npm run build
+aws s3 sync dist/ s3://kiosk-frontend-20251018/ --delete
+```
+
+## Security Notes
 
 **Sensitive Files (Never Commit):**
-- `backend/src/main/resources/application-dev.properties`
-- `backend/src/main/resources/application-prod.properties`
+- `backend/src/main/resources/application-dev.yml`
+- `backend/src/main/resources/application-prod.yml`
 - `firstapp/.env` (if contains production URLs)
-- Any files containing database credentials or API keys
+- Any files with database credentials or API keys
 
-**Public Repository:**
-- This repository is public on GitHub
-- Database credentials are managed via environment variables
-- AWS deployment uses EB environment configuration for secrets
+**Authentication Flow:**
+1. User logs in with email/password
+2. Backend validates credentials
+3. JWT issued with 24h expiration
+4. Token stored in localStorage
+5. Axios interceptor adds token to all requests
+6. SecurityContext populated via JwtAuthenticationFilter
+
+**Password Security:**
+- BCrypt hashing with default strength (10 rounds)
+- Never log or expose passwords
+- Password change requires current password verification
+
+## Mobile Responsiveness
+
+**Orientation Change Handling:**
+- App.jsx monitors `resize` and `orientationchange` events
+- Updates dimensions state on rotation
+- Triggers React re-render for layout adaptation
+
+**CSS Media Queries:**
+- Mobile breakpoint: 768px
+- Landscape/portrait orientations handled separately
+- Prevents iOS zoom on input focus (font-size: 16px minimum)
+
+**Viewport:**
+```html
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
+```
+
+## Troubleshooting
+
+### Backend won't start
+- Check Java version: `java -version` (must be 17)
+- Check MySQL: Can you connect to localhost:3306?
+- Check `DB_PASSWORD` environment variable
+- Check port 8080: `netstat -ano | findstr :8080`
+
+### Frontend build fails
+- Check Node version: `node -v` (must be 18+)
+- Clear node_modules: `rm -rf node_modules && npm install`
+- Check for linting errors: `npm run lint`
+
+### CORS errors
+- Verify `CorsConfig.java` allowed origins
+- Check frontend URL matches allowed origin
+- Look for exact error in browser console
+
+### JWT expires too quickly
+- Default: 24 hours
+- Configure via `JWT_SECRET`: `<secret>:<hours>`
+- Example: `mysecret:168` for 7 days
+
+### Video upload fails
+- Check file size: Must be ≤ 100MB
+- Check FFmpeg: `ffmpeg -version`
+- Check S3 credentials in environment
+- Check S3 bucket permissions
+
+### Entity history not recording
+- Check transaction propagation: Use `REQUIRES_NEW`
+- Verify EntityHistoryService is injected
+- Check if exception thrown before history call
+- Look for errors: "Failed to record ... to entity_history"
+
+### Dashboard charts empty
+- Check date filters and state exclusions
+- Verify kiosks have proper `regdate`, `setdate`, `deldate`
+- Check browser console for data processing errors
+- Ensure stores have valid addresses for regional stats
