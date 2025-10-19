@@ -8,7 +8,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.List;
 
 @Service
@@ -20,6 +24,7 @@ public class VideoService {
     private final S3Service s3Service;
 
     private static final String VIDEO_FOLDER = "videos/";
+    private static final String THUMBNAIL_FOLDER = "thumbnails/";
     private static final long MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB
     private static final List<String> ALLOWED_CONTENT_TYPES = List.of(
             "video/mp4",
@@ -29,6 +34,69 @@ public class VideoService {
             "video/x-ms-wmv",
             "video/webm"
     );
+
+    /**
+     * Generate a thumbnail from a video file
+     * @param videoFile Video file to extract thumbnail from
+     * @return Byte array of the thumbnail image (JPEG), or null if failed
+     */
+    private byte[] generateThumbnail(MultipartFile videoFile) {
+        Path tempVideoPath = null;
+        Path tempThumbnailPath = null;
+
+        try {
+            // Create temporary files
+            String originalFilename = videoFile.getOriginalFilename();
+            String extension = originalFilename != null && originalFilename.contains(".")
+                ? originalFilename.substring(originalFilename.lastIndexOf("."))
+                : ".mp4";
+
+            tempVideoPath = Files.createTempFile("video_", extension);
+            tempThumbnailPath = Files.createTempFile("thumbnail_", ".jpg");
+
+            // Save uploaded video to temp file
+            videoFile.transferTo(tempVideoPath.toFile());
+
+            // Use FFmpeg to extract thumbnail at 1 second
+            ProcessBuilder processBuilder = new ProcessBuilder(
+                "ffmpeg",
+                "-i", tempVideoPath.toString(),
+                "-ss", "00:00:01.000",
+                "-vframes", "1",
+                "-vf", "scale=320:-1",
+                "-y",
+                tempThumbnailPath.toString()
+            );
+
+            processBuilder.redirectErrorStream(true);
+            Process process = processBuilder.start();
+            int exitCode = process.waitFor();
+
+            if (exitCode == 0 && Files.exists(tempThumbnailPath)) {
+                byte[] thumbnailBytes = Files.readAllBytes(tempThumbnailPath);
+                log.info("Thumbnail generated successfully, size: {} bytes", thumbnailBytes.length);
+                return thumbnailBytes;
+            } else {
+                log.warn("FFmpeg failed to generate thumbnail, exit code: {}", exitCode);
+                return null;
+            }
+        } catch (Exception e) {
+            log.error("Failed to generate thumbnail: {}", e.getMessage());
+            return null;
+        } finally {
+            // Clean up temporary files
+            try {
+                if (tempVideoPath != null && Files.exists(tempVideoPath)) {
+                    Files.delete(tempVideoPath);
+                }
+                if (tempThumbnailPath != null && Files.exists(tempThumbnailPath)) {
+                    Files.delete(tempThumbnailPath);
+                }
+            } catch (IOException e) {
+                log.error("Failed to delete temporary files: {}", e.getMessage());
+            }
+        }
+    }
 
     /**
      * Upload a video file to S3 and save metadata to database
@@ -43,9 +111,25 @@ public class VideoService {
         // Validate file
         validateFile(file);
 
-        // Upload to S3
+        // Upload video to S3
         String s3Key = s3Service.uploadFile(file, VIDEO_FOLDER);
         String s3Url = s3Service.getFileUrl(s3Key);
+
+        // Generate and upload thumbnail
+        String thumbnailS3Key = null;
+        String thumbnailUrl = null;
+        try {
+            byte[] thumbnailBytes = generateThumbnail(file);
+            if (thumbnailBytes != null) {
+                String thumbnailFilename = extractFilename(s3Key).replace(".", "_thumb.jpg");
+                thumbnailS3Key = s3Service.uploadBytes(thumbnailBytes, THUMBNAIL_FOLDER, thumbnailFilename, "image/jpeg");
+                thumbnailUrl = s3Service.getFileUrl(thumbnailS3Key);
+                log.info("Thumbnail uploaded successfully: {}", thumbnailS3Key);
+            }
+        } catch (Exception e) {
+            log.error("Failed to generate/upload thumbnail, continuing without thumbnail: {}", e.getMessage());
+            // Continue without thumbnail - not critical
+        }
 
         // Save metadata to database
         Video video = Video.builder()
@@ -55,6 +139,8 @@ public class VideoService {
                 .contentType(file.getContentType())
                 .s3Key(s3Key)
                 .s3Url(s3Url)
+                .thumbnailS3Key(thumbnailS3Key)
+                .thumbnailUrl(thumbnailUrl)
                 .uploadedBy(uploadedBy)
                 .title(title)
                 .description(description)
