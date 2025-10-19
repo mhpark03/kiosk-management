@@ -134,6 +134,14 @@ function UserHistory() {
         return 'action-delete';
       case 'ACTIVATE':
         return 'action-restore';
+      case 'VIDEO_UPLOAD':
+        return 'action-create';
+      case 'VIDEO_PLAY':
+        return 'action-update';
+      case 'VIDEO_DOWNLOAD':
+        return 'action-state-change';
+      case 'VIDEO_DELETE':
+        return 'action-delete';
       default:
         return '';
     }
@@ -161,6 +169,14 @@ function UserHistory() {
         return '정지됨';
       case 'ACTIVATE':
         return '활성화됨';
+      case 'VIDEO_UPLOAD':
+        return '영상 업로드';
+      case 'VIDEO_PLAY':
+        return '영상 재생';
+      case 'VIDEO_DOWNLOAD':
+        return '영상 다운로드';
+      case 'VIDEO_DELETE':
+        return '영상 삭제';
       default:
         return action;
     }
@@ -183,6 +199,8 @@ function UserHistory() {
         return '매장';
       case 'USER':
         return '사용자';
+      case 'VIDEO':
+        return '영상';
       default:
         return item.entityType;
     }
@@ -200,6 +218,8 @@ function UserHistory() {
         return 'action-update';
       case 'USER':
         return 'action-state-change';
+      case 'VIDEO':
+        return 'action-delete'; // Red for video
       default:
         return '';
     }
@@ -324,6 +344,7 @@ function UserHistory() {
             <option value="KIOSK">키오스크</option>
             <option value="STORE">매장</option>
             <option value="USER">사용자</option>
+            <option value="VIDEO">영상</option>
             <option value="BATCH">배치</option>
           </select>
         </div>
@@ -347,6 +368,10 @@ function UserHistory() {
             <option value="PASSWORD_CHANGE">비밀번호 변경</option>
             <option value="SUSPEND">정지</option>
             <option value="ACTIVATE">활성화</option>
+            <option value="VIDEO_UPLOAD">영상 업로드</option>
+            <option value="VIDEO_PLAY">영상 재생</option>
+            <option value="VIDEO_DOWNLOAD">영상 다운로드</option>
+            <option value="VIDEO_DELETE">영상 삭제</option>
           </select>
         </div>
 
@@ -453,7 +478,10 @@ function UserHistory() {
                     </td>
                     <td>{formatDate(item.timestamp)}</td>
                     <td>{getStoreName(item.posid)}</td>
-                    <td style={{textAlign: 'center'}}>{item.entityType === 'KIOSK' ? formatKioskId(item.entityId) : '-'}</td>
+                    <td style={{textAlign: 'center'}}>
+                      {item.entityType === 'KIOSK' ? formatKioskId(item.entityId) :
+                       item.entityType === 'VIDEO' ? item.entityId : '-'}
+                    </td>
                     <td>
                       <span className={`action-badge ${getActionColor(item.action)}`}>
                         {getActionLabel(item.action)}
