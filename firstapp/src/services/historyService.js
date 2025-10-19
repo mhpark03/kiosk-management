@@ -14,7 +14,7 @@ export const getAllHistory = async () => {
 // Get history by entity type (KIOSK or STORE)
 export const getHistoryByEntityType = async (entityType) => {
   try {
-    const response = await api.get(`${/history}/type/${entityType}`);
+    const response = await api.get(`/history/type/${entityType}`);
     return response.data;
   } catch (error) {
     console.error(`Error fetching ${entityType} history:`, error);
@@ -25,7 +25,7 @@ export const getHistoryByEntityType = async (entityType) => {
 // Get history by entity ID
 export const getHistoryByEntityId = async (entityId) => {
   try {
-    const response = await api.get(`${/history}/entity/${entityId}`);
+    const response = await api.get(`/history/entity/${entityId}`);
     return response.data;
   } catch (error) {
     console.error('Error fetching history by entity ID:', error);
@@ -36,7 +36,7 @@ export const getHistoryByEntityId = async (entityId) => {
 // Get history by POS ID
 export const getHistoryByPosId = async (posid) => {
   try {
-    const response = await api.get(`${/history}/posid/${posid}`);
+    const response = await api.get(`/history/posid/${posid}`);
     return response.data;
   } catch (error) {
     console.error('Error fetching history by POS ID:', error);
@@ -47,7 +47,7 @@ export const getHistoryByPosId = async (posid) => {
 // Get history by entity type and POS ID
 export const getHistoryByEntityTypeAndPosId = async (entityType, posid) => {
   try {
-    const response = await api.get(`${/history}/type/${entityType}/posid/${posid}`);
+    const response = await api.get(`/history/type/${entityType}/posid/${posid}`);
     return response.data;
   } catch (error) {
     console.error(`Error fetching ${entityType} history by POS ID:`, error);
@@ -58,7 +58,7 @@ export const getHistoryByEntityTypeAndPosId = async (entityType, posid) => {
 // Get history by user
 export const getHistoryByUser = async (userid) => {
   try {
-    const response = await api.get(`${/history}/user/${userid}`);
+    const response = await api.get(`/history/user/${userid}`);
     return response.data;
   } catch (error) {
     console.error('Error fetching history by user:', error);
@@ -69,7 +69,7 @@ export const getHistoryByUser = async (userid) => {
 // Get history by action type
 export const getHistoryByAction = async (action) => {
   try {
-    const response = await api.get(`${/history}/action/${action}`);
+    const response = await api.get(`/history/action/${action}`);
     return response.data;
   } catch (error) {
     console.error('Error fetching history by action:', error);
@@ -80,7 +80,7 @@ export const getHistoryByAction = async (action) => {
 // Get history by entity type and action
 export const getHistoryByEntityTypeAndAction = async (entityType, action) => {
   try {
-    const response = await api.get(`${/history}/type/${entityType}/action/${action}`);
+    const response = await api.get(`/history/type/${entityType}/action/${action}`);
     return response.data;
   } catch (error) {
     console.error(`Error fetching ${entityType} history by action:`, error);
@@ -91,7 +91,7 @@ export const getHistoryByEntityTypeAndAction = async (entityType, action) => {
 // Get history by entity type and entity ID
 export const getHistoryByEntityTypeAndEntityId = async (entityType, entityId) => {
   try {
-    const response = await api.get(`${/history}/type/${entityType}/entity/${entityId}`);
+    const response = await api.get(`/history/type/${entityType}/entity/${entityId}`);
     return response.data;
   } catch (error) {
     console.error(`Error fetching ${entityType} history by entity ID:`, error);
