@@ -61,7 +61,8 @@ public class EntityHistory {
     public enum EntityType {
         KIOSK,  // Kiosk entity
         STORE,  // Store entity
-        USER    // User entity
+        USER,   // User entity
+        VIDEO   // Video entity
     }
 
     public enum ActionType {
@@ -74,7 +75,11 @@ public class EntityHistory {
         LOGOUT,         // User logged out
         PASSWORD_CHANGE,// User changed password
         SUSPEND,        // User suspended
-        ACTIVATE        // User activated
+        ACTIVATE,       // User activated
+        VIDEO_UPLOAD,   // Video uploaded
+        VIDEO_PLAY,     // Video played
+        VIDEO_DOWNLOAD, // Video downloaded
+        VIDEO_DELETE    // Video deleted
     }
 
     @PrePersist

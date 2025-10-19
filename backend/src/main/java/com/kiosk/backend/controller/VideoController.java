@@ -1,8 +1,10 @@
 package com.kiosk.backend.controller;
 
+import com.kiosk.backend.entity.EntityHistory;
 import com.kiosk.backend.entity.User;
 import com.kiosk.backend.entity.Video;
 import com.kiosk.backend.repository.UserRepository;
+import com.kiosk.backend.service.EntityHistoryService;
 import com.kiosk.backend.service.VideoService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,6 +30,7 @@ public class VideoController {
 
     private final VideoService videoService;
     private final UserRepository userRepository;
+    private final EntityHistoryService entityHistoryService;
 
     /**
      * Upload a video file (Admin only)
@@ -46,6 +49,15 @@ public class VideoController {
                     .orElseThrow(() -> new RuntimeException("User not found: " + userEmail));
 
             Video video = videoService.uploadVideo(file, user.getId(), title, description);
+
+            // Record video upload activity to entity history
+            entityHistoryService.recordVideoActivity(
+                    video.getId(),
+                    video.getTitle(),
+                    user,
+                    EntityHistory.ActionType.VIDEO_UPLOAD,
+                    "영상 업로드: " + video.getTitle()
+            );
 
             Map<String, Object> response = new HashMap<>();
             response.put("message", "Video uploaded successfully");
@@ -174,9 +186,25 @@ public class VideoController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> getPresignedUrl(
             @PathVariable Long id,
-            @RequestParam(value = "duration", defaultValue = "60") int durationMinutes) {
+            @RequestParam(value = "duration", defaultValue = "60") int durationMinutes,
+            Authentication authentication) {
         try {
+            String userEmail = authentication.getName();
+            User user = userRepository.findByEmail(userEmail)
+                    .orElseThrow(() -> new RuntimeException("User not found: " + userEmail));
+
+            Video video = videoService.getVideoById(id);
             String presignedUrl = videoService.generatePresignedUrl(id, durationMinutes);
+
+            // Record video play activity to entity history
+            entityHistoryService.recordVideoActivity(
+                    video.getId(),
+                    video.getTitle(),
+                    user,
+                    EntityHistory.ActionType.VIDEO_PLAY,
+                    "영상 재생: " + video.getTitle()
+            );
+
             return ResponseEntity.ok(Map.of("url", presignedUrl, "expiresIn", durationMinutes + " minutes"));
         } catch (RuntimeException e) {
             log.error("Failed to generate presigned URL for video: {}", id, e);
@@ -264,7 +292,20 @@ public class VideoController {
             User user = userRepository.findByEmail(userEmail)
                     .orElseThrow(() -> new RuntimeException("User not found: " + userEmail));
 
+            // Get video details before deletion for history recording
+            Video video = videoService.getVideoById(id);
+
             videoService.deleteVideo(id, user.getId());
+
+            // Record video delete activity to entity history
+            entityHistoryService.recordVideoActivity(
+                    video.getId(),
+                    video.getTitle(),
+                    user,
+                    EntityHistory.ActionType.VIDEO_DELETE,
+                    "영상 삭제: " + video.getTitle()
+            );
+
             return ResponseEntity.ok(Map.of("message", "Video deleted successfully"));
         } catch (RuntimeException e) {
             log.error("Failed to delete video: {}", id, e);
