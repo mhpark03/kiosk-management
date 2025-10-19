@@ -22,7 +22,6 @@ public class VideoService {
 
     private final VideoRepository videoRepository;
     private final S3Service s3Service;
-    private final com.kiosk.backend.repository.UserRepository userRepository;
 
     private static final String VIDEO_FOLDER = "videos/";
     private static final String THUMBNAIL_FOLDER = "thumbnails/";
@@ -102,16 +101,23 @@ public class VideoService {
     /**
      * Upload a video file to S3 and save metadata to database
      * @param file Video file to upload
-     * @param uploadedBy Email of the user uploading the video
-     * @param uploadedByName Display name of the user uploading the video
+     * @param uploadedById User ID of the user uploading the video
      * @param title Title of the video
      * @param description Optional description of the video
      * @return Saved Video entity
      */
     @Transactional
-    public Video uploadVideo(MultipartFile file, String uploadedBy, String uploadedByName, String title, String description) throws IOException {
+    public Video uploadVideo(MultipartFile file, Long uploadedById, String title, String description) throws IOException {
         // Validate file
         validateFile(file);
+
+        // Validate title and description
+        if (title == null || title.trim().isEmpty()) {
+            throw new IllegalArgumentException("Title is required");
+        }
+        if (description == null || description.trim().isEmpty()) {
+            throw new IllegalArgumentException("Description is required");
+        }
 
         // Upload video to S3
         String s3Key = s3Service.uploadFile(file, VIDEO_FOLDER);
@@ -143,14 +149,13 @@ public class VideoService {
                 .s3Url(s3Url)
                 .thumbnailS3Key(thumbnailS3Key)
                 .thumbnailUrl(thumbnailUrl)
-                .uploadedBy(uploadedBy)
-                .uploadedByName(uploadedByName)
+                .uploadedById(uploadedById)
                 .title(title)
                 .description(description)
                 .build();
 
         Video savedVideo = videoRepository.save(video);
-        log.info("Video uploaded successfully: {} by {}", savedVideo.getOriginalFilename(), uploadedBy);
+        log.info("Video uploaded successfully: {} by user ID {}", savedVideo.getOriginalFilename(), uploadedById);
 
         return savedVideo;
     }
@@ -165,11 +170,11 @@ public class VideoService {
 
     /**
      * Get videos uploaded by a specific user
-     * @param email Email of the user
+     * @param userId ID of the user
      * @return List of videos uploaded by the user
      */
-    public List<Video> getVideosByUser(String email) {
-        return videoRepository.findByUploadedByOrderByUploadedAtDesc(email);
+    public List<Video> getVideosByUser(Long userId) {
+        return videoRepository.findByUploadedByIdOrderByUploadedAtDesc(userId);
     }
 
     /**
@@ -196,17 +201,17 @@ public class VideoService {
     /**
      * Delete a video (both from S3 and database)
      * @param id Video ID
-     * @param requestingUser Email of the user requesting deletion
+     * @param requestingUserId ID of the user requesting deletion
      */
     @Transactional
-    public void deleteVideo(Long id, String requestingUser) {
+    public void deleteVideo(Long id, Long requestingUserId) {
         Video video = getVideoById(id);
 
         // Check if user has permission to delete
         // Admin can delete any video, regular users can only delete their own
-        if (!video.getUploadedBy().equals(requestingUser)) {
-            log.warn("User {} attempted to delete video {} owned by {}",
-                    requestingUser, id, video.getUploadedBy());
+        if (!video.getUploadedById().equals(requestingUserId)) {
+            log.warn("User ID {} attempted to delete video {} owned by user ID {}",
+                    requestingUserId, id, video.getUploadedById());
             throw new RuntimeException("You don't have permission to delete this video");
         }
 
@@ -220,7 +225,7 @@ public class VideoService {
 
         // Delete from database
         videoRepository.deleteById(id);
-        log.info("Video deleted successfully: {} by {}", video.getOriginalFilename(), requestingUser);
+        log.info("Video deleted successfully: {} by user ID {}", video.getOriginalFilename(), requestingUserId);
     }
 
     /**
@@ -228,17 +233,17 @@ public class VideoService {
      * @param id Video ID
      * @param title New title (optional)
      * @param description New description (optional)
-     * @param requestingUser Email of the user requesting update
+     * @param requestingUserId ID of the user requesting update
      * @return Updated Video entity
      */
     @Transactional
-    public Video updateVideo(Long id, String title, String description, String requestingUser) {
+    public Video updateVideo(Long id, String title, String description, Long requestingUserId) {
         Video video = getVideoById(id);
 
         // Check if user has permission to update
-        if (!video.getUploadedBy().equals(requestingUser)) {
-            log.warn("User {} attempted to update video {} owned by {}",
-                    requestingUser, id, video.getUploadedBy());
+        if (!video.getUploadedById().equals(requestingUserId)) {
+            log.warn("User ID {} attempted to update video {} owned by user ID {}",
+                    requestingUserId, id, video.getUploadedById());
             throw new RuntimeException("You don't have permission to update this video");
         }
 
@@ -249,7 +254,7 @@ public class VideoService {
             video.setDescription(description);
         }
         Video updatedVideo = videoRepository.save(video);
-        log.info("Video updated: {} by {}", id, requestingUser);
+        log.info("Video updated: {} by user ID {}", id, requestingUserId);
 
         return updatedVideo;
     }
@@ -258,14 +263,14 @@ public class VideoService {
      * Update video description (backward compatibility)
      * @param id Video ID
      * @param description New description
-     * @param requestingUser Email of the user requesting update
+     * @param requestingUserId ID of the user requesting update
      * @return Updated Video entity
      * @deprecated Use updateVideo instead
      */
     @Deprecated
     @Transactional
-    public Video updateDescription(Long id, String description, String requestingUser) {
-        return updateVideo(id, null, description, requestingUser);
+    public Video updateDescription(Long id, String description, Long requestingUserId) {
+        return updateVideo(id, null, description, requestingUserId);
     }
 
     /**
@@ -301,43 +306,5 @@ public class VideoService {
      */
     private String extractFilename(String s3Key) {
         return s3Key.substring(s3Key.lastIndexOf("/") + 1);
-    }
-
-    /**
-     * Migrate existing videos to populate uploadedByName field
-     * This is a one-time migration method to update existing videos
-     * @return Number of videos updated
-     */
-    @Transactional
-    public int migrateVideoUploaderNames() {
-        List<Video> allVideos = videoRepository.findAll();
-        int updatedCount = 0;
-
-        for (Video video : allVideos) {
-            // Only update if uploadedByName is null or empty
-            if (video.getUploadedByName() == null || video.getUploadedByName().trim().isEmpty()) {
-                String email = video.getUploadedBy();
-                if (email != null && !email.isEmpty()) {
-                    // Try to find user by email and get displayName
-                    userRepository.findByEmail(email).ifPresentOrElse(
-                        user -> {
-                            String displayName = user.getDisplayName();
-                            if (displayName != null && !displayName.trim().isEmpty()) {
-                                video.setUploadedByName(displayName);
-                                videoRepository.save(video);
-                                log.info("Updated video {} uploadedByName to: {}", video.getId(), displayName);
-                            } else {
-                                log.warn("User {} has no displayName, skipping video {}", email, video.getId());
-                            }
-                        },
-                        () -> log.warn("User not found for email: {}, skipping video {}", email, video.getId())
-                    );
-                    updatedCount++;
-                }
-            }
-        }
-
-        log.info("Migration completed: {} videos processed", updatedCount);
-        return updatedCount;
     }
 }

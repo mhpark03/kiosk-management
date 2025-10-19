@@ -37,6 +37,16 @@ function VideoUpload() {
       return;
     }
 
+    if (!title || title.trim() === '') {
+      setError('제목을 입력해주세요.');
+      return;
+    }
+
+    if (!description || description.trim() === '') {
+      setError('설명을 입력해주세요.');
+      return;
+    }
+
     try {
       setUploading(true);
       setError('');
@@ -125,7 +135,7 @@ function VideoUpload() {
           )}
 
           <div className="description-input">
-            <label htmlFor="title">제목 (선택사항)</label>
+            <label htmlFor="title">제목 <span className="required">*</span></label>
             <input
               id="title"
               type="text"
@@ -133,11 +143,12 @@ function VideoUpload() {
               onChange={(e) => setTitle(e.target.value)}
               placeholder="비디오 제목을 입력하세요..."
               disabled={uploading}
+              required
             />
           </div>
 
           <div className="description-input">
-            <label htmlFor="description">설명 (선택사항)</label>
+            <label htmlFor="description">설명 <span className="required">*</span></label>
             <textarea
               id="description"
               value={description}
@@ -145,6 +156,7 @@ function VideoUpload() {
               placeholder="비디오에 대한 설명을 입력하세요..."
               rows="3"
               disabled={uploading}
+              required
             />
           </div>
 
@@ -162,7 +174,7 @@ function VideoUpload() {
           <div className="upload-actions">
             <button
               onClick={handleUpload}
-              disabled={!selectedFile || uploading}
+              disabled={!selectedFile || !title || !description || uploading}
               className="btn btn-primary"
             >
               <FiUpload className="icon" />

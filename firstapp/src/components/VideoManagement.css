@@ -149,6 +149,12 @@
   color: #333;
 }
 
+.description-input label .required {
+  color: #ff4444;
+  margin-left: 4px;
+}
+
+.description-input input,
 .description-input textarea {
   width: 100%;
   padding: 10px;
@@ -159,6 +165,7 @@
   resize: vertical;
 }
 
+.description-input input:focus,
 .description-input textarea:focus {
   outline: none;
   border-color: #667eea;
