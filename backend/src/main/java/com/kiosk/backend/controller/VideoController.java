@@ -1,6 +1,8 @@
 package com.kiosk.backend.controller;
 
+import com.kiosk.backend.entity.User;
 import com.kiosk.backend.entity.Video;
+import com.kiosk.backend.repository.UserRepository;
 import com.kiosk.backend.service.VideoService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,6 +27,7 @@ import java.util.Map;
 public class VideoController {
 
     private final VideoService videoService;
+    private final UserRepository userRepository;
 
     /**
      * Upload a video file (Admin only)
@@ -34,15 +37,15 @@ public class VideoController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> uploadVideo(
             @RequestParam("file") MultipartFile file,
-            @RequestParam(value = "title", required = false) String title,
-            @RequestParam(value = "description", required = false) String description,
-            @RequestHeader(value = "X-User-Name", required = false) String userName,
+            @RequestParam("title") String title,
+            @RequestParam("description") String description,
             Authentication authentication) {
         try {
             String userEmail = authentication.getName();
-            // Decode URL-encoded username (한글 디코딩)
-            String decodedUserName = userName != null ? URLDecoder.decode(userName, StandardCharsets.UTF_8) : null;
-            Video video = videoService.uploadVideo(file, userEmail, decodedUserName, title, description);
+            User user = userRepository.findByEmail(userEmail)
+                    .orElseThrow(() -> new RuntimeException("User not found: " + userEmail));
+
+            Video video = videoService.uploadVideo(file, user.getId(), title, description);
 
             Map<String, Object> response = new HashMap<>();
             response.put("message", "Video uploaded successfully");
@@ -68,7 +71,32 @@ public class VideoController {
     public ResponseEntity<?> getAllVideos() {
         try {
             List<Video> videos = videoService.getAllVideos();
-            return ResponseEntity.ok(videos);
+            List<Map<String, Object>> videosWithUser = videos.stream().map(video -> {
+                Map<String, Object> videoMap = new HashMap<>();
+                videoMap.put("id", video.getId());
+                videoMap.put("filename", video.getFilename());
+                videoMap.put("originalFilename", video.getOriginalFilename());
+                videoMap.put("fileSize", video.getFileSize());
+                videoMap.put("contentType", video.getContentType());
+                videoMap.put("s3Key", video.getS3Key());
+                videoMap.put("s3Url", video.getS3Url());
+                videoMap.put("thumbnailS3Key", video.getThumbnailS3Key());
+                videoMap.put("thumbnailUrl", video.getThumbnailUrl());
+                videoMap.put("uploadedAt", video.getUploadedAt());
+                videoMap.put("title", video.getTitle());
+                videoMap.put("description", video.getDescription());
+                videoMap.put("uploadedById", video.getUploadedById());
+
+                // Get user information
+                userRepository.findById(video.getUploadedById()).ifPresent(user -> {
+                    videoMap.put("uploadedByEmail", user.getEmail());
+                    videoMap.put("uploadedByName", user.getDisplayName());
+                });
+
+                return videoMap;
+            }).toList();
+
+            return ResponseEntity.ok(videosWithUser);
         } catch (Exception e) {
             log.error("Failed to retrieve videos", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -84,8 +112,32 @@ public class VideoController {
     public ResponseEntity<?> getMyVideos(Authentication authentication) {
         try {
             String userEmail = authentication.getName();
-            List<Video> videos = videoService.getVideosByUser(userEmail);
-            return ResponseEntity.ok(videos);
+            User user = userRepository.findByEmail(userEmail)
+                    .orElseThrow(() -> new RuntimeException("User not found: " + userEmail));
+
+            List<Video> videos = videoService.getVideosByUser(user.getId());
+            List<Map<String, Object>> videosWithUser = videos.stream().map(video -> {
+                Map<String, Object> videoMap = new HashMap<>();
+                videoMap.put("id", video.getId());
+                videoMap.put("filename", video.getFilename());
+                videoMap.put("originalFilename", video.getOriginalFilename());
+                videoMap.put("fileSize", video.getFileSize());
+                videoMap.put("contentType", video.getContentType());
+                videoMap.put("s3Key", video.getS3Key());
+                videoMap.put("s3Url", video.getS3Url());
+                videoMap.put("thumbnailS3Key", video.getThumbnailS3Key());
+                videoMap.put("thumbnailUrl", video.getThumbnailUrl());
+                videoMap.put("uploadedAt", video.getUploadedAt());
+                videoMap.put("title", video.getTitle());
+                videoMap.put("description", video.getDescription());
+                videoMap.put("uploadedById", video.getUploadedById());
+                videoMap.put("uploadedByEmail", user.getEmail());
+                videoMap.put("uploadedByName", user.getDisplayName());
+
+                return videoMap;
+            }).toList();
+
+            return ResponseEntity.ok(videosWithUser);
         } catch (Exception e) {
             log.error("Failed to retrieve user videos", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -149,10 +201,13 @@ public class VideoController {
             Authentication authentication) {
         try {
             String userEmail = authentication.getName();
+            User user = userRepository.findByEmail(userEmail)
+                    .orElseThrow(() -> new RuntimeException("User not found: " + userEmail));
+
             String title = request.get("title");
             String description = request.get("description");
 
-            Video updatedVideo = videoService.updateVideo(id, title, description, userEmail);
+            Video updatedVideo = videoService.updateVideo(id, title, description, user.getId());
             return ResponseEntity.ok(Map.of("message", "Video updated successfully", "video", updatedVideo));
         } catch (RuntimeException e) {
             log.error("Failed to update video: {}", id, e);
@@ -179,9 +234,12 @@ public class VideoController {
             Authentication authentication) {
         try {
             String userEmail = authentication.getName();
+            User user = userRepository.findByEmail(userEmail)
+                    .orElseThrow(() -> new RuntimeException("User not found: " + userEmail));
+
             String description = request.get("description");
 
-            Video updatedVideo = videoService.updateDescription(id, description, userEmail);
+            Video updatedVideo = videoService.updateDescription(id, description, user.getId());
             return ResponseEntity.ok(Map.of("message", "Description updated successfully", "video", updatedVideo));
         } catch (RuntimeException e) {
             log.error("Failed to update video description: {}", id, e);
@@ -203,7 +261,10 @@ public class VideoController {
     public ResponseEntity<?> deleteVideo(@PathVariable Long id, Authentication authentication) {
         try {
             String userEmail = authentication.getName();
-            videoService.deleteVideo(id, userEmail);
+            User user = userRepository.findByEmail(userEmail)
+                    .orElseThrow(() -> new RuntimeException("User not found: " + userEmail));
+
+            videoService.deleteVideo(id, user.getId());
             return ResponseEntity.ok(Map.of("message", "Video deleted successfully"));
         } catch (RuntimeException e) {
             log.error("Failed to delete video: {}", id, e);
@@ -216,24 +277,4 @@ public class VideoController {
         }
     }
 
-    /**
-     * Migrate existing videos to populate uploadedByName field (Admin only)
-     * POST /api/videos/migrate-uploader-names
-     * This is a one-time migration endpoint to update existing videos
-     */
-    @PostMapping("/migrate-uploader-names")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<?> migrateUploaderNames() {
-        try {
-            int updatedCount = videoService.migrateVideoUploaderNames();
-            return ResponseEntity.ok(Map.of(
-                "message", "Migration completed successfully",
-                "updatedCount", updatedCount
-            ));
-        } catch (Exception e) {
-            log.error("Failed to migrate video uploader names", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", "Failed to migrate: " + e.getMessage()));
-        }
-    }
 }

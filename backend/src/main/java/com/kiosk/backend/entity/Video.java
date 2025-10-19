@@ -45,19 +45,16 @@ public class Video {
     @Column(length = 1000)
     private String thumbnailUrl;
 
-    @Column(nullable = false, length = 255)
-    private String uploadedBy;
-
-    @Column(length = 200)
-    private String uploadedByName;
+    @Column(nullable = false)
+    private Long uploadedById;
 
     @CreationTimestamp
     @Column(nullable = false, updatable = false)
     private LocalDateTime uploadedAt;
 
-    @Column(length = 255)
+    @Column(nullable = false, length = 255)
     private String title;
 
-    @Column(columnDefinition = "TEXT")
+    @Column(nullable = false, columnDefinition = "TEXT")
     private String description;
 }

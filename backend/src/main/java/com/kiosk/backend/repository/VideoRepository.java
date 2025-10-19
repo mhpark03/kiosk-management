@@ -8,6 +8,6 @@ import java.util.List;
 
 @Repository
 public interface VideoRepository extends JpaRepository<Video, Long> {
-    List<Video> findByUploadedByOrderByUploadedAtDesc(String uploadedBy);
+    List<Video> findByUploadedByIdOrderByUploadedAtDesc(Long uploadedById);
     List<Video> findAllByOrderByUploadedAtDesc();
 }
