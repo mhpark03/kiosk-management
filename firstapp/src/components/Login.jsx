@@ -83,9 +83,38 @@ function Login() {
           </button>
         </form>
 
-        <p className="auth-link">
-          계정이 없으신가요? <Link to="/signup">회원가입</Link>
-        </p>
+        <div style={{ marginTop: '20px', textAlign: 'center' }}>
+          <p style={{ marginBottom: '10px', color: '#666', fontSize: '14px' }}>
+            계정이 없으신가요?
+          </p>
+          <Link to="/signup" style={{ textDecoration: 'none' }}>
+            <button
+              type="button"
+              style={{
+                width: '100%',
+                padding: '12px',
+                backgroundColor: 'white',
+                color: '#667eea',
+                border: '2px solid #667eea',
+                borderRadius: '4px',
+                fontSize: '16px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                transition: 'all 0.2s'
+              }}
+              onMouseEnter={(e) => {
+                e.target.style.backgroundColor = '#667eea';
+                e.target.style.color = 'white';
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.backgroundColor = 'white';
+                e.target.style.color = '#667eea';
+              }}
+            >
+              회원가입
+            </button>
+          </Link>
+        </div>
       </div>
     </div>
   );
