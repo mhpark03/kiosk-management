@@ -64,17 +64,21 @@ function Signup() {
     // 숫자만 추출
     const numbersOnly = value.replace(/[^0-9]/g, '');
 
-    // 한국 전화번호 형식으로 포맷팅 (010-1234-5678)
+    // 한국 전화번호 형식으로 포맷팅
+    // 11자리: 휴대폰 (010-1234-5678)
+    // 12자리: 평생번호 (0501-1234-5678)
     let formatted = numbersOnly;
+
     if (numbersOnly.length <= 3) {
       formatted = numbersOnly;
     } else if (numbersOnly.length <= 7) {
       formatted = `${numbersOnly.slice(0, 3)}-${numbersOnly.slice(3)}`;
     } else if (numbersOnly.length <= 11) {
+      // 11자리 이하: 3-4-4 포맷 (010-1234-5678)
       formatted = `${numbersOnly.slice(0, 3)}-${numbersOnly.slice(3, 7)}-${numbersOnly.slice(7)}`;
     } else {
-      // 11자리 초과 시 11자리까지만 허용
-      formatted = `${numbersOnly.slice(0, 3)}-${numbersOnly.slice(3, 7)}-${numbersOnly.slice(7, 11)}`;
+      // 12자리: 4-4-4 포맷 (0501-1234-5678)
+      formatted = `${numbersOnly.slice(0, 4)}-${numbersOnly.slice(4, 8)}-${numbersOnly.slice(8, 12)}`;
     }
 
     setPhoneNumber(formatted);
@@ -168,7 +172,7 @@ function Signup() {
               onChange={handlePhoneNumberChange}
               placeholder="010-1234-5678"
               disabled={loading}
-              maxLength="13"
+              maxLength="14"
             />
           </div>
 
