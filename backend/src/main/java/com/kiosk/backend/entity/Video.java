@@ -48,6 +48,9 @@ public class Video {
     @Column(nullable = false, length = 255)
     private String uploadedBy;
 
+    @Column(length = 200)
+    private String uploadedByName;
+
     @CreationTimestamp
     @Column(nullable = false, updatable = false)
     private LocalDateTime uploadedAt;
