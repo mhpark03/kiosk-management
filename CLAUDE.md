@@ -135,9 +135,40 @@ All list views use client-side pagination with:
 4. Token stored in localStorage
 5. Axios interceptor adds token to all requests
 
+## Environment Profiles
+
+The backend uses Spring Profiles to manage different environments:
+
+### Local Environment (default)
+```bash
+cd backend
+SPRING_PROFILES_ACTIVE=local JAVA_HOME="C:/Program Files/Eclipse Adoptium/jdk-17.0.16.8-hotspot" ./gradlew.bat bootRun
+```
+- Database: localhost:3306
+- Database name: kioskdb
+- Uses local MySQL (XAMPP or standalone)
+
+### Dev Environment (AWS RDS)
+```bash
+cd backend
+SPRING_PROFILES_ACTIVE=dev JAVA_HOME="C:/Program Files/Eclipse Adoptium/jdk-17.0.16.8-hotspot" ./gradlew.bat bootRun
+```
+- Database: AWS RDS instance
+- Configuration in `application-dev.properties`
+
+### Prod Environment (AWS RDS)
+```bash
+cd backend
+SPRING_PROFILES_ACTIVE=prod JAVA_HOME="C:/Program Files/Eclipse Adoptium/jdk-17.0.16.8-hotspot" ./gradlew.bat bootRun
+```
+- Database: AWS RDS production instance
+- Configuration in `application-prod.properties`
+
+**Note:** Environment-specific properties files (`application-{profile}.properties`) contain sensitive database credentials and should never be committed to version control.
+
 ## Database Configuration
 
-**Connection:**
+**Local Connection:**
 - Database: MySQL on `localhost:3306`
 - Database name: `kioskdb` (auto-created)
 - Username: `root`
@@ -313,3 +344,51 @@ The frontend UI is in Korean:
 - Button labels, form fields, error messages all in Korean
 - Date/time formatting uses Korean timezone (Asia/Seoul)
 - Maintain Korean text when modifying UI components
+
+## Deployment
+
+### AWS Infrastructure
+
+**Backend:**
+- Deployed to AWS Elastic Beanstalk
+- Automatic deployment via GitHub Actions on push to `main` branch
+- Workflow: `.github/workflows/deploy-backend.yml`
+- Environment variables configured in EB console (DB credentials, Spring profiles)
+
+**Frontend:**
+- Static hosting on AWS S3
+- Automatic deployment via GitHub Actions on push to `main` branch
+- Workflow: `.github/workflows/deploy-frontend.yml`
+- API URL configured via `VITE_API_URL` environment variable
+
+**Database:**
+- AWS RDS MySQL instances (dev and prod)
+- Credentials stored in EB environment configuration
+- Last credential rotation: 2025-10-19
+
+### Frontend API Configuration
+
+The frontend uses a centralized API configuration in `src/services/api.js`:
+
+```javascript
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
+```
+
+**Environment Variables:**
+- Local development: Uses default `http://localhost:8080/api`
+- Production builds: Set `VITE_API_URL` in `.env` or build environment
+
+**Important:** All service files (`storeService.js`, `kioskService.js`, `userService.js`, `historyService.js`, `storeHistoryService.js`) import and use the `api` instance from `api.js`. The `authService.js` uses a separate `authApi` instance without interceptors.
+
+### Security Notes
+
+**Sensitive Files (Never Commit):**
+- `backend/src/main/resources/application-dev.properties`
+- `backend/src/main/resources/application-prod.properties`
+- `firstapp/.env` (if contains production URLs)
+- Any files containing database credentials or API keys
+
+**Public Repository:**
+- This repository is public on GitHub
+- Database credentials are managed via environment variables
+- AWS deployment uses EB environment configuration for secrets
