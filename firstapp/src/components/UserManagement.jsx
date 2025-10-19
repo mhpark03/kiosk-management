@@ -136,10 +136,30 @@ function UserManagement() {
 
   const handleEditFormChange = (e) => {
     const { name, value } = e.target;
-    setEditFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+
+    // 전화번호 필드인 경우 숫자만 허용하고 포맷팅
+    if (name === 'phoneNumber') {
+      const numbersOnly = value.replace(/[^0-9]/g, '');
+      let formatted = numbersOnly;
+      if (numbersOnly.length <= 3) {
+        formatted = numbersOnly;
+      } else if (numbersOnly.length <= 7) {
+        formatted = `${numbersOnly.slice(0, 3)}-${numbersOnly.slice(3)}`;
+      } else if (numbersOnly.length <= 11) {
+        formatted = `${numbersOnly.slice(0, 3)}-${numbersOnly.slice(3, 7)}-${numbersOnly.slice(7)}`;
+      } else {
+        formatted = `${numbersOnly.slice(0, 3)}-${numbersOnly.slice(3, 7)}-${numbersOnly.slice(7, 11)}`;
+      }
+      setEditFormData(prev => ({
+        ...prev,
+        [name]: formatted
+      }));
+    } else {
+      setEditFormData(prev => ({
+        ...prev,
+        [name]: value
+      }));
+    }
   };
 
   const handleEditSubmit = async (e) => {
@@ -474,7 +494,8 @@ function UserManagement() {
                   name="phoneNumber"
                   value={editFormData.phoneNumber}
                   onChange={handleEditFormChange}
-                  placeholder="전화번호를 입력하세요"
+                  placeholder="010-1234-5678"
+                  maxLength="13"
                 />
               </div>
 

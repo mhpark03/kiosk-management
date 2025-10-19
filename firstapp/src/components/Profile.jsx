@@ -45,10 +45,32 @@ function Profile() {
   };
 
   const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    });
+    const { name, value } = e.target;
+
+    // 전화번호 필드인 경우 숫자만 허용하고 포맷팅
+    if (name === 'phoneNumber') {
+      const numbersOnly = value.replace(/[^0-9]/g, '');
+      let formatted = numbersOnly;
+      if (numbersOnly.length <= 3) {
+        formatted = numbersOnly;
+      } else if (numbersOnly.length <= 7) {
+        formatted = `${numbersOnly.slice(0, 3)}-${numbersOnly.slice(3)}`;
+      } else if (numbersOnly.length <= 11) {
+        formatted = `${numbersOnly.slice(0, 3)}-${numbersOnly.slice(3, 7)}-${numbersOnly.slice(7)}`;
+      } else {
+        // 11자리 초과 시 11자리까지만 허용
+        formatted = `${numbersOnly.slice(0, 3)}-${numbersOnly.slice(3, 7)}-${numbersOnly.slice(7, 11)}`;
+      }
+      setFormData({
+        ...formData,
+        [name]: formatted
+      });
+    } else {
+      setFormData({
+        ...formData,
+        [name]: value
+      });
+    }
   };
 
   const handleUpdateProfile = async (e) => {
@@ -208,7 +230,8 @@ function Profile() {
               name="phoneNumber"
               value={formData.phoneNumber}
               onChange={handleChange}
-              placeholder="전화번호를 입력하세요"
+              placeholder="010-1234-5678"
+              maxLength="13"
             />
           </div>
 

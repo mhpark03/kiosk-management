@@ -58,6 +58,28 @@ function Signup() {
     });
   };
 
+  // Format phone number as user types (숫자만 허용, 자동 하이픈 추가)
+  const handlePhoneNumberChange = (e) => {
+    const value = e.target.value;
+    // 숫자만 추출
+    const numbersOnly = value.replace(/[^0-9]/g, '');
+
+    // 한국 전화번호 형식으로 포맷팅 (010-1234-5678)
+    let formatted = numbersOnly;
+    if (numbersOnly.length <= 3) {
+      formatted = numbersOnly;
+    } else if (numbersOnly.length <= 7) {
+      formatted = `${numbersOnly.slice(0, 3)}-${numbersOnly.slice(3)}`;
+    } else if (numbersOnly.length <= 11) {
+      formatted = `${numbersOnly.slice(0, 3)}-${numbersOnly.slice(3, 7)}-${numbersOnly.slice(7)}`;
+    } else {
+      // 11자리 초과 시 11자리까지만 허용
+      formatted = `${numbersOnly.slice(0, 3)}-${numbersOnly.slice(3, 7)}-${numbersOnly.slice(7, 11)}`;
+    }
+
+    setPhoneNumber(formatted);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -143,9 +165,10 @@ function Signup() {
               type="tel"
               id="phoneNumber"
               value={phoneNumber}
-              onChange={(e) => setPhoneNumber(e.target.value)}
-              placeholder="전화번호를 입력하세요"
+              onChange={handlePhoneNumberChange}
+              placeholder="010-1234-5678"
               disabled={loading}
+              maxLength="13"
             />
           </div>
 
