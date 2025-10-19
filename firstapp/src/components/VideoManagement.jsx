@@ -136,6 +136,7 @@ function VideoManagement() {
             <tr>
               <th>ID</th>
               <th>파일명</th>
+              <th>제목</th>
               <th>설명</th>
               <th>크기</th>
               <th>업로드 일시</th>
@@ -146,7 +147,7 @@ function VideoManagement() {
           <tbody>
             {currentVideos.length === 0 ? (
               <tr>
-                <td colSpan="7" className="no-data">업로드된 비디오가 없습니다</td>
+                <td colSpan="8" className="no-data">업로드된 비디오가 없습니다</td>
               </tr>
             ) : (
               currentVideos.map((video) => (
@@ -163,6 +164,9 @@ function VideoManagement() {
                       />
                       <span>{video.originalFilename}</span>
                     </div>
+                  </td>
+                  <td style={{maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}>
+                    {video.title || '-'}
                   </td>
                   <td style={{maxWidth: '250px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}>
                     {video.description || '-'}
@@ -276,7 +280,7 @@ function VideoManagement() {
         <div className="video-modal" onClick={handleClosePlayer}>
           <div className="video-modal-content" onClick={(e) => e.stopPropagation()}>
             <button className="modal-close" onClick={handleClosePlayer}>×</button>
-            <h3>{playingVideo.originalFilename}</h3>
+            <h3>{playingVideo.title || playingVideo.originalFilename}</h3>
             <video controls autoPlay className="video-player">
               <source src={videoUrl} type={playingVideo.contentType} />
               Your browser does not support the video tag.

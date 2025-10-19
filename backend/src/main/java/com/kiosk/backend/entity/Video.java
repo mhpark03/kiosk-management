@@ -46,6 +46,9 @@ public class Video {
     @Column(nullable = false, updatable = false)
     private LocalDateTime uploadedAt;
 
+    @Column(length = 255)
+    private String title;
+
     @Column(columnDefinition = "TEXT")
     private String description;
 }

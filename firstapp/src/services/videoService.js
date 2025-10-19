@@ -2,10 +2,13 @@ import api from './api';
 
 export const videoService = {
   // Upload a video file
-  async uploadVideo(file, description = '') {
+  async uploadVideo(file, title = '', description = '') {
     try {
       const formData = new FormData();
       formData.append('file', file);
+      if (title) {
+        formData.append('title', title);
+      }
       if (description) {
         formData.append('description', description);
       }
@@ -69,17 +72,24 @@ export const videoService = {
     }
   },
 
-  // Update video description
-  async updateDescription(id, description) {
+  // Update video title and/or description
+  async updateVideo(id, title, description) {
     try {
-      const response = await api.patch(`/videos/${id}/description`, {
-        description,
-      });
+      const data = {};
+      if (title !== undefined) data.title = title;
+      if (description !== undefined) data.description = description;
+
+      const response = await api.patch(`/videos/${id}`, data);
       return response.data;
     } catch (error) {
-      console.error('Update description error:', error);
-      throw new Error(error.response?.data?.error || 'Failed to update description');
+      console.error('Update video error:', error);
+      throw new Error(error.response?.data?.error || 'Failed to update video');
     }
+  },
+
+  // Update video description (backward compatibility)
+  async updateDescription(id, description) {
+    return this.updateVideo(id, undefined, description);
   },
 
   // Delete a video

@@ -34,11 +34,12 @@ public class VideoService {
      * Upload a video file to S3 and save metadata to database
      * @param file Video file to upload
      * @param uploadedBy Email of the user uploading the video
+     * @param title Title of the video
      * @param description Optional description of the video
      * @return Saved Video entity
      */
     @Transactional
-    public Video uploadVideo(MultipartFile file, String uploadedBy, String description) throws IOException {
+    public Video uploadVideo(MultipartFile file, String uploadedBy, String title, String description) throws IOException {
         // Validate file
         validateFile(file);
 
@@ -55,6 +56,7 @@ public class VideoService {
                 .s3Key(s3Key)
                 .s3Url(s3Url)
                 .uploadedBy(uploadedBy)
+                .title(title)
                 .description(description)
                 .build();
 
@@ -133,14 +135,15 @@ public class VideoService {
     }
 
     /**
-     * Update video description
+     * Update video title and description
      * @param id Video ID
-     * @param description New description
+     * @param title New title (optional)
+     * @param description New description (optional)
      * @param requestingUser Email of the user requesting update
      * @return Updated Video entity
      */
     @Transactional
-    public Video updateDescription(Long id, String description, String requestingUser) {
+    public Video updateVideo(Long id, String title, String description, String requestingUser) {
         Video video = getVideoById(id);
 
         // Check if user has permission to update
@@ -150,11 +153,30 @@ public class VideoService {
             throw new RuntimeException("You don't have permission to update this video");
         }
 
-        video.setDescription(description);
+        if (title != null) {
+            video.setTitle(title);
+        }
+        if (description != null) {
+            video.setDescription(description);
+        }
         Video updatedVideo = videoRepository.save(video);
-        log.info("Video description updated: {} by {}", id, requestingUser);
+        log.info("Video updated: {} by {}", id, requestingUser);
 
         return updatedVideo;
+    }
+
+    /**
+     * Update video description (backward compatibility)
+     * @param id Video ID
+     * @param description New description
+     * @param requestingUser Email of the user requesting update
+     * @return Updated Video entity
+     * @deprecated Use updateVideo instead
+     */
+    @Deprecated
+    @Transactional
+    public Video updateDescription(Long id, String description, String requestingUser) {
+        return updateVideo(id, null, description, requestingUser);
     }
 
     /**
