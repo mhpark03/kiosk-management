@@ -21,7 +21,7 @@ import {
 import { getAllStores } from '../services/storeService';
 import { useAuth } from '../context/AuthContext';
 import { Timestamp } from 'firebase/firestore';
-import { FiEdit, FiTrash2, FiClock, FiRotateCcw } from 'react-icons/fi';
+import { FiEdit, FiTrash2, FiClock, FiRotateCcw, FiVideo } from 'react-icons/fi';
 import './KioskManagement.css';
 
 function KioskManagement() {
@@ -553,6 +553,10 @@ function KioskManagement() {
     navigate(`/history?entityType=KIOSK&entityId=${kiosk.kioskid}&posid=${kiosk.posid}`);
   };
 
+  const handleManageVideos = (kiosk) => {
+    navigate(`/kiosks/${kiosk.id}/videos`, { state: { kiosk } });
+  };
+
   const closeModals = () => {
     setShowAddModal(false);
     setShowEditModal(false);
@@ -816,6 +820,15 @@ function KioskManagement() {
                         >
                           <FiClock />
                         </button>
+                        {kiosk.state !== 'deleted' && (
+                          <button
+                            onClick={() => handleManageVideos(kiosk)}
+                            className="btn-video"
+                            title="영상 관리"
+                          >
+                            <FiVideo />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
