@@ -17,9 +17,7 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment:
-      name: production
-      url: ${{ secrets.EB_ENVIRONMENT_URL }}
+    environment: production
 
     steps:
     - name: Checkout code

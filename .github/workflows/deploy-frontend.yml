@@ -17,9 +17,7 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment:
-      name: production
-      url: http://${{ secrets.S3_BUCKET_NAME }}.s3-website.ap-northeast-2.amazonaws.com
+    environment: production
 
     steps:
     - name: Checkout code
