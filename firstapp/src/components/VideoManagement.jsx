@@ -136,10 +136,10 @@ function VideoManagement() {
   return (
     <div className="store-management">
       <div className="store-header">
-        <h1>비디오 관리</h1>
+        <h1>영상 관리</h1>
         <div className="header-actions">
           <button onClick={handleUploadClick} className="btn-add">
-            + 비디오 업로드
+            + 영상등록
           </button>
         </div>
       </div>
@@ -152,19 +152,18 @@ function VideoManagement() {
           <thead>
             <tr>
               <th>ID</th>
-              <th>파일명</th>
               <th>제목</th>
               <th>설명</th>
               <th>크기</th>
-              <th>업로드 일시</th>
-              <th>사용자명</th>
+              <th>등록일</th>
+              <th>등록자</th>
               <th>작업</th>
             </tr>
           </thead>
           <tbody>
             {currentVideos.length === 0 ? (
               <tr>
-                <td colSpan="8" className="no-data">업로드된 비디오가 없습니다</td>
+                <td colSpan="7" className="no-data">업로드된 비디오가 없습니다</td>
               </tr>
             ) : (
               currentVideos.map((video) => (
@@ -187,16 +186,13 @@ function VideoManagement() {
                         </div>
                       )}
                       <div className="filename-info">
-                        <span className="filename-text">{video.originalFilename}</span>
+                        <span className="filename-text">{video.title || '-'}</span>
                         <FiPlay
                           className="play-icon-inline"
                           onClick={() => handlePlay(video)}
                         />
                       </div>
                     </div>
-                  </td>
-                  <td style={{maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}>
-                    {video.title || '-'}
                   </td>
                   <td style={{maxWidth: '250px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}>
                     {video.description || '-'}
