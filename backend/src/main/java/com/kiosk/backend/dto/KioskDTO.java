@@ -28,6 +28,10 @@ public class KioskDTO {
     private LocalDateTime updatedAt;
     private LocalDateTime storeRegdate; // Store's registration date for validation
 
+    // Video statistics
+    private Integer totalVideoCount; // Total number of videos assigned to this kiosk
+    private Integer downloadedVideoCount; // Number of videos with COMPLETED download status
+
     // Convert Entity to DTO
     public static KioskDTO fromEntity(Kiosk kiosk) {
         return KioskDTO.builder()
