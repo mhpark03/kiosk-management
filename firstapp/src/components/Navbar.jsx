@@ -90,7 +90,7 @@ function Navbar() {
                 className={location.pathname === '/videos' ? 'active' : ''}
                 onClick={closeMenu}
               >
-                비디오 관리
+                영상
               </Link>
             </li>
             <li className="dropdown">

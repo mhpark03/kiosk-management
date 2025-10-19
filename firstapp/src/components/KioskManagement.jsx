@@ -554,7 +554,23 @@ function KioskManagement() {
   };
 
   const handleManageVideos = (kiosk) => {
-    navigate(`/kiosks/${kiosk.id}/videos`, { state: { kiosk } });
+    console.log('=== handleManageVideos called ===');
+    console.log('Kiosk ID:', kiosk.id);
+    console.log('Kiosk state:', kiosk.state);
+    console.log('Navigating to:', `/kiosks/${kiosk.id}/videos`);
+
+    // Only pass serializable data (no functions)
+    const kioskData = {
+      id: kiosk.id,
+      kioskid: kiosk.kioskid,
+      posid: kiosk.posid,
+      kioskno: kiosk.kioskno,
+      state: kiosk.state,
+      maker: kiosk.maker,
+      serialno: kiosk.serialno
+    };
+
+    navigate(`/kiosks/${kiosk.id}/videos`, { state: { kiosk: kioskData } });
   };
 
   const closeModals = () => {
@@ -820,15 +836,19 @@ function KioskManagement() {
                         >
                           <FiClock />
                         </button>
-                        {kiosk.state !== 'deleted' && (
-                          <button
-                            onClick={() => handleManageVideos(kiosk)}
-                            className="btn-video"
-                            title="영상 관리"
-                          >
-                            <FiVideo />
-                          </button>
-                        )}
+                        <button
+                          onClick={() => {
+                            console.log('Video button clicked! Kiosk state:', kiosk.state);
+                            handleManageVideos(kiosk);
+                          }}
+                          className="btn-video"
+                          title="영상 관리"
+                          style={{
+                            display: kiosk.state !== 'deleted' ? 'flex' : 'none'
+                          }}
+                        >
+                          <FiVideo />
+                        </button>
                       </div>
                     </td>
                   </tr>

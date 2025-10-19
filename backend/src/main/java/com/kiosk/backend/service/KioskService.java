@@ -5,9 +5,11 @@ import com.kiosk.backend.dto.KioskDTO;
 import com.kiosk.backend.dto.UpdateKioskRequest;
 import com.kiosk.backend.entity.EntityHistory;
 import com.kiosk.backend.entity.Kiosk;
+import com.kiosk.backend.entity.KioskVideo;
 import com.kiosk.backend.entity.Store;
 import com.kiosk.backend.repository.EntityHistoryRepository;
 import com.kiosk.backend.repository.KioskRepository;
+import com.kiosk.backend.repository.KioskVideoRepository;
 import com.kiosk.backend.repository.StoreRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -15,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -27,6 +30,7 @@ public class KioskService {
     private final KioskRepository kioskRepository;
     private final EntityHistoryRepository entityHistoryRepository;
     private final StoreRepository storeRepository;
+    private final KioskVideoRepository kioskVideoRepository;
 
     /**
      * Generate next sequential 12-digit Kiosk ID
@@ -444,5 +448,123 @@ public class KioskService {
                 "state", oldState.toString(), state.toString(),
                 String.format("Auto-updated by store state change from %s to %s", oldState, state));
         }
+    }
+
+    /**
+     * Assign videos to a kiosk (replaces all existing video assignments)
+     */
+    public void assignVideosToKiosk(Long kioskId, List<Long> videoIds, String userEmail) {
+        // Verify kiosk exists
+        Kiosk kiosk = kioskRepository.findById(kioskId)
+                .orElseThrow(() -> new RuntimeException("Kiosk not found with id: " + kioskId));
+
+        // Remove all existing video assignments for this kiosk
+        kioskVideoRepository.deleteByKioskId(kioskId);
+
+        // Add new video assignments
+        List<KioskVideo> kioskVideos = new ArrayList<>();
+        for (int i = 0; i < videoIds.size(); i++) {
+            KioskVideo kioskVideo = KioskVideo.builder()
+                    .kioskId(kioskId)
+                    .videoId(videoIds.get(i))
+                    .displayOrder(i)
+                    .assignedBy(userEmail)
+                    .assignedAt(LocalDateTime.now())
+                    .build();
+            kioskVideos.add(kioskVideo);
+        }
+
+        kioskVideoRepository.saveAll(kioskVideos);
+
+        log.info("Assigned {} videos to kiosk {}", videoIds.size(), kiosk.getKioskid());
+
+        // Log history
+        logHistory(kiosk.getKioskid(), kiosk.getPosid(), userEmail, userEmail, "UPDATE",
+            "videos", null, videoIds.toString(),
+            String.format("Assigned %d videos to kiosk", videoIds.size()));
+    }
+
+    /**
+     * Get all video IDs assigned to a kiosk
+     */
+    @Transactional(readOnly = true)
+    public List<Long> getKioskVideos(Long kioskId) {
+        // Verify kiosk exists
+        kioskRepository.findById(kioskId)
+                .orElseThrow(() -> new RuntimeException("Kiosk not found with id: " + kioskId));
+
+        List<KioskVideo> kioskVideos = kioskVideoRepository.findByKioskIdOrderByDisplayOrderAsc(kioskId);
+        return kioskVideos.stream()
+                .map(KioskVideo::getVideoId)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Remove a specific video from a kiosk
+     */
+    public void removeVideoFromKiosk(Long kioskId, Long videoId, String userEmail) {
+        // Verify kiosk exists
+        Kiosk kiosk = kioskRepository.findById(kioskId)
+                .orElseThrow(() -> new RuntimeException("Kiosk not found with id: " + kioskId));
+
+        kioskVideoRepository.deleteByKioskIdAndVideoId(kioskId, videoId);
+
+        log.info("Removed video {} from kiosk {}", videoId, kiosk.getKioskid());
+
+        // Log history
+        logHistory(kiosk.getKioskid(), kiosk.getPosid(), userEmail, userEmail, "UPDATE",
+            "videos", videoId.toString(), null,
+            String.format("Removed video %d from kiosk", videoId));
+    }
+
+    /**
+     * Get all videos assigned to a kiosk with download status
+     */
+    @Transactional(readOnly = true)
+    public List<com.kiosk.backend.dto.KioskVideoDTO> getKioskVideosWithStatus(Long kioskId) {
+        // Verify kiosk exists
+        kioskRepository.findById(kioskId)
+                .orElseThrow(() -> new RuntimeException("Kiosk not found with id: " + kioskId));
+
+        List<KioskVideo> kioskVideos = kioskVideoRepository.findByKioskIdOrderByDisplayOrderAsc(kioskId);
+        return kioskVideos.stream()
+                .map(kv -> com.kiosk.backend.dto.KioskVideoDTO.builder()
+                        .id(kv.getId())
+                        .kioskId(kv.getKioskId())
+                        .videoId(kv.getVideoId())
+                        .displayOrder(kv.getDisplayOrder())
+                        .assignedBy(kv.getAssignedBy())
+                        .assignedAt(kv.getAssignedAt())
+                        .downloadStatus(kv.getDownloadStatus())
+                        .createdAt(kv.getCreatedAt())
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Update download status for a kiosk video
+     */
+    public void updateVideoDownloadStatus(Long kioskId, Long videoId, String status, String userEmail) {
+        // Verify kiosk exists
+        Kiosk kiosk = kioskRepository.findById(kioskId)
+                .orElseThrow(() -> new RuntimeException("Kiosk not found with id: " + kioskId));
+
+        // Find the kiosk video assignment
+        KioskVideo kioskVideo = kioskVideoRepository.findByKioskIdAndVideoId(kioskId, videoId);
+        if (kioskVideo == null) {
+            throw new RuntimeException("Video " + videoId + " is not assigned to kiosk " + kioskId);
+        }
+
+        String oldStatus = kioskVideo.getDownloadStatus();
+        kioskVideo.setDownloadStatus(status);
+        kioskVideoRepository.save(kioskVideo);
+
+        log.info("Updated download status for video {} on kiosk {} from {} to {}",
+                videoId, kiosk.getKioskid(), oldStatus, status);
+
+        // Log history
+        logHistory(kiosk.getKioskid(), kiosk.getPosid(), userEmail, userEmail, "UPDATE",
+            "video_download_status", oldStatus, status,
+            String.format("Updated download status for video %d to %s", videoId, status));
     }
 }

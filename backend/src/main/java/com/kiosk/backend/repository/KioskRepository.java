@@ -23,7 +23,7 @@ public interface KioskRepository extends JpaRepository<Kiosk, Long> {
     Optional<Kiosk> findByPosidAndKioskno(@Param("posid") String posid, @Param("kioskno") Integer kioskno);
 
     // Check duplicate for posid + kioskno (excluding specific kiosk ID for edit operation)
-    @Query("SELECT COUNT(k) > 0 FROM Kiosk k WHERE k.posid = :posid AND k.kioskno = :kioskno AND k.state != 'DELETED' AND k.id != :excludeId")
+    @Query("SELECT CASE WHEN COUNT(k) > 0 THEN true ELSE false END FROM Kiosk k WHERE k.posid = :posid AND k.kioskno = :kioskno AND k.state != 'DELETED' AND k.id != :excludeId")
     Boolean existsByPosidAndKiosknoExcludingId(@Param("posid") String posid, @Param("kioskno") Integer kioskno, @Param("excludeId") Long excludeId);
 
     // Get max kioskid for generating next sequential ID
