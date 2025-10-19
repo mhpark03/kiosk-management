@@ -20,6 +20,12 @@ spring:
       name: admin
       password: admin
 
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 100MB
+      max-request-size: 100MB
+
 server:
   port: 8080
   # SSL disabled for local development (matching AWS environment)
@@ -33,6 +39,13 @@ server:
 jwt:
   secret: your-256-bit-secret-key-here-make-it-very-long-and-secure-at-least-32-characters
   expiration: 86400000 # 24 hours in milliseconds
+
+aws:
+  s3:
+    bucket-name: ${AWS_S3_BUCKET_NAME:kiosk-video-bucket}
+    region: ${AWS_REGION:ap-northeast-2}
+    access-key: ${AWS_ACCESS_KEY_ID}
+    secret-key: ${AWS_SECRET_ACCESS_KEY}
 
 logging:
   level:

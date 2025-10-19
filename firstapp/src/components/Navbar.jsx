@@ -84,6 +84,15 @@ function Navbar() {
                 매장
               </Link>
             </li>
+            <li>
+              <Link
+                to="/videos"
+                className={location.pathname === '/videos' ? 'active' : ''}
+                onClick={closeMenu}
+              >
+                비디오 관리
+              </Link>
+            </li>
             <li className="dropdown">
               <button
                 className={`dropdown-toggle ${isSettingsOpen ? 'active' : ''}`}

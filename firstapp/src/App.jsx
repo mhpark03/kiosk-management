@@ -12,6 +12,8 @@ import Profile from './components/Profile';
 import UserHistory from './components/UserHistory';
 import UserManagement from './components/UserManagement';
 import BatchManagement from './components/BatchManagement';
+import VideoManagement from './components/VideoManagement';
+import VideoUpload from './components/VideoUpload';
 import ProtectedRoute from './components/ProtectedRoute';
 import './App.css';
 
@@ -86,6 +88,22 @@ function App() {
             element={
               <ProtectedRoute>
                 <BatchManagement />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/videos/upload"
+            element={
+              <ProtectedRoute>
+                <VideoUpload />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/videos"
+            element={
+              <ProtectedRoute>
+                <VideoManagement />
               </ProtectedRoute>
             }
           />
