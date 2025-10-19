@@ -32,11 +32,12 @@ public class VideoController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> uploadVideo(
             @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "title", required = false) String title,
             @RequestParam(value = "description", required = false) String description,
             Authentication authentication) {
         try {
             String userEmail = authentication.getName();
-            Video video = videoService.uploadVideo(file, userEmail, description);
+            Video video = videoService.uploadVideo(file, userEmail, title, description);
 
             Map<String, Object> response = new HashMap<>();
             response.put("message", "Video uploaded successfully");
@@ -132,9 +133,39 @@ public class VideoController {
     }
 
     /**
-     * Update video description (Admin only)
-     * PATCH /api/videos/{id}/description
+     * Update video title and/or description (Admin only)
+     * PATCH /api/videos/{id}
      */
+    @PatchMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> updateVideo(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> request,
+            Authentication authentication) {
+        try {
+            String userEmail = authentication.getName();
+            String title = request.get("title");
+            String description = request.get("description");
+
+            Video updatedVideo = videoService.updateVideo(id, title, description, userEmail);
+            return ResponseEntity.ok(Map.of("message", "Video updated successfully", "video", updatedVideo));
+        } catch (RuntimeException e) {
+            log.error("Failed to update video: {}", id, e);
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            log.error("Failed to update video", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to update video: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Update video description (Admin only) - Backward compatibility
+     * PATCH /api/videos/{id}/description
+     * @deprecated Use PATCH /api/videos/{id} instead
+     */
+    @Deprecated
     @PatchMapping("/{id}/description")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> updateDescription(

@@ -10,6 +10,7 @@ function VideoUpload() {
   const navigate = useNavigate();
   const [uploading, setUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
+  const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -53,7 +54,7 @@ function VideoUpload() {
         });
       }, 200);
 
-      const response = await videoService.uploadVideo(selectedFile, description);
+      const response = await videoService.uploadVideo(selectedFile, title, description);
 
       clearInterval(progressInterval);
       setUploadProgress(100);
@@ -122,6 +123,18 @@ function VideoUpload() {
               <p><strong>형식:</strong> {selectedFile.type}</p>
             </div>
           )}
+
+          <div className="description-input">
+            <label htmlFor="title">제목 (선택사항)</label>
+            <input
+              id="title"
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="비디오 제목을 입력하세요..."
+              disabled={uploading}
+            />
+          </div>
 
           <div className="description-input">
             <label htmlFor="description">설명 (선택사항)</label>
