@@ -39,6 +39,12 @@ public class Video {
     @Column(nullable = false, length = 1000)
     private String s3Url;
 
+    @Column(length = 500)
+    private String thumbnailS3Key;
+
+    @Column(length = 1000)
+    private String thumbnailUrl;
+
     @Column(nullable = false, length = 255)
     private String uploadedBy;
 

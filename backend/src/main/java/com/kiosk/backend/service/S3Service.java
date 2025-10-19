@@ -98,6 +98,36 @@ public class S3Service {
     }
 
     /**
+     * Upload a byte array to S3 (for thumbnails)
+     * @param bytes Byte array to upload
+     * @param folderPath Folder path in S3 (e.g., "thumbnails/")
+     * @param filename Filename for the uploaded file
+     * @param contentType Content type (e.g., "image/jpeg")
+     * @return S3 key of the uploaded file
+     */
+    public String uploadBytes(byte[] bytes, String folderPath, String filename, String contentType) {
+        String uniqueFilename = UUID.randomUUID().toString() + "_" + filename;
+        String s3Key = folderPath + uniqueFilename;
+
+        try {
+            PutObjectRequest putObjectRequest = PutObjectRequest.builder()
+                    .bucket(bucketName)
+                    .key(s3Key)
+                    .contentType(contentType)
+                    .contentLength((long) bytes.length)
+                    .build();
+
+            s3Client.putObject(putObjectRequest, RequestBody.fromBytes(bytes));
+
+            log.info("Bytes uploaded successfully to S3: {}", s3Key);
+            return s3Key;
+        } catch (S3Exception e) {
+            log.error("Failed to upload bytes to S3: {}", e.getMessage(), e);
+            throw new RuntimeException("Failed to upload bytes to S3: " + e.getMessage(), e);
+        }
+    }
+
+    /**
      * Get the public URL for an S3 object
      * @param s3Key S3 key of the object
      * @return Public URL

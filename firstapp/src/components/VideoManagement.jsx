@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import videoService from '../services/videoService';
-import { FiUpload, FiTrash2, FiPlay } from 'react-icons/fi';
+import { FiUpload, FiTrash2, FiPlay, FiImage } from 'react-icons/fi';
 import './VideoManagement.css';
 
 function VideoManagement() {
@@ -157,12 +157,25 @@ function VideoManagement() {
                   </td>
                   <td>
                     <div className="filename-wrapper">
-                      <FiPlay
-                        className="play-icon-small"
-                        onClick={() => handlePlay(video)}
-                        style={{cursor: 'pointer', color: '#667eea', marginRight: '8px'}}
-                      />
-                      <span>{video.originalFilename}</span>
+                      {video.thumbnailUrl ? (
+                        <img
+                          src={video.thumbnailUrl}
+                          alt="thumbnail"
+                          className="video-thumbnail"
+                          onClick={() => handlePlay(video)}
+                        />
+                      ) : (
+                        <div className="video-thumbnail-placeholder" onClick={() => handlePlay(video)}>
+                          <FiImage />
+                        </div>
+                      )}
+                      <div className="filename-info">
+                        <span className="filename-text">{video.originalFilename}</span>
+                        <FiPlay
+                          className="play-icon-inline"
+                          onClick={() => handlePlay(video)}
+                        />
+                      </div>
                     </div>
                   </td>
                   <td style={{maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}>
