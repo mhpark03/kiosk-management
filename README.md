@@ -165,7 +165,7 @@ npm run dev
 - ✅ `.env` 파일은 `.gitignore`로 제외
 - ✅ CORS 설정으로 허용된 도메인만 접근 가능
 
-**Last Security Update**: 2025-10-19 - Database credentials rotated
+**Last Security Update**: 2025-10-19 - Database credentials rotated and EB environment updated
 
 ## 🛠️ 개발
 
