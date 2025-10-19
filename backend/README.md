@@ -2,6 +2,8 @@
 
 Spring Boot REST API for Kiosk Management System
 
+**Last Update**: 2025-10-19 - DB credentials rotated
+
 ## Architecture
 
 ```
