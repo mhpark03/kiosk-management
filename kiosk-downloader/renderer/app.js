@@ -83,6 +83,16 @@ async function initialize() {
   // Update save/delete button based on config state
   await updateConfigButton();
 
+  // Auto test connection and sync if config exists
+  if (config && config.apiUrl && config.kioskId) {
+    console.log('Auto-connecting and syncing on startup...');
+    // Run connection test and sync (non-blocking)
+    setTimeout(async () => {
+      await testConnection();
+      await syncVideos();
+    }, 500);
+  }
+
   console.log('App initialized');
 }
 
@@ -310,6 +320,15 @@ async function saveConfig() {
 
     // Update button state
     await updateConfigButton();
+
+    // Auto test connection and sync after saving config
+    if (config.apiUrl && config.kioskId) {
+      console.log('Auto-connecting and syncing after config save...');
+      setTimeout(async () => {
+        await testConnection();
+        await syncVideos();
+      }, 500);
+    }
   } else {
     showNotification('설정 저장에 실패했습니다.', 'error');
   }
