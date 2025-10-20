@@ -1,3 +1,9 @@
+// Server URL constants
+const SERVER_URLS = {
+  local: 'http://localhost:8080/api',
+  aws: 'http://Kiosk-backend-env.eba-32jx2nbm.ap-northeast-2.elasticbeanstalk.com/api'
+};
+
 // Application state
 let config = null;
 let videos = [];
@@ -11,7 +17,10 @@ const elements = {
   kioskId: document.getElementById('kiosk-id'),
   downloadPath: document.getElementById('download-path'),
   autoSync: document.getElementById('auto-sync'),
+  syncInterval: document.getElementById('sync-interval'),
+  serverRadios: document.querySelectorAll('input[name="server"]'),
   saveConfigBtn: document.getElementById('save-config-btn'),
+  deleteConfigBtn: document.getElementById('delete-config-btn'),
   testConnectionBtn: document.getElementById('test-connection-btn'),
   selectPathBtn: document.getElementById('select-path-btn'),
   syncBtn: document.getElementById('sync-btn'),
@@ -38,6 +47,20 @@ async function initialize() {
     elements.kioskId.value = config.kioskId || '';
     elements.downloadPath.value = config.downloadPath || '';
     elements.autoSync.checked = config.autoSync || false;
+    elements.syncInterval.value = config.syncInterval || 12;
+
+    // Set the correct server radio button based on saved API URL
+    const apiUrl = config.apiUrl || '';
+    if (apiUrl === SERVER_URLS.local) {
+      document.querySelector('input[name="server"][value="local"]').checked = true;
+      elements.apiUrl.readOnly = true;
+    } else if (apiUrl === SERVER_URLS.aws) {
+      document.querySelector('input[name="server"][value="aws"]').checked = true;
+      elements.apiUrl.readOnly = true;
+    } else {
+      document.querySelector('input[name="server"][value="custom"]').checked = true;
+      elements.apiUrl.readOnly = false;
+    }
 
     if (config.lastSync) {
       updateLastSyncTime(new Date(config.lastSync));
@@ -49,8 +72,16 @@ async function initialize() {
     }
   }
 
+  // Initialize input fields as enabled by default
+  elements.apiUrl.disabled = false;
+  elements.kioskId.disabled = false;
+  elements.autoSync.disabled = false;
+
   // Setup event listeners
   setupEventListeners();
+
+  // Update save/delete button based on config state
+  await updateConfigButton();
 
   console.log('App initialized');
 }
@@ -58,10 +89,28 @@ async function initialize() {
 // Setup event listeners
 function setupEventListeners() {
   elements.saveConfigBtn.addEventListener('click', saveConfig);
+  elements.deleteConfigBtn.addEventListener('click', deleteConfig);
   elements.testConnectionBtn.addEventListener('click', testConnection);
   elements.selectPathBtn.addEventListener('click', selectDownloadPath);
   elements.syncBtn.addEventListener('click', syncVideos);
   elements.downloadAllBtn.addEventListener('click', downloadAllVideos);
+
+  // Server selection change
+  elements.serverRadios.forEach(radio => {
+    radio.addEventListener('change', (e) => {
+      const selectedServer = e.target.value;
+
+      if (selectedServer === 'custom') {
+        // Enable manual input for custom server
+        elements.apiUrl.readOnly = false;
+        elements.apiUrl.focus();
+      } else {
+        // Use predefined server URL
+        elements.apiUrl.readOnly = true;
+        elements.apiUrl.value = SERVER_URLS[selectedServer];
+      }
+    });
+  });
 
   // Filter change
   document.querySelectorAll('input[name="filter"]').forEach(radio => {
@@ -80,20 +129,164 @@ function setupEventListeners() {
     }
   });
 
+  // Sync interval change
+  elements.syncInterval.addEventListener('change', async (e) => {
+    const newInterval = parseInt(e.target.value) || 12;
+
+    // Update config with new interval
+    if (config) {
+      config.syncInterval = newInterval;
+      await window.electronAPI.saveConfig({ syncInterval: newInterval });
+
+      // Restart auto-sync if it's enabled
+      if (config.autoSync && elements.autoSync.checked) {
+        startAutoSync();
+      }
+
+      console.log(`Sync interval updated to ${newInterval} hours`);
+    }
+  });
+
   // Download progress listener
   window.electronAPI.onDownloadProgress(handleDownloadProgress);
 }
 
+// Update input fields based on config state
+async function updateConfigButton() {
+  const configExists = await window.electronAPI.checkConfigExists();
+
+  if (configExists) {
+    // Config exists -> Change button text and enable delete
+    elements.saveConfigBtn.textContent = '설정 수정';
+    elements.deleteConfigBtn.disabled = false;
+
+    // Disable main config inputs
+    elements.apiUrl.disabled = true;
+    elements.kioskId.disabled = true;
+    elements.autoSync.disabled = true;
+    // Keep syncInterval enabled for editing
+    elements.syncInterval.disabled = false;
+
+    // Disable server selection radios
+    elements.serverRadios.forEach(radio => {
+      radio.disabled = true;
+    });
+  } else {
+    // No config -> Change button text and disable delete
+    elements.saveConfigBtn.textContent = '설정 저장';
+    elements.deleteConfigBtn.disabled = true;
+
+    // Enable all inputs
+    elements.apiUrl.disabled = false;
+    elements.kioskId.disabled = false;
+    elements.autoSync.disabled = false;
+    elements.syncInterval.disabled = false;
+
+    // Enable server selection radios
+    elements.serverRadios.forEach(radio => {
+      radio.disabled = false;
+    });
+
+    // Set readonly state based on server selection
+    const selectedServer = document.querySelector('input[name="server"]:checked')?.value || 'local';
+    elements.apiUrl.readOnly = selectedServer !== 'custom';
+  }
+}
+
+// Delete configuration
+async function deleteConfig() {
+  if (!confirm('설정을 삭제하시겠습니까? 저장된 키오스크 ID와 모든 설정이 초기화됩니다.')) {
+    return;
+  }
+
+  showLoading('설정 삭제 중...');
+
+  const result = await window.electronAPI.deleteConfig();
+
+  hideLoading();
+
+  if (result.success) {
+    config = result.config;
+
+    // Clear input fields
+    elements.apiUrl.value = config.apiUrl || '';
+    elements.kioskId.value = '';
+    elements.downloadPath.value = config.downloadPath || '';
+    elements.autoSync.checked = config.autoSync || false;
+    elements.syncInterval.value = 12; // Reset to default
+
+    // Reset server selection to local (default)
+    document.querySelector('input[name="server"][value="local"]').checked = true;
+    elements.apiUrl.readOnly = true;
+
+    // Stop auto-sync
+    stopAutoSync();
+
+    // Clear video list
+    videos = [];
+    renderVideoList();
+    updateStats();
+
+    // Update connection status
+    updateConnectionStatus(false);
+
+    showNotification('설정이 삭제되었습니다.', 'success');
+
+    // Update button and input states
+    await updateConfigButton();
+  } else {
+    showNotification('설정 삭제에 실패했습니다.', 'error');
+  }
+}
+
 // Save configuration
 async function saveConfig() {
-  const newConfig = {
-    apiUrl: elements.apiUrl.value.trim(),
-    kioskId: elements.kioskId.value.trim(),
-    downloadPath: elements.downloadPath.value,
-    autoSync: elements.autoSync.checked
-  };
+  const configExists = await window.electronAPI.checkConfigExists();
 
-  showLoading('설정 저장 중...');
+  let newConfig;
+
+  if (configExists) {
+    // 설정 수정 모드: 동기화 시간과 다운로드 경로만 업데이트
+    if (!elements.downloadPath.value) {
+      showNotification('다운로드 경로를 선택하세요.', 'warning');
+      return;
+    }
+
+    newConfig = {
+      ...config, // 기존 설정 유지
+      downloadPath: elements.downloadPath.value,
+      syncInterval: parseInt(elements.syncInterval.value) || 12
+    };
+
+    showLoading('설정 수정 중...');
+  } else {
+    // 새 설정 저장 모드: 모든 필드 저장
+    newConfig = {
+      apiUrl: elements.apiUrl.value.trim(),
+      kioskId: elements.kioskId.value.trim(),
+      downloadPath: elements.downloadPath.value,
+      autoSync: elements.autoSync.checked,
+      syncInterval: parseInt(elements.syncInterval.value) || 12
+    };
+
+    // Validate required fields
+    if (!newConfig.apiUrl) {
+      showNotification('API URL을 입력하세요.', 'warning');
+      return;
+    }
+
+    if (!newConfig.kioskId) {
+      showNotification('키오스크 ID를 입력하세요.', 'warning');
+      return;
+    }
+
+    if (!newConfig.downloadPath) {
+      showNotification('다운로드 경로를 선택하세요.', 'warning');
+      return;
+    }
+
+    showLoading('설정 저장 중...');
+  }
 
   const result = await window.electronAPI.saveConfig(newConfig);
 
@@ -101,7 +294,12 @@ async function saveConfig() {
 
   if (result.success) {
     config = result.config;
-    showNotification('설정이 저장되었습니다.', 'success');
+
+    if (configExists) {
+      showNotification('설정이 수정되었습니다.', 'success');
+    } else {
+      showNotification('설정이 저장되었습니다.', 'success');
+    }
 
     // Restart auto-sync if needed
     if (config.autoSync) {
@@ -109,6 +307,9 @@ async function saveConfig() {
     } else {
       stopAutoSync();
     }
+
+    // Update button state
+    await updateConfigButton();
   } else {
     showNotification('설정 저장에 실패했습니다.', 'error');
   }
@@ -159,6 +360,13 @@ async function syncVideos() {
 
   if (result.success) {
     videos = result.data.sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
+
+    // Debug: Log thumbnail URLs
+    console.log('Synced videos:', videos.length);
+    videos.forEach(v => {
+      console.log(`Video ${v.videoId}: ${v.title}`);
+      console.log(`  Thumbnail URL: ${v.thumbnailUrl || 'NONE'}`);
+    });
 
     // Check which videos already exist locally
     for (let video of videos) {
@@ -357,6 +565,11 @@ function renderVideoList() {
   elements.videoList.innerHTML = filteredVideos.map(video => `
     <div class="video-item" data-video-id="${video.videoId}">
       <div class="video-order">${String(video.displayOrder || 0).padStart(3, '0')}</div>
+      <div class="video-thumbnail">
+        ${video.thumbnailUrl
+          ? `<img src="${video.thumbnailUrl}" alt="${escapeHtml(video.title)}" onerror="this.parentElement.innerHTML='<div class=\\'thumbnail-placeholder\\'>📹</div>'" />`
+          : '<div class="thumbnail-placeholder">📹</div>'}
+      </div>
       <div class="video-info">
         <div class="video-title">${escapeHtml(video.title)}</div>
         ${video.description ? `<div class="video-description">${escapeHtml(video.description)}</div>` : ''}
@@ -474,14 +687,14 @@ function startAutoSync() {
     clearInterval(autoSyncInterval);
   }
 
-  const interval = (config.syncInterval || 5) * 60 * 1000; // Convert to milliseconds
+  const interval = (config.syncInterval || 12) * 60 * 60 * 1000; // Convert hours to milliseconds
 
   autoSyncInterval = setInterval(() => {
     console.log('Auto-syncing videos...');
     syncVideos();
   }, interval);
 
-  console.log(`Auto-sync started (every ${config.syncInterval || 5} minutes)`);
+  console.log(`Auto-sync started (every ${config.syncInterval || 12} hours)`);
 }
 
 function stopAutoSync() {

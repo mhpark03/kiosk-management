@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline';">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' https://*.s3.ap-northeast-2.amazonaws.com;">
   <title>키오스크 영상 다운로더</title>
   <link rel="stylesheet" href="styles.css">
 </head>
@@ -22,6 +22,35 @@
     <section class="config-section">
       <h2>설정</h2>
       <div class="config-grid">
+        <div class="config-item" style="grid-column: 1 / -1;">
+          <div class="server-and-sync">
+            <div class="server-section">
+              <label>서버 선택:</label>
+              <div class="server-selector">
+                <label>
+                  <input type="radio" name="server" value="local" checked>
+                  로컬 서버
+                </label>
+                <label>
+                  <input type="radio" name="server" value="aws">
+                  AWS 개발 서버
+                </label>
+                <label>
+                  <input type="radio" name="server" value="custom">
+                  직접 입력
+                </label>
+              </div>
+            </div>
+            <div class="auto-sync-section">
+              <label>
+                <input type="checkbox" id="auto-sync">
+                자동 동기화
+              </label>
+              <input type="number" id="sync-interval" min="1" max="24" value="12">
+              <span>시간 마다</span>
+            </div>
+          </div>
+        </div>
         <div class="config-item">
           <label for="api-url">API URL:</label>
           <input type="text" id="api-url" placeholder="http://localhost:8080/api">
@@ -37,15 +66,10 @@
             <button id="select-path-btn" class="btn-secondary">찾아보기</button>
           </div>
         </div>
-        <div class="config-item">
-          <label>
-            <input type="checkbox" id="auto-sync">
-            자동 동기화 (5분마다)
-          </label>
-        </div>
       </div>
       <div class="config-actions">
         <button id="save-config-btn" class="btn-primary">설정 저장</button>
+        <button id="delete-config-btn" class="btn-secondary" disabled>설정 삭제</button>
         <button id="test-connection-btn" class="btn-secondary">연결 테스트</button>
       </div>
     </section>
