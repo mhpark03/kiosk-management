@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import videoService from '../services/videoService';
-import { FiUpload, FiTrash2, FiPlay, FiImage } from 'react-icons/fi';
+import { FiUpload, FiTrash2, FiPlay, FiImage, FiEdit } from 'react-icons/fi';
 import './VideoManagement.css';
 
 function VideoManagement() {
@@ -15,6 +15,8 @@ function VideoManagement() {
   const [playingVideo, setPlayingVideo] = useState(null);
   const [videoUrl, setVideoUrl] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [editingVideo, setEditingVideo] = useState(null);
+  const [editForm, setEditForm] = useState({ title: '', description: '' });
   const itemsPerPage = 10;
 
   useEffect(() => {
@@ -73,6 +75,40 @@ function VideoManagement() {
 
   const handleUploadClick = () => {
     navigate('/videos/upload');
+  };
+
+  const handleEdit = (video) => {
+    setEditingVideo(video);
+    setEditForm({
+      title: video.title || '',
+      description: video.description || ''
+    });
+  };
+
+  const handleEditSave = async () => {
+    if (!editingVideo) return;
+
+    try {
+      setError('');
+      await videoService.updateVideo(
+        editingVideo.id,
+        editForm.title,
+        editForm.description
+      );
+      setSuccess('비디오 정보가 성공적으로 수정되었습니다.');
+      await loadVideos();
+      setEditingVideo(null);
+      setEditForm({ title: '', description: '' });
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      setError(err.message);
+      setTimeout(() => setError(''), 3000);
+    }
+  };
+
+  const handleEditCancel = () => {
+    setEditingVideo(null);
+    setEditForm({ title: '', description: '' });
   };
 
   const formatDate = (timestamp) => {
@@ -210,6 +246,13 @@ function VideoManagement() {
                         <FiPlay />
                       </button>
                       <button
+                        onClick={() => handleEdit(video)}
+                        className="btn-edit"
+                        title="수정"
+                      >
+                        <FiEdit />
+                      </button>
+                      <button
                         onClick={() => handleDelete(video.id)}
                         className="btn-deactivate"
                         title="삭제"
@@ -314,6 +357,87 @@ function VideoManagement() {
             {playingVideo.description && (
               <p className="modal-description">{playingVideo.description}</p>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Edit Video Modal */}
+      {editingVideo && (
+        <div className="video-modal" onClick={handleEditCancel}>
+          <div className="video-modal-content" onClick={(e) => e.stopPropagation()} style={{maxWidth: '600px'}}>
+            <button className="modal-close" onClick={handleEditCancel}>×</button>
+            <h3>영상 정보 수정</h3>
+            <div style={{padding: '20px 0'}}>
+              <div style={{marginBottom: '20px'}}>
+                <label style={{display: 'block', marginBottom: '8px', fontWeight: '600', color: '#2d3748'}}>
+                  제목
+                </label>
+                <input
+                  type="text"
+                  value={editForm.title}
+                  onChange={(e) => setEditForm({...editForm, title: e.target.value})}
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    border: '1px solid #cbd5e0',
+                    borderRadius: '4px',
+                    fontSize: '14px'
+                  }}
+                  placeholder="영상 제목을 입력하세요"
+                />
+              </div>
+              <div style={{marginBottom: '20px'}}>
+                <label style={{display: 'block', marginBottom: '8px', fontWeight: '600', color: '#2d3748'}}>
+                  설명
+                </label>
+                <textarea
+                  value={editForm.description}
+                  onChange={(e) => setEditForm({...editForm, description: e.target.value})}
+                  rows={4}
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    border: '1px solid #cbd5e0',
+                    borderRadius: '4px',
+                    fontSize: '14px',
+                    resize: 'vertical'
+                  }}
+                  placeholder="영상 설명을 입력하세요"
+                />
+              </div>
+              <div style={{display: 'flex', gap: '10px', justifyContent: 'flex-end'}}>
+                <button
+                  onClick={handleEditCancel}
+                  style={{
+                    padding: '10px 20px',
+                    border: '1px solid #cbd5e0',
+                    borderRadius: '4px',
+                    background: '#fff',
+                    color: '#2d3748',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    fontWeight: '500'
+                  }}
+                >
+                  취소
+                </button>
+                <button
+                  onClick={handleEditSave}
+                  style={{
+                    padding: '10px 20px',
+                    border: 'none',
+                    borderRadius: '4px',
+                    background: '#667eea',
+                    color: '#fff',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    fontWeight: '500'
+                  }}
+                >
+                  저장
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

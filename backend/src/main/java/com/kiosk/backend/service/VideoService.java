@@ -1,6 +1,8 @@
 package com.kiosk.backend.service;
 
+import com.kiosk.backend.entity.User;
 import com.kiosk.backend.entity.Video;
+import com.kiosk.backend.repository.UserRepository;
 import com.kiosk.backend.repository.VideoRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,6 +23,7 @@ import java.util.List;
 public class VideoService {
 
     private final VideoRepository videoRepository;
+    private final UserRepository userRepository;
     private final S3Service s3Service;
 
     private static final String VIDEO_FOLDER = "videos/";
@@ -207,9 +210,14 @@ public class VideoService {
     public void deleteVideo(Long id, Long requestingUserId) {
         Video video = getVideoById(id);
 
+        // Get requesting user
+        User requestingUser = userRepository.findById(requestingUserId)
+                .orElseThrow(() -> new RuntimeException("User not found with id: " + requestingUserId));
+
         // Check if user has permission to delete
-        // Admin can delete any video, regular users can only delete their own
-        if (!video.getUploadedById().equals(requestingUserId)) {
+        // ADMIN can delete any video, regular users can only delete their own
+        if (requestingUser.getRole() != User.UserRole.ADMIN &&
+            !video.getUploadedById().equals(requestingUserId)) {
             log.warn("User ID {} attempted to delete video {} owned by user ID {}",
                     requestingUserId, id, video.getUploadedById());
             throw new RuntimeException("You don't have permission to delete this video");
@@ -240,8 +248,14 @@ public class VideoService {
     public Video updateVideo(Long id, String title, String description, Long requestingUserId) {
         Video video = getVideoById(id);
 
+        // Get requesting user
+        User requestingUser = userRepository.findById(requestingUserId)
+                .orElseThrow(() -> new RuntimeException("User not found with id: " + requestingUserId));
+
         // Check if user has permission to update
-        if (!video.getUploadedById().equals(requestingUserId)) {
+        // ADMIN can update any video, regular users can only update their own
+        if (requestingUser.getRole() != User.UserRole.ADMIN &&
+            !video.getUploadedById().equals(requestingUserId)) {
             log.warn("User ID {} attempted to update video {} owned by user ID {}",
                     requestingUserId, id, video.getUploadedById());
             throw new RuntimeException("You don't have permission to update this video");

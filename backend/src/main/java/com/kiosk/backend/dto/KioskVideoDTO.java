@@ -20,4 +20,13 @@ public class KioskVideoDTO {
     private LocalDateTime assignedAt;
     private String downloadStatus; // PENDING, DOWNLOADING, COMPLETED, FAILED
     private LocalDateTime createdAt;
+
+    // Video details
+    private String title;
+    private String description;
+    private String fileName;
+    private Long fileSize;
+    private Integer duration;
+    private String url;
+    private String thumbnailUrl;
 }

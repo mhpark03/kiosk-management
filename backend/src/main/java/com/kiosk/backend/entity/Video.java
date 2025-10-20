@@ -57,4 +57,7 @@ public class Video {
 
     @Column(nullable = false, columnDefinition = "TEXT")
     private String description;
+
+    @Column
+    private Integer duration; // Video duration in seconds
 }

@@ -14,6 +14,7 @@ Kiosk Management System - A full-stack application for managing retail kiosks, s
 **Repository Structure:**
 - `/backend` - Spring Boot REST API (Java 17, Gradle)
 - `/firstapp` - React frontend (Vite, React Router, Axios)
+- `/kiosk-downloader` - Electron desktop app for kiosk video management
 
 ## Development Commands
 
@@ -75,6 +76,37 @@ npm run build
 cd firstapp
 npm run lint
 ```
+
+### Kiosk Downloader (Electron Desktop App)
+
+**Install dependencies:**
+```bash
+cd kiosk-downloader
+npm install
+```
+
+**Run development mode:**
+```bash
+cd kiosk-downloader
+npm start
+# Opens Electron window
+```
+
+**Build for production:**
+```bash
+cd kiosk-downloader
+npm run build
+# Creates platform-specific installers in dist/
+```
+
+**Key features:**
+- Auto-connects to backend API
+- Downloads and manages kiosk videos locally
+- Displays video title, description, thumbnail, file size, duration
+- Download/delete functionality with progress tracking
+- Video filtering (all/downloaded/pending)
+- Responsive layout (vertical on narrow screens, horizontal on wide screens ≥1024px)
+- Offline mode support
 
 ### Server Management
 
@@ -158,6 +190,37 @@ EntityHistory <-- EntityHistory
 - Request interceptor adds JWT token and custom headers
 - Service modules: `authService`, `kioskService`, `storeService`, `videoService`, etc.
 - Converts Timestamp objects to ISO strings for API compatibility
+
+### Kiosk Downloader Architecture
+
+**Desktop Application:**
+- Built with Electron 28.0
+- Main process: `main.js` - Window management, IPC handlers, file system operations
+- Renderer process: `renderer/` - UI and video management logic
+
+**Key Files:**
+- `main.js` - Electron main process, handles file downloads, video storage
+- `renderer/app.js` - Frontend logic, API calls, video list rendering
+- `renderer/styles.css` - Responsive UI styling with media queries
+- `renderer/index.html` - Main window template
+
+**Storage:**
+- Videos saved to: `<userData>/videos/`
+- Settings stored in: `<userData>/config.json`
+- Auto-creates directories on first run
+
+**API Integration:**
+- Fetches kiosk-assigned videos via `/api/kiosks/{kioskId}/videos`
+- Downloads videos using pre-signed S3 URLs (7-day validity)
+- Tracks download progress with progress bar
+- Offline mode: displays cached video list when backend unavailable
+
+**UI Features:**
+- Video display: Order number, title, description, thumbnail, file size, duration
+- Status badges: Downloaded (green), Pending (yellow)
+- Filter tabs: All videos, Downloaded only, Pending only
+- Responsive layout: Vertical (< 1024px), Horizontal (≥ 1024px)
+- Truncates long descriptions with ellipsis on wide screens
 
 ## Critical Business Rules
 
@@ -268,6 +331,12 @@ entityHistoryService.recordVideoActivity(
 - Links to User via `uploadedById`
 - Stores S3 keys, URLs, thumbnails, title, description
 - Activity tracked: UPLOAD, PLAY, DELETE
+
+**Video Permissions:**
+- **ADMIN users**: Can edit/delete any video regardless of uploader
+- **Regular users**: Can only edit/delete their own videos
+- Permission checks in `VideoService.updateVideo()` and `VideoService.deleteVideo()`
+- Uses `UserRepository` to fetch user role information
 
 ## Dashboard Analytics
 
@@ -576,3 +645,11 @@ aws s3 sync dist/ s3://kiosk-frontend-20251018/ --delete
 - Verify kiosks have proper `regdate`, `setdate`, `deldate`
 - Check browser console for data processing errors
 - Ensure stores have valid addresses for regional stats
+
+### Kiosk Downloader issues
+- **App won't start**: Check Electron is installed (`npm install`)
+- **Can't connect to backend**: Verify API URL in config, check backend is running
+- **Downloads fail**: Check S3 pre-signed URL hasn't expired (7 days), verify internet connection
+- **Videos not showing**: Check kiosk has assigned videos in KioskVideoManagement
+- **Description not displaying**: Verify video has description field populated in backend
+- **Layout issues**: Check screen width breakpoint (1024px), test responsive CSS with browser dev tools

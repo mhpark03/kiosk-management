@@ -11,6 +11,7 @@ import com.kiosk.backend.repository.EntityHistoryRepository;
 import com.kiosk.backend.repository.KioskRepository;
 import com.kiosk.backend.repository.KioskVideoRepository;
 import com.kiosk.backend.repository.StoreRepository;
+import com.kiosk.backend.repository.VideoRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -31,6 +32,7 @@ public class KioskService {
     private final EntityHistoryRepository entityHistoryRepository;
     private final StoreRepository storeRepository;
     private final KioskVideoRepository kioskVideoRepository;
+    private final VideoRepository videoRepository;
 
     /**
      * Generate next sequential 12-digit Kiosk ID
@@ -537,16 +539,29 @@ public class KioskService {
 
         List<KioskVideo> kioskVideos = kioskVideoRepository.findByKioskIdOrderByDisplayOrderAsc(kioskId);
         return kioskVideos.stream()
-                .map(kv -> com.kiosk.backend.dto.KioskVideoDTO.builder()
-                        .id(kv.getId())
-                        .kioskId(kv.getKioskId())
-                        .videoId(kv.getVideoId())
-                        .displayOrder(kv.getDisplayOrder())
-                        .assignedBy(kv.getAssignedBy())
-                        .assignedAt(kv.getAssignedAt())
-                        .downloadStatus(kv.getDownloadStatus())
-                        .createdAt(kv.getCreatedAt())
-                        .build())
+                .map(kv -> {
+                    // Get video details
+                    var video = videoRepository.findById(kv.getVideoId()).orElse(null);
+
+                    return com.kiosk.backend.dto.KioskVideoDTO.builder()
+                            .id(kv.getId())
+                            .kioskId(kv.getKioskId())
+                            .videoId(kv.getVideoId())
+                            .displayOrder(kv.getDisplayOrder())
+                            .assignedBy(kv.getAssignedBy())
+                            .assignedAt(kv.getAssignedAt())
+                            .downloadStatus(kv.getDownloadStatus())
+                            .createdAt(kv.getCreatedAt())
+                            // Add video details
+                            .title(video != null ? video.getTitle() : null)
+                            .description(video != null ? video.getDescription() : null)
+                            .fileName(video != null ? video.getOriginalFilename() : null)
+                            .fileSize(video != null ? video.getFileSize() : null)
+                            .duration(video != null ? video.getDuration() : null)
+                            .url(video != null ? video.getS3Url() : null)
+                            .thumbnailUrl(video != null ? video.getThumbnailUrl() : null)
+                            .build();
+                })
                 .collect(Collectors.toList());
     }
 

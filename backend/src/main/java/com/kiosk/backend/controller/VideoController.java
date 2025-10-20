@@ -158,15 +158,35 @@ public class VideoController {
     }
 
     /**
-     * Get a specific video by ID (Admin only)
+     * Get a specific video by ID with presigned download URL
      * GET /api/videos/{id}
      */
     @GetMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> getVideoById(@PathVariable Long id) {
         try {
             Video video = videoService.getVideoById(id);
-            return ResponseEntity.ok(video);
+
+            // Generate presigned URL for download (valid for 7 days = 10080 minutes)
+            String presignedUrl = videoService.generatePresignedUrl(id, 10080);
+
+            // Create response with video details and presigned URL
+            Map<String, Object> response = new HashMap<>();
+            response.put("id", video.getId());
+            response.put("filename", video.getFilename());
+            response.put("originalFilename", video.getOriginalFilename());
+            response.put("fileSize", video.getFileSize());
+            response.put("contentType", video.getContentType());
+            response.put("s3Key", video.getS3Key());
+            response.put("s3Url", presignedUrl);  // Use presigned URL instead of public URL
+            response.put("thumbnailS3Key", video.getThumbnailS3Key());
+            response.put("thumbnailUrl", video.getThumbnailUrl());
+            response.put("uploadedAt", video.getUploadedAt());
+            response.put("title", video.getTitle());
+            response.put("description", video.getDescription());
+            response.put("duration", video.getDuration());
+            response.put("uploadedById", video.getUploadedById());
+
+            return ResponseEntity.ok(response);
         } catch (RuntimeException e) {
             log.error("Video not found: {}", id);
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
