@@ -44,8 +44,9 @@ public class SecurityConfig {
                 .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
                 // Actuator endpoints (for AWS health checks)
                 .requestMatchers("/actuator/health", "/actuator/info").permitAll()
-                // Kiosk video management for desktop app (read-only)
+                // Kiosk video management for desktop app
                 .requestMatchers("/api/kiosks/*/videos-with-status").permitAll()
+                .requestMatchers("/api/kiosks/*/videos/*/status").permitAll()
                 .requestMatchers("/api/videos/*").permitAll()
                 // All other endpoints require authentication
                 .requestMatchers("/api/**").authenticated()
