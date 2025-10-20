@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline';">
+  <title>키오스크 영상 다운로더</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <header>
+      <h1>키오스크 영상 다운로더</h1>
+      <div class="status-bar">
+        <span id="connection-status" class="status-indicator offline">연결 안됨</span>
+        <span id="last-sync">마지막 동기화: -</span>
+      </div>
+    </header>
+
+    <!-- Configuration Section -->
+    <section class="config-section">
+      <h2>설정</h2>
+      <div class="config-grid">
+        <div class="config-item">
+          <label for="api-url">API URL:</label>
+          <input type="text" id="api-url" placeholder="http://localhost:8080/api">
+        </div>
+        <div class="config-item">
+          <label for="kiosk-id">키오스크 ID:</label>
+          <input type="text" id="kiosk-id" placeholder="키오스크 ID 입력">
+        </div>
+        <div class="config-item">
+          <label for="download-path">다운로드 경로:</label>
+          <div class="path-selector">
+            <input type="text" id="download-path" readonly>
+            <button id="select-path-btn" class="btn-secondary">찾아보기</button>
+          </div>
+        </div>
+        <div class="config-item">
+          <label>
+            <input type="checkbox" id="auto-sync">
+            자동 동기화 (5분마다)
+          </label>
+        </div>
+      </div>
+      <div class="config-actions">
+        <button id="save-config-btn" class="btn-primary">설정 저장</button>
+        <button id="test-connection-btn" class="btn-secondary">연결 테스트</button>
+      </div>
+    </section>
+
+    <!-- Actions Section -->
+    <section class="actions-section">
+      <div class="actions-left">
+        <button id="sync-btn" class="btn-primary">
+          <span class="icon">🔄</span>
+          영상 목록 동기화
+        </button>
+        <button id="download-all-btn" class="btn-success">
+          <span class="icon">⬇️</span>
+          전체 다운로드
+        </button>
+      </div>
+      <div class="actions-right">
+        <div class="video-stats">
+          <span>전체: <strong id="total-videos">0</strong></span>
+          <span>다운로드 완료: <strong id="downloaded-videos">0</strong></span>
+          <span>대기 중: <strong id="pending-videos">0</strong></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Video List Section -->
+    <section class="video-list-section">
+      <h2>영상 목록</h2>
+      <div class="filter-bar">
+        <label>
+          <input type="radio" name="filter" value="all" checked>
+          전체
+        </label>
+        <label>
+          <input type="radio" name="filter" value="pending">
+          대기 중
+        </label>
+        <label>
+          <input type="radio" name="filter" value="downloading">
+          다운로드 중
+        </label>
+        <label>
+          <input type="radio" name="filter" value="completed">
+          완료
+        </label>
+      </div>
+
+      <div id="video-list" class="video-list">
+        <div class="empty-state">
+          <p>영상 목록을 불러오려면 '영상 목록 동기화' 버튼을 클릭하세요.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+      <div class="footer-info">
+        <span>Kiosk Video Downloader v1.0.0</span>
+        <span id="offline-mode" class="offline-badge" style="display: none;">오프라인 모드</span>
+      </div>
+    </footer>
+  </div>
+
+  <!-- Loading Overlay -->
+  <div id="loading-overlay" class="loading-overlay" style="display: none;">
+    <div class="spinner"></div>
+    <p id="loading-message">처리 중...</p>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

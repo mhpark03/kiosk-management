@@ -1,0 +1,28 @@
+const { contextBridge, ipcRenderer } = require('electron');
+
+// Expose protected methods to the renderer process
+contextBridge.exposeInMainWorld('electronAPI', {
+  // Config management
+  getConfig: () => ipcRenderer.invoke('get-config'),
+  saveConfig: (config) => ipcRenderer.invoke('save-config', config),
+  selectDownloadPath: () => ipcRenderer.invoke('select-download-path'),
+
+  // Video management
+  getVideos: (apiUrl, kioskId) => ipcRenderer.invoke('get-videos', apiUrl, kioskId),
+  downloadVideo: (params) => ipcRenderer.invoke('download-video', params),
+  updateDownloadStatus: (params) => ipcRenderer.invoke('update-download-status', params),
+
+  // File system operations
+  checkFileExists: (filePath) => ipcRenderer.invoke('check-file-exists', filePath),
+  deleteFile: (filePath) => ipcRenderer.invoke('delete-file', filePath),
+
+  // Event listeners
+  onDownloadProgress: (callback) => {
+    ipcRenderer.on('download-progress', (event, data) => callback(data));
+  },
+  removeDownloadProgressListener: () => {
+    ipcRenderer.removeAllListeners('download-progress');
+  }
+});
+
+console.log('Preload script loaded - API bridge established');
