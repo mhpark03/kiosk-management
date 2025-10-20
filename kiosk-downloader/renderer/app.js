@@ -387,14 +387,14 @@ async function syncVideos() {
       console.log(`  Thumbnail URL: ${v.thumbnailUrl || 'NONE'}`);
     });
 
-    // Check which videos already exist locally
+    // Check which videos already exist locally and sync status
     for (let video of videos) {
       const fileName = generateFileName(video);
       const filePath = `${config.downloadPath}\\${fileName}`;
       const exists = await window.electronAPI.checkFileExists(filePath);
 
       if (exists && video.downloadStatus !== 'COMPLETED') {
-        // Update status on server if file exists locally
+        // File exists locally but server status is not COMPLETED -> Update to COMPLETED
         await window.electronAPI.updateDownloadStatus({
           apiUrl: config.apiUrl,
           kioskId: config.kioskId,
@@ -402,6 +402,15 @@ async function syncVideos() {
           status: 'COMPLETED'
         });
         video.downloadStatus = 'COMPLETED';
+      } else if (!exists && video.downloadStatus === 'COMPLETED') {
+        // File doesn't exist locally but server status is COMPLETED -> Update to PENDING
+        await window.electronAPI.updateDownloadStatus({
+          apiUrl: config.apiUrl,
+          kioskId: config.kioskId,
+          videoId: video.videoId,
+          status: 'PENDING'
+        });
+        video.downloadStatus = 'PENDING';
       }
     }
 
