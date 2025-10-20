@@ -4,23 +4,34 @@
 [![Security](https://img.shields.io/badge/security-secured-blue)](https://github.com/mhpark03/kiosk-management)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-키오스크 관리 시스템 - Spring Boot 백엔드와 React 프론트엔드로 구성된 풀스택 웹 애플리케이션
+키오스크 관리 시스템 - Spring Boot 백엔드, React 웹 프론트엔드, Electron 데스크톱 앱으로 구성된 풀스택 솔루션
 
 ## 📋 프로젝트 개요
 
-키오스크 장비의 등록, 관리, 모니터링을 위한 통합 관리 시스템입니다. 매장(Store)과 키오스크(Kiosk) 정보를 효율적으로 관리하고, 변경 이력을 추적할 수 있습니다.
+키오스크 장비의 등록, 관리, 모니터링을 위한 통합 관리 시스템입니다. 매장(Store)과 키오스크(Kiosk) 정보를 효율적으로 관리하고, 영상 콘텐츠를 배포하며, 변경 이력을 추적할 수 있습니다.
 
 ## 🏗️ 아키텍처
 
 ```
-React Frontend (Vite)          Spring Boot Backend          AWS RDS MySQL
-Port 5173/80                   Port 8080                    Port 3306
-     │                              │                             │
-     │──── API 요청 ────────────────│                             │
-     │                              │                             │
-     │                              │──── DB 쿼리 ────────────────│
-     │                              │                             │
-     │◄─── JSON 응답 ───────────────│                             │
+React Admin Web               Spring Boot Backend          AWS RDS MySQL          AWS S3
+Port 5173/80                  Port 8080                    Port 3306             (Video Storage)
+     │                             │                             │                     │
+     │──── API 요청 ───────────────│                             │                     │
+     │                             │                             │                     │
+     │                             │──── DB 쿼리 ────────────────│                     │
+     │                             │                             │                     │
+     │◄─── JSON 응답 ──────────────│                             │                     │
+     │                             │                             │                     │
+     │                             │◄─── 파일 업로드/다운로드 ───────────────────────────│
+     │                             │                             │                     │
+Electron Kiosk App            │                             │                     │
+(Desktop Application)         │                             │                     │
+     │                             │                             │                     │
+     │──── 영상 목록 조회 ──────────│                             │                     │
+     │                             │                             │                     │
+     │◄─── Presigned URL ──────────│                             │                     │
+     │                             │                             │                     │
+     └──── 영상 다운로드 ─────────────────────────────────────────────────────────────│
 ```
 
 ## 🚀 기술 스택
@@ -33,20 +44,31 @@ Port 5173/80                   Port 8080                    Port 3306
 - **ORM**: Spring Data JPA (Hibernate)
 - **Security**: Spring Security + JWT
 - **Validation**: Jakarta Validation
+- **File Storage**: AWS S3
+- **Video Processing**: FFmpeg
 
-### Frontend
-- **Framework**: React 18
+### Web Frontend
+- **Framework**: React 19
 - **Build Tool**: Vite
 - **Routing**: React Router v6
 - **HTTP Client**: Axios
 - **UI Components**: Custom Components
 - **Charts**: Recharts
+- **Icons**: React Icons
 
-### DevOps
+### Desktop Application
+- **Framework**: Electron 28.0
+- **Runtime**: Node.js
+- **UI**: HTML5 + CSS3 + Vanilla JavaScript
+- **File System**: Electron IPC
+- **Video Management**: Local storage + S3 integration
+
+### DevOps & Cloud
 - **CI/CD**: GitHub Actions
 - **Backend Hosting**: AWS Elastic Beanstalk
-- **Frontend Hosting**: AWS S3 + CloudFront (optional)
+- **Frontend Hosting**: AWS S3 Static Website
 - **Database**: AWS RDS MySQL
+- **File Storage**: AWS S3
 - **Version Control**: Git + GitHub
 
 ## ✨ 주요 기능
@@ -75,6 +97,28 @@ Port 5173/80                   Port 8080                    Port 3306
 - ✅ 모든 생성/수정/삭제/상태변경 이력 자동 기록
 - ✅ 변경 전/후 값 추적
 - ✅ 사용자별 작업 이력 조회
+
+### 영상 관리 (Video Management)
+- ✅ 영상 파일 업로드 (S3 저장)
+- ✅ 자동 썸네일 생성 (FFmpeg)
+- ✅ 영상 제목/설명 편집
+- ✅ 영상 재생/삭제
+- ✅ 역할 기반 권한 (ADMIN: 모든 영상 편집, USER: 본인 영상만)
+- ✅ Presigned URL로 보안 다운로드 (7일 유효)
+
+### 키오스크 영상 배포 (Kiosk Video Assignment)
+- ✅ 키오스크별 영상 할당
+- ✅ 재생 순서 관리
+- ✅ 영상 통계 (할당된 키오스크 수)
+- ✅ Electron 앱으로 자동 다운로드
+
+### 키오스크 다운로더 앱 (Desktop Application)
+- ✅ Electron 기반 크로스 플랫폼 지원
+- ✅ 할당된 영상 목록 자동 조회
+- ✅ 영상 로컬 다운로드 및 관리
+- ✅ 다운로드 진행률 표시
+- ✅ 오프라인 모드 지원
+- ✅ 반응형 UI (가로/세로 레이아웃)
 
 ### 대시보드 (Dashboard)
 - ✅ 월별 키오스크 설치 현황 차트
@@ -129,6 +173,23 @@ npm run dev
 ```
 
 프론트엔드가 `http://localhost:5173` 에서 실행됩니다.
+
+### 4. 키오스크 다운로더 앱 설정 및 실행
+
+```bash
+cd kiosk-downloader
+
+# 의존성 설치
+npm install
+
+# 개발 모드 실행
+npm start
+
+# 프로덕션 빌드 (설치 파일 생성)
+npm run build
+```
+
+Electron 앱이 데스크톱 윈도우로 실행됩니다.
 
 ## 🌐 배포
 
@@ -189,12 +250,21 @@ kiosk-management/
 │       ├── application-dev.yml
 │       └── application-prod.yml
 │
-├── firstapp/               # React 프론트엔드
+├── firstapp/               # React 웹 프론트엔드
 │   ├── src/
 │   │   ├── components/    # React 컴포넌트
 │   │   ├── services/      # API 서비스
 │   │   └── App.jsx
 │   └── .env.production
+│
+├── kiosk-downloader/      # Electron 데스크톱 앱
+│   ├── main.js            # Electron 메인 프로세스
+│   ├── preload.js         # Preload 스크립트
+│   ├── renderer/          # 렌더러 프로세스 (UI)
+│   │   ├── app.js         # 프론트엔드 로직
+│   │   ├── index.html     # 메인 화면
+│   │   └── styles.css     # 스타일시트
+│   └── package.json
 │
 └── .github/
     └── workflows/         # GitHub Actions CI/CD
@@ -204,19 +274,45 @@ kiosk-management/
 
 주요 API 엔드포인트:
 
+**매장 관리**
 ```
 GET    /api/stores              # 매장 목록 조회
 POST   /api/stores              # 매장 등록
 GET    /api/stores/{id}         # 매장 상세 조회
 PUT    /api/stores/{id}         # 매장 수정
 DELETE /api/stores/{id}         # 매장 삭제 (소프트)
+```
 
+**키오스크 관리**
+```
 GET    /api/kiosks              # 키오스크 목록 조회
 POST   /api/kiosks              # 키오스크 등록
 GET    /api/kiosks/{id}         # 키오스크 상세 조회
 PUT    /api/kiosks/{id}         # 키오스크 수정
 PATCH  /api/kiosks/{id}/state   # 키오스크 상태 변경
+```
 
+**영상 관리**
+```
+GET    /api/videos                      # 영상 목록 조회 (ADMIN)
+POST   /api/videos/upload               # 영상 업로드 (ADMIN)
+GET    /api/videos/{id}                 # 영상 상세 조회
+GET    /api/videos/{id}/presigned-url   # 재생용 Presigned URL 생성
+PATCH  /api/videos/{id}                 # 영상 정보 수정 (ADMIN)
+DELETE /api/videos/{id}                 # 영상 삭제 (ADMIN)
+GET    /api/videos/my-videos            # 내가 업로드한 영상 조회
+```
+
+**키오스크 영상 배포**
+```
+GET    /api/kiosks/{id}/videos          # 키오스크에 할당된 영상 목록
+POST   /api/kiosks/{id}/videos          # 키오스크에 영상 할당 (ADMIN)
+DELETE /api/kiosks/{id}/videos/{videoId} # 영상 할당 해제 (ADMIN)
+PUT    /api/kiosks/{id}/videos/order    # 영상 재생 순서 변경 (ADMIN)
+```
+
+**이력 관리**
+```
 GET    /api/history/kiosk/{kioskid}  # 키오스크 이력
 GET    /api/history/store/{posid}    # 매장 이력
 GET    /api/history/user/{email}     # 사용자 이력
