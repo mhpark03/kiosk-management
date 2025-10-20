@@ -13,10 +13,36 @@
     <header>
       <h1>키오스크 영상 다운로더</h1>
       <div class="status-bar">
+        <span id="user-info" style="display: none;"></span>
         <span id="connection-status" class="status-indicator offline">연결 안됨</span>
         <span id="last-sync">마지막 동기화: -</span>
+        <button id="login-header-btn" class="btn-secondary">로그인</button>
+        <button id="logout-btn" class="btn-secondary" style="display: none;">로그아웃</button>
       </div>
     </header>
+
+    <!-- Login Modal -->
+    <div id="login-modal" class="modal">
+      <div class="modal-content">
+        <h2>로그인</h2>
+        <p>계속하려면 로그인이 필요합니다.</p>
+        <div class="login-form">
+          <div class="form-group">
+            <label for="login-email">이메일:</label>
+            <input type="email" id="login-email" placeholder="이메일 입력" autocomplete="email">
+          </div>
+          <div class="form-group">
+            <label for="login-password">비밀번호:</label>
+            <input type="password" id="login-password" placeholder="비밀번호 입력" autocomplete="current-password">
+          </div>
+          <div class="form-actions">
+            <button id="login-submit-btn" class="btn-primary">로그인</button>
+            <button id="login-skip-btn" class="btn-secondary">나중에</button>
+          </div>
+          <div id="login-error" class="error-message" style="display: none;"></div>
+        </div>
+      </div>
+    </div>
 
     <!-- Configuration Section -->
     <section class="config-section">
@@ -56,13 +82,17 @@
           <input type="text" id="api-url" placeholder="http://localhost:8080/api">
         </div>
         <div class="config-item">
+          <label for="store-id">매장 ID:</label>
+          <input type="text" id="store-id" placeholder="매장 ID 입력">
+        </div>
+        <div class="config-item">
           <label for="kiosk-id">키오스크 ID:</label>
           <input type="text" id="kiosk-id" placeholder="키오스크 ID 입력">
         </div>
         <div class="config-item">
           <label for="download-path">다운로드 경로:</label>
           <div class="path-selector">
-            <input type="text" id="download-path" readonly>
+            <input type="text" id="download-path">
             <button id="select-path-btn" class="btn-secondary">찾아보기</button>
           </div>
         </div>
@@ -71,33 +101,23 @@
         <button id="save-config-btn" class="btn-primary">설정 저장</button>
         <button id="delete-config-btn" class="btn-secondary" disabled>설정 삭제</button>
         <button id="test-connection-btn" class="btn-secondary">연결 테스트</button>
-      </div>
-    </section>
-
-    <!-- Actions Section -->
-    <section class="actions-section">
-      <div class="actions-left">
         <button id="sync-btn" class="btn-primary">
           <span class="icon">🔄</span>
           영상 목록 동기화
         </button>
-        <button id="download-all-btn" class="btn-success">
-          <span class="icon">⬇️</span>
-          전체 다운로드
-        </button>
       </div>
-      <div class="actions-right">
+    </section>
+
+    <!-- Video List Section -->
+    <section class="video-list-section">
+      <div class="video-list-header">
+        <h2>영상 목록</h2>
         <div class="video-stats">
           <span>전체: <strong id="total-videos">0</strong></span>
           <span>다운로드 완료: <strong id="downloaded-videos">0</strong></span>
           <span>대기 중: <strong id="pending-videos">0</strong></span>
         </div>
       </div>
-    </section>
-
-    <!-- Video List Section -->
-    <section class="video-list-section">
-      <h2>영상 목록</h2>
       <div class="filter-bar">
         <label>
           <input type="radio" name="filter" value="all" checked>

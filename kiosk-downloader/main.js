@@ -152,6 +152,8 @@ ipcMain.handle('get-config', async () => {
 });
 
 ipcMain.handle('save-config', async (event, newConfig) => {
+  console.log("[IPC] save-config called with:", newConfig);
+  console.trace("[STACK TRACE] save-config call stack:");
   config = { ...config, ...newConfig };
   const success = saveConfig();
   return { success, config };
@@ -199,10 +201,36 @@ ipcMain.handle('select-download-path', async () => {
   return null;
 });
 
+ipcMain.handle('login', async (event, apiUrl, email, password) => {
+  try {
+    const axios = require('axios');
+    const response = await axios.post(`${apiUrl}/auth/login`, {
+      email,
+      password
+    });
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error('Error logging in:', error);
+    return { success: false, error: error.response?.data?.message || error.message };
+  }
+});
+
+ipcMain.handle('get-kiosk-by-kioskid', async (event, apiUrl, kioskid) => {
+  try {
+    const axios = require('axios');
+    const response = await axios.get(`${apiUrl}/kiosks/kioskid/${encodeURIComponent(kioskid)}`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error('Error fetching kiosk by kioskid:', error);
+    return { success: false, error: error.response?.data?.message || error.message };
+  }
+});
+
 ipcMain.handle('get-videos', async (event, apiUrl, kioskId) => {
   try {
     const axios = require('axios');
-    const response = await axios.get(`${apiUrl}/kiosks/${kioskId}/videos-with-status`);
+    // Use by-kioskid endpoint to get kiosk by kioskid string instead of numeric id
+    const response = await axios.get(`${apiUrl}/kiosks/by-kioskid/${encodeURIComponent(kioskId)}/videos-with-status`);
     return { success: true, data: response.data };
   } catch (error) {
     console.error('Error fetching videos:', error);
@@ -266,8 +294,9 @@ ipcMain.handle('download-video', async (event, { apiUrl, videoId, downloadPath, 
 ipcMain.handle('update-download-status', async (event, { apiUrl, kioskId, videoId, status }) => {
   try {
     const axios = require('axios');
+    // Use by-kioskid endpoint to update status by kioskid string instead of numeric id
     await axios.patch(
-      `${apiUrl}/kiosks/${kioskId}/videos/${videoId}/status`,
+      `${apiUrl}/kiosks/by-kioskid/${encodeURIComponent(kioskId)}/videos/${videoId}/status`,
       null,
       { params: { status } }
     );

@@ -9,11 +9,15 @@ let config = null;
 let videos = [];
 let currentFilter = 'all';
 let autoSyncInterval = null;
+let autoSyncDebounceTimer = null;
 let isOnline = true;
+let authToken = null;
+let currentUser = null;
 
 // DOM elements
 const elements = {
   apiUrl: document.getElementById('api-url'),
+  storeId: document.getElementById('store-id'),
   kioskId: document.getElementById('kiosk-id'),
   downloadPath: document.getElementById('download-path'),
   autoSync: document.getElementById('auto-sync'),
@@ -24,7 +28,6 @@ const elements = {
   testConnectionBtn: document.getElementById('test-connection-btn'),
   selectPathBtn: document.getElementById('select-path-btn'),
   syncBtn: document.getElementById('sync-btn'),
-  downloadAllBtn: document.getElementById('download-all-btn'),
   videoList: document.getElementById('video-list'),
   connectionStatus: document.getElementById('connection-status'),
   lastSync: document.getElementById('last-sync'),
@@ -33,17 +36,40 @@ const elements = {
   pendingVideos: document.getElementById('pending-videos'),
   loadingOverlay: document.getElementById('loading-overlay'),
   loadingMessage: document.getElementById('loading-message'),
-  offlineMode: document.getElementById('offline-mode')
+  offlineMode: document.getElementById('offline-mode'),
+  loginModal: document.getElementById('login-modal'),
+  loginEmail: document.getElementById('login-email'),
+  loginPassword: document.getElementById('login-password'),
+  loginSubmitBtn: document.getElementById('login-submit-btn'),
+  loginSkipBtn: document.getElementById('login-skip-btn'),
+  loginError: document.getElementById('login-error'),
+  userInfo: document.getElementById('user-info'),
+  loginHeaderBtn: document.getElementById('login-header-btn'),
+  logoutBtn: document.getElementById('logout-btn')
 };
 
 // Initialize app
 async function initialize() {
   console.log('Initializing Kiosk Video Downloader...');
 
+  // Explicitly enable all input fields
+  elements.apiUrl.readOnly = false;
+  elements.apiUrl.disabled = false;
+  elements.storeId.readOnly = false;
+  elements.storeId.disabled = false;
+  elements.kioskId.readOnly = false;
+  elements.kioskId.disabled = false;
+  elements.downloadPath.readOnly = false;
+  elements.downloadPath.disabled = false;
+
+  // Setup event listeners FIRST
+  setupEventListeners();
+
   // Load config
   config = await window.electronAPI.getConfig();
   if (config) {
     elements.apiUrl.value = config.apiUrl || '';
+    elements.storeId.value = config.storeId || '';
     elements.kioskId.value = config.kioskId || '';
     elements.downloadPath.value = config.downloadPath || '';
     elements.autoSync.checked = config.autoSync || false;
@@ -53,44 +79,59 @@ async function initialize() {
     const apiUrl = config.apiUrl || '';
     if (apiUrl === SERVER_URLS.local) {
       document.querySelector('input[name="server"][value="local"]').checked = true;
-      elements.apiUrl.readOnly = true;
     } else if (apiUrl === SERVER_URLS.aws) {
       document.querySelector('input[name="server"][value="aws"]').checked = true;
-      elements.apiUrl.readOnly = true;
     } else {
       document.querySelector('input[name="server"][value="custom"]').checked = true;
-      elements.apiUrl.readOnly = false;
     }
 
     if (config.lastSync) {
       updateLastSyncTime(new Date(config.lastSync));
     }
 
-    // Auto-sync if enabled
+    // Restore saved authentication if available
+    if (config.authToken && config.userEmail && config.userName) {
+      authToken = config.authToken;
+      currentUser = {
+        email: config.userEmail,
+        name: config.userName,
+        token: config.authToken
+      };
+
+      // Update UI
+      elements.userInfo.textContent = `${currentUser.name} (${currentUser.email})`;
+      elements.userInfo.style.display = 'inline';
+      elements.loginHeaderBtn.style.display = 'none';
+      elements.logoutBtn.style.display = 'inline-block';
+
+      console.log('Auto-login successful');
+    }
+
+    // Auto-sync if enabled (works with or without login)
     if (config.autoSync && config.apiUrl && config.kioskId) {
       startAutoSync();
     }
   }
 
-  // Initialize input fields as enabled by default
+  // Explicitly enable all input fields AGAIN after loading config
+  elements.apiUrl.readOnly = false;
   elements.apiUrl.disabled = false;
+  elements.storeId.readOnly = false;
+  elements.storeId.disabled = false;
+  elements.kioskId.readOnly = false;
   elements.kioskId.disabled = false;
-  elements.autoSync.disabled = false;
-
-  // Setup event listeners
-  setupEventListeners();
+  elements.downloadPath.readOnly = false;
+  elements.downloadPath.disabled = false;
 
   // Update save/delete button based on config state
-  await updateConfigButton();
+  const configExists = await window.electronAPI.checkConfigExists();
+  if (configExists) {
+    elements.saveConfigBtn.textContent = '설정 수정';
+    elements.deleteConfigBtn.disabled = false;
 
-  // Auto test connection and sync if config exists
-  if (config && config.apiUrl && config.kioskId) {
-    console.log('Auto-connecting and syncing on startup...');
-    // Run connection test and sync (non-blocking)
-    setTimeout(async () => {
-      await testConnection();
-      await syncVideos();
-    }, 500);
+  } else {
+    elements.saveConfigBtn.textContent = '설정 저장';
+    elements.deleteConfigBtn.disabled = true;
   }
 
   console.log('App initialized');
@@ -103,7 +144,6 @@ function setupEventListeners() {
   elements.testConnectionBtn.addEventListener('click', testConnection);
   elements.selectPathBtn.addEventListener('click', selectDownloadPath);
   elements.syncBtn.addEventListener('click', syncVideos);
-  elements.downloadAllBtn.addEventListener('click', downloadAllVideos);
 
   // Server selection change
   elements.serverRadios.forEach(radio => {
@@ -112,11 +152,9 @@ function setupEventListeners() {
 
       if (selectedServer === 'custom') {
         // Enable manual input for custom server
-        elements.apiUrl.readOnly = false;
         elements.apiUrl.focus();
       } else {
         // Use predefined server URL
-        elements.apiUrl.readOnly = true;
         elements.apiUrl.value = SERVER_URLS[selectedServer];
       }
     });
@@ -139,26 +177,33 @@ function setupEventListeners() {
     }
   });
 
-  // Sync interval change
-  elements.syncInterval.addEventListener('change', async (e) => {
-    const newInterval = parseInt(e.target.value) || 12;
-
-    // Update config with new interval
-    if (config) {
-      config.syncInterval = newInterval;
-      await window.electronAPI.saveConfig({ syncInterval: newInterval });
-
-      // Restart auto-sync if it's enabled
-      if (config.autoSync && elements.autoSync.checked) {
-        startAutoSync();
-      }
-
-      console.log(`Sync interval updated to ${newInterval} hours`);
-    }
-  });
+  // Sync interval change - removed auto-save, will save when user clicks save button
 
   // Download progress listener
   window.electronAPI.onDownloadProgress(handleDownloadProgress);
+
+  // Login/logout event listeners
+  elements.loginSubmitBtn.addEventListener('click', handleLogin);
+  elements.loginSkipBtn.addEventListener('click', () => {
+    hideLoginModal();
+    console.log('Login skipped');
+  });
+  elements.loginHeaderBtn.addEventListener('click', () => {
+    showLoginModal();
+  });
+  elements.logoutBtn.addEventListener('click', handleLogout);
+
+  // Enter key login
+  elements.loginEmail.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+      handleLogin();
+    }
+  });
+  elements.loginPassword.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+      handleLogin();
+    }
+  });
 }
 
 // Update input fields based on config state
@@ -169,42 +214,22 @@ async function updateConfigButton() {
     // Config exists -> Change button text and enable delete
     elements.saveConfigBtn.textContent = '설정 수정';
     elements.deleteConfigBtn.disabled = false;
-
-    // Disable main config inputs
-    elements.apiUrl.disabled = true;
-    elements.kioskId.disabled = true;
-    elements.autoSync.disabled = true;
-    // Keep syncInterval enabled for editing
-    elements.syncInterval.disabled = false;
-
-    // Disable server selection radios
-    elements.serverRadios.forEach(radio => {
-      radio.disabled = true;
-    });
   } else {
     // No config -> Change button text and disable delete
     elements.saveConfigBtn.textContent = '설정 저장';
     elements.deleteConfigBtn.disabled = true;
-
-    // Enable all inputs
-    elements.apiUrl.disabled = false;
-    elements.kioskId.disabled = false;
-    elements.autoSync.disabled = false;
-    elements.syncInterval.disabled = false;
-
-    // Enable server selection radios
-    elements.serverRadios.forEach(radio => {
-      radio.disabled = false;
-    });
-
-    // Set readonly state based on server selection
-    const selectedServer = document.querySelector('input[name="server"]:checked')?.value || 'local';
-    elements.apiUrl.readOnly = selectedServer !== 'custom';
   }
 }
 
 // Delete configuration
 async function deleteConfig() {
+  // 로그인 체크
+  if (!authToken) {
+    // alert 대신 바로 로그인 모달 표시
+    showLoginModal();
+    return;
+  }
+
   if (!confirm('설정을 삭제하시겠습니까? 저장된 키오스크 ID와 모든 설정이 초기화됩니다.')) {
     return;
   }
@@ -213,13 +238,38 @@ async function deleteConfig() {
 
   const result = await window.electronAPI.deleteConfig();
 
-  hideLoading();
-
   if (result.success) {
     config = result.config;
 
+    // Update button state
+    elements.saveConfigBtn.textContent = '설정 저장';
+    elements.deleteConfigBtn.disabled = true;
+
+    hideLoading();
+
+    // Explicitly enable all input fields
+    elements.apiUrl.readOnly = false;
+    elements.apiUrl.disabled = false;
+    elements.storeId.readOnly = false;
+    elements.storeId.disabled = false;
+    elements.kioskId.readOnly = false;
+    elements.kioskId.disabled = false;
+    elements.downloadPath.readOnly = false;
+    elements.downloadPath.disabled = false;
+
+    // Remove any disabled attributes that might exist
+    elements.apiUrl.removeAttribute('disabled');
+    elements.apiUrl.removeAttribute('readonly');
+    elements.storeId.removeAttribute('disabled');
+    elements.storeId.removeAttribute('readonly');
+    elements.kioskId.removeAttribute('disabled');
+    elements.kioskId.removeAttribute('readonly');
+    elements.downloadPath.removeAttribute('disabled');
+    elements.downloadPath.removeAttribute('readonly');
+
     // Clear input fields
     elements.apiUrl.value = config.apiUrl || '';
+    elements.storeId.value = '';
     elements.kioskId.value = '';
     elements.downloadPath.value = config.downloadPath || '';
     elements.autoSync.checked = config.autoSync || false;
@@ -227,10 +277,10 @@ async function deleteConfig() {
 
     // Reset server selection to local (default)
     document.querySelector('input[name="server"][value="local"]').checked = true;
-    elements.apiUrl.readOnly = true;
 
-    // Stop auto-sync
+    // Stop auto-sync and cancel debounce timer
     stopAutoSync();
+    cancelAutoSyncDebounce();
 
     // Clear video list
     videos = [];
@@ -240,63 +290,163 @@ async function deleteConfig() {
     // Update connection status
     updateConnectionStatus(false);
 
-    showNotification('설정이 삭제되었습니다.', 'success');
-
-    // Update button and input states
-    await updateConfigButton();
+    // Show notification after a short delay to avoid blocking UI
+    setTimeout(() => {
+      showNotification('설정이 삭제되었습니다.', 'success');
+    }, 100);
   } else {
-    showNotification('설정 삭제에 실패했습니다.', 'error');
+    hideLoading();
+    setTimeout(() => {
+      showNotification('설정 삭제에 실패했습니다.', 'error');
+    }, 100);
   }
 }
 
 // Save configuration
 async function saveConfig() {
+  // 로그인 체크
+  if (!authToken) {
+    // alert 대신 바로 로그인 모달 표시
+    showLoginModal();
+    return;
+  }
+
   const configExists = await window.electronAPI.checkConfigExists();
 
   let newConfig;
+  let shouldAutoSync = false;
 
-  if (configExists) {
-    // 설정 수정 모드: 동기화 시간과 다운로드 경로만 업데이트
-    if (!elements.downloadPath.value) {
-      showNotification('다운로드 경로를 선택하세요.', 'warning');
+  const storeId = elements.storeId.value.trim();
+  const kioskId = elements.kioskId.value.trim();
+
+  // Validate required fields first
+  if (!elements.apiUrl.value.trim()) {
+    showNotification('API URL을 입력하세요.', 'warning');
+    return;
+  }
+
+  if (!storeId) {
+    showNotification('매장 ID를 입력하세요.', 'warning');
+    return;
+  }
+
+  if (!kioskId) {
+    showNotification('키오스크 ID를 입력하세요.', 'warning');
+    return;
+  }
+
+  if (!elements.downloadPath.value) {
+    showNotification('다운로드 경로를 선택하세요.', 'warning');
+    return;
+  }
+
+  // Pad storeId to 8 digits and kioskId to 12 digits
+  const paddedStoreId = storeId.padStart(8, '0');
+  const paddedKioskId = kioskId.padStart(12, '0');
+
+  // Check if storeId or kioskId actually changed (only verify if changed or new config)
+  const storeIdChanged = !configExists || !config.storeId || config.storeId !== paddedStoreId;
+  const kioskIdChanged = !configExists || !config.kioskId || config.kioskId !== paddedKioskId;
+  const needsVerification = storeIdChanged || kioskIdChanged;
+
+  let kioskNo;
+
+  if (needsVerification) {
+    // Verify kiosk exists on server and cross-check with user input
+    showLoading('서버에서 키오스크 정보 확인 중...');
+    const kioskResult = await window.electronAPI.getKioskByKioskId(elements.apiUrl.value.trim(), paddedKioskId);
+    hideLoading();
+
+    if (!kioskResult.success) {
+      showNotification(`키오스크 정보를 찾을 수 없습니다: ${kioskResult.error}`, 'error');
       return;
     }
 
-    newConfig = {
-      ...config, // 기존 설정 유지
-      downloadPath: elements.downloadPath.value,
-      syncInterval: parseInt(elements.syncInterval.value) || 12
-    };
+    // Cross-check: server's posid should match user's input
+    const serverKiosk = kioskResult.data;
+    if (serverKiosk.posid !== paddedStoreId) {
+      showNotification(`매장 ID가 일치하지 않습니다. 서버: ${serverKiosk.posid}, 입력: ${paddedStoreId}`, 'error');
+      return;
+    }
 
-    showLoading('설정 수정 중...');
+    // Get kioskno from server response
+    kioskNo = serverKiosk.kioskno;
+    console.log('Server verification completed - kioskNo:', kioskNo);
   } else {
-    // 새 설정 저장 모드: 모든 필드 저장
+    // Use existing kioskNo if storeId and kioskId haven't changed
+    kioskNo = config.kioskNo;
+    console.log('Using existing kioskNo (no verification needed):', kioskNo);
+  }
+
+  if (configExists) {
+    // 설정 수정 모드: 모든 필드 업데이트 가능
     newConfig = {
       apiUrl: elements.apiUrl.value.trim(),
-      kioskId: elements.kioskId.value.trim(),
+      storeId: paddedStoreId,
+      kioskNo: kioskNo,
+      kioskId: paddedKioskId,
       downloadPath: elements.downloadPath.value,
       autoSync: elements.autoSync.checked,
       syncInterval: parseInt(elements.syncInterval.value) || 12
     };
 
-    // Validate required fields
-    if (!newConfig.apiUrl) {
-      showNotification('API URL을 입력하세요.', 'warning');
-      return;
+    // Check if apiUrl or kioskId changed
+    if (config.apiUrl !== newConfig.apiUrl || config.kioskId !== newConfig.kioskId) {
+      shouldAutoSync = true;
     }
 
-    if (!newConfig.kioskId) {
-      showNotification('키오스크 ID를 입력하세요.', 'warning');
+  } else {
+    // 새 설정 저장 모드: 모든 필드 저장
+    newConfig = {
+      apiUrl: elements.apiUrl.value.trim(),
+      storeId: paddedStoreId,
+      kioskNo: kioskNo,
+      kioskId: paddedKioskId,
+      downloadPath: elements.downloadPath.value,
+      autoSync: elements.autoSync.checked,
+      syncInterval: parseInt(elements.syncInterval.value) || 12
+    };
+
+    shouldAutoSync = true; // New config always triggers auto sync
+
+  }
+
+  // Check if any values actually changed (before showing loading)
+  if (configExists && config) {
+    const apiUrlUnchanged = config.apiUrl === newConfig.apiUrl;
+    const storeIdUnchanged = config.storeId === newConfig.storeId;
+    const kioskIdUnchanged = config.kioskId === newConfig.kioskId;
+    const kioskNoUnchanged = config.kioskNo === newConfig.kioskNo;
+    const downloadPathUnchanged = config.downloadPath === newConfig.downloadPath;
+    const autoSyncUnchanged = config.autoSync === newConfig.autoSync;
+    const syncIntervalUnchanged = config.syncInterval === newConfig.syncInterval;
+
+    if (apiUrlUnchanged && storeIdUnchanged && kioskIdUnchanged && kioskNoUnchanged &&
+        downloadPathUnchanged && autoSyncUnchanged && syncIntervalUnchanged) {
+      console.log('No changes detected, skipping save');
+      
+      // Ensure fields remain enabled
+      elements.apiUrl.disabled = false;
+      elements.storeId.disabled = false;
+      elements.kioskId.disabled = false;
+      elements.downloadPath.disabled = false;
+      
+      showNotification('변경 사항이 없습니다.', 'info');
       return;
     }
+  }
 
-    if (!newConfig.downloadPath) {
-      showNotification('다운로드 경로를 선택하세요.', 'warning');
-      return;
-    }
-
+  // Now show loading since we know there are changes
+  if (configExists) {
+    showLoading('설정 수정 중...');
+  } else {
     showLoading('설정 저장 중...');
   }
+
+
+
+  console.log("[SAVE 1] saveConfig() function called from button click");
+
 
   const result = await window.electronAPI.saveConfig(newConfig);
 
@@ -305,11 +455,25 @@ async function saveConfig() {
   if (result.success) {
     config = result.config;
 
-    if (configExists) {
-      showNotification('설정이 수정되었습니다.', 'success');
-    } else {
-      showNotification('설정이 저장되었습니다.', 'success');
-    }
+    // Explicitly enable all input fields after saving
+    elements.apiUrl.readOnly = false;
+    elements.apiUrl.disabled = false;
+    elements.storeId.readOnly = false;
+    elements.storeId.disabled = false;
+    elements.kioskId.readOnly = false;
+    elements.kioskId.disabled = false;
+    elements.downloadPath.readOnly = false;
+    elements.downloadPath.disabled = false;
+
+    // Remove any disabled attributes that might exist
+    elements.apiUrl.removeAttribute('disabled');
+    elements.apiUrl.removeAttribute('readonly');
+    elements.storeId.removeAttribute('disabled');
+    elements.storeId.removeAttribute('readonly');
+    elements.kioskId.removeAttribute('disabled');
+    elements.kioskId.removeAttribute('readonly');
+    elements.downloadPath.removeAttribute('disabled');
+    elements.downloadPath.removeAttribute('readonly');
 
     // Restart auto-sync if needed
     if (config.autoSync) {
@@ -318,19 +482,32 @@ async function saveConfig() {
       stopAutoSync();
     }
 
-    // Update button state
-    await updateConfigButton();
+    // Update button state directly
+    elements.saveConfigBtn.textContent = '설정 수정';
+    elements.deleteConfigBtn.disabled = false;
 
-    // Auto test connection and sync after saving config
-    if (config.apiUrl && config.kioskId) {
-      console.log('Auto-connecting and syncing after config save...');
-      setTimeout(async () => {
-        await testConnection();
-        await syncVideos();
-      }, 500);
-    }
+
+    // Show notification after a short delay to avoid blocking UI
+    setTimeout(() => {
+      if (configExists) {
+        showNotification('설정이 수정되었습니다.', 'success');
+      } else {
+        showNotification('설정이 저장되었습니다.', 'success');
+      }
+    }, 100);
+
+    // Force enable input fields after a short delay to ensure they stay enabled
+    setTimeout(() => {
+      elements.apiUrl.disabled = false;
+      elements.storeId.disabled = false;
+      elements.kioskId.disabled = false;
+      elements.downloadPath.disabled = false;
+      console.log('Input fields forcefully enabled');
+    }, 200);
   } else {
-    showNotification('설정 저장에 실패했습니다.', 'error');
+    setTimeout(() => {
+      showNotification('설정 저장에 실패했습니다.', 'error');
+    }, 100);
   }
 }
 
@@ -341,11 +518,16 @@ async function testConnection() {
     return;
   }
 
-  showLoading('연결 테스트 중...');
+  // Disable button and show loading state
+  const originalText = elements.testConnectionBtn.textContent;
+  elements.testConnectionBtn.disabled = true;
+  elements.testConnectionBtn.textContent = '연결 테스트 중...';
 
   const result = await window.electronAPI.getVideos(config.apiUrl, config.kioskId);
 
-  hideLoading();
+  // Re-enable button and restore text
+  elements.testConnectionBtn.disabled = false;
+  elements.testConnectionBtn.textContent = originalText;
 
   if (result.success) {
     updateConnectionStatus(true);
@@ -365,17 +547,29 @@ async function selectDownloadPath() {
 }
 
 // Sync videos from server
-async function syncVideos() {
+async function syncVideos(isAutoSync = false) {
   if (!config || !config.apiUrl || !config.kioskId) {
-    showNotification('API URL과 키오스크 ID를 먼저 설정하세요.', 'warning');
+    if (!isAutoSync) {
+      showNotification('API URL과 키오스크 ID를 먼저 설정하세요.', 'warning');
+    }
     return;
   }
 
-  showLoading('영상 목록 동기화 중...');
+  // Disable sync button and show loading state (only for manual sync)
+  let originalText;
+  if (!isAutoSync) {
+    originalText = elements.syncBtn.textContent;
+    elements.syncBtn.disabled = true;
+    elements.syncBtn.innerHTML = '<span class="icon">🔄</span> 동기화 중...';
+  }
 
   const result = await window.electronAPI.getVideos(config.apiUrl, config.kioskId);
 
-  hideLoading();
+  // Re-enable sync button and restore text (only for manual sync)
+  if (!isAutoSync) {
+    elements.syncBtn.disabled = false;
+    elements.syncBtn.innerHTML = originalText;
+  }
 
   if (result.success) {
     videos = result.data.sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
@@ -416,39 +610,111 @@ async function syncVideos() {
 
     // Update last sync time
     config.lastSync = new Date().toISOString();
+    console.log("[SAVE 2] saveConfig called from syncVideos - updating lastSync");
+
     await window.electronAPI.saveConfig({ lastSync: config.lastSync });
     updateLastSyncTime(new Date(config.lastSync));
 
     updateConnectionStatus(true);
     renderVideoList();
     updateStats();
-    showNotification(`${videos.length}개의 영상을 동기화했습니다.`, 'success');
+
+    // Re-enable all input fields after sync completes
+    elements.apiUrl.disabled = false;
+    elements.apiUrl.readOnly = false;
+    elements.storeId.disabled = false;
+    elements.storeId.readOnly = false;
+    elements.kioskId.disabled = false;
+    elements.kioskId.readOnly = false;
+    elements.downloadPath.disabled = false;
+    elements.downloadPath.readOnly = false;
+
+    // Only show notification for manual sync
+    if (!isAutoSync) {
+      showNotification(`${videos.length}개의 영상을 동기화했습니다.`, 'success');
+    }
+
+    // Auto-download pending videos in background
+    const pendingVideos = videos.filter(v => v.downloadStatus === 'PENDING');
+    if (pendingVideos.length > 0) {
+      console.log(`Found ${pendingVideos.length} pending videos, starting background download...`);
+      // Start downloads in background without waiting
+      downloadPendingVideosInBackground(pendingVideos);
+    }
   } else {
     updateConnectionStatus(false);
     isOnline = false;
     elements.offlineMode.style.display = 'inline-block';
-    showNotification('동기화 실패: ' + result.error, 'error');
+    if (!isAutoSync) {
+      showNotification('동기화 실패: ' + result.error, 'error');
+    }
   }
 }
 
-// Download all pending videos
-async function downloadAllVideos() {
-  const pendingVideos = videos.filter(v => v.downloadStatus !== 'COMPLETED');
-
-  if (pendingVideos.length === 0) {
-    showNotification('다운로드할 영상이 없습니다.', 'info');
-    return;
-  }
-
-  if (!confirm(`${pendingVideos.length}개의 영상을 다운로드하시겠습니까?`)) {
-    return;
-  }
-
+// Download pending videos in background
+async function downloadPendingVideosInBackground(pendingVideos) {
   for (let video of pendingVideos) {
-    await downloadVideo(video);
-    // Small delay between downloads
-    await new Promise(resolve => setTimeout(resolve, 500));
+    try {
+      await downloadVideoInBackground(video);
+      // Small delay between downloads
+      await new Promise(resolve => setTimeout(resolve, 500));
+    } catch (error) {
+      console.error(`Background download failed for video ${video.videoId}:`, error);
+    }
   }
+}
+
+// Download single video in background (no prompts)
+async function downloadVideoInBackground(video) {
+  if (!config || !config.downloadPath || !config.kioskId) {
+    console.log('Download path or kiosk ID not set, skipping background download');
+    return;
+  }
+
+  const fileName = generateFileName(video);
+  const kioskDownloadPath = `${config.downloadPath}\\${config.kioskId}`;
+  const filePath = `${kioskDownloadPath}\\${fileName}`;
+
+  // Check if file already exists - skip if it does
+  const fileExists = await window.electronAPI.checkFileExists(filePath);
+  if (fileExists) {
+    console.log(`File already exists, skipping: ${fileName}`);
+    return;
+  }
+
+  // Update status to downloading
+  video.downloadStatus = 'DOWNLOADING';
+  video.progress = 0;
+  renderVideoList();
+
+  const result = await window.electronAPI.downloadVideo({
+    apiUrl: config.apiUrl,
+    videoId: video.videoId,
+    downloadPath: kioskDownloadPath,
+    fileName: fileName
+  });
+
+  if (result.success) {
+    video.downloadStatus = 'COMPLETED';
+    video.progress = 100;
+
+    // Update status on server
+    await window.electronAPI.updateDownloadStatus({
+      apiUrl: config.apiUrl,
+      kioskId: config.kioskId,
+      videoId: video.videoId,
+      status: 'COMPLETED'
+    });
+
+    console.log(`Background download completed: ${video.title}`);
+  } else {
+    video.downloadStatus = 'PENDING';
+    video.progress = 0;
+    console.error(`Background download failed: ${video.title} - ${result.error}`);
+  }
+
+  renderVideoList();
+  updateStats();
 }
 
 // Download single video
@@ -458,8 +724,14 @@ async function downloadVideo(video) {
     return;
   }
 
+  if (!config.kioskId) {
+    showNotification('키오스크 ID를 먼저 설정하세요.', 'warning');
+    return;
+  }
+
   const fileName = generateFileName(video);
-  const filePath = `${config.downloadPath}\\${fileName}`;
+  const kioskDownloadPath = `${config.downloadPath}\\${config.kioskId}`;
+  const filePath = `${kioskDownloadPath}\\${fileName}`;
 
   // Check if file already exists
   const fileExists = await window.electronAPI.checkFileExists(filePath);
@@ -479,7 +751,7 @@ async function downloadVideo(video) {
   const result = await window.electronAPI.downloadVideo({
     apiUrl: config.apiUrl,
     videoId: video.videoId,
-    downloadPath: config.downloadPath,
+    downloadPath: kioskDownloadPath,
     fileName: fileName
   });
 
@@ -509,7 +781,8 @@ async function downloadVideo(video) {
 // Delete video file
 async function deleteVideo(video) {
   const fileName = generateFileName(video);
-  const filePath = `${config.downloadPath}\\${fileName}`;
+  const kioskDownloadPath = `${config.downloadPath}\\${config.kioskId}`;
+  const filePath = `${kioskDownloadPath}\\${fileName}`;
 
   // Check if file exists first
   const fileExists = await window.electronAPI.checkFileExists(filePath);
@@ -719,7 +992,7 @@ function startAutoSync() {
 
   autoSyncInterval = setInterval(() => {
     console.log('Auto-syncing videos...');
-    syncVideos();
+    syncVideos(true); // Auto-sync, suppress notifications
   }, interval);
 
   console.log(`Auto-sync started (every ${config.syncInterval || 12} hours)`);
@@ -730,6 +1003,30 @@ function stopAutoSync() {
     clearInterval(autoSyncInterval);
     autoSyncInterval = null;
     console.log('Auto-sync stopped');
+  }
+}
+
+// Schedule auto-sync with debounce
+function scheduleAutoSync() {
+  // Cancel existing debounce timer
+  if (autoSyncDebounceTimer) {
+    clearTimeout(autoSyncDebounceTimer);
+  }
+
+  // Schedule sync after 1 second
+  autoSyncDebounceTimer = setTimeout(async () => {
+    console.log('Auto-sync triggered after 1 second debounce');
+    await syncVideos(true);
+    console.log('Auto-sync completed');
+  }, 1000);
+}
+
+// Cancel auto-sync debounce
+function cancelAutoSyncDebounce() {
+  if (autoSyncDebounceTimer) {
+    clearTimeout(autoSyncDebounceTimer);
+    autoSyncDebounceTimer = null;
+    console.log('Auto-sync debounce cancelled');
   }
 }
 
@@ -776,6 +1073,131 @@ function escapeHtml(text) {
   const div = document.createElement('div');
   div.textContent = text;
   return div.innerHTML;
+}
+
+// Authentication functions
+function showLoginModal() {
+  // Clear previous values first
+  elements.loginEmail.value = '';
+  elements.loginPassword.value = '';
+  elements.loginError.style.display = 'none';
+
+  // Explicitly enable login input fields BEFORE showing modal
+  elements.loginEmail.disabled = false;
+  elements.loginEmail.readOnly = false;
+  elements.loginPassword.disabled = false;
+  elements.loginPassword.readOnly = false;
+
+  // Remove any disabled attributes that might exist
+  elements.loginEmail.removeAttribute('disabled');
+  elements.loginEmail.removeAttribute('readonly');
+  elements.loginPassword.removeAttribute('disabled');
+  elements.loginPassword.removeAttribute('readonly');
+
+  // Show modal
+  elements.loginModal.classList.add('show');
+
+  // Focus after a short delay to ensure modal is fully displayed
+  setTimeout(() => {
+    // Re-enable fields again after modal is shown
+    elements.loginEmail.disabled = false;
+    elements.loginEmail.readOnly = false;
+    elements.loginPassword.disabled = false;
+    elements.loginPassword.readOnly = false;
+
+    elements.loginEmail.focus();
+  }, 100);
+}
+
+function hideLoginModal() {
+  elements.loginModal.classList.remove('show');
+}
+
+async function handleLogin() {
+  const email = elements.loginEmail.value.trim();
+  const password = elements.loginPassword.value;
+
+  if (!email || !password) {
+    elements.loginError.textContent = '이메일과 비밀번호를 입력하세요.';
+    elements.loginError.style.display = 'block';
+    return;
+  }
+
+  if (!config || !config.apiUrl) {
+    elements.loginError.textContent = 'API URL이 설정되지 않았습니다.';
+    elements.loginError.style.display = 'block';
+    return;
+  }
+
+  // Disable login button
+  elements.loginSubmitBtn.disabled = true;
+  elements.loginSubmitBtn.textContent = '로그인 중...';
+  elements.loginError.style.display = 'none';
+
+  const result = await window.electronAPI.login(config.apiUrl, email, password);
+
+  if (result.success) {
+    authToken = result.data.token;
+    currentUser = result.data;
+
+    // Save token to config
+    console.log("[SAVE 3] saveConfig called from handleLogin");
+
+    await window.electronAPI.saveConfig({
+      authToken,
+      userEmail: currentUser.email,
+      userName: currentUser.name
+    });
+
+    // Update UI
+    elements.userInfo.textContent = `${currentUser.name} (${currentUser.email})`;
+    elements.userInfo.style.display = 'inline';
+    elements.loginHeaderBtn.style.display = 'none';
+    elements.logoutBtn.style.display = 'inline-block';
+
+    hideLoginModal();
+    console.log('Login successful');
+  } else {
+    elements.loginError.textContent = result.error || '로그인 실패';
+    elements.loginError.style.display = 'block';
+  }
+
+  // Re-enable login button
+  elements.loginSubmitBtn.disabled = false;
+  elements.loginSubmitBtn.textContent = '로그인';
+}
+
+async function handleLogout() {
+  if (!confirm('로그아웃하시겠습니까?')) {
+    return;
+  }
+
+  authToken = null;
+  currentUser = null;
+
+  // Remove token from config
+  console.log("[SAVE 4] saveConfig called from handleLogout");
+
+  await window.electronAPI.saveConfig({
+    authToken: null,
+    userEmail: null,
+    userName: null
+  });
+
+  // Update UI
+  elements.userInfo.style.display = 'none';
+  elements.loginHeaderBtn.style.display = 'inline-block';
+  elements.logoutBtn.style.display = 'none';
+
+  console.log('Logout successful - app continues to function without authentication');
+}
+
+function checkAuthentication() {
+  if (!authToken) {
+    showLoginModal();
+    return false;
+  }
+  return true;
 }
 
 // Initialize when DOM is ready

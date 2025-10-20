@@ -9,6 +9,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   deleteConfig: () => ipcRenderer.invoke('delete-config'),
   selectDownloadPath: () => ipcRenderer.invoke('select-download-path'),
 
+  // Authentication
+  login: (apiUrl, email, password) => ipcRenderer.invoke('login', apiUrl, email, password),
+
+  // Kiosk management
+  getKioskByKioskId: (apiUrl, kioskid) => ipcRenderer.invoke('get-kiosk-by-kioskid', apiUrl, kioskid),
+
   // Video management
   getVideos: (apiUrl, kioskId) => ipcRenderer.invoke('get-videos', apiUrl, kioskId),
   downloadVideo: (params) => ipcRenderer.invoke('download-video', params),
