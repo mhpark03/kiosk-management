@@ -5,6 +5,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Config management
   getConfig: () => ipcRenderer.invoke('get-config'),
   saveConfig: (config) => ipcRenderer.invoke('save-config', config),
+  checkConfigExists: () => ipcRenderer.invoke('check-config-exists'),
+  deleteConfig: () => ipcRenderer.invoke('delete-config'),
   selectDownloadPath: () => ipcRenderer.invoke('select-download-path'),
 
   // Video management

@@ -1,10 +1,71 @@
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, Menu } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
 let mainWindow;
 let config = null;
 const CONFIG_FILE = path.join(__dirname, 'config.json');
+
+// Create application menu
+function createMenu() {
+  const template = [
+    {
+      label: '파일',
+      submenu: [
+        {
+          label: '종료',
+          accelerator: 'Alt+F4',
+          click: () => {
+            app.quit();
+          }
+        }
+      ]
+    },
+    {
+      label: '보기',
+      submenu: [
+        {
+          label: '개발자 도구',
+          accelerator: 'F12',
+          click: () => {
+            if (mainWindow) {
+              mainWindow.webContents.toggleDevTools();
+            }
+          }
+        },
+        { type: 'separator' },
+        {
+          label: '새로고침',
+          accelerator: 'F5',
+          click: () => {
+            if (mainWindow) {
+              mainWindow.reload();
+            }
+          }
+        }
+      ]
+    },
+    {
+      label: '도움말',
+      submenu: [
+        {
+          label: '정보',
+          click: () => {
+            dialog.showMessageBox(mainWindow, {
+              type: 'info',
+              title: '키오스크 영상 다운로더',
+              message: '키오스크 영상 다운로더 v1.0.0',
+              detail: '키오스크에 할당된 영상을 다운로드하고 관리하는 애플리케이션입니다.'
+            });
+          }
+        }
+      ]
+    }
+  ];
+
+  const menu = Menu.buildFromTemplate(template);
+  Menu.setApplicationMenu(menu);
+}
 
 // Create the main browser window
 function createWindow() {
@@ -23,10 +84,8 @@ function createWindow() {
 
   mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
 
-  // Open DevTools in development mode
-  if (process.env.NODE_ENV === 'development') {
-    mainWindow.webContents.openDevTools();
-  }
+  // Create application menu
+  createMenu();
 
   mainWindow.on('closed', () => {
     mainWindow = null;
@@ -65,7 +124,7 @@ function loadConfig() {
         kioskId: '',
         downloadPath: path.join(app.getPath('downloads'), 'KioskVideos'),
         autoSync: true,
-        syncInterval: 5, // minutes
+        syncInterval: 12, // hours
         lastSync: null
       };
       saveConfig();
@@ -96,6 +155,37 @@ ipcMain.handle('save-config', async (event, newConfig) => {
   config = { ...config, ...newConfig };
   const success = saveConfig();
   return { success, config };
+});
+
+ipcMain.handle('check-config-exists', async () => {
+  // Check if config file exists AND has kioskId set
+  if (config && config.kioskId && config.kioskId.trim() !== '') {
+    return true;
+  }
+  return false;
+});
+
+ipcMain.handle('delete-config', async () => {
+  try {
+    if (fs.existsSync(CONFIG_FILE)) {
+      fs.unlinkSync(CONFIG_FILE);
+      // Reset to default config
+      config = {
+        apiUrl: 'http://localhost:8080/api',
+        kioskId: '',
+        downloadPath: path.join(app.getPath('downloads'), 'KioskVideos'),
+        autoSync: true,
+        syncInterval: 12,
+        lastSync: null
+      };
+      console.log('Config deleted successfully');
+      return { success: true, config };
+    }
+    return { success: false, error: 'Config file not found' };
+  } catch (error) {
+    console.error('Error deleting config:', error);
+    return { success: false, error: error.message };
+  }
 });
 
 ipcMain.handle('select-download-path', async () => {
