@@ -48,6 +48,8 @@ public class SecurityConfig {
                 .requestMatchers("/actuator/health", "/actuator/info").permitAll()
                 // Kiosk initial lookup - no auth needed (to get posid/kioskno)
                 .requestMatchers("/api/kiosks/kioskid/*").permitAll()
+                // Kiosk events - no auth needed (kiosk apps can log events freely)
+                .requestMatchers("/api/kiosk-events", "/api/kiosk-events/**").permitAll()
                 // Kiosk video management - requires kiosk authentication (via headers)
                 .requestMatchers("/api/kiosks/*/videos-with-status").authenticated()
                 .requestMatchers("/api/kiosks/*/videos/*/status").authenticated()

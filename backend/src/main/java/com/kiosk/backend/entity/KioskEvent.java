@@ -3,7 +3,8 @@ package com.kiosk.backend.entity;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
 
@@ -16,7 +17,8 @@ import java.time.LocalDateTime;
     @Index(name = "idx_event_type", columnList = "event_type"),
     @Index(name = "idx_timestamp", columnList = "timestamp")
 })
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
@@ -108,5 +110,30 @@ public class KioskEvent {
         if (timestamp == null) {
             timestamp = LocalDateTime.now();
         }
+    }
+
+    public Long getKioskId() {
+        return kioskId;
+    }
+
+    public void setKioskId(Long kioskId) {
+        this.kioskId = kioskId;
+    }
+
+    // Explicit getters to work around Lombok handling of all-lowercase field names
+    public String getKioskid() {
+        return kioskid;
+    }
+
+    public void setKioskid(String kioskid) {
+        this.kioskid = kioskid;
+    }
+
+    public String getPosid() {
+        return posid;
+    }
+
+    public void setPosid(String posid) {
+        this.posid = posid;
     }
 }
