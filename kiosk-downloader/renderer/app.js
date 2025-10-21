@@ -69,7 +69,7 @@ async function initialize() {
   config = await window.electronAPI.getConfig();
   if (config) {
     elements.apiUrl.value = config.apiUrl || '';
-    elements.storeId.value = config.storeId || '';
+    elements.storeId.value = config.posId || '';
     elements.kioskId.value = config.kioskId || '';
     elements.downloadPath.value = config.downloadPath || '';
     elements.autoSync.checked = config.autoSync || false;
@@ -328,7 +328,7 @@ async function saveConfig() {
   const paddedKioskId = kioskId.padStart(12, '0');
 
   // Check if storeId or kioskId actually changed (only verify if changed or new config)
-  const storeIdChanged = !configExists || !config.storeId || config.storeId !== paddedStoreId;
+  const storeIdChanged = !configExists || !config.posId || config.posId !== paddedStoreId;
   const kioskIdChanged = !configExists || !config.kioskId || config.kioskId !== paddedKioskId;
   const needsVerification = storeIdChanged || kioskIdChanged;
 
@@ -365,7 +365,7 @@ async function saveConfig() {
     // 설정 수정 모드: 모든 필드 업데이트 가능
     newConfig = {
       apiUrl: elements.apiUrl.value.trim(),
-      storeId: paddedStoreId,
+      posId: paddedStoreId,
       kioskNo: kioskNo,
       kioskId: paddedKioskId,
       downloadPath: elements.downloadPath.value,
@@ -382,7 +382,7 @@ async function saveConfig() {
     // 새 설정 저장 모드: 모든 필드 저장
     newConfig = {
       apiUrl: elements.apiUrl.value.trim(),
-      storeId: paddedStoreId,
+      posId: paddedStoreId,
       kioskNo: kioskNo,
       kioskId: paddedKioskId,
       downloadPath: elements.downloadPath.value,
@@ -397,7 +397,7 @@ async function saveConfig() {
   // Check if any values actually changed (before showing loading)
   if (configExists && config) {
     const apiUrlUnchanged = config.apiUrl === newConfig.apiUrl;
-    const storeIdUnchanged = config.storeId === newConfig.storeId;
+    const storeIdUnchanged = config.posId === newConfig.storeId;
     const kioskIdUnchanged = config.kioskId === newConfig.kioskId;
     const kioskNoUnchanged = config.kioskNo === newConfig.kioskNo;
     const downloadPathUnchanged = config.downloadPath === newConfig.downloadPath;
