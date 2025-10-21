@@ -285,10 +285,43 @@ async function deleteConfig() {
       showNotification('설정 삭제에 실패했습니다.', 'error');
     }, 100);
   }
-  recordKioskEvent('USER_LOGIN', `User logged in: ${currentUser.name}`);
 
 }
-// Record kiosk event to backendasync function recordKioskEvent(eventType, message, metadata = null) {  try {    if (!config || !config.kioskId || !config.apiUrl) {      console.log('Skipping event recording - config not set');      return;    }    const eventData = {      kioskid: config.kioskId,      eventType: eventType,      userEmail: currentUser?.email || null,      userName: currentUser?.name || null,      message: message,      metadata: metadata ? JSON.stringify(metadata) : null    };    const response = await fetch(`${config.apiUrl}/kiosk-events`, {      method: 'POST',      headers: {        'Content-Type': 'application/json'      },      body: JSON.stringify(eventData)    });    if (response.ok) {      console.log(`Event recorded: ${eventType} - ${message}`);    } else {      console.error(`Failed to record event: ${response.status}`);    }  } catch (error) {    console.error('Error recording kiosk event:', error);  }}
+
+// Record kiosk event to backend
+async function recordKioskEvent(eventType, message, metadata = null) {
+  try {
+    if (!config || !config.kioskId || !config.apiUrl) {
+      console.log('Skipping event recording - config not set');
+      return;
+    }
+
+    const eventData = {
+      kioskid: config.kioskId,
+      eventType: eventType,
+      userEmail: currentUser?.email || null,
+      userName: currentUser?.name || null,
+      message: message,
+      metadata: metadata ? JSON.stringify(metadata) : null
+    };
+
+    const response = await fetch(`${config.apiUrl}/kiosk-events`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(eventData)
+    });
+
+    if (response.ok) {
+      console.log(`Event recorded: ${eventType} - ${message}`);
+    } else {
+      console.error(`Failed to record event: ${response.status}`);
+    }
+  } catch (error) {
+    console.error('Error recording kiosk event:', error);
+  }
+}
 
 // Save configuration
 async function saveConfig() {
