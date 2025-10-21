@@ -89,23 +89,6 @@ async function initialize() {
       updateLastSyncTime(new Date(config.lastSync));
     }
 
-    // Restore saved authentication if available
-    if (config.authToken && config.userEmail && config.userName) {
-      authToken = config.authToken;
-      currentUser = {
-        email: config.userEmail,
-        name: config.userName,
-        token: config.authToken
-      };
-
-      // Update UI
-      elements.userInfo.textContent = `${currentUser.name} (${currentUser.email})`;
-      elements.userInfo.style.display = 'inline';
-      elements.loginHeaderBtn.style.display = 'none';
-      elements.logoutBtn.style.display = 'inline-block';
-
-      console.log('Auto-login successful');
-    }
 
     // Auto-sync if enabled (works with or without login)
     if (config.autoSync && config.apiUrl && config.kioskId) {
@@ -1142,18 +1125,11 @@ async function handleLogin() {
   if (result.success) {
     authToken = result.data.token;
     currentUser = result.data;
+    currentUser.name = result.data.displayName;
 
-    // Save token to config
-    console.log("[SAVE 3] saveConfig called from handleLogin");
-
-    await window.electronAPI.saveConfig({
-      authToken,
-      userEmail: currentUser.email,
-      userName: currentUser.name
-    });
 
     // Update UI
-    elements.userInfo.textContent = `${currentUser.name} (${currentUser.email})`;
+    elements.userInfo.textContent = currentUser.name;
     elements.userInfo.style.display = 'inline';
     elements.loginHeaderBtn.style.display = 'none';
     elements.logoutBtn.style.display = 'inline-block';
@@ -1178,14 +1154,6 @@ async function handleLogout() {
   authToken = null;
   currentUser = null;
 
-  // Remove token from config
-  console.log("[SAVE 4] saveConfig called from handleLogout");
-
-  await window.electronAPI.saveConfig({
-    authToken: null,
-    userEmail: null,
-    userName: null
-  });
 
   // Update UI
   elements.userInfo.style.display = 'none';
