@@ -118,8 +118,10 @@ async function initialize() {
   }
 
   console.log('App initialized');
-  // Record app start event
-  recordKioskEvent('APP_START', 'Kiosk downloader application started');
+  // Record app start event (only if config exists)
+  if (config && config.kioskId && config.apiUrl) {
+    recordKioskEvent('APP_START', 'Kiosk downloader application started');
+  }
 }
 
 // Setup event listeners
