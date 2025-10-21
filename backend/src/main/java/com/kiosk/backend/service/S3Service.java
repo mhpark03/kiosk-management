@@ -225,4 +225,25 @@ public class S3Service {
             throw new RuntimeException("Failed to get file size: " + e.getMessage(), e);
         }
     }
+
+    /**
+     * Download a file from S3 as byte array
+     * @param s3Key S3 key of the file to download
+     * @return Byte array of the file content
+     */
+    public byte[] downloadFile(String s3Key) {
+        try {
+            GetObjectRequest getObjectRequest = GetObjectRequest.builder()
+                    .bucket(bucketName)
+                    .key(s3Key)
+                    .build();
+
+            byte[] bytes = s3Client.getObjectAsBytes(getObjectRequest).asByteArray();
+            log.info("File downloaded successfully from S3: {}", s3Key);
+            return bytes;
+        } catch (S3Exception e) {
+            log.error("Failed to download file from S3: {}", e.getMessage(), e);
+            throw new RuntimeException("Failed to download file from S3: " + e.getMessage(), e);
+        }
+    }
 }

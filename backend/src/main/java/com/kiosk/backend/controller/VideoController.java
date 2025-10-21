@@ -93,7 +93,15 @@ public class VideoController {
                 videoMap.put("s3Key", video.getS3Key());
                 videoMap.put("s3Url", video.getS3Url());
                 videoMap.put("thumbnailS3Key", video.getThumbnailS3Key());
-                videoMap.put("thumbnailUrl", video.getThumbnailUrl());
+
+                // Generate presigned URL for thumbnail if exists
+                if (video.getThumbnailS3Key() != null && !video.getThumbnailS3Key().isEmpty()) {
+                    String thumbnailPresignedUrl = videoService.generateThumbnailPresignedUrl(video.getId(), 10080); // 7 days
+                    videoMap.put("thumbnailUrl", thumbnailPresignedUrl);
+                } else {
+                    videoMap.put("thumbnailUrl", null);
+                }
+
                 videoMap.put("uploadedAt", video.getUploadedAt());
                 videoMap.put("title", video.getTitle());
                 videoMap.put("description", video.getDescription());
@@ -138,7 +146,15 @@ public class VideoController {
                 videoMap.put("s3Key", video.getS3Key());
                 videoMap.put("s3Url", video.getS3Url());
                 videoMap.put("thumbnailS3Key", video.getThumbnailS3Key());
-                videoMap.put("thumbnailUrl", video.getThumbnailUrl());
+
+                // Generate presigned URL for thumbnail if exists
+                if (video.getThumbnailS3Key() != null && !video.getThumbnailS3Key().isEmpty()) {
+                    String thumbnailPresignedUrl = videoService.generateThumbnailPresignedUrl(video.getId(), 10080); // 7 days
+                    videoMap.put("thumbnailUrl", thumbnailPresignedUrl);
+                } else {
+                    videoMap.put("thumbnailUrl", null);
+                }
+
                 videoMap.put("uploadedAt", video.getUploadedAt());
                 videoMap.put("title", video.getTitle());
                 videoMap.put("description", video.getDescription());
@@ -169,6 +185,12 @@ public class VideoController {
             // Generate presigned URL for download (valid for 7 days = 10080 minutes)
             String presignedUrl = videoService.generatePresignedUrl(id, 10080);
 
+            // Generate presigned URL for thumbnail if exists
+            String thumbnailPresignedUrl = null;
+            if (video.getThumbnailS3Key() != null && !video.getThumbnailS3Key().isEmpty()) {
+                thumbnailPresignedUrl = videoService.generateThumbnailPresignedUrl(id, 10080);
+            }
+
             // Create response with video details and presigned URL
             Map<String, Object> response = new HashMap<>();
             response.put("id", video.getId());
@@ -179,7 +201,7 @@ public class VideoController {
             response.put("s3Key", video.getS3Key());
             response.put("s3Url", presignedUrl);  // Use presigned URL instead of public URL
             response.put("thumbnailS3Key", video.getThumbnailS3Key());
-            response.put("thumbnailUrl", video.getThumbnailUrl());
+            response.put("thumbnailUrl", thumbnailPresignedUrl);  // Use presigned URL for thumbnail
             response.put("uploadedAt", video.getUploadedAt());
             response.put("title", video.getTitle());
             response.put("description", video.getDescription());
@@ -297,6 +319,59 @@ public class VideoController {
             log.error("Failed to update description", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "Failed to update description: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Regenerate thumbnail for a video (Admin only)
+     * POST /api/videos/{id}/regenerate-thumbnail
+     */
+    @PostMapping("/{id}/regenerate-thumbnail")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> regenerateThumbnail(@PathVariable Long id, Authentication authentication) {
+        try {
+            String userEmail = authentication.getName();
+            User user = userRepository.findById(userRepository.findByEmail(userEmail)
+                    .orElseThrow(() -> new RuntimeException("User not found: " + userEmail))
+                    .getId())
+                    .orElseThrow(() -> new RuntimeException("User not found: " + userEmail));
+
+            Video video = videoService.regenerateThumbnail(id, user.getId());
+
+            // Generate presigned URL for thumbnail
+            String thumbnailPresignedUrl = null;
+            if (video.getThumbnailS3Key() != null && !video.getThumbnailS3Key().isEmpty()) {
+                thumbnailPresignedUrl = videoService.generateThumbnailPresignedUrl(id, 10080); // 7 days
+            }
+
+            // Create response with video details and presigned URL for thumbnail
+            Map<String, Object> videoResponse = new HashMap<>();
+            videoResponse.put("id", video.getId());
+            videoResponse.put("filename", video.getFilename());
+            videoResponse.put("originalFilename", video.getOriginalFilename());
+            videoResponse.put("fileSize", video.getFileSize());
+            videoResponse.put("contentType", video.getContentType());
+            videoResponse.put("s3Key", video.getS3Key());
+            videoResponse.put("s3Url", video.getS3Url());
+            videoResponse.put("thumbnailS3Key", video.getThumbnailS3Key());
+            videoResponse.put("thumbnailUrl", thumbnailPresignedUrl);
+            videoResponse.put("uploadedAt", video.getUploadedAt());
+            videoResponse.put("title", video.getTitle());
+            videoResponse.put("description", video.getDescription());
+            videoResponse.put("uploadedById", video.getUploadedById());
+
+            return ResponseEntity.ok(Map.of(
+                    "message", "Thumbnail regenerated successfully",
+                    "video", videoResponse
+            ));
+        } catch (RuntimeException e) {
+            log.error("Failed to regenerate thumbnail for video: {}", id, e);
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            log.error("Failed to regenerate thumbnail", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to regenerate thumbnail: " + e.getMessage()));
         }
     }
 

@@ -103,6 +103,17 @@ export const videoService = {
     }
   },
 
+  // Regenerate thumbnail for a video
+  async regenerateThumbnail(id) {
+    try {
+      const response = await api.post(`/videos/${id}/regenerate-thumbnail`);
+      return response.data;
+    } catch (error) {
+      console.error('Regenerate thumbnail error:', error);
+      throw new Error(error.response?.data?.error || 'Failed to regenerate thumbnail');
+    }
+  },
+
   // Validate file before upload
   validateFile(file) {
     const MAX_SIZE = 100 * 1024 * 1024; // 100MB

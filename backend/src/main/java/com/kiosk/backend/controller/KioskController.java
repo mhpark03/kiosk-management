@@ -70,6 +70,19 @@ public class KioskController {
     }
 
     /**
+     * Get kiosk by Store ID (posid) and Kiosk Number (kioskno)
+     * GET /api/kiosks/by-store?posid=xxx&kioskno=9
+     */
+    @GetMapping("/by-store")
+    public ResponseEntity<KioskDTO> getKioskByPosidAndKioskno(
+            @RequestParam String posid,
+            @RequestParam Integer kioskno) {
+        log.info("GET /api/kiosks/by-store - posid: {}, kioskno: {}", posid, kioskno);
+        KioskDTO kiosk = kioskService.getKioskByPosidAndKioskno(posid, kioskno);
+        return ResponseEntity.ok(kiosk);
+    }
+
+    /**
      * Get next available kiosk number for a store
      * GET /api/kiosks/next-number?posid=xxx
      */
@@ -244,6 +257,17 @@ public class KioskController {
     }
 
     /**
+     * Get videos assigned to a kiosk by kioskid with download status
+     * GET /api/kiosks/by-kioskid/{kioskid}/videos-with-status
+     */
+    @GetMapping("/by-kioskid/{kioskid}/videos-with-status")
+    public ResponseEntity<List<com.kiosk.backend.dto.KioskVideoDTO>> getKioskVideosWithStatusByKioskId(@PathVariable String kioskid) {
+        log.info("GET /api/kiosks/by-kioskid/{}/videos-with-status", kioskid);
+        List<com.kiosk.backend.dto.KioskVideoDTO> videos = kioskService.getKioskVideosWithStatusByKioskId(kioskid);
+        return ResponseEntity.ok(videos);
+    }
+
+    /**
      * Update download status for a video on a kiosk
      * PATCH /api/kiosks/{id}/videos/{videoId}/status
      */
@@ -257,6 +281,26 @@ public class KioskController {
 
         log.info("PATCH /api/kiosks/{}/videos/{}/status - status: {}", id, videoId, status);
         kioskService.updateVideoDownloadStatus(id, videoId, status, decodedEmail);
+
+        Map<String, String> response = new HashMap<>();
+        response.put("message", "Download status updated successfully");
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Update download status for a video on a kiosk by kioskid
+     * PATCH /api/kiosks/by-kioskid/{kioskid}/videos/{videoId}/status
+     */
+    @PatchMapping("/by-kioskid/{kioskid}/videos/{videoId}/status")
+    public ResponseEntity<Map<String, String>> updateVideoDownloadStatusByKioskId(
+            @PathVariable String kioskid,
+            @PathVariable Long videoId,
+            @RequestParam String status,
+            @RequestHeader(value = "X-User-Email", defaultValue = "system@kiosk.com") String userEmail) {
+        String decodedEmail = URLDecoder.decode(userEmail, StandardCharsets.UTF_8);
+
+        log.info("PATCH /api/kiosks/by-kioskid/{}/videos/{}/status - status: {}", kioskid, videoId, status);
+        kioskService.updateVideoDownloadStatusByKioskId(kioskid, videoId, status, decodedEmail);
 
         Map<String, String> response = new HashMap<>();
         response.put("message", "Download status updated successfully");

@@ -122,6 +122,8 @@ function loadConfig() {
       config = {
         apiUrl: 'http://localhost:8080/api',
         kioskId: '',
+        posId: '',
+        kioskNo: null,
         downloadPath: path.join(app.getPath('downloads'), 'KioskVideos'),
         autoSync: true,
         syncInterval: 12, // hours
@@ -219,6 +221,15 @@ ipcMain.handle('get-kiosk-by-kioskid', async (event, apiUrl, kioskid) => {
   try {
     const axios = require('axios');
     const response = await axios.get(`${apiUrl}/kiosks/kioskid/${encodeURIComponent(kioskid)}`);
+    
+    // Get kiosk info from config for authentication headers
+    const headers = {};
+    if (config && config.posId && config.kioskId && config.kioskNo) {
+      headers['X-Kiosk-PosId'] = config.posId;
+      headers['X-Kiosk-Id'] = config.kioskId;
+      headers['X-Kiosk-No'] = config.kioskNo.toString();
+    }
+    
     return { success: true, data: response.data };
   } catch (error) {
     console.error('Error fetching kiosk by kioskid:', error);
@@ -230,7 +241,16 @@ ipcMain.handle('get-videos', async (event, apiUrl, kioskId) => {
   try {
     const axios = require('axios');
     // Use by-kioskid endpoint to get kiosk by kioskid string instead of numeric id
-    const response = await axios.get(`${apiUrl}/kiosks/by-kioskid/${encodeURIComponent(kioskId)}/videos-with-status`);
+    
+    // Add kiosk authentication headers
+    const headers = {};
+    if (config && config.posId && config.kioskId && config.kioskNo) {
+      headers['X-Kiosk-PosId'] = config.posId;
+      headers['X-Kiosk-Id'] = config.kioskId;
+      headers['X-Kiosk-No'] = config.kioskNo.toString();
+    }
+    
+    const response = await axios.get(`${apiUrl}/kiosks/by-kioskid/${encodeURIComponent(kioskId)}/videos-with-status`, { headers });
     return { success: true, data: response.data };
   } catch (error) {
     console.error('Error fetching videos:', error);
@@ -242,8 +262,17 @@ ipcMain.handle('download-video', async (event, { apiUrl, videoId, downloadPath, 
   try {
     const axios = require('axios');
 
+
+    // Add kiosk authentication headers
+    const headers = {};
+    if (config && config.posId && config.kioskId && config.kioskNo) {
+      headers['X-Kiosk-PosId'] = config.posId;
+      headers['X-Kiosk-Id'] = config.kioskId;
+      headers['X-Kiosk-No'] = config.kioskNo.toString();
+    }
+
     // Get video details with download URL
-    const videoResponse = await axios.get(`${apiUrl}/videos/${videoId}`);
+    const videoResponse = await axios.get(`${apiUrl}/videos/${videoId}`, { headers });
     const video = videoResponse.data;
 
     if (!video.s3Url) {
@@ -295,6 +324,15 @@ ipcMain.handle('update-download-status', async (event, { apiUrl, kioskId, videoI
   try {
     const axios = require('axios');
     // Use by-kioskid endpoint to update status by kioskid string instead of numeric id
+    
+    // Add kiosk authentication headers
+    const headers = {};
+    if (config && config.posId && config.kioskId && config.kioskNo) {
+      headers['X-Kiosk-PosId'] = config.posId;
+      headers['X-Kiosk-Id'] = config.kioskId;
+      headers['X-Kiosk-No'] = config.kioskNo.toString();
+    }
+    
     await axios.patch(
       `${apiUrl}/kiosks/by-kioskid/${encodeURIComponent(kioskId)}/videos/${videoId}/status`,
       null,

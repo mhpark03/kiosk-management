@@ -460,24 +460,7 @@ function KioskVideoManagement() {
                       <td>{formatDate(video.uploadedAt)}</td>
                       <td>{getUploaderName(video)}</td>
                       <td style={{textAlign: 'center'}}>
-                        <select
-                          value={videoStatusMap[video.id] || 'PENDING'}
-                          onChange={(e) => handleStatusChange(video.id, e.target.value)}
-                          style={{
-                            width: '100%',
-                            padding: '6px 8px',
-                            fontSize: '12px',
-                            border: '1px solid #cbd5e0',
-                            borderRadius: '4px',
-                            cursor: 'pointer',
-                            outline: 'none'
-                          }}
-                        >
-                          <option value="PENDING">대기</option>
-                          <option value="DOWNLOADING">다운로드 중</option>
-                          <option value="COMPLETED">완료</option>
-                          <option value="FAILED">실패</option>
-                        </select>
+                        {getStatusBadge(videoStatusMap[video.id] || 'PENDING')}
                       </td>
                       <td style={{textAlign: 'center'}}>
                         <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
