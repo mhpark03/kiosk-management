@@ -1123,8 +1123,11 @@ async function handleLogin() {
     return;
   }
 
-  if (!config || !config.apiUrl) {
-    elements.loginError.textContent = 'API URL이 설정되지 않았습니다.';
+  // Use the current API URL from the input field (not from saved config)
+  const apiUrl = elements.apiUrl.value.trim();
+  
+  if (!apiUrl) {
+    elements.loginError.textContent = 'API URL을 먼저 설정하세요. (서버 선택 또는 직접 입력)';
     elements.loginError.style.display = 'block';
     return;
   }
@@ -1134,7 +1137,7 @@ async function handleLogin() {
   elements.loginSubmitBtn.textContent = '로그인 중...';
   elements.loginError.style.display = 'none';
 
-  const result = await window.electronAPI.login(config.apiUrl, email, password);
+  const result = await window.electronAPI.login(apiUrl, email, password);
 
   if (result.success) {
     authToken = result.data.token;

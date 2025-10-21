@@ -17,6 +17,7 @@ function VideoManagement() {
   const [currentPage, setCurrentPage] = useState(1);
   const [editingVideo, setEditingVideo] = useState(null);
   const [editForm, setEditForm] = useState({ title: '', description: '' });
+  const [regeneratingThumbnail, setRegeneratingThumbnail] = useState(false);
   const itemsPerPage = 10;
 
   useEffect(() => {
@@ -109,6 +110,33 @@ function VideoManagement() {
   const handleEditCancel = () => {
     setEditingVideo(null);
     setEditForm({ title: '', description: '' });
+    setRegeneratingThumbnail(false);
+  };
+
+  const handleRegenerateThumbnail = async () => {
+    if (!editingVideo) return;
+
+    try {
+      setRegeneratingThumbnail(true);
+      setError('');
+      const response = await videoService.regenerateThumbnail(editingVideo.id);
+      setSuccess('썸네일이 성공적으로 재생성되었습니다.');
+
+      // Update the editing video with the response from API
+      if (response.video) {
+        setEditingVideo(response.video);
+      }
+
+      // Reload videos list to update the main view
+      await loadVideos();
+
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      setError(err.message);
+      setTimeout(() => setError(''), 3000);
+    } finally {
+      setRegeneratingThumbnail(false);
+    }
   };
 
   const formatDate = (timestamp) => {
@@ -368,6 +396,57 @@ function VideoManagement() {
             <button className="modal-close" onClick={handleEditCancel}>×</button>
             <h3>영상 정보 수정</h3>
             <div style={{padding: '20px 0'}}>
+              {/* Thumbnail Section */}
+              <div style={{marginBottom: '20px'}}>
+                <label style={{display: 'block', marginBottom: '8px', fontWeight: '600', color: '#2d3748'}}>
+                  썸네일
+                </label>
+                <div style={{display: 'flex', alignItems: 'center', gap: '15px'}}>
+                  {editingVideo.thumbnailUrl ? (
+                    <img
+                      src={editingVideo.thumbnailUrl}
+                      alt="썸네일"
+                      style={{
+                        width: '160px',
+                        height: 'auto',
+                        borderRadius: '4px',
+                        border: '1px solid #e0e0e0'
+                      }}
+                    />
+                  ) : (
+                    <div style={{
+                      width: '160px',
+                      height: '90px',
+                      borderRadius: '4px',
+                      border: '1px solid #e0e0e0',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      background: '#f5f5f5',
+                      color: '#999'
+                    }}>
+                      썸네일 없음
+                    </div>
+                  )}
+                  <button
+                    onClick={handleRegenerateThumbnail}
+                    disabled={regeneratingThumbnail}
+                    style={{
+                      padding: '8px 16px',
+                      border: '1px solid #667eea',
+                      borderRadius: '4px',
+                      background: regeneratingThumbnail ? '#f0f0f0' : '#fff',
+                      color: regeneratingThumbnail ? '#999' : '#667eea',
+                      cursor: regeneratingThumbnail ? 'not-allowed' : 'pointer',
+                      fontSize: '14px',
+                      fontWeight: '500'
+                    }}
+                  >
+                    {regeneratingThumbnail ? '재생성 중...' : '썸네일 재생성'}
+                  </button>
+                </div>
+              </div>
+
               <div style={{marginBottom: '20px'}}>
                 <label style={{display: 'block', marginBottom: '8px', fontWeight: '600', color: '#2d3748'}}>
                   제목

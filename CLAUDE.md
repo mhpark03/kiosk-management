@@ -107,6 +107,9 @@ npm run build
 - Video filtering (all/downloaded/pending)
 - Responsive layout (vertical on narrow screens, horizontal on wide screens ≥1024px)
 - Offline mode support
+- **Optional user authentication** with JWT token persistence
+- Auto-login on startup when credentials are saved
+- Auto-sync works regardless of login status
 
 ### Server Management
 
@@ -207,6 +210,7 @@ EntityHistory <-- EntityHistory
 **Storage:**
 - Videos saved to: `<userData>/videos/`
 - Settings stored in: `<userData>/config.json`
+- Auth credentials persisted in config.json (authToken, userEmail, userName)
 - Auto-creates directories on first run
 
 **API Integration:**
@@ -653,3 +657,5 @@ aws s3 sync dist/ s3://kiosk-frontend-20251018/ --delete
 - **Videos not showing**: Check kiosk has assigned videos in KioskVideoManagement
 - **Description not displaying**: Verify video has description field populated in backend
 - **Layout issues**: Check screen width breakpoint (1024px), test responsive CSS with browser dev tools
+- **Login issues**: Login is optional - app functions without it; click "나중에" to skip login; auto-sync works regardless of login state
+- **Auto-login fails**: Check config.json for valid authToken, userEmail, userName; token may have expired (24h default)

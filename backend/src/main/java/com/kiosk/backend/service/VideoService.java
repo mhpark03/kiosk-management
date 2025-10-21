@@ -132,7 +132,14 @@ public class VideoService {
         try {
             byte[] thumbnailBytes = generateThumbnail(file);
             if (thumbnailBytes != null) {
-                String thumbnailFilename = extractFilename(s3Key).replace(".", "_thumb.jpg");
+                // Remove file extension and add _thumb.jpg
+                String filenameWithExt = extractFilename(s3Key);
+                int lastDotIndex = filenameWithExt.lastIndexOf(".");
+                String filenameWithoutExt = (lastDotIndex > 0)
+                    ? filenameWithExt.substring(0, lastDotIndex)
+                    : filenameWithExt;
+                String thumbnailFilename = filenameWithoutExt + "_thumb.jpg";
+
                 thumbnailS3Key = s3Service.uploadBytes(thumbnailBytes, THUMBNAIL_FOLDER, thumbnailFilename, "image/jpeg");
                 thumbnailUrl = s3Service.getFileUrl(thumbnailS3Key);
                 log.info("Thumbnail uploaded successfully: {}", thumbnailS3Key);
@@ -199,6 +206,20 @@ public class VideoService {
     public String generatePresignedUrl(Long id, int durationMinutes) {
         Video video = getVideoById(id);
         return s3Service.generatePresignedUrl(video.getS3Key(), durationMinutes);
+    }
+
+    /**
+     * Generate a presigned URL for thumbnail
+     * @param id Video ID
+     * @param durationMinutes Duration in minutes for which the URL is valid
+     * @return Presigned URL for thumbnail
+     */
+    public String generateThumbnailPresignedUrl(Long id, int durationMinutes) {
+        Video video = getVideoById(id);
+        if (video.getThumbnailS3Key() == null || video.getThumbnailS3Key().isEmpty()) {
+            return null;
+        }
+        return s3Service.generatePresignedUrl(video.getThumbnailS3Key(), durationMinutes);
     }
 
     /**
@@ -285,6 +306,102 @@ public class VideoService {
     @Transactional
     public Video updateDescription(Long id, String description, Long requestingUserId) {
         return updateVideo(id, null, description, requestingUserId);
+    }
+
+    /**
+     * Regenerate thumbnail for a video
+     * @param id Video ID
+     * @param requestingUserId ID of the user requesting regeneration
+     * @return Updated Video entity with new thumbnail
+     */
+    @Transactional
+    public Video regenerateThumbnail(Long id, Long requestingUserId) {
+        Video video = getVideoById(id);
+
+        // Get requesting user
+        User requestingUser = userRepository.findById(requestingUserId)
+                .orElseThrow(() -> new RuntimeException("User not found with id: " + requestingUserId));
+
+        // Check if user has permission to regenerate thumbnail
+        // ADMIN can regenerate any video thumbnail, regular users can only regenerate their own
+        if (requestingUser.getRole() != User.UserRole.ADMIN &&
+            !video.getUploadedById().equals(requestingUserId)) {
+            log.warn("User ID {} attempted to regenerate thumbnail for video {} owned by user ID {}",
+                    requestingUserId, id, video.getUploadedById());
+            throw new RuntimeException("You don't have permission to regenerate thumbnail for this video");
+        }
+
+        try {
+            // Download video from S3
+            byte[] videoBytes = s3Service.downloadFile(video.getS3Key());
+
+            // Create temp file for video
+            Path tempVideoPath = Files.createTempFile("video_", ".mp4");
+            Files.write(tempVideoPath, videoBytes);
+
+            // Generate new thumbnail
+            Path tempThumbnailPath = Files.createTempFile("thumbnail_", ".jpg");
+
+            ProcessBuilder processBuilder = new ProcessBuilder(
+                "ffmpeg",
+                "-i", tempVideoPath.toString(),
+                "-ss", "00:00:01.000",
+                "-vframes", "1",
+                "-vf", "scale=320:-1",
+                "-y",
+                tempThumbnailPath.toString()
+            );
+
+            processBuilder.redirectErrorStream(true);
+            Process process = processBuilder.start();
+            int exitCode = process.waitFor();
+
+            if (exitCode != 0 || !Files.exists(tempThumbnailPath)) {
+                throw new RuntimeException("Failed to generate thumbnail with FFmpeg");
+            }
+
+            byte[] thumbnailBytes = Files.readAllBytes(tempThumbnailPath);
+
+            // Delete old thumbnail from S3 if exists
+            if (video.getThumbnailS3Key() != null) {
+                try {
+                    s3Service.deleteFile(video.getThumbnailS3Key());
+                } catch (Exception e) {
+                    log.warn("Failed to delete old thumbnail from S3: {}", video.getThumbnailS3Key(), e);
+                }
+            }
+
+            // Upload new thumbnail to S3
+            String filenameWithExt = extractFilename(video.getS3Key());
+            int lastDotIndex = filenameWithExt.lastIndexOf(".");
+            String filenameWithoutExt = (lastDotIndex > 0)
+                ? filenameWithExt.substring(0, lastDotIndex)
+                : filenameWithExt;
+            String thumbnailFilename = filenameWithoutExt + "_thumb.jpg";
+
+            String thumbnailS3Key = s3Service.uploadBytes(thumbnailBytes, THUMBNAIL_FOLDER, thumbnailFilename, "image/jpeg");
+            String thumbnailUrl = s3Service.getFileUrl(thumbnailS3Key);
+
+            // Update video entity
+            video.setThumbnailS3Key(thumbnailS3Key);
+            video.setThumbnailUrl(thumbnailUrl);
+
+            Video updatedVideo = videoRepository.save(video);
+            log.info("Thumbnail regenerated successfully for video: {} by user ID {}", id, requestingUserId);
+
+            // Clean up temp files
+            try {
+                Files.deleteIfExists(tempVideoPath);
+                Files.deleteIfExists(tempThumbnailPath);
+            } catch (IOException e) {
+                log.warn("Failed to delete temporary files", e);
+            }
+
+            return updatedVideo;
+        } catch (Exception e) {
+            log.error("Failed to regenerate thumbnail for video: {}", id, e);
+            throw new RuntimeException("Failed to regenerate thumbnail: " + e.getMessage());
+        }
     }
 
     /**

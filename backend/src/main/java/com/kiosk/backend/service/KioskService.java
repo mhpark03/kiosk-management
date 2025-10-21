@@ -33,6 +33,7 @@ public class KioskService {
     private final StoreRepository storeRepository;
     private final KioskVideoRepository kioskVideoRepository;
     private final VideoRepository videoRepository;
+    private final VideoService videoService;
 
     /**
      * Generate next sequential 12-digit Kiosk ID
@@ -166,6 +167,16 @@ public class KioskService {
     public KioskDTO getKioskByKioskid(String kioskid) {
         Kiosk kiosk = kioskRepository.findByKioskid(kioskid)
                 .orElseThrow(() -> new RuntimeException("Kiosk not found with kioskid: " + kioskid));
+        return toDTO(kiosk);
+    }
+
+    /**
+     * Get kiosk by Store ID (posid) and Kiosk Number (kioskno)
+     */
+    @Transactional(readOnly = true)
+    public KioskDTO getKioskByPosidAndKioskno(String posid, Integer kioskno) {
+        Kiosk kiosk = kioskRepository.findByPosidAndKioskno(posid, kioskno)
+                .orElseThrow(() -> new RuntimeException("Kiosk not found with posid: " + posid + ", kioskno: " + kioskno));
         return toDTO(kiosk);
     }
 
@@ -543,6 +554,16 @@ public class KioskService {
                     // Get video details
                     var video = videoRepository.findById(kv.getVideoId()).orElse(null);
 
+                    // Generate presigned URL for thumbnail if exists
+                    String thumbnailPresignedUrl = null;
+                    if (video != null && video.getThumbnailS3Key() != null && !video.getThumbnailS3Key().isEmpty()) {
+                        try {
+                            thumbnailPresignedUrl = videoService.generateThumbnailPresignedUrl(kv.getVideoId(), 10080); // 7 days
+                        } catch (Exception e) {
+                            log.warn("Failed to generate presigned URL for thumbnail of video {}: {}", kv.getVideoId(), e.getMessage());
+                        }
+                    }
+
                     return com.kiosk.backend.dto.KioskVideoDTO.builder()
                             .id(kv.getId())
                             .kioskId(kv.getKioskId())
@@ -559,7 +580,54 @@ public class KioskService {
                             .fileSize(video != null ? video.getFileSize() : null)
                             .duration(video != null ? video.getDuration() : null)
                             .url(video != null ? video.getS3Url() : null)
-                            .thumbnailUrl(video != null ? video.getThumbnailUrl() : null)
+                            .thumbnailUrl(thumbnailPresignedUrl)
+                            .build();
+                })
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Get all videos assigned to a kiosk with download status by kioskid string
+     */
+    @Transactional(readOnly = true)
+    public List<com.kiosk.backend.dto.KioskVideoDTO> getKioskVideosWithStatusByKioskId(String kioskid) {
+        // Find kiosk by kioskid string
+        Kiosk kiosk = kioskRepository.findByKioskid(kioskid)
+                .orElseThrow(() -> new RuntimeException("Kiosk not found with kioskid: " + kioskid));
+
+        List<KioskVideo> kioskVideos = kioskVideoRepository.findByKioskIdOrderByDisplayOrderAsc(kiosk.getId());
+        return kioskVideos.stream()
+                .map(kv -> {
+                    // Get video details
+                    var video = videoRepository.findById(kv.getVideoId()).orElse(null);
+
+                    // Generate presigned URL for thumbnail if exists
+                    String thumbnailPresignedUrl = null;
+                    if (video != null && video.getThumbnailS3Key() != null && !video.getThumbnailS3Key().isEmpty()) {
+                        try {
+                            thumbnailPresignedUrl = videoService.generateThumbnailPresignedUrl(kv.getVideoId(), 10080); // 7 days
+                        } catch (Exception e) {
+                            log.warn("Failed to generate presigned URL for thumbnail of video {}: {}", kv.getVideoId(), e.getMessage());
+                        }
+                    }
+
+                    return com.kiosk.backend.dto.KioskVideoDTO.builder()
+                            .id(kv.getId())
+                            .kioskId(kv.getKioskId())
+                            .videoId(kv.getVideoId())
+                            .displayOrder(kv.getDisplayOrder())
+                            .assignedBy(kv.getAssignedBy())
+                            .assignedAt(kv.getAssignedAt())
+                            .downloadStatus(kv.getDownloadStatus())
+                            .createdAt(kv.getCreatedAt())
+                            // Add video details
+                            .title(video != null ? video.getTitle() : null)
+                            .description(video != null ? video.getDescription() : null)
+                            .fileName(video != null ? video.getOriginalFilename() : null)
+                            .fileSize(video != null ? video.getFileSize() : null)
+                            .duration(video != null ? video.getDuration() : null)
+                            .url(video != null ? video.getS3Url() : null)
+                            .thumbnailUrl(thumbnailPresignedUrl)
                             .build();
                 })
                 .collect(Collectors.toList());
@@ -577,6 +645,33 @@ public class KioskService {
         KioskVideo kioskVideo = kioskVideoRepository.findByKioskIdAndVideoId(kioskId, videoId);
         if (kioskVideo == null) {
             throw new RuntimeException("Video " + videoId + " is not assigned to kiosk " + kioskId);
+        }
+
+        String oldStatus = kioskVideo.getDownloadStatus();
+        kioskVideo.setDownloadStatus(status);
+        kioskVideoRepository.save(kioskVideo);
+
+        log.info("Updated download status for video {} on kiosk {} from {} to {}",
+                videoId, kiosk.getKioskid(), oldStatus, status);
+
+        // Log history
+        logHistory(kiosk.getKioskid(), kiosk.getPosid(), userEmail, userEmail, "UPDATE",
+            "video_download_status", oldStatus, status,
+            String.format("Updated download status for video %d to %s", videoId, status));
+    }
+
+    /**
+     * Update download status for a kiosk video by kioskid string
+     */
+    public void updateVideoDownloadStatusByKioskId(String kioskid, Long videoId, String status, String userEmail) {
+        // Find kiosk by kioskid string
+        Kiosk kiosk = kioskRepository.findByKioskid(kioskid)
+                .orElseThrow(() -> new RuntimeException("Kiosk not found with kioskid: " + kioskid));
+
+        // Find the kiosk video assignment
+        KioskVideo kioskVideo = kioskVideoRepository.findByKioskIdAndVideoId(kiosk.getId(), videoId);
+        if (kioskVideo == null) {
+            throw new RuntimeException("Video " + videoId + " is not assigned to kiosk " + kioskid);
         }
 
         String oldStatus = kioskVideo.getDownloadStatus();

@@ -1,6 +1,7 @@
 package com.kiosk.backend.config;
 
 import com.kiosk.backend.security.JwtAuthenticationFilter;
+import com.kiosk.backend.security.KioskAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -20,6 +21,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final KioskAuthenticationFilter kioskAuthenticationFilter;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -44,10 +46,14 @@ public class SecurityConfig {
                 .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
                 // Actuator endpoints (for AWS health checks)
                 .requestMatchers("/actuator/health", "/actuator/info").permitAll()
-                // Kiosk video management for desktop app
-                .requestMatchers("/api/kiosks/*/videos-with-status").permitAll()
-                .requestMatchers("/api/kiosks/*/videos/*/status").permitAll()
-                .requestMatchers("/api/videos/*").permitAll()
+                // Kiosk initial lookup - no auth needed (to get posid/kioskno)
+                .requestMatchers("/api/kiosks/kioskid/*").permitAll()
+                // Kiosk video management - requires kiosk authentication (via headers)
+                .requestMatchers("/api/kiosks/*/videos-with-status").authenticated()
+                .requestMatchers("/api/kiosks/*/videos/*/status").authenticated()
+                .requestMatchers("/api/kiosks/by-kioskid/*/videos-with-status").authenticated()
+                .requestMatchers("/api/kiosks/by-kioskid/*/videos/*/status").authenticated()
+                .requestMatchers("/api/videos/*").authenticated()
                 // All other endpoints require authentication
                 .requestMatchers("/api/**").authenticated()
                 .anyRequest().authenticated()
@@ -56,6 +62,8 @@ public class SecurityConfig {
             // Allow H2 Console to be embedded in frames
             .headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()))
 
+            // Add Kiosk authentication filter (checks for kiosk headers first)
+            .addFilterBefore(kioskAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
             // Add JWT authentication filter
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
