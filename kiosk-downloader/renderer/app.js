@@ -120,7 +120,7 @@ async function initialize() {
   console.log('App initialized');
   // Record app start event (only if config exists)
   if (config && config.kioskId && config.apiUrl) {
-    recordKioskEvent('APP_START', 'Kiosk downloader application started');
+    recordKioskEvent('APP_START', 'AiOZ App 시작');
   }
 }
 
@@ -130,7 +130,7 @@ function setupEventListeners() {
   elements.deleteConfigBtn.addEventListener('click', deleteConfig);
   elements.testConnectionBtn.addEventListener('click', testConnection);
   elements.selectPathBtn.addEventListener('click', selectDownloadPath);
-  elements.syncBtn.addEventListener('click', syncVideos);
+  elements.syncBtn.addEventListener('click', () => syncVideos());
 
   // Server selection change
   elements.serverRadios.forEach(radio => {
@@ -223,9 +223,31 @@ async function deleteConfig() {
 
   showLoading('설정 삭제 중...');
 
+  // Save old config for event recording
+  const oldConfig = config;
+
   const result = await window.electronAPI.deleteConfig();
 
   if (result.success) {
+    // Record event BEFORE updating config
+    if (oldConfig && oldConfig.apiUrl && oldConfig.kioskId) {
+      await fetch(`${oldConfig.apiUrl}/kiosk-events`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          kioskId: oldConfig.kioskId,
+          eventType: 'CONFIG_DELETED',
+          userEmail: currentUser?.email || null,
+          userName: currentUser?.name || null,
+          message: '설정이 삭제됨',
+          metadata: null
+        })
+      }).catch(err => console.error('Failed to record CONFIG_DELETED event:', err));
+    }
+
+    // Update config after recording event
     config = result.config;
 
     // Update button state
@@ -283,6 +305,25 @@ async function deleteConfig() {
     }, 100);
   } else {
     hideLoading();
+
+    // Record failed deletion event using old config
+    if (oldConfig && oldConfig.apiUrl && oldConfig.kioskId) {
+      await fetch(`${oldConfig.apiUrl}/kiosk-events`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          kioskId: oldConfig.kioskId,
+          eventType: 'CONFIG_DELETE_FAILED',
+          userEmail: currentUser?.email || null,
+          userName: currentUser?.name || null,
+          message: '설정 삭제 실패',
+          metadata: null
+        })
+      }).catch(err => console.error('Failed to record CONFIG_DELETE_FAILED event:', err));
+    }
+
     setTimeout(() => {
       showNotification('설정 삭제에 실패했습니다.', 'error');
     }, 100);
@@ -293,7 +334,7 @@ async function deleteConfig() {
 // Record kiosk event to backend
 async function recordKioskEvent(eventType, message, metadata = null) {
   try {
-    if (!config || !config.kioskId || !config.apiUrl) {
+    if (!config || !config.apiUrl) {
       console.log('Skipping event recording - config not set');
       return;
     }
@@ -517,6 +558,7 @@ async function saveConfig() {
       } else {
         showNotification('설정이 저장되었습니다.', 'success');
       }
+      recordKioskEvent('CONFIG_SAVED', configExists ? '설정이 수정됨' : '설정이 저장됨');
     }, 100);
 
     // Force enable input fields after a short delay to ensure they stay enabled
@@ -554,9 +596,11 @@ async function testConnection() {
 
   if (result.success) {
     updateConnectionStatus(true);
+    recordKioskEvent('CONNECTION_SUCCESS', '연결 테스트 성공');
     showNotification('연결 성공!', 'success');
   } else {
     updateConnectionStatus(false);
+    recordKioskEvent('CONNECTION_FAILED', `연결테스트 실패: ${result.error}`);
     showNotification('연결 실패: ' + result.error, 'error');
   }
 }
@@ -571,9 +615,11 @@ async function selectDownloadPath() {
 
 // Sync videos from server
 async function syncVideos(isAutoSync = false) {
+  console.log('[DEBUG] syncVideos called, isAutoSync:', isAutoSync, 'config:', config);
   if (!config || !config.apiUrl || !config.kioskId) {
+    console.log('[DEBUG] Missing config, showing error notification');
     if (!isAutoSync) {
-      showNotification('API URL과 키오스크 ID를 먼저 설정하세요.', 'warning');
+      showNotification('키오스크 정보가 설정되지 않았습니다. 설정 탭에서 먼저 키오스크 정보를 입력하세요.', 'error');
     }
     return;
   }
@@ -584,6 +630,7 @@ async function syncVideos(isAutoSync = false) {
     originalText = elements.syncBtn.textContent;
     elements.syncBtn.disabled = true;
     elements.syncBtn.innerHTML = '<span class="icon">🔄</span> 동기화 중...';
+    recordKioskEvent('SYNC_STARTED', '수동 영상 동기화 시작');
   }
 
   const result = await window.electronAPI.getVideos(config.apiUrl, config.kioskId);
@@ -638,6 +685,12 @@ async function syncVideos(isAutoSync = false) {
     await window.electronAPI.saveConfig({ lastSync: config.lastSync });
     updateLastSyncTime(new Date(config.lastSync));
 
+    if (!isAutoSync) {
+      recordKioskEvent('SYNC_COMPLETED', `수동 영상 파일 ${videos.length} 개 동기완료`);
+    } else {
+      recordKioskEvent('AUTO_SYNC_TRIGGERED', `자동 영상 동기화하여 ${videos.length} 개 동기완료`);
+    }
+
     updateConnectionStatus(true);
     renderVideoList();
     updateStats();
@@ -669,6 +722,7 @@ async function syncVideos(isAutoSync = false) {
     isOnline = false;
     elements.offlineMode.style.display = 'inline-block';
     if (!isAutoSync) {
+      recordKioskEvent('SYNC_FAILED', `동기화 실패: ${result.error}`);
       showNotification('동기화 실패: ' + result.error, 'error');
     }
   }
@@ -702,12 +756,31 @@ async function downloadVideoInBackground(video) {
   const fileExists = await window.electronAPI.checkFileExists(filePath);
   if (fileExists) {
     console.log(`File already exists, skipping: ${fileName}`);
+
+    // Update status to COMPLETED since file exists
+    video.downloadStatus = 'COMPLETED';
+    video.progress = 100;
+
+    // Update status on server
+    await window.electronAPI.updateDownloadStatus({
+      apiUrl: config.apiUrl,
+      kioskId: config.kioskId,
+      videoId: video.videoId,
+      status: 'COMPLETED'
+    });
+
+    renderVideoList();
+    updateStats();
     return;
   }
 
   // Update status to downloading
   video.downloadStatus = 'DOWNLOADING';
   video.progress = 0;
+  recordKioskEvent('DOWNLOAD_STARTED', `다운로드 시작: ${video.title}`, JSON.stringify({
+      videoId: video.videoId,
+      fileName: fileName
+    }));
   renderVideoList();
 
   const result = await window.electronAPI.downloadVideo({
@@ -729,10 +802,18 @@ async function downloadVideoInBackground(video) {
       status: 'COMPLETED'
     });
 
+    recordKioskEvent('DOWNLOAD_COMPLETED', `다운로드 완료: ${video.title}`, JSON.stringify({
+      videoId: video.videoId,
+      fileName: fileName
+    }));
     console.log(`Background download completed: ${video.title}`);
   } else {
     video.downloadStatus = 'PENDING';
     video.progress = 0;
+    recordKioskEvent('DOWNLOAD_FAILED', `다운로드 실패: ${video.title}`, JSON.stringify({
+      videoId: video.videoId,
+      error: result.error
+    }));
     console.error(`Background download failed: ${video.title} - ${result.error}`);
   }
 
@@ -790,10 +871,18 @@ async function downloadVideo(video) {
       status: 'COMPLETED'
     });
 
+    recordKioskEvent('DOWNLOAD_COMPLETED', `다운로드 완료: ${video.title}`, JSON.stringify({
+      videoId: video.videoId,
+      fileName: fileName
+    }));
     showNotification(`${video.title} 다운로드 완료`, 'success');
   } else {
     video.downloadStatus = 'PENDING';
     video.progress = 0;
+    recordKioskEvent('DOWNLOAD_FAILED', `다운로드 실패: ${video.title}`, JSON.stringify({
+      videoId: video.videoId,
+      error: result.error
+    }));
     showNotification(`다운로드 실패: ${result.error}`, 'error');
   }
 
@@ -847,10 +936,18 @@ async function deleteVideo(video) {
       status: 'PENDING'
     });
 
+    recordKioskEvent('FILE_DELETED', `영상 파일 삭제: ${video.title}`, JSON.stringify({
+      videoId: video.videoId,
+      fileName: fileName
+    }));
     renderVideoList();
     updateStats();
     showNotification('영상이 삭제되었습니다.', 'success');
   } else {
+    recordKioskEvent('FILE_DELETE_FAIL', `영상 파일 삭제 실패: ${video.title}`, JSON.stringify({
+      videoId: video.videoId,
+      fileName: fileName
+    }));
     showNotification('삭제 실패: ' + result.error, 'error');
   }
 }
@@ -1176,7 +1273,9 @@ async function handleLogin() {
 
     hideLoginModal();
     console.log('Login successful');
+    recordKioskEvent('USER_LOGIN', `로그인 성공: ${currentUser.name}`);
   } else {
+    recordKioskEvent('USER_LOGIN', `로그인 실패: ${result.error}`);
     elements.loginError.textContent = result.error || '로그인 실패';
     elements.loginError.style.display = 'block';
   }
@@ -1201,6 +1300,7 @@ async function handleLogout() {
   elements.logoutBtn.style.display = 'none';
 
   console.log('Logout successful - app continues to function without authentication');
+  recordKioskEvent('USER_LOGOUT', '로그아웃');
 }
 
 function checkAuthentication() {
