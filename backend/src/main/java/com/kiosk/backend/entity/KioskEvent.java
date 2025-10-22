@@ -55,6 +55,9 @@ public class KioskEvent {
     @Column(columnDefinition = "TEXT")
     private String metadata; // JSON or additional details
 
+    @Column(length = 45)
+    private String clientIp; // IP address of the client that triggered the event (supports IPv6)
+
     @Column(nullable = false)
     @CreationTimestamp
     private LocalDateTime timestamp;
