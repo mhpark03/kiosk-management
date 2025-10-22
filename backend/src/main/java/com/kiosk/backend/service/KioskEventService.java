@@ -36,12 +36,13 @@ public class KioskEventService {
      * @param userName User name (optional)
      * @param message Event message
      * @param metadata Additional metadata (JSON or text)
+     * @param clientIp IP address of the client (optional)
      * @return The saved event
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public KioskEvent recordEvent(String kioskid, KioskEvent.EventType eventType,
                                   String userEmail, String userName,
-                                  String message, String metadata) {
+                                  String message, String metadata, String clientIp) {
         try {
             // Try to find kiosk to get additional information
             Optional<Kiosk> kioskOpt = kioskRepository.findByKioskid(kioskid);
@@ -53,6 +54,7 @@ public class KioskEventService {
                     .userName(userName)
                     .message(message)
                     .metadata(metadata)
+                    .clientIp(clientIp)
                     .timestamp(LocalDateTime.now());
 
             // Add kiosk info if found
@@ -85,7 +87,7 @@ public class KioskEventService {
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public KioskEvent recordEvent(String kioskid, KioskEvent.EventType eventType, String message) {
-        return recordEvent(kioskid, eventType, null, null, message, null);
+        return recordEvent(kioskid, eventType, null, null, message, null, null);
     }
 
     /**

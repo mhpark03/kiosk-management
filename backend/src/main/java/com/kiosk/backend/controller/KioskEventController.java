@@ -4,6 +4,7 @@ import com.kiosk.backend.dto.KioskEventDTO;
 import com.kiosk.backend.dto.RecordKioskEventRequest;
 import com.kiosk.backend.entity.KioskEvent;
 import com.kiosk.backend.service.KioskEventService;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -28,9 +29,12 @@ public class KioskEventController {
      * POST /api/kiosk-events
      */
     @PostMapping
-    public ResponseEntity<KioskEventDTO> recordEvent(@RequestBody RecordKioskEventRequest request) {
-        log.info("POST /api/kiosk-events - Recording event for kiosk {}: {}",
-                 request.getKioskid(), request.getEventType());
+    public ResponseEntity<KioskEventDTO> recordEvent(
+            @RequestBody RecordKioskEventRequest request,
+            HttpServletRequest httpRequest) {
+        String clientIp = getClientIp(httpRequest);
+        log.info("POST /api/kiosk-events - Recording event for kiosk {}: {} from IP: {}",
+                 request.getKioskid(), request.getEventType(), clientIp);
 
         try {
             KioskEvent.EventType eventType = KioskEvent.EventType.valueOf(request.getEventType().toUpperCase());
@@ -41,7 +45,8 @@ public class KioskEventController {
                 request.getUserEmail(),
                 request.getUserName(),
                 request.getMessage(),
-                request.getMetadata()
+                request.getMetadata(),
+                clientIp
             );
 
             return ResponseEntity.ok(KioskEventDTO.fromEntity(event));
@@ -52,6 +57,40 @@ public class KioskEventController {
             log.error("Error recording kiosk event", e);
             return ResponseEntity.internalServerError().build();
         }
+    }
+
+    /**
+     * Extract client IP address from HTTP request.
+     * Checks X-Forwarded-For, X-Real-IP headers first (for proxies/load balancers),
+     * then falls back to remote address.
+     */
+    private String getClientIp(HttpServletRequest request) {
+        String ip = request.getHeader("X-Forwarded-For");
+        if (ip != null && !ip.isEmpty() && !"unknown".equalsIgnoreCase(ip)) {
+            // X-Forwarded-For can contain multiple IPs, take the first one
+            int commaIndex = ip.indexOf(',');
+            if (commaIndex != -1) {
+                ip = ip.substring(0, commaIndex).trim();
+            }
+            return ip;
+        }
+
+        ip = request.getHeader("X-Real-IP");
+        if (ip != null && !ip.isEmpty() && !"unknown".equalsIgnoreCase(ip)) {
+            return ip;
+        }
+
+        ip = request.getHeader("Proxy-Client-IP");
+        if (ip != null && !ip.isEmpty() && !"unknown".equalsIgnoreCase(ip)) {
+            return ip;
+        }
+
+        ip = request.getHeader("WL-Proxy-Client-IP");
+        if (ip != null && !ip.isEmpty() && !"unknown".equalsIgnoreCase(ip)) {
+            return ip;
+        }
+
+        return request.getRemoteAddr();
     }
 
     /**
