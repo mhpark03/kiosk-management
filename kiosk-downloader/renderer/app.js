@@ -962,6 +962,38 @@ async function deleteVideo(video) {
   }
 }
 
+// Play video file using system default player
+async function playVideo(video) {
+  const fileName = generateFileName(video);
+  const kioskDownloadPath = `${config.downloadPath}\\${config.kioskId}`;
+  const filePath = `${kioskDownloadPath}\\${fileName}`;
+
+  // Check if file exists first
+  const fileExists = await window.electronAPI.checkFileExists(filePath);
+
+  if (!fileExists) {
+    showNotification('파일을 찾을 수 없습니다.', 'error');
+    return;
+  }
+
+  // Open file with system default player
+  const result = await window.electronAPI.openFile(filePath);
+
+  if (!result.success) {
+    recordKioskEvent('VIDEO_PLAY_FAIL', `영상 재생 실패: ${video.title}`, JSON.stringify({
+      videoId: video.videoId,
+      fileName: fileName,
+      error: result.error
+    }));
+    showNotification('재생 실패: ' + result.error, 'error');
+  } else {
+    recordKioskEvent('VIDEO_PLAYED', `영상 재생: ${video.title}`, JSON.stringify({
+      videoId: video.videoId,
+      fileName: fileName
+    }));
+  }
+}
+
 // Generate file name from video title
 function generateFileName(video) {
   const ext = video.fileName ? video.fileName.split('.').pop() : 'mp4';
@@ -1027,6 +1059,14 @@ function renderVideoList() {
     });
   });
 
+  document.querySelectorAll('.btn-play').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const videoId = parseInt(e.target.dataset.videoId);
+      const video = videos.find(v => v.videoId === videoId);
+      if (video) playVideo(video);
+    });
+  });
+
   document.querySelectorAll('.btn-delete').forEach(btn => {
     btn.addEventListener('click', (e) => {
       const videoId = parseInt(e.target.dataset.videoId);
@@ -1061,7 +1101,10 @@ function renderVideoActions(video) {
   const status = video.downloadStatus || 'PENDING';
 
   if (status === 'COMPLETED') {
-    return `<button class="btn-icon btn-delete" data-video-id="${video.videoId}" title="삭제">🗑️</button>`;
+    return `
+      <button class="btn-icon btn-play" data-video-id="${video.videoId}" title="재생">▶️</button>
+      <button class="btn-icon btn-delete" data-video-id="${video.videoId}" title="삭제">🗑️</button>
+    `;
   } else if (status === 'DOWNLOADING') {
     return '<span class="downloading-text">다운로드 중...</span>';
   } else {
