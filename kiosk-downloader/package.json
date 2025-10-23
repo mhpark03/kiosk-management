@@ -24,7 +24,7 @@
     "productName": "Kiosk Video Downloader",
     "win": {
       "target": "nsis",
-      "icon": "icon.ico"
+      "icon": "android-chrome-512x512.png"
     },
     "nsis": {
       "oneClick": false,
