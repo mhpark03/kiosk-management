@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, Menu } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, Menu, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -358,6 +358,23 @@ ipcMain.handle('delete-file', async (event, filePath) => {
     return { success: false, error: 'File not found' };
   } catch (error) {
     console.error('Error deleting file:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('open-file', async (event, filePath) => {
+  try {
+    if (fs.existsSync(filePath)) {
+      const result = await shell.openPath(filePath);
+      if (result) {
+        // If result is not empty string, it means there was an error
+        return { success: false, error: result };
+      }
+      return { success: true };
+    }
+    return { success: false, error: 'File not found' };
+  } catch (error) {
+    console.error('Error opening file:', error);
     return { success: false, error: error.message };
   }
 });
