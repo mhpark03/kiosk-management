@@ -1106,9 +1106,15 @@ function renderVideoActions(video) {
       <button class="btn-icon btn-delete" data-video-id="${video.videoId}" title="삭제">🗑️</button>
     `;
   } else if (status === 'DOWNLOADING') {
-    return '<span class="downloading-text">다운로드 중...</span>';
+    return `
+      <button class="btn-icon btn-play" data-video-id="${video.videoId}" title="재생" disabled>▶️</button>
+      <span class="downloading-text">다운로드 중...</span>
+    `;
   } else {
-    return `<button class="btn-icon btn-download" data-video-id="${video.videoId}" title="다운로드">⬇️</button>`;
+    return `
+      <button class="btn-icon btn-play" data-video-id="${video.videoId}" title="파일이 없습니다" disabled>▶️</button>
+      <button class="btn-icon btn-download" data-video-id="${video.videoId}" title="다운로드">⬇️</button>
+    `;
   }
 }
 
