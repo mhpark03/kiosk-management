@@ -35,7 +35,17 @@ function Login() {
       console.error('Error response data:', err.response?.data);
       console.error('Error response message:', err.response?.data?.message);
       console.error('==================');
-      setError(err.message);
+
+      // Check if it's an account approval required error
+      if (err.message && err.message.includes('관리자의 승인이 필요합니다')) {
+        alert('⚠️ 계정 승인 필요\n\n관리자의 승인이 필요합니다.\n승인 후 로그인해 주세요.\n\n문의사항이 있으시면 관리자에게 연락해주세요.');
+        setError(''); // Don't show error in the form
+      } else if (err.message && err.message.includes('계정이 정지되었습니다')) {
+        alert('🚫 계정 정지\n\n계정이 정지되었습니다.\n관리자에게 문의하세요.');
+        setError('');
+      } else {
+        setError(err.message);
+      }
     } finally {
       setLoading(false);
     }
