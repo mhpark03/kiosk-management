@@ -16,6 +16,7 @@ import BatchManagement from './components/BatchManagement';
 import VideoManagement from './components/VideoManagement';
 import VideoUpload from './components/VideoUpload';
 import KioskVideoManagement from './components/KioskVideoManagement';
+import KioskEventHistory from './components/KioskEventHistory';
 import ProtectedRoute from './components/ProtectedRoute';
 import './App.css';
 
@@ -157,6 +158,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <VideoManagement />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/kiosk-events"
+            element={
+              <ProtectedRoute>
+                <KioskEventHistory />
               </ProtectedRoute>
             }
           />
