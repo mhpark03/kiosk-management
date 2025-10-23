@@ -121,6 +121,12 @@ async function initialize() {
   // Record app start event (only if config exists)
   if (config && config.kioskId && config.apiUrl) {
     recordKioskEvent('APP_START', 'AiOZ App 시작');
+
+    // Auto-sync videos on app start
+    console.log('Auto-syncing videos on app start...');
+    setTimeout(() => {
+      syncVideos(true); // Auto-sync mode (no notifications)
+    }, 1000); // Small delay to ensure UI is ready
   }
 }
 
@@ -559,6 +565,10 @@ async function saveConfig() {
         showNotification('설정이 저장되었습니다.', 'success');
       }
       recordKioskEvent('CONFIG_SAVED', configExists ? '설정이 수정됨' : '설정이 저장됨');
+
+      // Auto-sync videos after config save/update
+      console.log('Auto-syncing videos after config save...');
+      syncVideos(true); // Auto-sync mode (no notifications)
     }, 100);
 
     // Force enable input fields after a short delay to ensure they stay enabled
