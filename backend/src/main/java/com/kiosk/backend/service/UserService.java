@@ -32,15 +32,31 @@ public class UserService {
     private final JwtTokenProvider tokenProvider;
     private final EntityHistoryRepository entityHistoryRepository;
 
-    @Transactional
+        @Transactional
     public AuthResponse signup(SignupRequest request) {
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new RuntimeException("Email already exists");
         }
 
-        // Check if there are less than 2 active admin users (first 2 users become ADMIN)
-        List<User> activeAdmins = userRepository.findByRoleAndStatus(User.UserRole.ADMIN, User.UserStatus.ACTIVE);
-        User.UserRole assignedRole = activeAdmins.size() < 2 ? User.UserRole.ADMIN : User.UserRole.USER;
+        // Count total existing users (including all statuses)
+        long totalUsers = userRepository.count();
+        
+        // First 2 users become ADMIN with ACTIVE status
+        // 3rd user onwards become USER with PENDING_APPROVAL status
+        User.UserRole assignedRole;
+        User.UserStatus assignedStatus;
+        
+        if (totalUsers < 2) {
+            assignedRole = User.UserRole.ADMIN;
+            assignedStatus = User.UserStatus.ACTIVE;
+            log.info("Assigning ADMIN role to user {} (user #{} in system)", 
+                     request.getEmail(), totalUsers + 1);
+        } else {
+            assignedRole = User.UserRole.USER;
+            assignedStatus = User.UserStatus.PENDING_APPROVAL;
+            log.info("Assigning USER role with PENDING_APPROVAL status to user {} (user #{} in system)", 
+                     request.getEmail(), totalUsers + 1);
+        }
 
         User user = User.builder()
                 .email(request.getEmail())
@@ -48,21 +64,34 @@ public class UserService {
                 .displayName(request.getDisplayName())
                 .phoneNumber(request.getPhoneNumber())
                 .role(assignedRole)
+                .status(assignedStatus)
                 .emailVerified(false)
                 .build();
 
         User savedUser = userRepository.save(user);
-        log.info("User registered successfully: {} with role: {}", savedUser.getEmail(), savedUser.getRole());
+        log.info("User registered successfully: {} with role: {} and status: {}", 
+                 savedUser.getEmail(), savedUser.getRole(), savedUser.getStatus());
 
-        String token = tokenProvider.generateToken(savedUser.getEmail());
-
-        return AuthResponse.builder()
-                .token(token)
-                .email(savedUser.getEmail())
-                .displayName(savedUser.getDisplayName())
-                .role(savedUser.getRole().name())
-                .build();
+        // Only generate token and allow login for ACTIVE users
+        // Users with PENDING_APPROVAL status cannot log in until approved
+        if (savedUser.getStatus() == User.UserStatus.ACTIVE) {
+            String token = tokenProvider.generateToken(savedUser.getEmail());
+            return AuthResponse.builder()
+                    .token(token)
+                    .email(savedUser.getEmail())
+                    .displayName(savedUser.getDisplayName())
+                    .role(savedUser.getRole().name())
+                    .build();
+        } else {
+            // Return response without token for pending approval users
+            return AuthResponse.builder()
+                    .email(savedUser.getEmail())
+                    .displayName(savedUser.getDisplayName())
+                    .role(savedUser.getRole().name())
+                    .build();
+        }
     }
+
 
     @Transactional
     public AuthResponse login(LoginRequest request) {
@@ -319,5 +348,63 @@ public class UserService {
 
         entityHistoryRepository.save(history);
         log.debug("User activity logged: {} - {}", email, action);
+    }
+
+    /**
+     * Get all users with PENDING_APPROVAL status.
+     * Only accessible by ADMIN users.
+     */
+    @Transactional(readOnly = true)
+    public List<User> getPendingApprovalUsers() {
+        return userRepository.findByRoleAndStatus(User.UserRole.USER, User.UserStatus.PENDING_APPROVAL);
+    }
+
+    /**
+     * Approve a user's registration.
+     * Changes status from PENDING_APPROVAL to ACTIVE.
+     * Only accessible by ADMIN users.
+     */
+    @Transactional
+    public void approveUser(String email) {
+        User currentUser = getCurrentUser();
+        User targetUser = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (targetUser.getStatus() != User.UserStatus.PENDING_APPROVAL) {
+            throw new RuntimeException("User is not pending approval");
+        }
+
+        String oldStatus = targetUser.getStatus().name();
+        targetUser.setStatus(User.UserStatus.ACTIVE);
+        userRepository.save(targetUser);
+
+        logUserActivity(currentUser.getEmail(), currentUser.getDisplayName(), "ACTIVATE",
+            "User approved: " + targetUser.getEmail(), "status", oldStatus, "ACTIVE");
+
+        log.info("User approved: {} by {}", email, currentUser.getEmail());
+    }
+
+    /**
+     * Reject a user's registration.
+     * Deletes the user from the system.
+     * Only accessible by ADMIN users.
+     */
+    @Transactional
+    public void rejectUser(String email) {
+        User currentUser = getCurrentUser();
+        User targetUser = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (targetUser.getStatus() != User.UserStatus.PENDING_APPROVAL) {
+            throw new RuntimeException("User is not pending approval");
+        }
+
+        logUserActivity(currentUser.getEmail(), currentUser.getDisplayName(), "DELETE",
+            "User registration rejected: " + targetUser.getEmail() + " (displayName: " + targetUser.getDisplayName() + ")",
+            "status", targetUser.getStatus().name(), "DELETED");
+
+        userRepository.delete(targetUser);
+
+        log.info("User registration rejected and deleted: {} by {}", email, currentUser.getEmail());
     }
 }

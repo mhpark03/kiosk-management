@@ -166,6 +166,11 @@
   color: #c05621;
 }
 
+.status-pending {
+  background: #fff3cd;
+  color: #856404;
+}
+
 .action-buttons {
   display: flex;
   gap: 8px;

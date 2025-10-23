@@ -66,6 +66,7 @@ public class User {
 
     public enum UserStatus {
         ACTIVE,
+        PENDING_APPROVAL,
         SUSPENDED,
         DELETED
     }
