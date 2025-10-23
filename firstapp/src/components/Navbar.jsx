@@ -135,6 +135,17 @@ function Navbar() {
                   {user?.role === 'ADMIN' && (
                     <li className="hide-mobile">
                       <Link
+                        to="/kiosk-events"
+                        className={location.pathname === '/kiosk-events' ? 'active' : ''}
+                        onClick={closeMenu}
+                      >
+                        키오스크 이벤트 이력
+                      </Link>
+                    </li>
+                  )}
+                  {user?.role === 'ADMIN' && (
+                    <li className="hide-mobile">
+                      <Link
                         to="/user-management"
                         className={location.pathname === '/user-management' ? 'active' : ''}
                         onClick={closeMenu}
