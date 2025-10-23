@@ -112,12 +112,23 @@ function Signup() {
     try {
       setError('');
       setLoading(true);
-      await signup(email, password, name, phoneNumber);
+      const result = await signup(email, password, name, phoneNumber);
       console.log('=== Signup Success ===');
       console.log('User name:', name);
-      console.log('Signup successful, navigating to dashboard');
+      console.log('Has token:', !!result.token);
       console.log('======================');
-      navigate('/dashboard');
+
+      // Check if user has token (ACTIVE) or needs approval (PENDING_APPROVAL)
+      if (result.token) {
+        // User is ACTIVE (first 2 users or already approved)
+        console.log('User is active, navigating to dashboard');
+        navigate('/dashboard');
+      } else {
+        // User needs approval (PENDING_APPROVAL)
+        console.log('User needs approval, showing alert and redirecting to login');
+        alert('✅ 회원가입 성공!\n\n관리자의 승인이 필요합니다.\n승인 후 로그인해 주세요.\n\n문의사항이 있으시면 관리자에게 연락해주세요.');
+        navigate('/login');
+      }
     } catch (err) {
       console.error('=== Signup Error ===');
       console.error('Full error object:', err);

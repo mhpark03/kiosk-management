@@ -37,11 +37,14 @@ export const authService = {
       const response = await authApi.post('/auth/signup', { email, password, displayName, phoneNumber });
       const { token, email: userEmail, displayName: name, role } = response.data;
 
-      // Store token and user info
-      localStorage.setItem('jwtToken', token);
-      localStorage.setItem('userEmail', userEmail);
-      localStorage.setItem('displayName', name);
-      localStorage.setItem('userRole', role);
+      // Only store token and user info if token is provided (ACTIVE users)
+      // PENDING_APPROVAL users won't have a token
+      if (token) {
+        localStorage.setItem('jwtToken', token);
+        localStorage.setItem('userEmail', userEmail);
+        localStorage.setItem('displayName', name);
+        localStorage.setItem('userRole', role);
+      }
 
       return response.data;
     } catch (error) {
