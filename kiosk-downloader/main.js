@@ -379,4 +379,47 @@ ipcMain.handle('open-file', async (event, filePath) => {
   }
 });
 
+ipcMain.handle('open-video-player', async (event, { filePath, title }) => {
+  try {
+    if (!fs.existsSync(filePath)) {
+      return { success: false, error: 'File not found' };
+    }
+
+    // Create video player window
+    const videoWindow = new BrowserWindow({
+      width: 1280,
+      height: 720,
+      backgroundColor: '#000000',
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true,
+        enableRemoteModule: false
+      },
+      show: false
+    });
+
+    // Encode parameters for URL
+    const encodedPath = encodeURIComponent(filePath);
+    const encodedTitle = encodeURIComponent(title || 'Video Player');
+    const videoPlayerUrl = `file://${path.join(__dirname, 'renderer', 'video-player.html')}?path=${encodedPath}&title=${encodedTitle}`;
+
+    videoWindow.loadURL(videoPlayerUrl);
+
+    // Show window when ready
+    videoWindow.once('ready-to-show', () => {
+      videoWindow.show();
+    });
+
+    // Clean up when window is closed
+    videoWindow.on('closed', () => {
+      // Window cleanup
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error opening video player:', error);
+    return { success: false, error: error.message };
+  }
+});
+
 console.log('Kiosk Video Downloader - Main process started');

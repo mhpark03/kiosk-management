@@ -24,6 +24,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   checkFileExists: (filePath) => ipcRenderer.invoke('check-file-exists', filePath),
   deleteFile: (filePath) => ipcRenderer.invoke('delete-file', filePath),
   openFile: (filePath) => ipcRenderer.invoke('open-file', filePath),
+  openVideoPlayer: (params) => ipcRenderer.invoke('open-video-player', params),
 
   // Event listeners
   onDownloadProgress: (callback) => {
