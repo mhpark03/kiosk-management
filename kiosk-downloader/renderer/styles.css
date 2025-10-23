@@ -719,11 +719,13 @@ footer {
 }
 
 .form-actions {
+  display: flex;
+  gap: 10px;
   margin-top: 10px;
 }
 
 .form-actions button {
-  width: 100%;
+  flex: 1;
 }
 
 .error-message {
