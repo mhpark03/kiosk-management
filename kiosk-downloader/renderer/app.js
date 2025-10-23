@@ -1275,9 +1275,24 @@ async function handleLogin() {
     console.log('Login successful');
     recordKioskEvent('USER_LOGIN', `로그인 성공: ${currentUser.name}`);
   } else {
-    recordKioskEvent('USER_LOGIN', `로그인 실패: ${result.error}`);
-    elements.loginError.textContent = result.error || '로그인 실패';
-    elements.loginError.style.display = 'block';
+    // Check for specific error messages
+    const errorMessage = result.error || '로그인 실패';
+
+    // Check if it's an account approval required error
+    if (errorMessage.includes('관리자의 승인이 필요합니다') || errorMessage.includes('승인이 필요합니다')) {
+      recordKioskEvent('USER_LOGIN', `로그인 실패: 승인대기 - ${email}`);
+      alert('⚠️ 계정 승인 필요\n\n관리자의 승인이 필요합니다.\n승인 후 로그인해 주세요.\n\n문의사항이 있으시면 관리자에게 연락해주세요.');
+      // Clear the error message below the form since we showed an alert
+      elements.loginError.style.display = 'none';
+    } else if (errorMessage.includes('계정이 정지되었습니다') || errorMessage.includes('정지')) {
+      recordKioskEvent('USER_LOGIN', `로그인 실패: 계정정지 - ${email}`);
+      alert('🚫 계정 정지\n\n계정이 정지되었습니다.\n관리자에게 문의하세요.');
+      elements.loginError.style.display = 'none';
+    } else {
+      recordKioskEvent('USER_LOGIN', `로그인 실패: ${errorMessage}`);
+      elements.loginError.textContent = errorMessage;
+      elements.loginError.style.display = 'block';
+    }
   }
 
   // Re-enable login button

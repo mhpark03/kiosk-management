@@ -28,17 +28,24 @@ export const AuthProvider = ({ children }) => {
   const signup = async (email, password, displayName, phoneNumber) => {
     try {
       const response = await authService.signup(email, password, displayName, phoneNumber);
-      setUser({
-        email: response.email,
-        name: response.displayName,
-        displayName: response.displayName,
-        role: response.role
-      });
+
+      // Only set user if token is provided (ACTIVE users)
+      // PENDING_APPROVAL users won't have a token and need admin approval
+      if (response.token) {
+        setUser({
+          email: response.email,
+          name: response.displayName,
+          displayName: response.displayName,
+          role: response.role
+        });
+      }
+
       return {
         email: response.email,
         name: response.displayName,
         displayName: response.displayName,
-        role: response.role
+        role: response.role,
+        token: response.token // Include token info for caller to check
       };
     } catch (error) {
       throw new Error(error.message);
