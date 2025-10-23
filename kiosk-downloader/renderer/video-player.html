@@ -38,12 +38,6 @@
       left: 0;
       right: 0;
       z-index: 10;
-      transition: opacity 0.3s;
-    }
-
-    .header.hidden {
-      opacity: 0;
-      pointer-events: none;
     }
 
     .video-title {
@@ -103,26 +97,56 @@
       bottom: 0;
       left: 0;
       right: 0;
-      background: rgba(0, 0, 0, 0.7);
-      padding: 15px;
+      background: rgba(0, 0, 0, 0.8);
+      padding: 20px;
       display: flex;
       align-items: center;
       gap: 15px;
-      transition: opacity 0.3s;
     }
 
-    .controls.hidden {
+    .center-play-btn {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0, 0, 0, 0.7);
+      border: 3px solid white;
+      border-radius: 50%;
+      width: 100px;
+      height: 100px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 50px;
+      color: white;
+      transition: all 0.3s;
+      z-index: 5;
+    }
+
+    .center-play-btn:hover {
+      background: rgba(0, 0, 0, 0.9);
+      transform: translate(-50%, -50%) scale(1.1);
+    }
+
+    .center-play-btn.hidden {
       opacity: 0;
       pointer-events: none;
     }
 
     .play-pause-btn {
-      background: transparent;
+      background: #667eea;
       border: none;
       color: white;
       font-size: 24px;
       cursor: pointer;
-      padding: 5px 10px;
+      padding: 8px 15px;
+      border-radius: 4px;
+      transition: background 0.2s;
+    }
+
+    .play-pause-btn:hover {
+      background: #5568d3;
     }
 
     .time {
@@ -189,6 +213,8 @@
       비디오를 재생할 수 없습니다.
     </video>
 
+    <div class="center-play-btn" id="centerPlayBtn">▶️</div>
+
     <div class="controls" id="controls">
       <button class="play-pause-btn" id="playPauseBtn">▶️</button>
       <div class="time" id="timeDisplay">0:00 / 0:00</div>
@@ -210,6 +236,7 @@
     const videoTitle = document.getElementById('videoTitle');
     const closeBtn = document.getElementById('closeBtn');
     const playPauseBtn = document.getElementById('playPauseBtn');
+    const centerPlayBtn = document.getElementById('centerPlayBtn');
     const timeDisplay = document.getElementById('timeDisplay');
     const progressBar = document.getElementById('progressBar');
     const progressFill = document.getElementById('progressFill');
@@ -219,8 +246,6 @@
     const header = document.getElementById('header');
     const controls = document.getElementById('controls');
     const videoContainer = document.getElementById('videoContainer');
-
-    let hideControlsTimeout;
 
     // Get video path from URL query parameter
     const urlParams = new URLSearchParams(window.location.search);
@@ -260,17 +285,39 @@
 
     // Play/Pause
     playPauseBtn.addEventListener('click', togglePlayPause);
+    centerPlayBtn.addEventListener('click', togglePlayPause);
     video.addEventListener('click', togglePlayPause);
 
     function togglePlayPause() {
       if (video.paused) {
         video.play();
         playPauseBtn.textContent = '⏸️';
+        centerPlayBtn.classList.add('hidden');
       } else {
         video.pause();
         playPauseBtn.textContent = '▶️';
+        centerPlayBtn.textContent = '▶️';
+        centerPlayBtn.classList.remove('hidden');
       }
     }
+
+    // Update center play button on video play/pause events
+    video.addEventListener('play', () => {
+      playPauseBtn.textContent = '⏸️';
+      centerPlayBtn.classList.add('hidden');
+    });
+
+    video.addEventListener('pause', () => {
+      playPauseBtn.textContent = '▶️';
+      centerPlayBtn.textContent = '▶️';
+      centerPlayBtn.classList.remove('hidden');
+    });
+
+    video.addEventListener('ended', () => {
+      playPauseBtn.textContent = '▶️';
+      centerPlayBtn.textContent = '🔄';
+      centerPlayBtn.classList.remove('hidden');
+    });
 
     // Time update
     video.addEventListener('timeupdate', () => {
@@ -337,24 +384,7 @@
       return `${mins}:${secs.toString().padStart(2, '0')}`;
     }
 
-    // Auto-hide controls
-    function showControls() {
-      header.classList.remove('hidden');
-      controls.classList.remove('hidden');
-      document.body.style.cursor = 'default';
-
-      clearTimeout(hideControlsTimeout);
-      if (!video.paused) {
-        hideControlsTimeout = setTimeout(() => {
-          header.classList.add('hidden');
-          controls.classList.add('hidden');
-          document.body.style.cursor = 'none';
-        }, 3000);
-      }
-    }
-
-    videoContainer.addEventListener('mousemove', showControls);
-    videoContainer.addEventListener('click', showControls);
+    // Controls are always visible - no auto-hide
 
     // Keyboard shortcuts
     document.addEventListener('keydown', (e) => {
@@ -373,9 +403,6 @@
         video.currentTime = Math.max(video.currentTime - 10, 0);
       }
     });
-
-    // Show controls initially
-    showControls();
   </script>
 </body>
 </html>
