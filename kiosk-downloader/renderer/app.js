@@ -962,7 +962,7 @@ async function deleteVideo(video) {
   }
 }
 
-// Play video file using system default player
+// Play video file in new window
 async function playVideo(video) {
   const fileName = generateFileName(video);
   const kioskDownloadPath = `${config.downloadPath}\\${config.kioskId}`;
@@ -976,8 +976,11 @@ async function playVideo(video) {
     return;
   }
 
-  // Open file with system default player
-  const result = await window.electronAPI.openFile(filePath);
+  // Open video player in new window
+  const result = await window.electronAPI.openVideoPlayer({
+    filePath: filePath,
+    title: video.title
+  });
 
   if (!result.success) {
     recordKioskEvent('VIDEO_PLAY_FAIL', `영상 재생 실패: ${video.title}`, JSON.stringify({
