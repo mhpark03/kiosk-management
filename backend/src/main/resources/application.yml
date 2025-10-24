@@ -47,6 +47,11 @@ aws:
     access-key: ${AWS_ACCESS_KEY_ID}
     secret-key: ${AWS_SECRET_ACCESS_KEY}
 
+runway:
+  api:
+    key: ${RUNWAY_API_KEY:key_51795ced3da73579936a7ac67742b9f42e5d62e77673ccdf33ecb52af57dda1a37206045addb88294a3bc97849a7506b666b8901c49e6b9782ab1712df06a232}
+    url: ${RUNWAY_API_URL:https://api.dev.runwayml.com}
+
 logging:
   level:
     com.kiosk.backend: DEBUG
