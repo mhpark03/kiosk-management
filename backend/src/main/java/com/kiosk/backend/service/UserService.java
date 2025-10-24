@@ -407,4 +407,50 @@ public class UserService {
 
         log.info("User registration rejected and deleted: {} by {}", email, currentUser.getEmail());
     }
+
+    /**
+     * Reset user password (Admin only)
+     */
+    @Transactional
+    public void resetUserPassword(String email, String newPassword) {
+        User currentUser = getCurrentUser();
+        User targetUser = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        String encodedPassword = passwordEncoder.encode(newPassword);
+        targetUser.setPassword(encodedPassword);
+        userRepository.save(targetUser);
+
+        logUserActivity(currentUser.getEmail(), currentUser.getDisplayName(), "UPDATE",
+            "Password reset for user: " + targetUser.getEmail(),
+            "password", "***", "***");
+
+        log.info("Password reset for user: {} by {}", email, currentUser.getEmail());
+    }
+
+    /**
+     * Reset password by verifying email and display name (No authentication required)
+     */
+    @Transactional
+    public void resetPasswordWithVerification(String email, String displayName, String newPassword) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("이메일 또는 이름이 일치하지 않습니다."));
+
+        // Verify display name matches
+        if (!user.getDisplayName().equals(displayName)) {
+            throw new RuntimeException("이메일 또는 이름이 일치하지 않습니다.");
+        }
+
+        // Encode and set new password
+        String encodedPassword = passwordEncoder.encode(newPassword);
+        user.setPassword(encodedPassword);
+        userRepository.save(user);
+
+        // Log the password reset activity
+        logUserActivity(email, displayName, "UPDATE",
+            "Password reset by user verification (email + name)",
+            "password", "***", "***");
+
+        log.info("Password reset successful for user: {} (verified by email and name)", email);
+    }
 }

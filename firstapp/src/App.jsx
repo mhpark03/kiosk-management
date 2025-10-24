@@ -15,6 +15,7 @@ import UserManagement from './components/UserManagement';
 import BatchManagement from './components/BatchManagement';
 import VideoManagement from './components/VideoManagement';
 import VideoUpload from './components/VideoUpload';
+import VideoGenerator from './components/VideoGenerator';
 import KioskVideoManagement from './components/KioskVideoManagement';
 import KioskEventHistory from './components/KioskEventHistory';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -158,6 +159,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <VideoManagement />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/videos/generate"
+            element={
+              <ProtectedRoute>
+                <VideoGenerator />
               </ProtectedRoute>
             }
           />

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { generateVideo, downloadVideo } from '../services/runwayService';
+import { generateVideo, downloadVideo, saveGeneratedVideoToBackend } from '../services/runwayService';
 import './VideoGenerator.css';
 
 function VideoGenerator() {
@@ -8,12 +8,18 @@ function VideoGenerator() {
   const [image1Preview, setImage1Preview] = useState(null);
   const [image2Preview, setImage2Preview] = useState(null);
   const [prompt, setPrompt] = useState('');
-  const [model, setModel] = useState('gen3a_turbo');
-  const [duration, setDuration] = useState(5);
-  const [resolution, setResolution] = useState('1280:768');
+  const [model, setModel] = useState('veo3.1_fast');
+  const [duration, setDuration] = useState(4);
+  const [resolution, setResolution] = useState('1280:720');
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [generatedVideo, setGeneratedVideo] = useState(null);
   const [error, setError] = useState('');
+  const [saveSuccess, setSaveSuccess] = useState(false);
+
+  // Video metadata for saving
+  const [videoTitle, setVideoTitle] = useState('');
+  const [videoDescription, setVideoDescription] = useState('');
 
   // Model configurations
   const modelConfig = {
@@ -116,9 +122,14 @@ function VideoGenerator() {
       if (result.success) {
         setGeneratedVideo({
           url: result.videoUrl,
+          taskId: result.taskId,
           status: 'completed',
           metadata: result.metadata
         });
+        setSaveSuccess(false);
+        // Set default title and description
+        setVideoTitle(`Runway 생성 영상 - ${new Date().toLocaleString('ko-KR')}`);
+        setVideoDescription(prompt);
         console.log('Video generated successfully:', result);
       } else {
         throw new Error('비디오 생성에 실패했습니다.');
@@ -129,6 +140,44 @@ function VideoGenerator() {
       setError(err.message || '동영상 생성 중 오류가 발생했습니다.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSaveToBackend = async () => {
+    if (!generatedVideo) return;
+
+    if (!videoTitle.trim()) {
+      setError('제목을 입력해주세요.');
+      return;
+    }
+
+    if (!videoDescription.trim()) {
+      setError('설명을 입력해주세요.');
+      return;
+    }
+
+    try {
+      setSaving(true);
+      setError('');
+
+      await saveGeneratedVideoToBackend(
+        generatedVideo.url,
+        videoTitle,
+        videoDescription,
+        generatedVideo.taskId,
+        model,
+        resolution,
+        prompt
+      );
+
+      setSaveSuccess(true);
+      alert('비디오가 성공적으로 저장되었습니다!');
+
+    } catch (err) {
+      console.error('Save video error:', err);
+      setError(err.message || '비디오 저장 중 오류가 발생했습니다.');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -218,58 +267,58 @@ function VideoGenerator() {
           />
         </div>
 
-        {/* Model Selection Section */}
-        <div className="model-section">
-          <h2>AI 모델</h2>
-          <div className="model-control">
-            <select
-              value={model}
-              onChange={(e) => handleModelChange(e.target.value)}
-              disabled={loading}
-              className="model-select"
-            >
-              {Object.keys(modelConfig).map(modelKey => (
-                <option key={modelKey} value={modelKey}>
-                  {modelConfig[modelKey].name}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
+        {/* Video Settings Section */}
+        <div className="video-settings-section">
+          <h2>동영상 설정</h2>
+          <div className="settings-row">
+            {/* Model Selection */}
+            <div className="setting-item">
+              <label>AI 모델</label>
+              <select
+                value={model}
+                onChange={(e) => handleModelChange(e.target.value)}
+                disabled={loading}
+                className="setting-select"
+              >
+                {Object.keys(modelConfig).map(modelKey => (
+                  <option key={modelKey} value={modelKey}>
+                    {modelConfig[modelKey].name}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-        {/* Duration Section */}
-        <div className="duration-section">
-          <h2>동영상 길이</h2>
-          <div className="duration-control">
-            <select
-              value={duration}
-              onChange={(e) => setDuration(parseInt(e.target.value))}
-              disabled={loading}
-              className="duration-select"
-            >
-              {modelConfig[model].durations.map(d => (
-                <option key={d} value={d}>{d}초</option>
-              ))}
-            </select>
-          </div>
-        </div>
+            {/* Duration Selection */}
+            <div className="setting-item">
+              <label>길이</label>
+              <select
+                value={duration}
+                onChange={(e) => setDuration(parseInt(e.target.value))}
+                disabled={loading}
+                className="setting-select"
+              >
+                {modelConfig[model].durations.map(d => (
+                  <option key={d} value={d}>{d}초</option>
+                ))}
+              </select>
+            </div>
 
-        {/* Resolution Section */}
-        <div className="resolution-section">
-          <h2>해상도</h2>
-          <div className="resolution-control">
-            <select
-              value={resolution}
-              onChange={(e) => setResolution(e.target.value)}
-              disabled={loading}
-              className="resolution-select"
-            >
-              {modelConfig[model].resolutions.map(res => (
-                <option key={res} value={res}>
-                  {res.replace(':', ' x ')}
-                </option>
-              ))}
-            </select>
+            {/* Resolution Selection */}
+            <div className="setting-item">
+              <label>해상도</label>
+              <select
+                value={resolution}
+                onChange={(e) => setResolution(e.target.value)}
+                disabled={loading}
+                className="setting-select"
+              >
+                {modelConfig[model].resolutions.map(res => (
+                  <option key={res} value={res}>
+                    {res.replace(':', ' x ')}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
 
@@ -288,6 +337,40 @@ function VideoGenerator() {
             <h2>생성된 동영상</h2>
             <div className="video-preview">
               <video controls src={generatedVideo.url} />
+
+              {saveSuccess && (
+                <div className="success-message">
+                  ✓ 비디오가 S3에 저장되었습니다!
+                </div>
+              )}
+
+              {/* Save to S3 Section */}
+              {!saveSuccess && (
+                <div className="save-section">
+                  <h3>S3에 저장</h3>
+                  <div className="form-group">
+                    <label>제목</label>
+                    <input
+                      type="text"
+                      value={videoTitle}
+                      onChange={(e) => setVideoTitle(e.target.value)}
+                      placeholder="영상 제목을 입력하세요"
+                      disabled={saving}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>설명</label>
+                    <textarea
+                      value={videoDescription}
+                      onChange={(e) => setVideoDescription(e.target.value)}
+                      placeholder="영상 설명을 입력하세요"
+                      rows="3"
+                      disabled={saving}
+                    />
+                  </div>
+                </div>
+              )}
+
               <div className="video-actions">
                 <a
                   href={generatedVideo.url}
@@ -296,6 +379,15 @@ function VideoGenerator() {
                 >
                   다운로드
                 </a>
+                {!saveSuccess && (
+                  <button
+                    className="save-btn"
+                    onClick={handleSaveToBackend}
+                    disabled={saving}
+                  >
+                    {saving ? 'S3에 저장 중...' : 'S3에 저장'}
+                  </button>
+                )}
               </div>
             </div>
           </div>

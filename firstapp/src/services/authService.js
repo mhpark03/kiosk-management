@@ -93,6 +93,21 @@ export const authService = {
   isAuthenticated() {
     return !!localStorage.getItem('jwtToken');
   },
+
+  // Reset password with email and displayName verification
+  async resetPassword(email, displayName, newPassword) {
+    try {
+      const response = await authApi.post('/auth/reset-password', {
+        email,
+        displayName,
+        newPassword
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Password reset error:', error);
+      throw new Error(error.response?.data?.message || '비밀번호 재설정에 실패했습니다.');
+    }
+  },
 };
 
 export default authService;

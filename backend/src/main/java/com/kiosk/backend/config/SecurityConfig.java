@@ -39,7 +39,7 @@ public class SecurityConfig {
             // Configure authorization
             .authorizeHttpRequests(auth -> auth
                 // Public endpoints - authentication not required
-                .requestMatchers("/api/auth/login", "/api/auth/signup").permitAll()
+                .requestMatchers("/api/auth/login", "/api/auth/signup", "/api/auth/reset-password").permitAll()
                 // H2 Console (for development/testing only - REMOVE IN PRODUCTION!)
                 .requestMatchers("/h2-console/**").permitAll()
                 // Swagger/OpenAPI endpoints
@@ -56,6 +56,8 @@ public class SecurityConfig {
                 .requestMatchers("/api/kiosks/by-kioskid/*/videos-with-status").authenticated()
                 .requestMatchers("/api/kiosks/by-kioskid/*/videos/*/status").authenticated()
                 .requestMatchers("/api/videos/*").authenticated()
+                // Runway API endpoints - requires authentication
+                .requestMatchers("/api/runway/**").authenticated()
                 // All other endpoints require authentication
                 .requestMatchers("/api/**").authenticated()
                 .anyRequest().authenticated()

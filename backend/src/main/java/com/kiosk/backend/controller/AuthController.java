@@ -3,6 +3,7 @@ package com.kiosk.backend.controller;
 import com.kiosk.backend.dto.AuthResponse;
 import com.kiosk.backend.dto.LoginRequest;
 import com.kiosk.backend.dto.PasswordChangeRequest;
+import com.kiosk.backend.dto.PasswordResetRequest;
 import com.kiosk.backend.dto.ProfileUpdateRequest;
 import com.kiosk.backend.dto.SignupRequest;
 import com.kiosk.backend.entity.User;
@@ -91,6 +92,18 @@ public class AuthController {
     @DeleteMapping("/me")
     public ResponseEntity<Void> deleteMyAccount() {
         userService.deleteMyAccount();
+        return ResponseEntity.ok().build();
+    }
+
+    @PutMapping("/users/{email}/reset-password")
+    public ResponseEntity<Void> resetUserPassword(@PathVariable String email, @RequestParam String newPassword) {
+        userService.resetUserPassword(email, newPassword);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<Void> resetPassword(@Valid @RequestBody PasswordResetRequest request) {
+        userService.resetPasswordWithVerification(request.getEmail(), request.getDisplayName(), request.getNewPassword());
         return ResponseEntity.ok().build();
     }
 }

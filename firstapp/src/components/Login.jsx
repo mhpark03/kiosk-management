@@ -79,6 +79,10 @@ function Login() {
               onChange={(e) => setPassword(e.target.value)}
               placeholder="비밀번호를 입력하세요"
               disabled={loading}
+              autoCapitalize="off"
+              autoComplete="off"
+              autoCorrect="off"
+              spellCheck="false"
             />
           </div>
 
