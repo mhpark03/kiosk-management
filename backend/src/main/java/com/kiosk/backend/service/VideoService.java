@@ -29,6 +29,8 @@ public class VideoService {
     // S3 folder structure
     private static final String VIDEO_UPLOAD_FOLDER = "videos/uploads/";
     private static final String VIDEO_RUNWAY_FOLDER = "videos/runway/";
+    private static final String IMAGE_UPLOAD_FOLDER = "images/uploads/";
+    private static final String IMAGE_RUNWAY_FOLDER = "images/runway/";
     private static final String THUMBNAIL_UPLOAD_FOLDER = "thumbnails/uploads/";
     private static final String THUMBNAIL_RUNWAY_FOLDER = "thumbnails/runway/";
     private static final long MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB
@@ -572,6 +574,97 @@ public class VideoService {
                     Files.delete(tempVideoPath);
                 } catch (IOException e) {
                     log.error("Failed to delete temporary video file: {}", e.getMessage());
+                }
+            }
+        }
+    }
+
+    /**
+     * Save Runway ML generated image to S3 and database
+     * Downloads image from URL, uploads to S3, and saves metadata
+     */
+    public Video saveRunwayGeneratedImage(String imageUrl, Long uploadedById, String title, String description,
+                                          String runwayTaskId, String runwayResolution, String runwayPrompt, String imageStyle) throws IOException {
+        log.info("Downloading Runway ML generated image from: {}", imageUrl);
+
+        // Validate inputs
+        if (title == null || title.trim().isEmpty()) {
+            throw new IllegalArgumentException("Title is required");
+        }
+        if (description == null || description.trim().isEmpty()) {
+            throw new IllegalArgumentException("Description is required");
+        }
+
+        Path tempImagePath = null;
+        try {
+            // Download image from URL to temporary file
+            tempImagePath = Files.createTempFile("runway_image_", ".png");
+            java.net.URL url = new java.net.URL(imageUrl);
+            try (java.io.InputStream in = url.openStream()) {
+                Files.copy(in, tempImagePath, StandardCopyOption.REPLACE_EXISTING);
+            }
+
+            long fileSize = Files.size(tempImagePath);
+            log.info("Downloaded image file, size: {} bytes", fileSize);
+
+            // Upload image to S3 (runway images folder)
+            String filename = "runway_image_" + java.util.UUID.randomUUID().toString() + ".png";
+
+            byte[] imageBytes = Files.readAllBytes(tempImagePath);
+            String uploadedS3Key = s3Service.uploadBytes(imageBytes, IMAGE_RUNWAY_FOLDER, filename, "image/png");
+            String s3Url = s3Service.getFileUrl(uploadedS3Key);
+
+            log.info("Uploaded Runway image to S3: {}", uploadedS3Key);
+
+            // For images, use the same image as thumbnail (just copy to thumbnails folder)
+            String thumbnailS3Key = null;
+            String thumbnailUrl = null;
+            try {
+                String thumbnailFilename = filename.replace(".png", "_thumb.png");
+                thumbnailS3Key = s3Service.uploadBytes(imageBytes, THUMBNAIL_RUNWAY_FOLDER, thumbnailFilename, "image/png");
+                thumbnailUrl = s3Service.getFileUrl(thumbnailS3Key);
+                log.info("Thumbnail uploaded successfully: {}", thumbnailS3Key);
+            } catch (Exception e) {
+                log.error("Failed to upload thumbnail: {}", e.getMessage());
+                // Continue without thumbnail
+            }
+
+            // Save metadata to database with Runway ML info and RUNWAY_GENERATED type
+            Video video = Video.builder()
+                    .videoType(Video.VideoType.RUNWAY_GENERATED)
+                    .mediaType(Video.MediaType.IMAGE)
+                    .filename(filename)
+                    .originalFilename("runway_generated_image_" + runwayTaskId + ".png")
+                    .fileSize(fileSize)
+                    .contentType("image/png")
+                    .s3Key(uploadedS3Key)
+                    .s3Url(s3Url)
+                    .thumbnailS3Key(thumbnailS3Key)
+                    .thumbnailUrl(thumbnailUrl)
+                    .uploadedById(uploadedById)
+                    .title(title)
+                    .description(description)
+                    .runwayTaskId(runwayTaskId)
+                    .runwayModel("gen4_image")
+                    .runwayResolution(runwayResolution)
+                    .runwayPrompt(runwayPrompt)
+                    .imageStyle(imageStyle)
+                    .build();
+
+            Video savedVideo = videoRepository.save(video);
+            log.info("Runway ML generated image saved successfully: {} by user ID {}", savedVideo.getTitle(), uploadedById);
+
+            return savedVideo;
+        } catch (Exception e) {
+            log.error("Failed to save Runway ML generated image", e);
+            throw new IOException("Failed to save Runway ML generated image: " + e.getMessage(), e);
+        } finally {
+            // Clean up temporary file
+            if (tempImagePath != null && Files.exists(tempImagePath)) {
+                try {
+                    Files.delete(tempImagePath);
+                } catch (IOException e) {
+                    log.error("Failed to delete temporary image file: {}", e.getMessage());
                 }
             }
         }

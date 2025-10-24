@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { generateImage, downloadImage } from '../services/imageService';
+import { generateImage, downloadImage, saveGeneratedImageToBackend } from '../services/imageService';
 import './ImageGenerator.css';
 
 function ImageGenerator() {
@@ -7,7 +7,7 @@ function ImageGenerator() {
   const [imagePreviews, setImagePreviews] = useState([null, null, null, null, null]);
   const [prompt, setPrompt] = useState('');
   const [style, setStyle] = useState('realistic');
-  const [aspectRatio, setAspectRatio] = useState('1:1');
+  const [aspectRatio, setAspectRatio] = useState('1920:1080');
   const [loading, setLoading] = useState(false);
   const [generatedImage, setGeneratedImage] = useState(null);
   const [error, setError] = useState('');
@@ -23,13 +23,13 @@ function ImageGenerator() {
     { value: 'illustration', label: '일러스트' }
   ];
 
-  // Aspect ratio options
+  // Aspect ratio options (Runway ML API supported resolutions)
   const aspectRatioOptions = [
-    { value: '1:1', label: '정사각형 (1:1)' },
-    { value: '16:9', label: '가로 (16:9)' },
-    { value: '9:16', label: '세로 (9:16)' },
-    { value: '4:3', label: '가로 (4:3)' },
-    { value: '3:4', label: '세로 (3:4)' }
+    { value: '1024:1024', label: '정사각형 (1:1)' },
+    { value: '1920:1080', label: '가로 (16:9)' },
+    { value: '1080:1920', label: '세로 (9:16)' },
+    { value: '1440:1080', label: '가로 (4:3)' },
+    { value: '1080:1440', label: '세로 (3:4)' }
   ];
 
   const handleImageUpload = (e, index) => {
@@ -99,6 +99,7 @@ function ImageGenerator() {
       if (result.success) {
         setGeneratedImage({
           url: result.imageUrl,
+          taskId: result.taskId,
           status: 'completed',
           metadata: result.metadata
         });
@@ -110,6 +111,36 @@ function ImageGenerator() {
     } catch (err) {
       console.error('Image generation error:', err);
       setError(err.message || '이미지 생성 중 오류가 발생했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSaveImage = async () => {
+    if (!generatedImage) return;
+
+    try {
+      setLoading(true);
+      setError('');
+
+      // Default title and description
+      const title = `AI 생성 이미지 - ${new Date().toLocaleString('ko-KR')}`;
+      const description = generatedImage.metadata.prompt || '편집이 필요합니다';
+
+      await saveGeneratedImageToBackend(
+        generatedImage.url,
+        title,
+        description,
+        generatedImage.taskId,
+        generatedImage.metadata.aspectRatio,
+        generatedImage.metadata.prompt,
+        generatedImage.metadata.style
+      );
+
+      alert('이미지가 성공적으로 저장되었습니다!');
+    } catch (err) {
+      console.error('Save image error:', err);
+      setError(err.message || '이미지 저장 중 오류가 발생했습니다.');
     } finally {
       setLoading(false);
     }
@@ -227,6 +258,13 @@ function ImageGenerator() {
             <div className="image-result">
               <img src={generatedImage.url} alt="Generated" />
               <div className="image-actions">
+                <button
+                  onClick={handleSaveImage}
+                  className="save-btn"
+                  disabled={loading}
+                >
+                  S3에 저장
+                </button>
                 <a
                   href={generatedImage.url}
                   download="generated-image.png"
