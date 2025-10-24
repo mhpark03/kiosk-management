@@ -47,6 +47,81 @@ public class RunwayService {
     }
 
     /**
+     * Download image from URL and convert to base64
+     */
+    private String downloadImageAndConvertToBase64(String imageUrl) throws Exception {
+        log.info("Downloading image from URL: {}", imageUrl);
+        byte[] imageBytes = restTemplate.getForObject(imageUrl, byte[].class);
+        if (imageBytes == null || imageBytes.length == 0) {
+            throw new RuntimeException("Failed to download image from URL: " + imageUrl);
+        }
+        log.info("Downloaded {} bytes from URL", imageBytes.length);
+        return java.util.Base64.getEncoder().encodeToString(imageBytes);
+    }
+
+    /**
+     * Adjust image aspect ratio by adding padding (Runway ML requires 0.5 to 2.0)
+     */
+    private byte[] adjustImageAspectRatio(java.awt.image.BufferedImage image) throws Exception {
+        int width = image.getWidth();
+        int height = image.getHeight();
+        double aspectRatio = (double) width / height;
+
+        log.info("Original image aspect ratio: {} ({}x{})", aspectRatio, width, height);
+
+        // If already within acceptable range, return original
+        if (aspectRatio >= 0.5 && aspectRatio <= 2.0) {
+            java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+            javax.imageio.ImageIO.write(image, "png", baos);
+            return baos.toByteArray();
+        }
+
+        // Calculate new dimensions with padding
+        int canvasWidth, canvasHeight;
+        int drawX, drawY;
+
+        if (aspectRatio < 0.5) {
+            // Too tall (narrow) - add padding on left and right
+            double targetRatio = 0.7;
+            canvasHeight = height;
+            canvasWidth = (int) (canvasHeight * targetRatio);
+            drawX = (canvasWidth - width) / 2;
+            drawY = 0;
+        } else {
+            // Too wide - add padding on top and bottom
+            double targetRatio = 1.5;
+            canvasWidth = width;
+            canvasHeight = (int) (canvasWidth / targetRatio);
+            drawX = 0;
+            drawY = (canvasHeight - height) / 2;
+        }
+
+        // Create new image with padding
+        java.awt.image.BufferedImage paddedImage = new java.awt.image.BufferedImage(
+            canvasWidth, canvasHeight, java.awt.image.BufferedImage.TYPE_INT_RGB
+        );
+
+        java.awt.Graphics2D g2d = paddedImage.createGraphics();
+
+        // Fill background with black
+        g2d.setColor(java.awt.Color.BLACK);
+        g2d.fillRect(0, 0, canvasWidth, canvasHeight);
+
+        // Draw original image centered
+        g2d.drawImage(image, drawX, drawY, null);
+        g2d.dispose();
+
+        double newAspectRatio = (double) canvasWidth / canvasHeight;
+        log.info("Adjusted image aspect ratio (padding added): {} → {} ({}x{})",
+                 aspectRatio, newAspectRatio, canvasWidth, canvasHeight);
+
+        // Convert to byte array
+        java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+        javax.imageio.ImageIO.write(paddedImage, "png", baos);
+        return baos.toByteArray();
+    }
+
+    /**
      * Generate video using Runway API with configurable model and resolution
      * Models and their constraints:
      * - veo3: duration must be 8, resolution: 1280:720, 720:1280, 1080:1920, 1920:1080
@@ -65,9 +140,16 @@ public class RunwayService {
         log.info("Resolution: {}", resolution);
 
         try {
+            // Adjust aspect ratios by adding padding if needed
+            java.awt.image.BufferedImage bufferedImage1 = javax.imageio.ImageIO.read(image1.getInputStream());
+            java.awt.image.BufferedImage bufferedImage2 = javax.imageio.ImageIO.read(image2.getInputStream());
+
+            byte[] adjustedImage1 = adjustImageAspectRatio(bufferedImage1);
+            byte[] adjustedImage2 = adjustImageAspectRatio(bufferedImage2);
+
             // Convert images to base64
-            String image1Base64 = "data:image/png;base64," + imageToBase64(image1);
-            String image2Base64 = "data:image/png;base64," + imageToBase64(image2);
+            String image1Base64 = "data:image/png;base64," + java.util.Base64.getEncoder().encodeToString(adjustedImage1);
+            String image2Base64 = "data:image/png;base64," + java.util.Base64.getEncoder().encodeToString(adjustedImage2);
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
@@ -153,9 +235,10 @@ public class RunwayService {
      * @param aspectRatio Aspect ratio (e.g., "16:9", "1:1", "9:16")
      * @return Task information including task ID
      */
-    public Map<String, Object> generateImage(MultipartFile[] images, String prompt, String aspectRatio) {
+    public Map<String, Object> generateImage(MultipartFile[] images, String[] imageUrls, String prompt, String aspectRatio) {
         log.info("Generating image with Runway gen4_image model");
-        log.info("Number of reference images: {}", images.length);
+        log.info("Number of uploaded reference images: {}", images != null ? images.length : 0);
+        log.info("Number of S3 reference image URLs: {}", imageUrls != null ? imageUrls.length : 0);
         log.info("Prompt: {}", prompt);
         log.info("Aspect Ratio: {}", aspectRatio);
 
@@ -172,17 +255,53 @@ public class RunwayService {
 
             // Add reference images as array of objects with uri and tag
             List<Map<String, String>> referenceImages = new ArrayList<>();
-            for (int i = 0; i < images.length; i++) {
-                if (images[i] != null && !images[i].isEmpty()) {
-                    String imageBase64 = "data:image/png;base64," + imageToBase64(images[i]);
-                    String tag = "image" + (i + 1);
+            int imageCounter = 1;
 
-                    Map<String, String> imageObj = new HashMap<>();
-                    imageObj.put("uri", imageBase64);
-                    imageObj.put("tag", tag);
+            // Process uploaded files
+            if (images != null) {
+                for (int i = 0; i < images.length; i++) {
+                    if (images[i] != null && !images[i].isEmpty()) {
+                        // Adjust aspect ratio by adding padding if needed
+                        java.awt.image.BufferedImage bufferedImage = javax.imageio.ImageIO.read(images[i].getInputStream());
+                        byte[] adjustedImageBytes = adjustImageAspectRatio(bufferedImage);
 
-                    referenceImages.add(imageObj);
-                    log.info("Added reference image with tag: @{}", tag);
+                        String imageBase64 = "data:image/png;base64," + java.util.Base64.getEncoder().encodeToString(adjustedImageBytes);
+                        String tag = "image" + imageCounter++;
+
+                        Map<String, String> imageObj = new HashMap<>();
+                        imageObj.put("uri", imageBase64);
+                        imageObj.put("tag", tag);
+
+                        referenceImages.add(imageObj);
+                        log.info("Added uploaded reference image with tag: @{}", tag);
+                    }
+                }
+            }
+
+            // Process S3 URLs
+            if (imageUrls != null) {
+                for (int i = 0; i < imageUrls.length; i++) {
+                    if (imageUrls[i] != null && !imageUrls[i].isEmpty()) {
+                        byte[] imageBytes = restTemplate.getForObject(imageUrls[i], byte[].class);
+                        if (imageBytes == null || imageBytes.length == 0) {
+                            throw new RuntimeException("Failed to download image from URL: " + imageUrls[i]);
+                        }
+
+                        // Adjust aspect ratio by adding padding if needed
+                        java.io.ByteArrayInputStream bais = new java.io.ByteArrayInputStream(imageBytes);
+                        java.awt.image.BufferedImage bufferedImage = javax.imageio.ImageIO.read(bais);
+                        byte[] adjustedImageBytes = adjustImageAspectRatio(bufferedImage);
+
+                        String imageBase64 = "data:image/png;base64," + java.util.Base64.getEncoder().encodeToString(adjustedImageBytes);
+                        String tag = "image" + imageCounter++;
+
+                        Map<String, String> imageObj = new HashMap<>();
+                        imageObj.put("uri", imageBase64);
+                        imageObj.put("tag", tag);
+
+                        referenceImages.add(imageObj);
+                        log.info("Added S3 reference image with tag: @{}", tag);
+                    }
                 }
             }
 

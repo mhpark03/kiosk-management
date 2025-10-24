@@ -1,16 +1,25 @@
 import { useState } from 'react';
 import { generateImage, downloadImage, saveGeneratedImageToBackend } from '../services/imageService';
+import S3ImageSelector from './S3ImageSelector';
 import './ImageGenerator.css';
 
 function ImageGenerator() {
-  const [images, setImages] = useState([null, null, null, null, null]);
-  const [imagePreviews, setImagePreviews] = useState([null, null, null, null, null]);
+  // Image data structure: {source: 'local'|'s3', file: File|null, url: string|null, preview: string|null}
+  const [images, setImages] = useState([
+    {source: 'local', file: null, url: null, preview: null},
+    {source: 'local', file: null, url: null, preview: null},
+    {source: 'local', file: null, url: null, preview: null},
+    {source: 'local', file: null, url: null, preview: null},
+    {source: 'local', file: null, url: null, preview: null}
+  ]);
   const [prompt, setPrompt] = useState('');
   const [style, setStyle] = useState('realistic');
   const [aspectRatio, setAspectRatio] = useState('1920:1080');
   const [loading, setLoading] = useState(false);
   const [generatedImage, setGeneratedImage] = useState(null);
   const [error, setError] = useState('');
+  const [s3SelectorOpen, setS3SelectorOpen] = useState(false);
+  const [currentSlot, setCurrentSlot] = useState(null);
 
   const MAX_IMAGES = 5;
 
@@ -32,6 +41,70 @@ function ImageGenerator() {
     { value: '1080:1440', label: '세로 (3:4)' }
   ];
 
+  const adjustImageAspectRatio = (imgSrc) => {
+    return new Promise((resolve, reject) => {
+      const image = new Image();
+      image.onload = () => {
+        const aspectRatio = image.width / image.height;
+
+        // Runway ML API requires aspect ratio between 0.5 and 2.0
+        if (aspectRatio >= 0.5 && aspectRatio <= 2.0) {
+          // Already within acceptable range
+          resolve(imgSrc);
+          return;
+        }
+
+        // Need to add padding to fit within acceptable range
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+
+        let canvasWidth, canvasHeight, drawX, drawY, drawWidth, drawHeight;
+
+        if (aspectRatio < 0.5) {
+          // Too tall (narrow) - add padding on left and right to achieve ratio of 0.7
+          const targetRatio = 0.7;
+          canvasHeight = image.height;
+          canvasWidth = canvasHeight * targetRatio;
+
+          // Center the original image horizontally
+          drawWidth = image.width;
+          drawHeight = image.height;
+          drawX = (canvasWidth - drawWidth) / 2;
+          drawY = 0;
+        } else {
+          // Too wide - add padding on top and bottom to achieve ratio of 1.5
+          const targetRatio = 1.5;
+          canvasWidth = image.width;
+          canvasHeight = canvasWidth / targetRatio;
+
+          // Center the original image vertically
+          drawWidth = image.width;
+          drawHeight = image.height;
+          drawX = 0;
+          drawY = (canvasHeight - drawHeight) / 2;
+        }
+
+        canvas.width = canvasWidth;
+        canvas.height = canvasHeight;
+
+        // Fill background with black color
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+        // Draw original image centered
+        ctx.drawImage(image, drawX, drawY, drawWidth, drawHeight);
+
+        // Convert canvas to data URL
+        const adjustedImageUrl = canvas.toDataURL('image/png');
+
+        console.log(`이미지 비율 자동 조정 (여백 추가): ${aspectRatio.toFixed(2)} → ${(canvasWidth / canvasHeight).toFixed(2)}`);
+        resolve(adjustedImageUrl);
+      };
+      image.onerror = () => reject(new Error('이미지를 로드할 수 없습니다.'));
+      image.src = imgSrc;
+    });
+  };
+
   const handleImageUpload = (e, index) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -48,31 +121,75 @@ function ImageGenerator() {
       return;
     }
 
-    // Create preview
+    // Create preview and auto-adjust aspect ratio if needed
     const reader = new FileReader();
-    reader.onloadend = () => {
-      const newImages = [...images];
-      const newPreviews = [...imagePreviews];
-      newImages[index] = file;
-      newPreviews[index] = reader.result;
-      setImages(newImages);
-      setImagePreviews(newPreviews);
-      setError('');
+    reader.onloadend = async () => {
+      try {
+        // Auto-adjust aspect ratio to fit within 0.5~2.0 range
+        const adjustedImageUrl = await adjustImageAspectRatio(reader.result);
+
+        // Convert adjusted image back to File object
+        const response = await fetch(adjustedImageUrl);
+        const blob = await response.blob();
+        const adjustedFile = new File([blob], file.name, { type: 'image/png' });
+
+        const newImages = [...images];
+        newImages[index] = {
+          source: 'local',
+          file: adjustedFile,
+          url: null,
+          preview: adjustedImageUrl
+        };
+        setImages(newImages);
+        setError('');
+      } catch (err) {
+        setError(err.message);
+      }
     };
     reader.readAsDataURL(file);
   };
 
   const handleRemoveImage = (index) => {
     const newImages = [...images];
-    const newPreviews = [...imagePreviews];
-    newImages[index] = null;
-    newPreviews[index] = null;
+    newImages[index] = {source: 'local', file: null, url: null, preview: null};
     setImages(newImages);
-    setImagePreviews(newPreviews);
+  };
+
+  const handleSourceChange = (index, source) => {
+    const newImages = [...images];
+    newImages[index] = {source: source, file: null, url: null, preview: null};
+    setImages(newImages);
+  };
+
+  const handleOpenS3Selector = (index) => {
+    setCurrentSlot(index);
+    setS3SelectorOpen(true);
+  };
+
+  const handleS3ImageSelect = async (s3Image) => {
+    if (currentSlot !== null) {
+      try {
+        // Auto-adjust aspect ratio of S3 image if needed
+        const imageUrl = s3Image.thumbnailUrl || s3Image.s3Url;
+        const adjustedImageUrl = await adjustImageAspectRatio(imageUrl);
+
+        const newImages = [...images];
+        newImages[currentSlot] = {
+          source: 's3',
+          file: null,
+          url: s3Image.s3Url,
+          preview: adjustedImageUrl
+        };
+        setImages(newImages);
+        setError('');
+      } catch (err) {
+        setError(err.message);
+      }
+    }
   };
 
   const getUploadedImageCount = () => {
-    return images.filter(img => img !== null).length;
+    return images.filter(img => img.file !== null || img.url !== null).length;
   };
 
   const handleGenerateImage = async () => {
@@ -93,8 +210,20 @@ function ImageGenerator() {
       setError('');
       setGeneratedImage(null);
 
+      // Prepare image data - convert to format expected by generateImage
+      // For local files: pass File objects
+      // For S3 URLs: pass URL strings
+      const imageData = images.map(img => {
+        if (img.source === 'local' && img.file) {
+          return img.file;
+        } else if (img.source === 's3' && img.url) {
+          return img.url;
+        }
+        return null;
+      });
+
       // Call AI image generation API
-      const result = await generateImage(images, prompt, style, aspectRatio);
+      const result = await generateImage(imageData, prompt, style, aspectRatio);
 
       if (result.success) {
         setGeneratedImage({
@@ -160,23 +289,57 @@ function ImageGenerator() {
           <div className="image-grid">
             {images.map((image, index) => (
               <div key={index} className="image-upload-slot">
-                {!imagePreviews[index] ? (
-                  <label className="upload-label">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => handleImageUpload(e, index)}
-                      style={{ display: 'none' }}
-                    />
-                    <div className="upload-placeholder">
-                      <span className="upload-icon">📁</span>
-                      <span className="upload-number">{index + 1}</span>
-                      <span className="upload-hint">이미지 선택</span>
+                {!image.preview ? (
+                  <>
+                    {/* Source selection buttons */}
+                    <div className="source-selector">
+                      <button
+                        className={`source-btn ${image.source === 'local' ? 'active' : ''}`}
+                        onClick={() => handleSourceChange(index, 'local')}
+                        disabled={loading}
+                      >
+                        PC
+                      </button>
+                      <button
+                        className={`source-btn ${image.source === 's3' ? 'active' : ''}`}
+                        onClick={() => handleSourceChange(index, 's3')}
+                        disabled={loading}
+                      >
+                        서버
+                      </button>
                     </div>
-                  </label>
+
+                    {/* Upload interface based on selected source */}
+                    {image.source === 'local' ? (
+                      <label className="upload-label">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => handleImageUpload(e, index)}
+                          style={{ display: 'none' }}
+                        />
+                        <div className="upload-placeholder">
+                          <span className="upload-icon">📁</span>
+                          <span className="upload-number">{index + 1}</span>
+                          <span className="upload-hint">이미지 선택</span>
+                        </div>
+                      </label>
+                    ) : (
+                      <button
+                        className="s3-select-btn"
+                        onClick={() => handleOpenS3Selector(index)}
+                        disabled={loading}
+                      >
+                        <span className="upload-icon">🖼️</span>
+                        <span className="upload-number">{index + 1}</span>
+                        <span className="upload-hint">서버에서 선택</span>
+                      </button>
+                    )}
+                  </>
                 ) : (
                   <div className="image-preview">
-                    <img src={imagePreviews[index]} alt={`Preview ${index + 1}`} />
+                    <img src={image.preview} alt={`Preview ${index + 1}`} />
+                    <div className="image-source-badge">{image.source === 's3' ? '서버' : 'PC'}</div>
                     <button
                       className="remove-btn"
                       onClick={() => handleRemoveImage(index)}
@@ -286,6 +449,14 @@ function ImageGenerator() {
           </div>
         )}
       </div>
+
+      {/* S3 Image Selector Modal */}
+      {s3SelectorOpen && (
+        <S3ImageSelector
+          onSelect={handleS3ImageSelect}
+          onClose={() => setS3SelectorOpen(false)}
+        />
+      )}
     </div>
   );
 }

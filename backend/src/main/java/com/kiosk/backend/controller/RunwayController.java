@@ -73,32 +73,45 @@ public class RunwayController {
     @PostMapping("/generate-image")
     public ResponseEntity<RunwayVideoResponse> generateImage(
             @RequestParam(value = "images", required = false) MultipartFile[] images,
+            @RequestParam(value = "imageUrls", required = false) String[] imageUrls,
             @RequestParam("prompt") String prompt,
             @RequestParam(value = "aspectRatio", defaultValue = "1:1") String aspectRatio
     ) {
         try {
             log.info("Received image generation request");
-            log.info("Number of images: {}", images != null ? images.length : 0);
+            log.info("Number of uploaded images: {}", images != null ? images.length : 0);
+            log.info("Number of S3 image URLs: {}", imageUrls != null ? imageUrls.length : 0);
             log.info("Prompt: {}", prompt);
             log.info("Aspect Ratio: {}", aspectRatio);
 
-            // Validate that at least one image is provided
-            if (images == null || images.length == 0) {
+            // Validate that at least one image source is provided
+            if ((images == null || images.length == 0) && (imageUrls == null || imageUrls.length == 0)) {
                 return ResponseEntity.badRequest().body(RunwayVideoResponse.builder()
                         .success(false)
                         .message("At least one reference image is required")
                         .build());
             }
 
-            // Log each image
-            for (int i = 0; i < images.length; i++) {
-                if (images[i] != null && !images[i].isEmpty()) {
-                    log.info("Image {}: {}, size: {} bytes", i + 1, images[i].getOriginalFilename(), images[i].getSize());
+            // Log uploaded images
+            if (images != null) {
+                for (int i = 0; i < images.length; i++) {
+                    if (images[i] != null && !images[i].isEmpty()) {
+                        log.info("Uploaded Image {}: {}, size: {} bytes", i + 1, images[i].getOriginalFilename(), images[i].getSize());
+                    }
+                }
+            }
+
+            // Log S3 URLs
+            if (imageUrls != null) {
+                for (int i = 0; i < imageUrls.length; i++) {
+                    if (imageUrls[i] != null && !imageUrls[i].isEmpty()) {
+                        log.info("S3 Image URL {}: {}", i + 1, imageUrls[i]);
+                    }
                 }
             }
 
             // Generate image (images will be converted to base64 internally)
-            Map<String, Object> result = runwayService.generateImage(images, prompt, aspectRatio);
+            Map<String, Object> result = runwayService.generateImage(images, imageUrls, prompt, aspectRatio);
 
             String taskId = (String) result.get("id");
 

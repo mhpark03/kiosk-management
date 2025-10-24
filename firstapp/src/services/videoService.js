@@ -48,6 +48,21 @@ export const videoService = {
     }
   },
 
+  // Get all images (mediaType=IMAGE)
+  async getAllImages() {
+    try {
+      const response = await api.get('/videos', {
+        params: {
+          mediaType: 'IMAGE'
+        }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Get images error:', error);
+      throw new Error(error.response?.data?.error || 'Failed to fetch images');
+    }
+  },
+
   // Get a specific video by ID
   async getVideoById(id) {
     try {
