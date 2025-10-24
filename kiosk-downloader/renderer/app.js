@@ -373,8 +373,8 @@ async function recordKioskEvent(eventType, message, metadata = null) {
     const eventData = {
       kioskid: config.kioskId,
       eventType: eventType,
-      userEmail: currentUser?.email || null,
-      userName: currentUser?.name || null,
+      userEmail: null,  // 보안상 이메일 전송하지 않음
+      userName: null,   // 보안상 사용자 이름 전송하지 않음
       message: message,
       metadata: metadata ? JSON.stringify(metadata) : null
     };
@@ -617,12 +617,20 @@ async function saveConfig() {
 // Sync configuration to server
 async function syncConfigToServer(config) {
   if (!config || !config.apiUrl || !config.kioskId) {
-    console.log('Cannot sync config to server: missing apiUrl or kioskId');
+    console.log('[CONFIG SYNC] Cannot sync config to server: missing apiUrl or kioskId');
+    return;
+  }
+
+  if (!config.posId || !config.kioskNo) {
+    console.log('[CONFIG SYNC] Cannot sync config to server: missing posId or kioskNo');
+    console.log('[CONFIG SYNC] config:', config);
     return;
   }
 
   try {
-    console.log('Syncing configuration to server...');
+    console.log('[CONFIG SYNC] Syncing configuration to server...');
+    console.log('[CONFIG SYNC] kioskId:', config.kioskId, 'posId:', config.posId, 'kioskNo:', config.kioskNo);
+
     const configData = {
       downloadPath: config.downloadPath,
       apiUrl: config.apiUrl,
@@ -644,13 +652,13 @@ async function syncConfigToServer(config) {
 
     if (response.ok) {
       const result = await response.json();
-      console.log('Configuration synced to server successfully:', result);
+      console.log('[CONFIG SYNC] Configuration synced to server successfully:', result);
     } else {
       const errorText = await response.text();
-      console.error('Failed to sync configuration to server:', response.status, errorText);
+      console.error('[CONFIG SYNC] Failed to sync configuration to server:', response.status, errorText);
     }
   } catch (error) {
-    console.error('Error syncing configuration to server:', error);
+    console.error('[CONFIG SYNC] Error syncing configuration to server:', error);
     // Don't show error notification to user as this is a background operation
   }
 }
@@ -763,6 +771,9 @@ async function syncVideos(isAutoSync = false) {
 
     await window.electronAPI.saveConfig({ lastSync: config.lastSync });
     updateLastSyncTime(new Date(config.lastSync));
+
+    // Sync configuration to server (including lastSync update)
+    syncConfigToServer(config);
 
     if (!isAutoSync) {
       recordKioskEvent('SYNC_COMPLETED', `수동 영상 파일 ${videos.length} 개 동기완료`);
