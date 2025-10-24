@@ -81,7 +81,9 @@ public class VideoController {
      */
     @GetMapping
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<?> getAllVideos(@RequestParam(required = false) String type) {
+    public ResponseEntity<?> getAllVideos(
+            @RequestParam(required = false) String type,
+            @RequestParam(required = false) String mediaType) {
         try {
             List<Video> videos;
 
@@ -98,10 +100,24 @@ public class VideoController {
                 videos = videoService.getAllVideos();
             }
 
+            // Further filter by mediaType if provided
+            if (mediaType != null && !mediaType.isEmpty()) {
+                try {
+                    Video.MediaType mediaTypeEnum = Video.MediaType.valueOf(mediaType.toUpperCase());
+                    videos = videos.stream()
+                            .filter(v -> v.getMediaType() == mediaTypeEnum)
+                            .collect(java.util.stream.Collectors.toList());
+                } catch (IllegalArgumentException e) {
+                    return ResponseEntity.badRequest()
+                            .body(Map.of("error", "Invalid media type. Use VIDEO or IMAGE"));
+                }
+            }
+
             List<Map<String, Object>> videosWithUser = videos.stream().map(video -> {
                 Map<String, Object> videoMap = new HashMap<>();
                 videoMap.put("id", video.getId());
                 videoMap.put("videoType", video.getVideoType().toString());
+                videoMap.put("mediaType", video.getMediaType().toString());
                 videoMap.put("filename", video.getFilename());
                 videoMap.put("originalFilename", video.getOriginalFilename());
                 videoMap.put("fileSize", video.getFileSize());
@@ -181,6 +197,7 @@ public class VideoController {
                 Map<String, Object> videoMap = new HashMap<>();
                 videoMap.put("id", video.getId());
                 videoMap.put("videoType", video.getVideoType().toString());
+                videoMap.put("mediaType", video.getMediaType().toString());
                 videoMap.put("filename", video.getFilename());
                 videoMap.put("originalFilename", video.getOriginalFilename());
                 videoMap.put("fileSize", video.getFileSize());

@@ -5,7 +5,7 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api'
 
 /**
  * Generate image using AI from multiple reference images
- * @param {File[]} images - Array of reference images (1-5 images)
+ * @param {(File|string)[]} images - Array of reference images (File objects or S3 URLs)
  * @param {string} prompt - Text description for image generation
  * @param {string} style - Style of the generated image
  * @param {string} aspectRatio - Aspect ratio of the generated image
@@ -22,10 +22,21 @@ export async function generateImage(images, prompt, style = 'realistic', aspectR
     // Create FormData to send files
     const formData = new FormData();
 
-    // Add images (filter out null values)
-    // Note: Backend expects parameter name "images" for all images
-    images.filter(img => img !== null).forEach((image) => {
+    // Separate File objects and URL strings
+    const fileImages = images.filter(img => img && img instanceof File);
+    const urlImages = images.filter(img => img && typeof img === 'string');
+
+    console.log('Number of local file images:', fileImages.length);
+    console.log('Number of S3 URL images:', urlImages.length);
+
+    // Add File objects to FormData
+    fileImages.forEach((image) => {
       formData.append('images', image);
+    });
+
+    // Add URL strings as array parameter
+    urlImages.forEach((url) => {
+      formData.append('imageUrls', url);
     });
 
     // Add style to prompt if not already mentioned
@@ -74,7 +85,7 @@ export async function generateImage(images, prompt, style = 'realistic', aspectR
         prompt: enhancedPrompt,
         style,
         aspectRatio,
-        imageCount: images.filter(img => img !== null).length
+        imageCount: fileImages.length + urlImages.length
       }
     };
 
