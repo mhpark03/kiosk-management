@@ -251,6 +251,31 @@ async function deleteConfig() {
           metadata: null
         })
       }).catch(err => console.error('Failed to record CONFIG_DELETED event:', err));
+
+      // Clear configuration on server
+      try {
+        const clearConfigData = {
+          downloadPath: null,
+          apiUrl: null,
+          autoSync: null,
+          syncInterval: null,
+          lastSync: null
+        };
+
+        await fetch(`${oldConfig.apiUrl}/kiosks/by-kioskid/${oldConfig.kioskId}/config`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Kiosk-PosId': oldConfig.posId,
+            'X-Kiosk-Id': oldConfig.kioskId,
+            'X-Kiosk-No': oldConfig.kioskNo.toString()
+          },
+          body: JSON.stringify(clearConfigData)
+        });
+        console.log('Configuration cleared on server');
+      } catch (error) {
+        console.error('Failed to clear configuration on server:', error);
+      }
     }
 
     // Update config after recording event
