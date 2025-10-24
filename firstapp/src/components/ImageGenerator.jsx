@@ -13,7 +13,7 @@ function ImageGenerator() {
     {source: 'local', file: null, url: null, preview: null}
   ]);
   const [prompt, setPrompt] = useState('');
-  const [style, setStyle] = useState('realistic');
+  const [style, setStyle] = useState('anime');
   const [aspectRatio, setAspectRatio] = useState('1920:1080');
   const [loading, setLoading] = useState(false);
   const [generatedImage, setGeneratedImage] = useState(null);
