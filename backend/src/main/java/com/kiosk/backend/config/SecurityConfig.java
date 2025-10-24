@@ -55,6 +55,8 @@ public class SecurityConfig {
                 .requestMatchers("/api/kiosks/*/videos/*/status").authenticated()
                 .requestMatchers("/api/kiosks/by-kioskid/*/videos-with-status").authenticated()
                 .requestMatchers("/api/kiosks/by-kioskid/*/videos/*/status").authenticated()
+                // Kiosk configuration management - requires kiosk authentication
+                .requestMatchers("/api/kiosks/by-kioskid/*/config").authenticated()
                 .requestMatchers("/api/videos/*").authenticated()
                 // Runway API endpoints - requires authentication
                 .requestMatchers("/api/runway/**").authenticated()

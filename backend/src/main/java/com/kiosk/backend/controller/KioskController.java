@@ -1,6 +1,7 @@
 package com.kiosk.backend.controller;
 
 import com.kiosk.backend.dto.CreateKioskRequest;
+import com.kiosk.backend.dto.KioskConfigDTO;
 import com.kiosk.backend.dto.KioskDTO;
 import com.kiosk.backend.dto.UpdateKioskRequest;
 import com.kiosk.backend.service.KioskService;
@@ -305,5 +306,37 @@ public class KioskController {
         Map<String, String> response = new HashMap<>();
         response.put("message", "Download status updated successfully");
         return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Update kiosk configuration (from Kiosk app)
+     * PATCH /api/kiosks/by-kioskid/{kioskid}/config
+     */
+    @PatchMapping("/by-kioskid/{kioskid}/config")
+    public ResponseEntity<Map<String, String>> updateKioskConfig(
+            @PathVariable String kioskid,
+            @RequestBody KioskConfigDTO configDTO,
+            @RequestHeader(value = "X-Kiosk-Id", required = false) String kioskIdHeader) {
+        log.info("PATCH /api/kiosks/by-kioskid/{}/config", kioskid);
+        log.info("Config update: downloadPath={}, apiUrl={}, autoSync={}, syncInterval={}",
+                configDTO.getDownloadPath(), configDTO.getApiUrl(),
+                configDTO.getAutoSync(), configDTO.getSyncInterval());
+
+        kioskService.updateKioskConfig(kioskid, configDTO);
+
+        Map<String, String> response = new HashMap<>();
+        response.put("message", "Kiosk configuration updated successfully");
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Get kiosk configuration
+     * GET /api/kiosks/by-kioskid/{kioskid}/config
+     */
+    @GetMapping("/by-kioskid/{kioskid}/config")
+    public ResponseEntity<KioskConfigDTO> getKioskConfig(@PathVariable String kioskid) {
+        log.info("GET /api/kiosks/by-kioskid/{}/config", kioskid);
+        KioskConfigDTO config = kioskService.getKioskConfig(kioskid);
+        return ResponseEntity.ok(config);
     }
 }
