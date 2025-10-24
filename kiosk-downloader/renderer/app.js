@@ -484,7 +484,7 @@ async function saveConfig() {
   // Check if any values actually changed (before showing loading)
   if (configExists && config) {
     const apiUrlUnchanged = config.apiUrl === newConfig.apiUrl;
-    const storeIdUnchanged = config.posId === newConfig.storeId;
+    const storeIdUnchanged = config.posId === newConfig.posId;
     const kioskIdUnchanged = config.kioskId === newConfig.kioskId;
     const kioskNoUnchanged = config.kioskNo === newConfig.kioskNo;
     const downloadPathUnchanged = config.downloadPath === newConfig.downloadPath;
@@ -566,6 +566,9 @@ async function saveConfig() {
       }
       recordKioskEvent('CONFIG_SAVED', configExists ? '설정이 수정됨' : '설정이 저장됨');
 
+      // Sync configuration to server
+      syncConfigToServer(config);
+
       // Auto-sync videos after config save/update
       console.log('Auto-syncing videos after config save...');
       syncVideos(true); // Auto-sync mode (no notifications)
@@ -583,6 +586,47 @@ async function saveConfig() {
     setTimeout(() => {
       showNotification('설정 저장에 실패했습니다.', 'error');
     }, 100);
+  }
+}
+
+// Sync configuration to server
+async function syncConfigToServer(config) {
+  if (!config || !config.apiUrl || !config.kioskId) {
+    console.log('Cannot sync config to server: missing apiUrl or kioskId');
+    return;
+  }
+
+  try {
+    console.log('Syncing configuration to server...');
+    const configData = {
+      downloadPath: config.downloadPath,
+      apiUrl: config.apiUrl,
+      autoSync: config.autoSync,
+      syncInterval: config.syncInterval,
+      lastSync: config.lastSync ? new Date(config.lastSync).toISOString() : null
+    };
+
+    const response = await fetch(`${config.apiUrl}/kiosks/by-kioskid/${config.kioskId}/config`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Kiosk-PosId': config.posId,
+        'X-Kiosk-Id': config.kioskId,
+        'X-Kiosk-No': config.kioskNo.toString()
+      },
+      body: JSON.stringify(configData)
+    });
+
+    if (response.ok) {
+      const result = await response.json();
+      console.log('Configuration synced to server successfully:', result);
+    } else {
+      const errorText = await response.text();
+      console.error('Failed to sync configuration to server:', response.status, errorText);
+    }
+  } catch (error) {
+    console.error('Error syncing configuration to server:', error);
+    // Don't show error notification to user as this is a background operation
   }
 }
 

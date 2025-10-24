@@ -43,6 +43,19 @@ public class Kiosk {
     @Enumerated(EnumType.STRING)
     private KioskState state = KioskState.INACTIVE;
 
+    // Configuration fields from Kiosk app
+    @Column(length = 500)
+    private String downloadPath; // Download path for videos
+
+    @Column(length = 500)
+    private String apiUrl; // API server URL
+
+    private Boolean autoSync; // Auto-sync enabled
+
+    private Integer syncInterval; // Sync interval in hours
+
+    private LocalDateTime lastSync; // Last sync timestamp
+
     private LocalDateTime regdate; // Registration date
 
     private LocalDateTime setdate; // Setup date

@@ -1,6 +1,7 @@
 package com.kiosk.backend.service;
 
 import com.kiosk.backend.dto.CreateKioskRequest;
+import com.kiosk.backend.dto.KioskConfigDTO;
 import com.kiosk.backend.dto.KioskDTO;
 import com.kiosk.backend.dto.UpdateKioskRequest;
 import com.kiosk.backend.entity.EntityHistory;
@@ -685,5 +686,60 @@ public class KioskService {
         logHistory(kiosk.getKioskid(), kiosk.getPosid(), userEmail, userEmail, "UPDATE",
             "video_download_status", oldStatus, status,
             String.format("Updated download status for video %d to %s", videoId, status));
+    }
+
+    /**
+     * Update kiosk configuration from Kiosk app
+     */
+    public void updateKioskConfig(String kioskid, KioskConfigDTO configDTO) {
+        Kiosk kiosk = kioskRepository.findByKioskid(kioskid)
+                .orElseThrow(() -> new RuntimeException("Kiosk not found with kioskid: " + kioskid));
+
+        // Update configuration fields
+        if (configDTO.getDownloadPath() != null) {
+            kiosk.setDownloadPath(configDTO.getDownloadPath());
+        }
+        if (configDTO.getApiUrl() != null) {
+            kiosk.setApiUrl(configDTO.getApiUrl());
+        }
+        if (configDTO.getAutoSync() != null) {
+            kiosk.setAutoSync(configDTO.getAutoSync());
+        }
+        if (configDTO.getSyncInterval() != null) {
+            kiosk.setSyncInterval(configDTO.getSyncInterval());
+        }
+        if (configDTO.getLastSync() != null) {
+            kiosk.setLastSync(configDTO.getLastSync());
+        }
+
+        kioskRepository.save(kiosk);
+
+        log.info("Updated configuration for kiosk {}: downloadPath={}, apiUrl={}, autoSync={}, syncInterval={}",
+                kioskid, configDTO.getDownloadPath(), configDTO.getApiUrl(),
+                configDTO.getAutoSync(), configDTO.getSyncInterval());
+
+        // Log history
+        String configDetails = String.format("Configuration updated: autoSync=%s, syncInterval=%s hours, downloadPath=%s",
+                configDTO.getAutoSync(),
+                configDTO.getSyncInterval() != null ? configDTO.getSyncInterval() : "N/A",
+                configDTO.getDownloadPath() != null ? configDTO.getDownloadPath() : "N/A");
+        logHistory(kiosk.getKioskid(), kiosk.getPosid(), "kiosk-app", "Kiosk App", "UPDATE",
+            "kiosk_config", "N/A", "Updated", configDetails);
+    }
+
+    /**
+     * Get kiosk configuration
+     */
+    public KioskConfigDTO getKioskConfig(String kioskid) {
+        Kiosk kiosk = kioskRepository.findByKioskid(kioskid)
+                .orElseThrow(() -> new RuntimeException("Kiosk not found with kioskid: " + kioskid));
+
+        return KioskConfigDTO.builder()
+                .downloadPath(kiosk.getDownloadPath())
+                .apiUrl(kiosk.getApiUrl())
+                .autoSync(kiosk.getAutoSync())
+                .syncInterval(kiosk.getSyncInterval())
+                .lastSync(kiosk.getLastSync())
+                .build();
     }
 }
