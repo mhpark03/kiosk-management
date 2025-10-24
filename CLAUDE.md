@@ -31,9 +31,6 @@ The backend requires MySQL and environment variables for database access.
 cd backend
 DB_PASSWORD=aioztesting JAVA_HOME="C:/Program Files/Eclipse Adoptium/jdk-17.0.16.8-hotspot" ./gradlew.bat bootRun
 
-# With H2 in-memory database (no MySQL needed)
-./gradlew.bat bootRun --args='--spring.profiles.active=dev'
-
 # Build
 ./gradlew.bat build
 
@@ -195,8 +192,8 @@ All kiosk updates are automatically recorded in `kiosk_history` table via `@Enti
 ## Configuration Files
 
 - `backend/src/main/resources/application.yml` - Main Spring Boot config
-- `backend/src/main/resources/application-local.yml` - MySQL configuration
-- `backend/src/main/resources/application-dev.yml` - H2 configuration
+- `backend/src/main/resources/application-local.yml` - Local MySQL configuration
+- `backend/src/main/resources/application-dev.yml` - AWS development environment configuration
 - `kiosk-downloader/config.json` - Electron app persistent config (API URL, credentials, download path)
 - `firstapp/src/firebase-config.js` - Firebase configuration for admin dashboard
 
