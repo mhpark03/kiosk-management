@@ -26,8 +26,11 @@ public class VideoService {
     private final UserRepository userRepository;
     private final S3Service s3Service;
 
-    private static final String VIDEO_FOLDER = "videos/";
-    private static final String THUMBNAIL_FOLDER = "thumbnails/";
+    // S3 folder structure
+    private static final String VIDEO_UPLOAD_FOLDER = "videos/uploads/";
+    private static final String VIDEO_RUNWAY_FOLDER = "videos/runway/";
+    private static final String THUMBNAIL_UPLOAD_FOLDER = "thumbnails/uploads/";
+    private static final String THUMBNAIL_RUNWAY_FOLDER = "thumbnails/runway/";
     private static final long MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB
     private static final List<String> ALLOWED_CONTENT_TYPES = List.of(
             "video/mp4",
@@ -122,8 +125,8 @@ public class VideoService {
             throw new IllegalArgumentException("Description is required");
         }
 
-        // Upload video to S3
-        String s3Key = s3Service.uploadFile(file, VIDEO_FOLDER);
+        // Upload video to S3 (uploads folder)
+        String s3Key = s3Service.uploadFile(file, VIDEO_UPLOAD_FOLDER);
         String s3Url = s3Service.getFileUrl(s3Key);
 
         // Generate and upload thumbnail
@@ -140,7 +143,7 @@ public class VideoService {
                     : filenameWithExt;
                 String thumbnailFilename = filenameWithoutExt + "_thumb.jpg";
 
-                thumbnailS3Key = s3Service.uploadBytes(thumbnailBytes, THUMBNAIL_FOLDER, thumbnailFilename, "image/jpeg");
+                thumbnailS3Key = s3Service.uploadBytes(thumbnailBytes, THUMBNAIL_UPLOAD_FOLDER, thumbnailFilename, "image/jpeg");
                 thumbnailUrl = s3Service.getFileUrl(thumbnailS3Key);
                 log.info("Thumbnail uploaded successfully: {}", thumbnailS3Key);
             }
@@ -149,8 +152,9 @@ public class VideoService {
             // Continue without thumbnail - not critical
         }
 
-        // Save metadata to database
+        // Save metadata to database with UPLOAD type
         Video video = Video.builder()
+                .videoType(Video.VideoType.UPLOAD)
                 .filename(extractFilename(s3Key))
                 .originalFilename(file.getOriginalFilename())
                 .fileSize(file.getSize())
@@ -179,12 +183,31 @@ public class VideoService {
     }
 
     /**
+     * Get videos by type
+     * @param videoType Type of video (UPLOAD or RUNWAY_GENERATED)
+     * @return List of videos of the specified type
+     */
+    public List<Video> getVideosByType(Video.VideoType videoType) {
+        return videoRepository.findByVideoTypeOrderByUploadedAtDesc(videoType);
+    }
+
+    /**
      * Get videos uploaded by a specific user
      * @param userId ID of the user
      * @return List of videos uploaded by the user
      */
     public List<Video> getVideosByUser(Long userId) {
         return videoRepository.findByUploadedByIdOrderByUploadedAtDesc(userId);
+    }
+
+    /**
+     * Get videos by user and type
+     * @param userId ID of the user
+     * @param videoType Type of video (UPLOAD or RUNWAY_GENERATED)
+     * @return List of videos uploaded by the user of the specified type
+     */
+    public List<Video> getVideosByUserAndType(Long userId, Video.VideoType videoType) {
+        return videoRepository.findByUploadedByIdAndVideoTypeOrderByUploadedAtDesc(userId, videoType);
     }
 
     /**
@@ -379,7 +402,12 @@ public class VideoService {
                 : filenameWithExt;
             String thumbnailFilename = filenameWithoutExt + "_thumb.jpg";
 
-            String thumbnailS3Key = s3Service.uploadBytes(thumbnailBytes, THUMBNAIL_FOLDER, thumbnailFilename, "image/jpeg");
+            // Use appropriate thumbnail folder based on video type
+            String thumbnailFolder = (video.getVideoType() == Video.VideoType.RUNWAY_GENERATED)
+                ? THUMBNAIL_RUNWAY_FOLDER
+                : THUMBNAIL_UPLOAD_FOLDER;
+
+            String thumbnailS3Key = s3Service.uploadBytes(thumbnailBytes, thumbnailFolder, thumbnailFilename, "image/jpeg");
             String thumbnailUrl = s3Service.getFileUrl(thumbnailS3Key);
 
             // Update video entity
@@ -427,6 +455,125 @@ public class VideoService {
         String originalFilename = file.getOriginalFilename();
         if (originalFilename == null || originalFilename.trim().isEmpty()) {
             throw new IllegalArgumentException("File name is required");
+        }
+    }
+
+    /**
+     * Save a Runway ML generated video from URL to S3 and database
+     * @param videoUrl URL of the generated video
+     * @param uploadedById User ID of the user who requested video generation
+     * @param title Title of the video
+     * @param description Description of the video
+     * @param runwayTaskId Runway ML task ID
+     * @param runwayModel Model used for generation
+     * @param runwayResolution Resolution of the generated video
+     * @param runwayPrompt Prompt used for generation
+     * @return Saved Video entity
+     */
+    @Transactional
+    public Video saveRunwayGeneratedVideo(String videoUrl, Long uploadedById, String title, String description,
+                                          String runwayTaskId, String runwayModel, String runwayResolution, String runwayPrompt) throws IOException {
+        log.info("Downloading Runway ML generated video from: {}", videoUrl);
+
+        // Validate inputs
+        if (title == null || title.trim().isEmpty()) {
+            throw new IllegalArgumentException("Title is required");
+        }
+        if (description == null || description.trim().isEmpty()) {
+            throw new IllegalArgumentException("Description is required");
+        }
+
+        Path tempVideoPath = null;
+        try {
+            // Download video from URL to temporary file
+            tempVideoPath = Files.createTempFile("runway_video_", ".mp4");
+            java.net.URL url = new java.net.URL(videoUrl);
+            try (java.io.InputStream in = url.openStream()) {
+                Files.copy(in, tempVideoPath, StandardCopyOption.REPLACE_EXISTING);
+            }
+
+            long fileSize = Files.size(tempVideoPath);
+            log.info("Downloaded video file, size: {} bytes", fileSize);
+
+            // Upload video to S3 (runway folder)
+            String filename = "runway_" + java.util.UUID.randomUUID().toString() + ".mp4";
+
+            byte[] videoBytes = Files.readAllBytes(tempVideoPath);
+            String uploadedS3Key = s3Service.uploadBytes(videoBytes, VIDEO_RUNWAY_FOLDER, filename, "video/mp4");
+            String s3Url = s3Service.getFileUrl(uploadedS3Key);
+
+            log.info("Uploaded Runway video to S3: {}", uploadedS3Key);
+
+            // Generate thumbnail
+            String thumbnailS3Key = null;
+            String thumbnailUrl = null;
+            try {
+                Path tempThumbnailPath = Files.createTempFile("thumbnail_", ".jpg");
+
+                ProcessBuilder processBuilder = new ProcessBuilder(
+                    "ffmpeg",
+                    "-i", tempVideoPath.toString(),
+                    "-ss", "00:00:01.000",
+                    "-vframes", "1",
+                    "-vf", "scale=320:-1",
+                    "-y",
+                    tempThumbnailPath.toString()
+                );
+
+                processBuilder.redirectErrorStream(true);
+                Process process = processBuilder.start();
+                int exitCode = process.waitFor();
+
+                if (exitCode == 0 && Files.exists(tempThumbnailPath)) {
+                    byte[] thumbnailBytes = Files.readAllBytes(tempThumbnailPath);
+                    String thumbnailFilename = filename.replace(".mp4", "_thumb.jpg");
+                    thumbnailS3Key = s3Service.uploadBytes(thumbnailBytes, THUMBNAIL_RUNWAY_FOLDER, thumbnailFilename, "image/jpeg");
+                    thumbnailUrl = s3Service.getFileUrl(thumbnailS3Key);
+                    log.info("Thumbnail uploaded successfully: {}", thumbnailS3Key);
+
+                    Files.deleteIfExists(tempThumbnailPath);
+                }
+            } catch (Exception e) {
+                log.error("Failed to generate/upload thumbnail: {}", e.getMessage());
+                // Continue without thumbnail
+            }
+
+            // Save metadata to database with Runway ML info and RUNWAY_GENERATED type
+            Video video = Video.builder()
+                    .videoType(Video.VideoType.RUNWAY_GENERATED)
+                    .filename(filename)
+                    .originalFilename("runway_generated_" + runwayTaskId + ".mp4")
+                    .fileSize(fileSize)
+                    .contentType("video/mp4")
+                    .s3Key(uploadedS3Key)
+                    .s3Url(s3Url)
+                    .thumbnailS3Key(thumbnailS3Key)
+                    .thumbnailUrl(thumbnailUrl)
+                    .uploadedById(uploadedById)
+                    .title(title)
+                    .description(description)
+                    .runwayTaskId(runwayTaskId)
+                    .runwayModel(runwayModel)
+                    .runwayResolution(runwayResolution)
+                    .runwayPrompt(runwayPrompt)
+                    .build();
+
+            Video savedVideo = videoRepository.save(video);
+            log.info("Runway ML generated video saved successfully: {} by user ID {}", savedVideo.getTitle(), uploadedById);
+
+            return savedVideo;
+        } catch (Exception e) {
+            log.error("Failed to save Runway ML generated video", e);
+            throw new IOException("Failed to save Runway ML generated video: " + e.getMessage(), e);
+        } finally {
+            // Clean up temporary file
+            if (tempVideoPath != null && Files.exists(tempVideoPath)) {
+                try {
+                    Files.delete(tempVideoPath);
+                } catch (IOException e) {
+                    log.error("Failed to delete temporary video file: {}", e.getMessage());
+                }
+            }
         }
     }
 

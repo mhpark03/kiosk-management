@@ -17,9 +17,18 @@ import java.time.LocalDateTime;
 @Builder
 public class Video {
 
+    public enum VideoType {
+        UPLOAD,           // Regular uploaded video
+        RUNWAY_GENERATED  // AI-generated video from Runway ML
+    }
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private VideoType videoType;
 
     @Column(nullable = false, length = 255)
     private String filename;
@@ -60,4 +69,17 @@ public class Video {
 
     @Column
     private Integer duration; // Video duration in seconds
+
+    // Runway ML specific fields
+    @Column(length = 100)
+    private String runwayTaskId; // Runway ML task ID
+
+    @Column(length = 50)
+    private String runwayModel; // Model used (gen3a_turbo, gen4_turbo, veo3, etc.)
+
+    @Column(length = 50)
+    private String runwayResolution; // Resolution used (e.g., "1280:768")
+
+    @Column(columnDefinition = "TEXT")
+    private String runwayPrompt; // Prompt used for generation
 }

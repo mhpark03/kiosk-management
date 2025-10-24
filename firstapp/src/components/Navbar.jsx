@@ -8,6 +8,7 @@ function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isVideosOpen, setIsVideosOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   const handleLogout = () => {
@@ -22,7 +23,12 @@ function Navbar() {
 
   const closeMenu = () => {
     setIsMenuOpen(false);
+    setIsVideosOpen(false);
     setIsSettingsOpen(false);
+  };
+
+  const toggleVideos = () => {
+    setIsVideosOpen(!isVideosOpen);
   };
 
   const toggleSettings = () => {
@@ -84,14 +90,36 @@ function Navbar() {
                 매장
               </Link>
             </li>
-            <li>
-              <Link
-                to="/videos"
-                className={location.pathname === '/videos' ? 'active' : ''}
-                onClick={closeMenu}
+            <li className="dropdown">
+              <button
+                className={`dropdown-toggle ${isVideosOpen ? 'active' : ''}`}
+                onClick={toggleVideos}
               >
                 영상
-              </Link>
+                <span className={`arrow ${isVideosOpen ? 'open' : ''}`}>▼</span>
+              </button>
+              {isVideosOpen && (
+                <ul className="dropdown-menu">
+                  <li>
+                    <Link
+                      to="/videos"
+                      className={location.pathname === '/videos' ? 'active' : ''}
+                      onClick={closeMenu}
+                    >
+                      키오스크 영상 관리
+                    </Link>
+                  </li>
+                  <li>
+                    <Link
+                      to="/videos/generate"
+                      className={location.pathname === '/videos/generate' ? 'active' : ''}
+                      onClick={closeMenu}
+                    >
+                      영상 만들기
+                    </Link>
+                  </li>
+                </ul>
+              )}
             </li>
             <li className="dropdown">
               <button

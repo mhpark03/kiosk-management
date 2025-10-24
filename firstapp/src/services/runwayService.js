@@ -196,7 +196,59 @@ export async function downloadVideo(videoUrl, filename = 'runway-generated-video
   }
 }
 
+/**
+ * Save generated video to backend (S3 and database)
+ * @param {string} videoUrl - Generated video URL from Runway ML
+ * @param {string} title - Video title
+ * @param {string} description - Video description
+ * @param {string} taskId - Runway task ID
+ * @param {string} model - Model used
+ * @param {string} resolution - Resolution used
+ * @param {string} prompt - Prompt used
+ * @returns {Promise<object>} - Saved video information
+ */
+export async function saveGeneratedVideoToBackend(videoUrl, title, description, taskId, model, resolution, prompt) {
+  try {
+    console.log('Saving generated video to backend...');
+
+    const response = await axios.post(
+      `${API_BASE_URL}/videos/save-runway-video`,
+      {
+        videoUrl,
+        title,
+        description,
+        runwayTaskId: taskId,
+        runwayModel: model,
+        runwayResolution: resolution,
+        runwayPrompt: prompt
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('jwtToken')}`
+        }
+      }
+    );
+
+    console.log('Video saved to backend:', response.data);
+    return response.data;
+
+  } catch (error) {
+    console.error('Save video error:', error);
+
+    if (error.response) {
+      const errorMessage = error.response.data?.error || error.response.data?.message || error.response.statusText;
+      throw new Error(`비디오 저장 실패: ${errorMessage}`);
+    } else if (error.request) {
+      throw new Error('서버 연결 오류: 비디오를 저장할 수 없습니다.');
+    } else {
+      throw new Error('비디오 저장 중 오류가 발생했습니다.');
+    }
+  }
+}
+
 export default {
   generateVideo,
-  downloadVideo
+  downloadVideo,
+  saveGeneratedVideoToBackend
 };
