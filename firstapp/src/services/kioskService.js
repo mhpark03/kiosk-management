@@ -216,6 +216,37 @@ export const permanentDeleteKiosk = async (kioskId) => {
 };
 
 /**
+ * Get kiosk configuration by kioskid
+ * @param {string} kioskid - Kiosk ID (12 digits)
+ * @returns {Promise<Object>} - Kiosk configuration data
+ */
+export const getKioskConfig = async (kioskid) => {
+  try {
+    const response = await api.get(`/kiosks/by-kioskid/${kioskid}/config`);
+    return response.data;
+  } catch (error) {
+    console.error('Error getting kiosk config:', error);
+    throw error;
+  }
+};
+
+/**
+ * Update kiosk configuration
+ * @param {string} kioskid - Kiosk ID (12 digits)
+ * @param {Object} configData - Configuration data
+ * @returns {Promise<Object>} - Updated configuration response
+ */
+export const updateKioskConfig = async (kioskid, configData) => {
+  try {
+    const response = await api.patch(`/kiosks/by-kioskid/${kioskid}/config`, configData);
+    return response.data;
+  } catch (error) {
+    console.error('Error updating kiosk config:', error);
+    throw error;
+  }
+};
+
+/**
  * Convert kiosk data from API format to app format
  * @param {Object} apiKiosk - Kiosk data from API
  * @returns {Object} - Converted kiosk data
@@ -293,5 +324,7 @@ export default {
   restoreKiosk,
   permanentDeleteKiosk,
   generateKioskNo,
-  checkKioskDuplicate
+  checkKioskDuplicate,
+  getKioskConfig,
+  updateKioskConfig
 };

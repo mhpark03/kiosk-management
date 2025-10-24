@@ -9,7 +9,9 @@ import {
   restoreKiosk,
   permanentDeleteKiosk,
   generateKioskNo,
-  checkKioskDuplicate
+  checkKioskDuplicate,
+  getKioskConfig,
+  updateKioskConfig
 } from '../services/kioskService';
 import {
   logKioskCreation,
@@ -21,7 +23,7 @@ import {
 import { getAllStores } from '../services/storeService';
 import { useAuth } from '../context/AuthContext';
 import { Timestamp } from 'firebase/firestore';
-import { FiEdit, FiTrash2, FiClock, FiRotateCcw, FiVideo } from 'react-icons/fi';
+import { FiEdit, FiTrash2, FiClock, FiRotateCcw, FiVideo, FiSettings } from 'react-icons/fi';
 import './KioskManagement.css';
 
 function KioskManagement() {
@@ -33,7 +35,15 @@ function KioskManagement() {
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showConfigModal, setShowConfigModal] = useState(false);
   const [selectedKiosk, setSelectedKiosk] = useState(null);
+  const [kioskConfig, setKioskConfig] = useState({
+    downloadPath: '',
+    apiUrl: '',
+    autoSync: false,
+    syncInterval: 12,
+    lastSync: null
+  });
   const [showDeleted, setShowDeleted] = useState(false);
   const [searchStoreName, setSearchStoreName] = useState('');
   const [searchMaker, setSearchMaker] = useState('');
@@ -573,11 +583,79 @@ function KioskManagement() {
     navigate(`/kiosks/${kiosk.id}/videos`, { state: { kiosk: kioskData } });
   };
 
+  const handleViewConfig = async (kiosk) => {
+    setSelectedKiosk(kiosk);
+    try {
+      const config = await getKioskConfig(kiosk.kioskid);
+
+      // Check if config has any data
+      const hasConfig = config.downloadPath || config.apiUrl || config.autoSync || config.syncInterval || config.lastSync;
+
+      if (!hasConfig) {
+        // No config exists - show alert and don't open modal
+        alert(`키오스크 ${kiosk.kioskid}는 아직 연결되지 않았습니다.\n\n키오스크 앱에서 설정을 저장하면 여기에서 확인 및 수정할 수 있습니다.`);
+        setSelectedKiosk(null);
+        return;
+      }
+
+      setKioskConfig({
+        downloadPath: config.downloadPath || '',
+        apiUrl: config.apiUrl || '',
+        autoSync: config.autoSync || false,
+        syncInterval: config.syncInterval || 12,
+        lastSync: config.lastSync || null
+      });
+      setShowConfigModal(true);
+    } catch (err) {
+      console.error('Failed to load kiosk config:', err);
+      // Error occurred (404 or network error) - show alert and don't open modal
+      alert(`키오스크 ${kiosk.kioskid}는 아직 연결되지 않았습니다.\n\n키오스크 앱에서 설정을 저장하면 여기에서 확인 및 수정할 수 있습니다.`);
+      setSelectedKiosk(null);
+    }
+  };
+
+  const handleUpdateConfig = async (e) => {
+    e.preventDefault();
+    try {
+      await updateKioskConfig(selectedKiosk.kioskid, kioskConfig);
+      setSuccess('키오스크 설정이 업데이트되었습니다.');
+      setTimeout(() => setSuccess(''), 3000);
+      setShowConfigModal(false);
+      setSelectedKiosk(null);
+      setKioskConfig({
+        downloadPath: '',
+        apiUrl: '',
+        autoSync: false,
+        syncInterval: 12,
+        lastSync: null
+      });
+    } catch (err) {
+      setError('설정 업데이트 실패: ' + err.message);
+      setTimeout(() => setError(''), 3000);
+    }
+  };
+
+  const handleConfigInputChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setKioskConfig(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : (name === 'syncInterval' ? parseInt(value) || 12 : value)
+    }));
+  };
+
   const closeModals = () => {
     setShowAddModal(false);
     setShowEditModal(false);
+    setShowConfigModal(false);
     setSelectedKiosk(null);
     setFormData({ posid: '', kioskno: '', maker: '', serialno: '', state: 'preparing', regdate: '', setdate: '', deldate: '', storeRegdate: '', storeMinDate: '' });
+    setKioskConfig({
+      downloadPath: '',
+      apiUrl: '',
+      autoSync: false,
+      syncInterval: 12,
+      lastSync: null
+    });
   };
 
   const formatDate = (timestamp, includeTime = false) => {
@@ -865,6 +943,16 @@ function KioskManagement() {
                           }}
                         >
                           <FiVideo />
+                        </button>
+                        <button
+                          onClick={() => handleViewConfig(kiosk)}
+                          className="btn-config"
+                          title="키오스크 설정"
+                          style={{
+                            display: kiosk.state !== 'deleted' ? 'flex' : 'none'
+                          }}
+                        >
+                          <FiSettings />
                         </button>
                       </div>
                     </td>
@@ -1204,6 +1292,113 @@ function KioskManagement() {
                 </button>
                 <button type="submit" className="btn-submit">
                   키오스크 수정
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Config Modal */}
+      {showConfigModal && selectedKiosk && (
+        <div className="modal-overlay" onClick={closeModals}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>키오스크 설정 - {selectedKiosk.kioskid}</h2>
+              <button onClick={closeModals} className="close-btn">&times;</button>
+            </div>
+            <form onSubmit={handleUpdateConfig} className="modal-form">
+              <div className="form-group">
+                <label htmlFor="config-downloadPath" style={{fontSize: '15px', fontWeight: '700', color: '#333', marginBottom: '10px'}}>
+                  📁 다운로드 경로
+                </label>
+                <input
+                  type="text"
+                  id="config-downloadPath"
+                  name="downloadPath"
+                  value={kioskConfig.downloadPath}
+                  onChange={handleConfigInputChange}
+                  placeholder="예: C:\Videos"
+                />
+                <small style={{color: '#888', fontSize: '11px', marginTop: '6px', display: 'block', fontStyle: 'italic'}}>
+                  💡 키오스크 앱에서 영상을 다운로드할 경로
+                </small>
+              </div>
+              <div className="form-group">
+                <label htmlFor="config-apiUrl" style={{fontSize: '15px', fontWeight: '700', color: '#333', marginBottom: '10px'}}>
+                  🌐 API URL
+                </label>
+                <input
+                  type="text"
+                  id="config-apiUrl"
+                  name="apiUrl"
+                  value={kioskConfig.apiUrl}
+                  onChange={handleConfigInputChange}
+                  placeholder="예: http://localhost:8080/api"
+                />
+                <small style={{color: '#888', fontSize: '11px', marginTop: '6px', display: 'block', fontStyle: 'italic'}}>
+                  💡 백엔드 API 서버 주소
+                </small>
+              </div>
+              <div className="form-group">
+                <label style={{fontSize: '15px', fontWeight: '700', color: '#333', marginBottom: '10px'}}>
+                  🔄 자동 동기화 설정
+                </label>
+                <div style={{display: 'flex', gap: '16px', alignItems: 'flex-start'}}>
+                  <div style={{flex: 1}}>
+                    <input
+                      type="number"
+                      id="config-syncInterval"
+                      name="syncInterval"
+                      value={kioskConfig.syncInterval}
+                      onChange={handleConfigInputChange}
+                      min="1"
+                      max="24"
+                      placeholder="12"
+                      style={{width: '100%'}}
+                    />
+                    <small style={{color: '#888', fontSize: '11px', marginTop: '6px', display: 'block', fontStyle: 'italic'}}>
+                      동기화 간격 (1-24시간)
+                    </small>
+                  </div>
+                  <div style={{flex: 1, display: 'flex', alignItems: 'center', gap: '8px', paddingTop: '12px'}}>
+                    <input
+                      type="checkbox"
+                      id="config-autoSync"
+                      name="autoSync"
+                      checked={kioskConfig.autoSync}
+                      onChange={handleConfigInputChange}
+                      style={{width: '20px', height: '20px', margin: 0, cursor: 'pointer'}}
+                    />
+                    <label htmlFor="config-autoSync" style={{margin: 0, cursor: 'pointer', fontWeight: '600', fontSize: '14px', color: '#555'}}>
+                      자동 동기화 활성화
+                    </label>
+                  </div>
+                </div>
+                <small style={{color: '#888', fontSize: '11px', marginTop: '6px', display: 'block', fontStyle: 'italic'}}>
+                  💡 체크하면 설정된 간격마다 자동으로 영상을 동기화합니다
+                </small>
+              </div>
+              <div className="form-group">
+                <label style={{fontSize: '15px', fontWeight: '700', color: '#333', marginBottom: '10px'}}>
+                  ⏰ 마지막 동기화 시간
+                </label>
+                <input
+                  type="text"
+                  value={kioskConfig.lastSync ? new Date(kioskConfig.lastSync).toLocaleString('ko-KR') : '없음'}
+                  readOnly
+                  style={{background: '#f7f7f7', cursor: 'not-allowed', color: '#666'}}
+                />
+                <small style={{color: '#888', fontSize: '11px', marginTop: '6px', display: 'block', fontStyle: 'italic'}}>
+                  💡 키오스크 앱에서 마지막으로 동기화한 시간 (읽기 전용)
+                </small>
+              </div>
+              <div className="modal-actions">
+                <button type="button" onClick={closeModals} className="btn-cancel">
+                  취소
+                </button>
+                <button type="submit" className="btn-submit">
+                  설정 저장
                 </button>
               </div>
             </form>

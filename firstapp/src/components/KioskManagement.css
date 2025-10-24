@@ -306,7 +306,8 @@
 .btn-restore,
 .btn-permanent-delete,
 .btn-history,
-.btn-video {
+.btn-video,
+.btn-config {
   padding: 6px 12px;
   border: none;
   border-radius: 6px;
@@ -371,6 +372,15 @@
 
 .btn-video:hover {
   background: #dd6b20;
+}
+
+.btn-config {
+  background: #38b2ac;
+  color: white;
+}
+
+.btn-config:hover {
+  background: #319795;
 }
 
 .state-select {
@@ -730,6 +740,7 @@
   .btn-permanent-delete,
   .btn-history,
   .btn-video,
+  .btn-config,
   .state-select {
     width: 100%;
   }
