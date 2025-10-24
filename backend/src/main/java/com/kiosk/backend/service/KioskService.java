@@ -695,22 +695,12 @@ public class KioskService {
         Kiosk kiosk = kioskRepository.findByKioskid(kioskid)
                 .orElseThrow(() -> new RuntimeException("Kiosk not found with kioskid: " + kioskid));
 
-        // Update configuration fields
-        if (configDTO.getDownloadPath() != null) {
-            kiosk.setDownloadPath(configDTO.getDownloadPath());
-        }
-        if (configDTO.getApiUrl() != null) {
-            kiosk.setApiUrl(configDTO.getApiUrl());
-        }
-        if (configDTO.getAutoSync() != null) {
-            kiosk.setAutoSync(configDTO.getAutoSync());
-        }
-        if (configDTO.getSyncInterval() != null) {
-            kiosk.setSyncInterval(configDTO.getSyncInterval());
-        }
-        if (configDTO.getLastSync() != null) {
-            kiosk.setLastSync(configDTO.getLastSync());
-        }
+        // Update configuration fields (allow null to clear config)
+        kiosk.setDownloadPath(configDTO.getDownloadPath());
+        kiosk.setApiUrl(configDTO.getApiUrl());
+        kiosk.setAutoSync(configDTO.getAutoSync());
+        kiosk.setSyncInterval(configDTO.getSyncInterval());
+        kiosk.setLastSync(configDTO.getLastSync());
 
         kioskRepository.save(kiosk);
 
