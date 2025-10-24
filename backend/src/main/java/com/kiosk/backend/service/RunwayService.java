@@ -11,7 +11,9 @@ import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @Service
@@ -138,6 +140,77 @@ public class RunwayService {
         } catch (Exception e) {
             log.error("Error getting task status from Runway", e);
             throw new RuntimeException("Failed to get task status: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Generate image using Runway gen4_image model
+     * Supports multiple reference images (up to 5)
+     * Reference images can be mentioned in prompt using @tag syntax
+     *
+     * @param images Array of reference images (1-5 images)
+     * @param prompt Text prompt describing the image to generate
+     * @param aspectRatio Aspect ratio (e.g., "16:9", "1:1", "9:16")
+     * @return Task information including task ID
+     */
+    public Map<String, Object> generateImage(MultipartFile[] images, String prompt, String aspectRatio) {
+        log.info("Generating image with Runway gen4_image model");
+        log.info("Number of reference images: {}", images.length);
+        log.info("Prompt: {}", prompt);
+        log.info("Aspect Ratio: {}", aspectRatio);
+
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.setBearerAuth(apiKey);
+            headers.set("X-Runway-Version", "2024-11-06");
+
+            Map<String, Object> requestBody = new HashMap<>();
+            requestBody.put("model", "gen4_image");
+            requestBody.put("promptText", prompt);
+            requestBody.put("ratio", aspectRatio);
+
+            // Add reference images as array of objects with uri and tag
+            List<Map<String, String>> referenceImages = new ArrayList<>();
+            for (int i = 0; i < images.length; i++) {
+                if (images[i] != null && !images[i].isEmpty()) {
+                    String imageBase64 = "data:image/png;base64," + imageToBase64(images[i]);
+                    String tag = "image" + (i + 1);
+
+                    Map<String, String> imageObj = new HashMap<>();
+                    imageObj.put("uri", imageBase64);
+                    imageObj.put("tag", tag);
+
+                    referenceImages.add(imageObj);
+                    log.info("Added reference image with tag: @{}", tag);
+                }
+            }
+
+            if (!referenceImages.isEmpty()) {
+                requestBody.put("referenceImages", referenceImages);
+            }
+
+            HttpEntity<Map<String, Object>> requestEntity = new HttpEntity<>(requestBody, headers);
+
+            log.info("Sending image generation request to Runway API");
+            ResponseEntity<Map> response = restTemplate.exchange(
+                    apiUrl + "/v1/text_to_image",
+                    HttpMethod.POST,
+                    requestEntity,
+                    Map.class
+            );
+
+            if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
+                log.info("Image generation task created successfully");
+                log.info("Task ID: {}", response.getBody().get("id"));
+                return response.getBody();
+            } else {
+                throw new RuntimeException("Failed to create image generation task: " + response.getStatusCode());
+            }
+
+        } catch (Exception e) {
+            log.error("Error generating image with Runway", e);
+            throw new RuntimeException("Image generation failed: " + e.getMessage());
         }
     }
 

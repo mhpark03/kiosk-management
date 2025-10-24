@@ -18,8 +18,13 @@ import java.time.LocalDateTime;
 public class Video {
 
     public enum VideoType {
-        UPLOAD,           // Regular uploaded video
-        RUNWAY_GENERATED  // AI-generated video from Runway ML
+        UPLOAD,           // Regular uploaded video/image
+        RUNWAY_GENERATED  // AI-generated video/image from Runway ML
+    }
+
+    public enum MediaType {
+        VIDEO,            // Video file
+        IMAGE             // Image file
     }
 
     @Id
@@ -29,6 +34,11 @@ public class Video {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private VideoType videoType;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    @Builder.Default
+    private MediaType mediaType = MediaType.VIDEO;
 
     @Column(nullable = false, length = 255)
     private String filename;
@@ -82,4 +92,8 @@ public class Video {
 
     @Column(columnDefinition = "TEXT")
     private String runwayPrompt; // Prompt used for generation
+
+    // Image generation specific fields
+    @Column(length = 50)
+    private String imageStyle; // Style used for image generation (e.g., "anime", "realistic")
 }
