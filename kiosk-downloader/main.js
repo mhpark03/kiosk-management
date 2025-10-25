@@ -1,10 +1,17 @@
 const { app, BrowserWindow, ipcMain, dialog, Menu, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const SockJS = require('sockjs-client');
+const { Client } = require('@stomp/stompjs');
 
 let mainWindow;
 let config = null;
 const CONFIG_FILE = path.join(__dirname, 'config.json');
+
+// WebSocket client
+let stompClient = null;
+let isWebSocketConnected = false;
+let heartbeatInterval = null;
 
 // Create application menu
 function createMenu() {
@@ -421,5 +428,178 @@ ipcMain.handle('open-video-player', async (event, { filePath, title }) => {
     return { success: false, error: error.message };
   }
 });
+
+// =====================================
+// WebSocket IPC Handlers
+// =====================================
+
+ipcMain.handle('websocket-connect', async (event, apiUrl, kioskId) => {
+  try {
+    console.log('Connecting WebSocket:', apiUrl, kioskId);
+
+    // Disconnect existing connection
+    if (stompClient) {
+      stompClient.deactivate();
+    }
+
+    const baseUrl = apiUrl.replace('/api', '');
+    const wsUrl = `${baseUrl}/ws`;
+
+    stompClient = new Client({
+      webSocketFactory: () => new SockJS(wsUrl),
+      connectHeaders: {
+        kioskId: kioskId
+      },
+      debug: (str) => {
+        console.log('STOMP Debug:', str);
+      },
+      reconnectDelay: 3000,
+      heartbeatIncoming: 20000,
+      heartbeatOutgoing: 20000,
+
+      onConnect: (frame) => {
+        console.log('WebSocket Connected:', frame);
+        isWebSocketConnected = true;
+
+        // Notify renderer
+        if (mainWindow) {
+          mainWindow.webContents.send('websocket-status', {
+            connected: true,
+            message: 'Connected to server'
+          });
+        }
+
+        // Subscribe to kiosk-specific topic
+        stompClient.subscribe(`/topic/kiosk/${kioskId}`, (message) => {
+          const data = JSON.parse(message.body);
+          console.log('Received kiosk message:', data);
+          if (mainWindow) {
+            mainWindow.webContents.send('websocket-message', data);
+          }
+        });
+
+        // Subscribe to broadcast topic
+        stompClient.subscribe('/topic/kiosk/broadcast', (message) => {
+          const data = JSON.parse(message.body);
+          console.log('Received broadcast message:', data);
+          if (mainWindow) {
+            mainWindow.webContents.send('websocket-message', data);
+          }
+        });
+
+        // Send initial connection message
+        stompClient.publish({
+          destination: '/app/kiosk/connect',
+          body: JSON.stringify({ kioskId: kioskId })
+        });
+
+        // Start heartbeat
+        startWebSocketHeartbeat(kioskId);
+      },
+
+      onStompError: (frame) => {
+        console.error('STOMP Error:', frame.headers['message']);
+        isWebSocketConnected = false;
+        if (mainWindow) {
+          mainWindow.webContents.send('websocket-status', {
+            connected: false,
+            message: 'Connection error'
+          });
+        }
+      },
+
+      onWebSocketClose: () => {
+        console.log('WebSocket connection closed');
+        isWebSocketConnected = false;
+        stopWebSocketHeartbeat();
+        if (mainWindow) {
+          mainWindow.webContents.send('websocket-status', {
+            connected: false,
+            message: 'Disconnected'
+          });
+        }
+      },
+
+      onWebSocketError: (error) => {
+        console.error('WebSocket error:', error);
+        isWebSocketConnected = false;
+        if (mainWindow) {
+          mainWindow.webContents.send('websocket-status', {
+            connected: false,
+            message: 'Connection failed'
+          });
+        }
+      }
+    });
+
+    stompClient.activate();
+
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to connect WebSocket:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('websocket-disconnect', async () => {
+  try {
+    if (stompClient) {
+      stompClient.deactivate();
+      stompClient = null;
+    }
+    isWebSocketConnected = false;
+    stopWebSocketHeartbeat();
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to disconnect WebSocket:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('websocket-send-status', async (event, kioskId, status, details) => {
+  try {
+    if (!isWebSocketConnected || !stompClient) {
+      return { success: false, error: 'Not connected' };
+    }
+
+    stompClient.publish({
+      destination: '/app/kiosk/status',
+      body: JSON.stringify({
+        kioskId: kioskId,
+        status: status,
+        details: details,
+        timestamp: new Date().toISOString()
+      })
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to send WebSocket status:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+function startWebSocketHeartbeat(kioskId) {
+  stopWebSocketHeartbeat();
+
+  heartbeatInterval = setInterval(() => {
+    if (isWebSocketConnected && stompClient) {
+      stompClient.publish({
+        destination: '/app/kiosk/heartbeat',
+        body: JSON.stringify({
+          kioskId: kioskId,
+          timestamp: new Date().toISOString()
+        })
+      });
+    }
+  }, 30000); // Every 30 seconds
+}
+
+function stopWebSocketHeartbeat() {
+  if (heartbeatInterval) {
+    clearInterval(heartbeatInterval);
+    heartbeatInterval = null;
+  }
+}
 
 console.log('Kiosk Video Downloader - Main process started');
