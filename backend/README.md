@@ -1,6 +1,6 @@
 # Kiosk Management System - Backend API
 
-Spring Boot REST API for managing kiosks, stores, videos, events, AI content generation, and real-time MQTT push notifications.
+Spring Boot REST API for managing kiosks, stores, videos, events, and AI content generation using Runway ML.
 
 ## Overview
 
@@ -10,7 +10,6 @@ This backend provides a comprehensive REST API for:
 - **AI Content Generation** - Runway ML integration for image/video generation
 - **User Authentication** - JWT-based authentication with role management
 - **Event Tracking** - Comprehensive activity logging with client IP tracking
-- **Real-time Push** - MQTT-based instant synchronization to kiosk devices
 - **Admin Dashboard** - User and content management APIs
 
 ## Tech Stack
@@ -23,31 +22,27 @@ This backend provides a comprehensive REST API for:
 - **Security**: Spring Security with JWT
 - **Cloud Storage**: AWS S3 (SDK v2)
 - **AI Integration**: Runway ML API
-- **Messaging**: Spring Integration MQTT, Eclipse Paho MQTT Client, Mosquitto Broker
 - **Validation**: Jakarta Validation
 
 ## Architecture
 
 ```
-React Admin Dashboard (Port 5173)  ←→  Spring Boot WAS (Port 8080)  ←→  MySQL Database (Port 3306)
-                                               ↕
-Electron Kiosk App  ←──────────────→  Mosquitto MQTT (Port 1883)
+React Admin Dashboard (Port 5173)
+Electron Kiosk App
+         ↓
+Spring Boot WAS (Port 8080)
+         ↓
+    MySQL Database (Port 3306)
 
-                                    AWS S3 (Media Storage)
-                                    Runway ML API (AI Generation)
+AWS S3 (Media Storage)
+Runway ML API (AI Generation)
 ```
-
-**MQTT Real-time Flow:**
-1. Admin changes kiosk config/video assignment in web dashboard
-2. Backend publishes MQTT message to `kiosk/{kioskid}/config/update` or `kiosk/{kioskid}/video/update`
-3. Kiosk app receives MQTT push notification and automatically synchronizes
 
 ## Prerequisites
 
 - Java 17 or higher
 - MySQL 8.0 or higher
 - Gradle (included via wrapper)
-- **Mosquitto MQTT Broker** (for real-time push notifications to kiosk devices)
 - AWS account with S3 bucket (for media storage)
 - Runway ML API key (for AI features)
 
@@ -66,11 +61,6 @@ JAVA_HOME=C:/Program Files/Eclipse Adoptium/jdk-17.0.16.8-hotspot
 ### Optional (for full features)
 
 ```bash
-# MQTT Broker (for real-time push)
-MQTT_BROKER_URL=tcp://localhost:1883  # Default: tcp://localhost:1883
-MQTT_USERNAME=                        # Optional: MQTT username
-MQTT_PASSWORD=                        # Optional: MQTT password
-
 # AWS S3 (for video/image storage)
 AWS_ACCESS_KEY_ID=your_aws_access_key
 AWS_SECRET_ACCESS_KEY=your_aws_secret_key
@@ -366,38 +356,6 @@ curl -X PUT http://localhost:8080/api/admin/users/1/role \
 - Kiosk ID
 - Event details
 
-### MQTT Real-time Push
-
-The backend automatically publishes MQTT messages when kiosk configurations or video assignments change.
-
-**MQTT Topics:**
-- `kiosk/{kioskid}/config/update` - Published when kiosk config is updated
-- `kiosk/{kioskid}/video/update` - Published when video assignment changes
-
-**Message Format:**
-```json
-{
-  "kioskid": "000000000001",
-  "event": "CONFIG_UPDATED",
-  "timestamp": 1698765432000
-}
-```
-
-**Quality of Service:** QoS 1 (at least once delivery)
-
-**Retained Messages:** Yes (last message persisted for offline kiosks)
-
-**Automatic Triggering:**
-- Config updates trigger config topic notification
-- Video assignment changes trigger video topic notification
-- Kiosk app automatically receives and processes push notifications
-- All synchronization happens silently in background
-
-**Service Implementation:**
-- `MqttService.java` handles message publishing
-- `MqttConfig.java` configures Spring Integration MQTT
-- `KioskService.java` triggers notifications on updates
-
 ## Database Schema
 
 ### Core Entities
@@ -501,13 +459,6 @@ The backend automatically publishes MQTT messages when kiosk configurations or v
 - ✅ Kiosk activity logging
 - ✅ Download progress tracking
 
-### Real-time Communication
-- ✅ MQTT-based push notifications
-- ✅ Automatic config synchronization
-- ✅ Instant video assignment updates
-- ✅ QoS 1 message delivery guarantee
-- ✅ Retained messages for offline kiosks
-
 ### Security
 - ✅ JWT authentication
 - ✅ Kiosk device authentication (X-Kiosk-Id header)
@@ -603,36 +554,6 @@ set SPRING_PROFILES_ACTIVE=dev
 - Auto-adjustment: Adds black padding if outside range
 - Processing: Java BufferedImage with Graphics2D
 
-### MQTT Configuration
-
-**Broker URL:** `tcp://localhost:1883` (default)
-
-**Topic Structure:**
-- Config updates: `kiosk/{kioskid}/config/update`
-- Video updates: `kiosk/{kioskid}/video/update`
-- `{kioskid}` is replaced with actual 12-digit kiosk ID
-
-**Connection Options:**
-- Clean session: true
-- Automatic reconnect: enabled
-- Connection timeout: 10 seconds
-- Keep alive interval: 60 seconds
-
-**Message Options:**
-- QoS: 1 (at least once delivery)
-- Retained: true (last message persisted)
-
-**Configuration Files:**
-- `application.yml` - MQTT broker settings
-- `MqttConfig.java` - Spring Integration configuration
-- `MqttService.java` - Message publishing service
-
-**Dependencies (build.gradle):**
-```gradle
-implementation 'org.springframework.integration:spring-integration-mqtt:6.2.0'
-implementation 'org.eclipse.paho:org.eclipse.paho.client.mqttv3:1.2.5'
-```
-
 ## Project Structure
 
 ```
@@ -640,7 +561,6 @@ backend/
 ├── src/main/java/com/kiosk/backend/
 │   ├── config/
 │   │   ├── CorsConfig.java           # CORS configuration
-│   │   ├── MqttConfig.java           # MQTT broker configuration
 │   │   ├── S3Config.java             # AWS S3 configuration
 │   │   └── SecurityConfig.java       # Spring Security configuration
 │   ├── controller/
@@ -678,7 +598,6 @@ backend/
 │   │   ├── VideoService.java         # Video/image operations
 │   │   ├── S3Service.java            # AWS S3 operations
 │   │   ├── RunwayService.java        # Runway ML integration
-│   │   ├── MqttService.java          # MQTT message publishing
 │   │   └── KioskEventService.java    # Event tracking
 │   ├── security/
 │   │   ├── JwtUtil.java              # JWT token utilities
@@ -709,11 +628,8 @@ DB_PASSWORD=your_db_password
 AWS_S3_BUCKET_NAME=your_bucket_name
 AWS_REGION=ap-northeast-2
 RUNWAY_API_KEY=your_runway_key
-MQTT_BROKER_URL=tcp://your-mqtt-broker:1883
 SPRING_PROFILES_ACTIVE=prod
 ```
-
-**Note:** For production, you may need to deploy a separate Mosquitto MQTT broker instance or use a managed MQTT service.
 
 **Health Check:** `/actuator/health`
 
@@ -791,51 +707,6 @@ gradlew.bat build -x test
 **Task timeout:**
 - Some generations take 1-3 minutes
 - Increase polling timeout if needed
-
-### MQTT Connection Issues
-
-**Check Mosquitto is running:**
-```bash
-# Windows
-net start mosquitto
-
-# Linux/Mac
-sudo systemctl status mosquitto
-
-# Check port 1883 is listening
-netstat -an | findstr :1883  # Windows
-netstat -an | grep :1883     # Linux/Mac
-```
-
-**Test MQTT manually:**
-```bash
-# Subscribe to test topic (requires mosquitto-clients)
-mosquitto_sub -h localhost -t "test/topic" -v
-
-# Publish test message (in another terminal)
-mosquitto_pub -h localhost -t "test/topic" -m "Hello MQTT"
-```
-
-**Backend MQTT initialization logs:**
-```
-INFO ... MQTT Client Factory configured for broker: tcp://localhost:1883
-INFO ... MQTT Outbound Message Handler configured with client ID: kiosk-backend-...
-```
-
-**Common issues:**
-- **Port 1883 blocked**: Check firewall settings
-- **Broker not running**: Start Mosquitto service
-- **Connection refused**: Verify MQTT_BROKER_URL is correct
-- **No messages received**: Check topic subscription in kiosk app
-
-**Debug MQTT in backend:**
-- Enable debug logging in `application.yml`:
-  ```yaml
-  logging:
-    level:
-      org.springframework.integration.mqtt: DEBUG
-      org.eclipse.paho.client.mqttv3: DEBUG
-  ```
 
 ## Performance Notes
 

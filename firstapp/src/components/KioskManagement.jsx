@@ -44,13 +44,6 @@ function KioskManagement() {
     syncInterval: 12,
     lastSync: null
   });
-  const [originalKioskConfig, setOriginalKioskConfig] = useState({
-    downloadPath: '',
-    apiUrl: '',
-    autoSync: false,
-    syncInterval: 12,
-    lastSync: null
-  });
   const [showDeleted, setShowDeleted] = useState(false);
   const [searchStoreName, setSearchStoreName] = useState('');
   const [searchMaker, setSearchMaker] = useState('');
@@ -605,15 +598,13 @@ function KioskManagement() {
         return;
       }
 
-      const configData = {
+      setKioskConfig({
         downloadPath: config.downloadPath || '',
         apiUrl: config.apiUrl || '',
         autoSync: config.autoSync || false,
         syncInterval: config.syncInterval || 12,
         lastSync: config.lastSync || null
-      };
-      setKioskConfig(configData);
-      setOriginalKioskConfig(configData);
+      });
       setShowConfigModal(true);
     } catch (err) {
       console.error('Failed to load kiosk config:', err);
@@ -638,13 +629,6 @@ function KioskManagement() {
         syncInterval: 12,
         lastSync: null
       });
-      setOriginalKioskConfig({
-        downloadPath: '',
-        apiUrl: '',
-        autoSync: false,
-        syncInterval: 12,
-        lastSync: null
-      });
     } catch (err) {
       setError('설정 업데이트 실패: ' + err.message);
       setTimeout(() => setError(''), 3000);
@@ -659,16 +643,6 @@ function KioskManagement() {
     }));
   };
 
-  // Check if config has been modified
-  const hasConfigChanges = () => {
-    return (
-      kioskConfig.downloadPath !== originalKioskConfig.downloadPath ||
-      kioskConfig.apiUrl !== originalKioskConfig.apiUrl ||
-      kioskConfig.autoSync !== originalKioskConfig.autoSync ||
-      kioskConfig.syncInterval !== originalKioskConfig.syncInterval
-    );
-  };
-
   const closeModals = () => {
     setShowAddModal(false);
     setShowEditModal(false);
@@ -676,13 +650,6 @@ function KioskManagement() {
     setSelectedKiosk(null);
     setFormData({ posid: '', kioskno: '', maker: '', serialno: '', state: 'preparing', regdate: '', setdate: '', deldate: '', storeRegdate: '', storeMinDate: '' });
     setKioskConfig({
-      downloadPath: '',
-      apiUrl: '',
-      autoSync: false,
-      syncInterval: 12,
-      lastSync: null
-    });
-    setOriginalKioskConfig({
       downloadPath: '',
       apiUrl: '',
       autoSync: false,
@@ -1430,15 +1397,7 @@ function KioskManagement() {
                 <button type="button" onClick={closeModals} className="btn-cancel">
                   취소
                 </button>
-                <button
-                  type="submit"
-                  className="btn-submit"
-                  disabled={!hasConfigChanges()}
-                  style={{
-                    opacity: hasConfigChanges() ? 1 : 0.5,
-                    cursor: hasConfigChanges() ? 'pointer' : 'not-allowed'
-                  }}
-                >
+                <button type="submit" className="btn-submit">
                   설정 저장
                 </button>
               </div>

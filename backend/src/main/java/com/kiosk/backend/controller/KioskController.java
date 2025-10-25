@@ -309,7 +309,7 @@ public class KioskController {
     }
 
     /**
-     * Update kiosk configuration (from Kiosk app or Web Admin)
+     * Update kiosk configuration (from Kiosk app)
      * PATCH /api/kiosks/by-kioskid/{kioskid}/config
      */
     @PatchMapping("/by-kioskid/{kioskid}/config")
@@ -317,18 +317,12 @@ public class KioskController {
             @PathVariable String kioskid,
             @RequestBody KioskConfigDTO configDTO,
             @RequestHeader(value = "X-Kiosk-Id", required = false) String kioskIdHeader) {
-
-        // Determine if request is from web admin or kiosk app
-        // If X-Kiosk-Id header is present, it's from kiosk app
-        boolean fromWebAdmin = (kioskIdHeader == null || kioskIdHeader.isEmpty());
-
-        String source = fromWebAdmin ? "web-admin" : "kiosk-app";
-        log.info("PATCH /api/kiosks/by-kioskid/{}/config from {}", kioskid, source);
+        log.info("PATCH /api/kiosks/by-kioskid/{}/config", kioskid);
         log.info("Config update: downloadPath={}, apiUrl={}, autoSync={}, syncInterval={}",
                 configDTO.getDownloadPath(), configDTO.getApiUrl(),
                 configDTO.getAutoSync(), configDTO.getSyncInterval());
 
-        kioskService.updateKioskConfig(kioskid, configDTO, fromWebAdmin);
+        kioskService.updateKioskConfig(kioskid, configDTO);
 
         Map<String, String> response = new HashMap<>();
         response.put("message", "Kiosk configuration updated successfully");
@@ -344,28 +338,5 @@ public class KioskController {
         log.info("GET /api/kiosks/by-kioskid/{}/config", kioskid);
         KioskConfigDTO config = kioskService.getKioskConfig(kioskid);
         return ResponseEntity.ok(config);
-    }
-
-    /**
-     * Sync kiosk configuration - app sends its config, server checks if web admin modified,
-     * and returns updated config if needed
-     * POST /api/kiosks/by-kioskid/{kioskid}/config/sync
-     */
-    @PostMapping("/by-kioskid/{kioskid}/config/sync")
-    public ResponseEntity<com.kiosk.backend.dto.KioskConfigSyncResponse> syncKioskConfig(
-            @PathVariable String kioskid,
-            @RequestBody KioskConfigDTO appConfig,
-            @RequestHeader(value = "X-Kiosk-Id", required = false) String kioskIdHeader) {
-
-        log.info("POST /api/kiosks/by-kioskid/{}/config/sync from kiosk app", kioskid);
-        log.info("App config: downloadPath={}, apiUrl={}, autoSync={}, syncInterval={}",
-                appConfig.getDownloadPath(), appConfig.getApiUrl(),
-                appConfig.getAutoSync(), appConfig.getSyncInterval());
-
-        com.kiosk.backend.dto.KioskConfigSyncResponse response = kioskService.syncKioskConfig(kioskid, appConfig);
-
-        log.info("Sync response: configUpdated={}, message={}", response.getConfigUpdated(), response.getMessage());
-
-        return ResponseEntity.ok(response);
     }
 }
