@@ -40,6 +40,8 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 // Public endpoints - authentication not required
                 .requestMatchers("/api/auth/login", "/api/auth/signup", "/api/auth/reset-password").permitAll()
+                // Kiosk authentication - token generation for WebSocket
+                .requestMatchers("/api/kiosk-auth/token").permitAll()
                 // H2 Console (for development/testing only - REMOVE IN PRODUCTION!)
                 .requestMatchers("/h2-console/**").permitAll()
                 // Swagger/OpenAPI endpoints

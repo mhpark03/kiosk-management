@@ -1482,8 +1482,9 @@ function checkAuthentication() {
 
 // WebSocket functions
 function connectToWebSocket() {
-  if (!config || !config.apiUrl || !config.kioskId) {
-    console.warn('Cannot connect WebSocket: missing config');
+  if (!config || !config.apiUrl || !config.kioskId || !config.posId || config.kioskNo === null || config.kioskNo === undefined) {
+    console.warn('Cannot connect WebSocket: missing config parameters');
+    console.warn('Config:', config);
     return;
   }
 
@@ -1494,6 +1495,8 @@ function connectToWebSocket() {
     window.WebSocketClient.connect(
       config.apiUrl,
       config.kioskId,
+      config.posId,
+      config.kioskNo,
       handleWebSocketStatusChange
     );
   } else {

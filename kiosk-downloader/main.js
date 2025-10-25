@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, dialog, Menu, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const axios = require('axios');
 const SockJS = require('sockjs-client');
 const { Client } = require('@stomp/stompjs');
 
@@ -433,13 +434,25 @@ ipcMain.handle('open-video-player', async (event, { filePath, title }) => {
 // WebSocket IPC Handlers
 // =====================================
 
-ipcMain.handle('websocket-connect', async (event, apiUrl, kioskId) => {
+ipcMain.handle('websocket-connect', async (event, apiUrl, kioskId, posId, kioskNo) => {
   try {
-    console.log('Connecting WebSocket:', apiUrl, kioskId);
+    console.log('Connecting WebSocket:', apiUrl, kioskId, posId, kioskNo);
 
     // Disconnect existing connection
     if (stompClient) {
       stompClient.deactivate();
+    }
+
+    // Get authentication token
+    let accessToken;
+    try {
+      accessToken = await getKioskToken(apiUrl, kioskId, posId, kioskNo);
+    } catch (error) {
+      console.error('Failed to get kiosk token:', error);
+      return {
+        success: false,
+        error: 'Failed to authenticate: ' + (error.response?.data?.error || error.message)
+      };
     }
 
     const baseUrl = apiUrl.replace('/api', '');
@@ -448,7 +461,7 @@ ipcMain.handle('websocket-connect', async (event, apiUrl, kioskId) => {
     stompClient = new Client({
       webSocketFactory: () => new SockJS(wsUrl),
       connectHeaders: {
-        kioskId: kioskId
+        'Authorization': `Bearer ${accessToken}`
       },
       debug: (str) => {
         console.log('STOMP Debug:', str);
@@ -578,6 +591,30 @@ ipcMain.handle('websocket-send-status', async (event, kioskId, status, details) 
     return { success: false, error: error.message };
   }
 });
+
+/**
+ * Get kiosk authentication token from server
+ */
+async function getKioskToken(apiUrl, kioskId, posId, kioskNo) {
+  try {
+    console.log('Requesting kiosk token...');
+    const response = await axios.post(`${apiUrl}/kiosk-auth/token`, {
+      kioskId: kioskId,
+      posId: posId,
+      kioskNo: kioskNo
+    });
+
+    if (response.data && response.data.accessToken) {
+      console.log('Kiosk token obtained successfully');
+      return response.data.accessToken;
+    } else {
+      throw new Error('No access token in response');
+    }
+  } catch (error) {
+    console.error('Error getting kiosk token:', error.response?.data || error.message);
+    throw error;
+  }
+}
 
 function startWebSocketHeartbeat(kioskId) {
   stopWebSocketHeartbeat();
