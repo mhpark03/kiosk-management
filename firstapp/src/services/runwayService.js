@@ -19,8 +19,21 @@ export async function generateVideo(image1, image2, prompt, duration = 5, model 
 
     // Create FormData to send files
     const formData = new FormData();
-    formData.append('image1', image1);
-    formData.append('image2', image2);
+
+    // Handle image1 - can be File object or URL string
+    if (image1 instanceof File) {
+      formData.append('image1', image1);
+    } else if (typeof image1 === 'string') {
+      formData.append('image1Url', image1);
+    }
+
+    // Handle image2 - can be File object or URL string
+    if (image2 instanceof File) {
+      formData.append('image2', image2);
+    } else if (typeof image2 === 'string') {
+      formData.append('image2Url', image2);
+    }
+
     formData.append('prompt', prompt);
     formData.append('duration', duration);
     formData.append('model', model);

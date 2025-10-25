@@ -27,6 +27,11 @@ public class RunwayService {
     private String apiUrl;
 
     private final RestTemplate restTemplate = new RestTemplate();
+    private final S3Service s3Service;
+
+    public RunwayService(S3Service s3Service) {
+        this.s3Service = s3Service;
+    }
 
     @PostConstruct
     public void init() {
@@ -47,22 +52,51 @@ public class RunwayService {
     }
 
     /**
-     * Download image from URL and convert to base64
+     * Extract S3 key from S3 URL
+     * @param s3Url S3 URL (e.g., https://bucket.s3.region.amazonaws.com/path/to/file)
+     * @return S3 key (e.g., path/to/file)
      */
-    private String downloadImageAndConvertToBase64(String imageUrl) throws Exception {
-        log.info("Downloading image from URL: {}", imageUrl);
-        byte[] imageBytes = restTemplate.getForObject(imageUrl, byte[].class);
-        if (imageBytes == null || imageBytes.length == 0) {
-            throw new RuntimeException("Failed to download image from URL: " + imageUrl);
+    private String extractS3KeyFromUrl(String s3Url) {
+        try {
+            // URL format: https://bucket.s3.region.amazonaws.com/path/to/file
+            // or: https://bucket.s3.amazonaws.com/path/to/file
+            java.net.URI uri = new java.net.URI(s3Url);
+            String path = uri.getPath();
+            // Remove leading slash
+            if (path.startsWith("/")) {
+                path = path.substring(1);
+            }
+            return path;
+        } catch (Exception e) {
+            log.error("Failed to extract S3 key from URL: {}", s3Url, e);
+            throw new RuntimeException("Invalid S3 URL: " + s3Url);
         }
-        log.info("Downloaded {} bytes from URL", imageBytes.length);
-        return java.util.Base64.getEncoder().encodeToString(imageBytes);
+    }
+
+    /**
+     * Download image from S3 URL using S3Service
+     */
+    private byte[] downloadImageFromS3Url(String s3Url) throws Exception {
+        log.info("Downloading image from S3 URL: {}", s3Url);
+        String s3Key = extractS3KeyFromUrl(s3Url);
+        log.info("Extracted S3 key: {}", s3Key);
+
+        byte[] imageBytes = s3Service.downloadFile(s3Key);
+        if (imageBytes == null || imageBytes.length == 0) {
+            throw new RuntimeException("Failed to download image from S3: " + s3Url);
+        }
+        log.info("Downloaded {} bytes from S3", imageBytes.length);
+        return imageBytes;
     }
 
     /**
      * Adjust image aspect ratio by adding padding (Runway ML requires 0.5 to 2.0)
      */
     private byte[] adjustImageAspectRatio(java.awt.image.BufferedImage image) throws Exception {
+        if (image == null) {
+            throw new RuntimeException("Failed to read image: image is null. The file may be corrupted or not a valid image format.");
+        }
+
         int width = image.getWidth();
         int height = image.getHeight();
         double aspectRatio = (double) width / height;
@@ -130,19 +164,49 @@ public class RunwayService {
      * - gen3a_turbo: duration must be 5 or 10, ratio: 1280:768, 768:1280
      * - gen4_turbo: duration must be 2-10, ratio: 1280:720, 720:1280, 1104:832, 832:1104, 960:960, 1584:672
      */
-    public Map<String, Object> generateVideo(MultipartFile image1, MultipartFile image2, String prompt, int duration, String model, String resolution) {
+    public Map<String, Object> generateVideo(MultipartFile image1, MultipartFile image2, String image1Url, String image2Url, String prompt, int duration, String model, String resolution) {
         log.info("Generating video with Runway");
         log.info("Model: {}", model);
-        log.info("Image 1: {}", image1.getOriginalFilename());
-        log.info("Image 2: {}", image2.getOriginalFilename());
         log.info("Prompt: {}", prompt);
         log.info("Duration: {} seconds", duration);
         log.info("Resolution: {}", resolution);
 
         try {
-            // Adjust aspect ratios by adding padding if needed
-            java.awt.image.BufferedImage bufferedImage1 = javax.imageio.ImageIO.read(image1.getInputStream());
-            java.awt.image.BufferedImage bufferedImage2 = javax.imageio.ImageIO.read(image2.getInputStream());
+            // Process image 1
+            java.awt.image.BufferedImage bufferedImage1;
+            if (image1 != null && !image1.isEmpty()) {
+                log.info("Image 1 from file: {}", image1.getOriginalFilename());
+                bufferedImage1 = javax.imageio.ImageIO.read(image1.getInputStream());
+                if (bufferedImage1 == null) {
+                    throw new RuntimeException("Failed to read first image: " + image1.getOriginalFilename() + ". The file may be corrupted or not a valid image format.");
+                }
+            } else {
+                log.info("Image 1 from URL: {}", image1Url);
+                byte[] imageBytes = downloadImageFromS3Url(image1Url);
+                java.io.ByteArrayInputStream bais = new java.io.ByteArrayInputStream(imageBytes);
+                bufferedImage1 = javax.imageio.ImageIO.read(bais);
+                if (bufferedImage1 == null) {
+                    throw new RuntimeException("Failed to read image from URL: " + image1Url + ". The image may be corrupted or not a valid image format.");
+                }
+            }
+
+            // Process image 2
+            java.awt.image.BufferedImage bufferedImage2;
+            if (image2 != null && !image2.isEmpty()) {
+                log.info("Image 2 from file: {}", image2.getOriginalFilename());
+                bufferedImage2 = javax.imageio.ImageIO.read(image2.getInputStream());
+                if (bufferedImage2 == null) {
+                    throw new RuntimeException("Failed to read second image: " + image2.getOriginalFilename() + ". The file may be corrupted or not a valid image format.");
+                }
+            } else {
+                log.info("Image 2 from URL: {}", image2Url);
+                byte[] imageBytes = downloadImageFromS3Url(image2Url);
+                java.io.ByteArrayInputStream bais = new java.io.ByteArrayInputStream(imageBytes);
+                bufferedImage2 = javax.imageio.ImageIO.read(bais);
+                if (bufferedImage2 == null) {
+                    throw new RuntimeException("Failed to read image from URL: " + image2Url + ". The image may be corrupted or not a valid image format.");
+                }
+            }
 
             byte[] adjustedImage1 = adjustImageAspectRatio(bufferedImage1);
             byte[] adjustedImage2 = adjustImageAspectRatio(bufferedImage2);
@@ -158,15 +222,20 @@ public class RunwayService {
 
             Map<String, Object> requestBody = new HashMap<>();
             requestBody.put("model", model);
-            requestBody.put("promptImage", image1Base64);
             requestBody.put("promptText", prompt);
             requestBody.put("duration", duration);
 
-            // Use ratio parameter for all models
-            // Note: Despite documentation suggesting "resolution" for veo models,
-            // the API actually expects "ratio" for all models
-            log.info("DEBUG: Using ratio parameter for model: {}", model);
+            // All models use promptImage as the starting frame
+            requestBody.put("promptImage", image1Base64);
+
+            // Add the second image as lastFrame
+            requestBody.put("lastFrame", image2Base64);
+            log.info("DEBUG: Added promptImage (first image) and lastFrame (second image)");
+
+            // All models use "ratio" parameter (e.g., "16:9" or "1280:720")
             requestBody.put("ratio", resolution);
+            log.info("DEBUG: Using ratio parameter for all models: {}", resolution);
+
             log.info("DEBUG: Final request body keys: {}", requestBody.keySet());
 
             HttpEntity<Map<String, Object>> requestEntity = new HttpEntity<>(requestBody, headers);
@@ -263,6 +332,9 @@ public class RunwayService {
                     if (images[i] != null && !images[i].isEmpty()) {
                         // Adjust aspect ratio by adding padding if needed
                         java.awt.image.BufferedImage bufferedImage = javax.imageio.ImageIO.read(images[i].getInputStream());
+                        if (bufferedImage == null) {
+                            throw new RuntimeException("Failed to read uploaded image " + (i + 1) + ": " + images[i].getOriginalFilename() + ". The file may be corrupted or not a valid image format.");
+                        }
                         byte[] adjustedImageBytes = adjustImageAspectRatio(bufferedImage);
 
                         String imageBase64 = "data:image/png;base64," + java.util.Base64.getEncoder().encodeToString(adjustedImageBytes);
@@ -282,14 +354,14 @@ public class RunwayService {
             if (imageUrls != null) {
                 for (int i = 0; i < imageUrls.length; i++) {
                     if (imageUrls[i] != null && !imageUrls[i].isEmpty()) {
-                        byte[] imageBytes = restTemplate.getForObject(imageUrls[i], byte[].class);
-                        if (imageBytes == null || imageBytes.length == 0) {
-                            throw new RuntimeException("Failed to download image from URL: " + imageUrls[i]);
-                        }
+                        byte[] imageBytes = downloadImageFromS3Url(imageUrls[i]);
 
                         // Adjust aspect ratio by adding padding if needed
                         java.io.ByteArrayInputStream bais = new java.io.ByteArrayInputStream(imageBytes);
                         java.awt.image.BufferedImage bufferedImage = javax.imageio.ImageIO.read(bais);
+                        if (bufferedImage == null) {
+                            throw new RuntimeException("Failed to read image from URL " + (i + 1) + ": " + imageUrls[i] + ". The image may be corrupted or not a valid image format.");
+                        }
                         byte[] adjustedImageBytes = adjustImageAspectRatio(bufferedImage);
 
                         String imageBase64 = "data:image/png;base64," + java.util.Base64.getEncoder().encodeToString(adjustedImageBytes);
