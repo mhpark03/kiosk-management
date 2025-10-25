@@ -5,6 +5,7 @@ import com.kiosk.backend.dto.KioskConfigDTO;
 import com.kiosk.backend.dto.KioskDTO;
 import com.kiosk.backend.dto.UpdateKioskRequest;
 import com.kiosk.backend.service.KioskService;
+import com.kiosk.backend.websocket.KioskWebSocketController;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -26,6 +27,7 @@ import java.util.Map;
 public class KioskController {
 
     private final KioskService kioskService;
+    private final KioskWebSocketController webSocketController;
 
     /**
      * Get all kiosks
@@ -323,6 +325,19 @@ public class KioskController {
                 configDTO.getAutoSync(), configDTO.getSyncInterval());
 
         kioskService.updateKioskConfig(kioskid, configDTO);
+
+        // Send WebSocket notification to the kiosk
+        try {
+            webSocketController.sendNotificationToKiosk(
+                kioskid,
+                "키오스크 설정이 관리자에 의해 업데이트되었습니다. 새로운 설정을 적용합니다.",
+                "CONFIG_UPDATE"
+            );
+            log.info("Sent CONFIG_UPDATE notification to kiosk {}", kioskid);
+        } catch (Exception e) {
+            log.warn("Failed to send WebSocket notification to kiosk {}: {}", kioskid, e.getMessage());
+            // Don't fail the request if WebSocket notification fails
+        }
 
         Map<String, String> response = new HashMap<>();
         response.put("message", "Kiosk configuration updated successfully");

@@ -82,7 +82,9 @@ function handleKioskMessage(message) {
       break;
 
     case 'CONFIG_UPDATE':
-      showNotification('설정 업데이트', message.message, 'info');
+      console.log('[WebSocket] Config update notification:', message.message);
+      // Dispatch event to app.js to reload configuration
+      window.dispatchEvent(new CustomEvent('websocket-config-update', { detail: message }));
       break;
 
     case 'SYNC_RESPONSE':
