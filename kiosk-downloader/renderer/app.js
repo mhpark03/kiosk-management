@@ -25,7 +25,6 @@ const elements = {
   serverRadios: document.querySelectorAll('input[name="server"]'),
   saveConfigBtn: document.getElementById('save-config-btn'),
   deleteConfigBtn: document.getElementById('delete-config-btn'),
-  testConnectionBtn: document.getElementById('test-connection-btn'),
   selectPathBtn: document.getElementById('select-path-btn'),
   syncBtn: document.getElementById('sync-btn'),
   videoList: document.getElementById('video-list'),
@@ -137,7 +136,6 @@ async function initialize() {
 function setupEventListeners() {
   elements.saveConfigBtn.addEventListener('click', saveConfig);
   elements.deleteConfigBtn.addEventListener('click', deleteConfig);
-  elements.testConnectionBtn.addEventListener('click', testConnection);
   elements.selectPathBtn.addEventListener('click', selectDownloadPath);
   elements.syncBtn.addEventListener('click', () => syncVideos());
 
@@ -672,35 +670,6 @@ async function syncConfigToServer(config) {
   } catch (error) {
     console.error('[CONFIG SYNC] Error syncing configuration to server:', error);
     // Don't show error notification to user as this is a background operation
-  }
-}
-
-// Test connection
-async function testConnection() {
-  if (!config || !config.apiUrl || !config.kioskId) {
-    showNotification('API URL과 키오스크 ID를 먼저 설정하세요.', 'warning');
-    return;
-  }
-
-  // Disable button and show loading state
-  const originalText = elements.testConnectionBtn.textContent;
-  elements.testConnectionBtn.disabled = true;
-  elements.testConnectionBtn.textContent = '연결 테스트 중...';
-
-  const result = await window.electronAPI.getVideos(config.apiUrl, config.kioskId);
-
-  // Re-enable button and restore text
-  elements.testConnectionBtn.disabled = false;
-  elements.testConnectionBtn.textContent = originalText;
-
-  if (result.success) {
-    updateConnectionStatus(true);
-    recordKioskEvent('CONNECTION_SUCCESS', '연결 테스트 성공');
-    showNotification('연결 성공!', 'success');
-  } else {
-    updateConnectionStatus(false);
-    recordKioskEvent('CONNECTION_FAILED', `연결테스트 실패: ${result.error}`);
-    showNotification('연결 실패: ' + result.error, 'error');
   }
 }
 
