@@ -41,3 +41,7 @@ data/
 
 ### Environment Variables ###
 .env
+
+### AWS Deployment ###
+backend-mqtt-deploy.zip
+*.zip
