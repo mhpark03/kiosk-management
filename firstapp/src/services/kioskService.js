@@ -29,7 +29,10 @@ export const createKiosk = async (kioskData) => {
       kioskno: kioskData.kioskno,
       maker: kioskData.maker || '',
       serialno: kioskData.serialno || '',
-      state: kioskData.state ? kioskData.state.toUpperCase() : 'INACTIVE'
+      state: kioskData.state ? kioskData.state.toUpperCase() : 'INACTIVE',
+      regdate: kioskData.regdate || null,
+      setdate: kioskData.setdate || null,
+      deldate: kioskData.deldate || null
     };
 
     const response = await api.post('/kiosks', requestData);

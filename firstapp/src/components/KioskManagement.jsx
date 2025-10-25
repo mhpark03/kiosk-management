@@ -152,8 +152,81 @@ function KioskManagement() {
     try {
       setLoading(true);
       const data = await getAllKiosks(showDeleted);
+
+      // Auto-update kiosk state based on setdate and deldate
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const todayTime = today.getTime();
+
+      for (const kiosk of data) {
+        if (kiosk.state === 'deleted' || kiosk.state === 'maintenance') {
+          continue;
+        }
+
+        // Check if deldate has passed - if so, change to inactive
+        if (kiosk.deldate && (kiosk.state === 'active' || kiosk.state === 'preparing')) {
+          const delDate = kiosk.deldate.toDate ? kiosk.deldate.toDate() : new Date(kiosk.deldate);
+          delDate.setHours(0, 0, 0, 0);
+          const delDateTime = delDate.getTime();
+
+          if (delDateTime < todayTime) {
+            console.log(`Auto-updating kiosk ${kiosk.kioskid} from '${kiosk.state}' to 'inactive' (deldate ${formatDate(kiosk.deldate)} has passed)`);
+            try {
+              await updateKioskState(kiosk.id, 'inactive');
+              if (user) {
+                await logKioskStateChange(kiosk.kioskid, kiosk.posid, user.email, kiosk.state, 'inactive');
+              }
+            } catch (err) {
+              console.error(`Failed to auto-update kiosk ${kiosk.kioskid} state:`, err);
+            }
+            continue; // Skip other checks for this kiosk
+          }
+        }
+
+        // Only check setdate logic if state is not inactive
+        if (kiosk.state === 'inactive') {
+          continue;
+        }
+
+        if (!kiosk.setdate) {
+          continue;
+        }
+
+        const setDate = kiosk.setdate.toDate ? kiosk.setdate.toDate() : new Date(kiosk.setdate);
+        setDate.setHours(0, 0, 0, 0);
+        const setDateTime = setDate.getTime();
+
+        // If setdate is in the future and state is active, change to preparing
+        if (setDateTime > todayTime && kiosk.state === 'active') {
+          console.log(`Auto-updating kiosk ${kiosk.kioskid} from 'active' to 'preparing' (setdate ${formatDate(kiosk.setdate)} is in the future)`);
+          try {
+            await updateKioskState(kiosk.id, 'preparing');
+            if (user) {
+              await logKioskStateChange(kiosk.kioskid, kiosk.posid, user.email, 'active', 'preparing');
+            }
+          } catch (err) {
+            console.error(`Failed to auto-update kiosk ${kiosk.kioskid} state:`, err);
+          }
+        }
+
+        // If setdate has arrived and state is preparing, change to active
+        if (setDateTime <= todayTime && kiosk.state === 'preparing') {
+          console.log(`Auto-updating kiosk ${kiosk.kioskid} from 'preparing' to 'active' (setdate ${formatDate(kiosk.setdate)} has arrived)`);
+          try {
+            await updateKioskState(kiosk.id, 'active');
+            if (user) {
+              await logKioskStateChange(kiosk.kioskid, kiosk.posid, user.email, 'preparing', 'active');
+            }
+          } catch (err) {
+            console.error(`Failed to auto-update kiosk ${kiosk.kioskid} state:`, err);
+          }
+        }
+      }
+
+      // Reload data after auto-updates
+      const updatedData = await getAllKiosks(showDeleted);
       // Sort by ID in descending order (newest first)
-      const sortedData = [...data].sort((a, b) => b.id - a.id);
+      const sortedData = [...updatedData].sort((a, b) => b.id - a.id);
       setKiosks(sortedData);
       setError('');
     } catch (err) {
@@ -207,6 +280,11 @@ function KioskManagement() {
 
   // Filter kiosks based on applied filters (only when search button is clicked)
   const filteredKiosks = kiosks.filter(kiosk => {
+    // Filter by inactive state - hide inactive kiosks unless showDeleted is true
+    if (!showDeleted && kiosk.state === 'inactive') {
+      return false;
+    }
+
     // Filter by store name
     let matchesStoreName = true;
     if (appliedSearchStoreName) {
@@ -308,19 +386,25 @@ function KioskManagement() {
         deldate: todayStr
       }));
     } else if (name === 'setdate' && value && formData.state === 'preparing') {
-      // If setdate is set and current state is preparing, change state to active
-      setFormData(prev => ({
-        ...prev,
-        [name]: value,
-        state: 'active'
-      }));
-    } else if (name === 'deldate' && value && formData.state === 'active') {
-      // If deldate is set and current state is active, change state to preparing
-      setFormData(prev => ({
-        ...prev,
-        [name]: value,
-        state: 'preparing'
-      }));
+      // If setdate is set and current state is preparing, only change to active if setdate is today or in the past
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const setDate = new Date(value + 'T00:00:00');
+
+      if (setDate.getTime() <= today.getTime()) {
+        // Setdate is today or in the past, change to active
+        setFormData(prev => ({
+          ...prev,
+          [name]: value,
+          state: 'active'
+        }));
+      } else {
+        // Setdate is in the future, keep as preparing
+        setFormData(prev => ({
+          ...prev,
+          [name]: value
+        }));
+      }
     } else {
       setFormData(prev => ({
         ...prev,
@@ -342,7 +426,14 @@ function KioskManagement() {
         return; // Stop execution
       }
 
-      const result = await createKiosk({ ...formData, kioskno: kiosknoValue });
+      const kioskData = {
+        ...formData,
+        kioskno: kiosknoValue,
+        regdate: dateLocalToTimestamp(formData.regdate),
+        setdate: dateLocalToTimestamp(formData.setdate),
+        deldate: dateLocalToTimestamp(formData.deldate)
+      };
+      const result = await createKiosk(kioskData);
       const { docId, kioskid } = result;
 
       // Log history (separate try-catch to not fail kiosk creation)
@@ -394,8 +485,8 @@ function KioskManagement() {
         serialno: formData.serialno || '',
         state: formData.state,
         regdate: dateLocalToTimestamp(formData.regdate),
-        setdate: formData.state === 'preparing' ? null : dateLocalToTimestamp(formData.setdate),
-        deldate: (formData.state !== 'inactive' && formData.state !== 'maintenance') ? null : dateLocalToTimestamp(formData.deldate)
+        setdate: dateLocalToTimestamp(formData.setdate),
+        deldate: dateLocalToTimestamp(formData.deldate)
       };
 
       // Track changes for history
