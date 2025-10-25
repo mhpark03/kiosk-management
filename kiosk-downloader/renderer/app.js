@@ -198,6 +198,9 @@ function setupEventListeners() {
       handleLogin();
     }
   });
+
+  // WebSocket config update event listener
+  window.addEventListener('websocket-config-update', handleConfigUpdate);
 }
 
 // Update input fields based on config state
@@ -678,6 +681,66 @@ async function selectDownloadPath() {
   const path = await window.electronAPI.selectDownloadPath();
   if (path) {
     elements.downloadPath.value = path;
+  }
+}
+
+// Handle config update from WebSocket
+async function handleConfigUpdate(event) {
+  console.log('[CONFIG UPDATE] Received config update notification from server');
+
+  if (!config || !config.apiUrl || !config.kioskId) {
+    console.warn('[CONFIG UPDATE] No config available, skipping update');
+    return;
+  }
+
+  try {
+    // Fetch latest config from server
+    const response = await fetch(`${config.apiUrl}/kiosks/by-kioskid/${config.kioskId}/config`, {
+      headers: {
+        'X-Kiosk-PosId': config.posId,
+        'X-Kiosk-Id': config.kioskId,
+        'X-Kiosk-No': config.kioskNo.toString()
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch config: ${response.status}`);
+    }
+
+    const serverConfig = await response.json();
+    console.log('[CONFIG UPDATE] Fetched latest config from server:', serverConfig);
+
+    // Update local config with server values
+    const updatedConfig = {
+      ...config,
+      downloadPath: serverConfig.downloadPath || config.downloadPath,
+      apiUrl: serverConfig.apiUrl || config.apiUrl,
+      autoSync: serverConfig.autoSync !== undefined ? serverConfig.autoSync : config.autoSync,
+      syncInterval: serverConfig.syncInterval || config.syncInterval,
+      lastSync: serverConfig.lastSync || config.lastSync
+    };
+
+    // Save updated config locally
+    await window.electronAPI.saveConfig(updatedConfig);
+    config = updatedConfig;
+
+    // Update UI
+    elements.downloadPath.value = config.downloadPath || '';
+    elements.apiUrl.value = config.apiUrl || '';
+    elements.autoSync.checked = config.autoSync || false;
+    elements.syncInterval.value = config.syncInterval || 12;
+
+    // Update auto-sync if changed
+    if (config.autoSync && !autoSyncInterval) {
+      startAutoSync();
+    } else if (!config.autoSync && autoSyncInterval) {
+      stopAutoSync();
+    }
+
+    console.log('[CONFIG UPDATE] Local config updated successfully from server');
+
+  } catch (error) {
+    console.error('[CONFIG UPDATE] Failed to update config from server:', error);
   }
 }
 
