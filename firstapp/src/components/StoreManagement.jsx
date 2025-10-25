@@ -124,9 +124,68 @@ function StoreManagement() {
   const loadStores = async () => {
     try {
       setLoading(true);
-      const data = await getAllStores(showDeleted);
+      // Always fetch all stores (including deleted ones)
+      const data = await getAllStores(true);
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0); // Set to midnight for date-only comparison
+
+      // Auto-deactivate stores with expired enddate
+      const expiredStores = data.filter(store => {
+        if (store.state === 'active' && store.enddate) {
+          const endDate = store.enddate.toDate ? store.enddate.toDate() : new Date(store.enddate);
+          return endDate < today; // enddate has passed
+        }
+        return false;
+      });
+
+      // Deactivate expired stores
+      for (const store of expiredStores) {
+        try {
+          await updateStoreState(store.id, 'inactive');
+          console.log(`Auto-deactivated store: ${store.posname} (enddate: ${formatDate(store.enddate)})`);
+          // Update the store state in the data array
+          store.state = 'inactive';
+        } catch (err) {
+          console.error(`Failed to auto-deactivate store ${store.posname}:`, err.message);
+        }
+      }
+
+      // Auto-activate inactive stores with future enddate
+      const inactiveStoresWithFutureEnddate = data.filter(store => {
+        if (store.state === 'inactive' && store.enddate) {
+          const endDate = store.enddate.toDate ? store.enddate.toDate() : new Date(store.enddate);
+          return endDate >= today; // enddate has not passed yet
+        }
+        return false;
+      });
+
+      // Activate stores with future enddate
+      for (const store of inactiveStoresWithFutureEnddate) {
+        try {
+          await updateStoreState(store.id, 'active');
+          console.log(`Auto-activated store: ${store.posname} (enddate: ${formatDate(store.enddate)})`);
+          // Update the store state in the data array
+          store.state = 'active';
+        } catch (err) {
+          console.error(`Failed to auto-activate store ${store.posname}:`, err.message);
+        }
+      }
+
+      // Filter stores based on showDeleted and enddate
+      const filteredData = data.filter(store => {
+        // If showDeleted is true, show all stores
+        if (showDeleted) return true;
+
+        // Only show active stores when showDeleted is false
+        if (store.state === 'active') return true;
+
+        // Hide inactive and deleted stores when showDeleted is false
+        return false;
+      });
+
       // Sort by ID in descending order (newest first)
-      const sortedData = [...data].sort((a, b) => b.id - a.id);
+      const sortedData = [...filteredData].sort((a, b) => b.id - a.id);
       setStores(sortedData);
       setError('');
     } catch (err) {
