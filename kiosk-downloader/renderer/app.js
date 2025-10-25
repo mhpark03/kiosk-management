@@ -122,6 +122,9 @@ async function initialize() {
   if (config && config.kioskId && config.apiUrl) {
     recordKioskEvent('APP_START', 'AiOZ App 시작');
 
+    // Connect WebSocket
+    connectToWebSocket();
+
     // Auto-sync videos on app start
     console.log('Auto-syncing videos on app start...');
     setTimeout(() => {
@@ -321,6 +324,9 @@ async function deleteConfig() {
     // Stop auto-sync and cancel debounce timer
     stopAutoSync();
     cancelAutoSyncDebounce();
+
+    // Disconnect WebSocket
+    disconnectWebSocket();
 
     // Clear video list
     videos = [];
@@ -593,6 +599,12 @@ async function saveConfig() {
 
       // Sync configuration to server
       syncConfigToServer(config);
+
+      // Reconnect WebSocket with new config
+      disconnectWebSocket();
+      setTimeout(() => {
+        connectToWebSocket();
+      }, 500);
 
       // Auto-sync videos after config save/update
       console.log('Auto-syncing videos after config save...');
@@ -1466,6 +1478,52 @@ function checkAuthentication() {
     return false;
   }
   return true;
+}
+
+// WebSocket functions
+function connectToWebSocket() {
+  if (!config || !config.apiUrl || !config.kioskId) {
+    console.warn('Cannot connect WebSocket: missing config');
+    return;
+  }
+
+  console.log('Connecting to WebSocket...');
+
+  // Use the WebSocket client from websocket.js
+  if (window.WebSocketClient) {
+    window.WebSocketClient.connect(
+      config.apiUrl,
+      config.kioskId,
+      handleWebSocketStatusChange
+    );
+  } else {
+    console.error('WebSocket client not loaded');
+  }
+}
+
+function handleWebSocketStatusChange(isConnected, message) {
+  console.log(`WebSocket status: ${isConnected ? 'Connected' : 'Disconnected'} - ${message}`);
+
+  if (isConnected) {
+    updateConnectionStatus(true);
+    // Send initial status update
+    if (window.WebSocketClient) {
+      window.WebSocketClient.sendStatus(config.kioskId, 'ONLINE', {
+        version: '1.0.0',
+        platform: 'Windows'
+      });
+    }
+  } else {
+    // Don't change connection status to offline for WebSocket disconnection
+    // Keep using HTTP-based connection status
+    console.log('WebSocket disconnected, HTTP connection still active');
+  }
+}
+
+function disconnectWebSocket() {
+  if (window.WebSocketClient) {
+    window.WebSocketClient.disconnect();
+  }
 }
 
 // Initialize when DOM is ready

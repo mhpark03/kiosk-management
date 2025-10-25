@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' https://*.s3.ap-northeast-2.amazonaws.com; connect-src 'self' http://localhost:* http://127.0.0.1:* https://*.ap-northeast-2.amazonaws.com http://*.elasticbeanstalk.com;">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' https://*.s3.ap-northeast-2.amazonaws.com; connect-src 'self' http://localhost:* http://127.0.0.1:* https://*.ap-northeast-2.amazonaws.com http://*.elasticbeanstalk.com ws://localhost:* ws://127.0.0.1:* ws://*.elasticbeanstalk.com;">
   <title>키오스크 영상 다운로더</title>
   <link rel="stylesheet" href="styles.css">
 </head>
@@ -159,6 +159,7 @@
     <p id="loading-message">처리 중...</p>
   </div>
 
+  <script src="websocket.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
