@@ -85,6 +85,11 @@ function handleKioskMessage(message) {
       showNotification('설정 업데이트', message.message, 'info');
       break;
 
+    case 'SYNC_RESPONSE':
+      // Dispatch sync response event to app.js
+      window.dispatchEvent(new CustomEvent('websocket-sync-response', { detail: message }));
+      break;
+
     default:
       console.log('Unknown message type:', message.type);
   }

@@ -474,15 +474,7 @@ ipcMain.handle('websocket-connect', async (event, apiUrl, kioskId, posId, kioskN
         console.log('WebSocket Connected:', frame);
         isWebSocketConnected = true;
 
-        // Notify renderer
-        if (mainWindow) {
-          mainWindow.webContents.send('websocket-status', {
-            connected: true,
-            message: 'Connected to server'
-          });
-        }
-
-        // Subscribe to kiosk-specific topic
+        // Subscribe to kiosk-specific topic FIRST
         stompClient.subscribe(`/topic/kiosk/${kioskId}`, (message) => {
           const data = JSON.parse(message.body);
           console.log('Received kiosk message:', data);
@@ -508,6 +500,14 @@ ipcMain.handle('websocket-connect', async (event, apiUrl, kioskId, posId, kioskN
 
         // Start heartbeat
         startWebSocketHeartbeat(kioskId);
+
+        // Notify renderer AFTER subscriptions are set up
+        if (mainWindow) {
+          mainWindow.webContents.send('websocket-status', {
+            connected: true,
+            message: 'Connected to server'
+          });
+        }
       },
 
       onStompError: (frame) => {
@@ -588,6 +588,31 @@ ipcMain.handle('websocket-send-status', async (event, kioskId, status, details) 
     return { success: true };
   } catch (error) {
     console.error('Failed to send WebSocket status:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('websocket-sync', async (event, kioskId) => {
+  try {
+    console.log('WebSocket sync request for kiosk:', kioskId);
+
+    if (!isWebSocketConnected || !stompClient) {
+      console.error('WebSocket not connected');
+      return { success: false, error: 'WebSocket not connected' };
+    }
+
+    stompClient.publish({
+      destination: '/app/kiosk/sync',
+      body: JSON.stringify({
+        kioskId: kioskId,
+        timestamp: new Date().toISOString()
+      })
+    });
+
+    console.log('Sync request sent via WebSocket');
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to send WebSocket sync request:', error);
     return { success: false, error: error.message };
   }
 });

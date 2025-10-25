@@ -38,6 +38,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   connectWebSocket: (apiUrl, kioskId, posId, kioskNo) => ipcRenderer.invoke('websocket-connect', apiUrl, kioskId, posId, kioskNo),
   disconnectWebSocket: () => ipcRenderer.invoke('websocket-disconnect'),
   sendWebSocketStatus: (kioskId, status, details) => ipcRenderer.invoke('websocket-send-status', kioskId, status, details),
+  syncViaWebSocket: (kioskId) => ipcRenderer.invoke('websocket-sync', kioskId),
   onWebSocketMessage: (callback) => {
     ipcRenderer.on('websocket-message', (event, data) => callback(data));
   },
