@@ -5,19 +5,20 @@ let onConnectionStatusChange = null;
 /**
  * Initialize WebSocket connection via IPC
  */
-async function connectWebSocket(apiUrl, kioskId, statusCallback) {
-  if (!apiUrl || !kioskId) {
-    console.warn('Cannot connect WebSocket: missing apiUrl or kioskId');
+async function connectWebSocket(apiUrl, kioskId, posId, kioskNo, statusCallback) {
+  if (!apiUrl || !kioskId || !posId || kioskNo === null || kioskNo === undefined) {
+    console.warn('Cannot connect WebSocket: missing required parameters');
+    console.warn('apiUrl:', apiUrl, 'kioskId:', kioskId, 'posId:', posId, 'kioskNo:', kioskNo);
     return;
   }
 
   onConnectionStatusChange = statusCallback;
 
-  console.log('Requesting WebSocket connection via IPC:', apiUrl, kioskId);
+  console.log('Requesting WebSocket connection via IPC:', apiUrl, kioskId, posId, kioskNo);
 
   try {
-    // Request connection via IPC
-    const result = await window.electronAPI.connectWebSocket(apiUrl, kioskId);
+    // Request connection via IPC with kiosk credentials for token authentication
+    const result = await window.electronAPI.connectWebSocket(apiUrl, kioskId, posId, kioskNo);
 
     if (!result.success) {
       console.error('Failed to connect WebSocket:', result.error);

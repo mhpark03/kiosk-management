@@ -51,6 +51,48 @@ public class JwtTokenProvider {
                 .compact();
     }
 
+    /**
+     * Generate JWT token for kiosk WebSocket authentication
+     */
+    public String generateKioskToken(String kioskId, String posId, Integer kioskNo) {
+        Date now = new Date();
+        Date expiryDate = new Date(now.getTime() + 86400000); // 24 hours
+
+        return Jwts.builder()
+                .subject(kioskId)
+                .claim("posId", posId)
+                .claim("kioskNo", kioskNo)
+                .claim("type", "kiosk")
+                .issuedAt(now)
+                .expiration(expiryDate)
+                .signWith(getSigningKey())
+                .compact();
+    }
+
+    /**
+     * Extract kiosk ID from token
+     */
+    public String getKioskIdFromToken(String token) {
+        Claims claims = Jwts.parser()
+                .verifyWith(getSigningKey())
+                .build()
+                .parseSignedClaims(token)
+                .getPayload();
+
+        return claims.getSubject();
+    }
+
+    /**
+     * Extract all kiosk claims from token
+     */
+    public Claims getKioskClaimsFromToken(String token) {
+        return Jwts.parser()
+                .verifyWith(getSigningKey())
+                .build()
+                .parseSignedClaims(token)
+                .getPayload();
+    }
+
     public String getUserEmailFromToken(String token) {
         Claims claims = Jwts.parser()
                 .verifyWith(getSigningKey())
