@@ -52,6 +52,16 @@ runway:
     key: ${RUNWAY_API_KEY:key_51795ced3da73579936a7ac67742b9f42e5d62e77673ccdf33ecb52af57dda1a37206045addb88294a3bc97849a7506b666b8901c49e6b9782ab1712df06a232}
     url: ${RUNWAY_API_URL:https://api.dev.runwayml.com}
 
+mqtt:
+  broker:
+    url: ${MQTT_BROKER_URL:tcp://localhost:1883}
+    username: ${MQTT_USERNAME:}
+    password: ${MQTT_PASSWORD:}
+    client-id: kiosk-backend-${random.uuid}
+  topics:
+    config-update: kiosk/{kioskid}/config/update
+    video-update: kiosk/{kioskid}/video/update
+
 logging:
   level:
     com.kiosk.backend: DEBUG

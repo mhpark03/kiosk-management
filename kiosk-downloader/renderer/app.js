@@ -64,6 +64,7 @@ async function initialize() {
 
   // Setup event listeners FIRST
   setupEventListeners();
+  setupMQTTListeners();
 
   // Load config
   config = await window.electronAPI.getConfig();
@@ -89,6 +90,7 @@ async function initialize() {
       updateLastSyncTime(new Date(config.lastSync));
     }
 
+    // MQTT will be connected automatically by main process if kioskId is set
 
     // Auto-sync if enabled (works with or without login)
     if (config.autoSync && config.apiUrl && config.kioskId) {
@@ -330,9 +332,9 @@ async function deleteConfig() {
     // Update connection status
     updateConnectionStatus(false);
 
-    // Show notification after a short delay to avoid blocking UI
+    // Log deletion action (silent mode for unattended kiosk)
     setTimeout(() => {
-      showNotification('설정이 삭제되었습니다.', 'success');
+      console.log('[CONFIG] Configuration deleted successfully');
     }, 100);
   } else {
     hideLoading();
@@ -356,7 +358,7 @@ async function deleteConfig() {
     }
 
     setTimeout(() => {
-      showNotification('설정 삭제에 실패했습니다.', 'error');
+      console.error('[CONFIG] Failed to delete configuration');
     }, 100);
   }
 
@@ -526,7 +528,7 @@ async function saveConfig() {
       elements.kioskId.disabled = false;
       elements.downloadPath.disabled = false;
       
-      showNotification('변경 사항이 없습니다.', 'info');
+      console.log('[CONFIG] No changes detected, skipping update');
       return;
     }
   }
@@ -582,20 +584,22 @@ async function saveConfig() {
     elements.deleteConfigBtn.disabled = false;
 
 
-    // Show notification after a short delay to avoid blocking UI
+    // Log config save action (silent mode for unattended kiosk)
     setTimeout(() => {
       if (configExists) {
-        showNotification('설정이 수정되었습니다.', 'success');
+        console.log('[CONFIG] Configuration updated successfully');
       } else {
-        showNotification('설정이 저장되었습니다.', 'success');
+        console.log('[CONFIG] Configuration saved successfully');
       }
       recordKioskEvent('CONFIG_SAVED', configExists ? '설정이 수정됨' : '설정이 저장됨');
 
       // Sync configuration to server
       syncConfigToServer(config);
 
+      // MQTT will be connected automatically by main process
+
       // Auto-sync videos after config save/update
-      console.log('Auto-syncing videos after config save...');
+      console.log('[CONFIG] Auto-syncing videos after config save...');
       syncVideos(true); // Auto-sync mode (no notifications)
     }, 100);
 
@@ -605,11 +609,11 @@ async function saveConfig() {
       elements.storeId.disabled = false;
       elements.kioskId.disabled = false;
       elements.downloadPath.disabled = false;
-      console.log('Input fields forcefully enabled');
+      console.log('[CONFIG] Input fields forcefully enabled');
     }, 200);
   } else {
     setTimeout(() => {
-      showNotification('설정 저장에 실패했습니다.', 'error');
+      console.error('[CONFIG] Failed to save configuration');
     }, 100);
   }
 }
@@ -700,6 +704,129 @@ async function selectDownloadPath() {
   }
 }
 
+// Sync configuration from server
+// App sends its current config, server checks if web admin modified it,
+// and returns updated config if needed
+async function syncConfigFromServer() {
+  if (!config || !config.apiUrl || !config.kioskId) {
+    console.log('[CONFIG SYNC] Cannot sync: missing apiUrl or kioskId');
+    return false;
+  }
+
+  if (!config.posId || !config.kioskNo) {
+    console.log('[CONFIG SYNC] Cannot sync: missing posId or kioskNo');
+    return false;
+  }
+
+  try {
+    // Step 1: Send current app config to server
+    console.log('[CONFIG SYNC] Sending app config to server...');
+    const appConfig = {
+      downloadPath: config.downloadPath || null,
+      apiUrl: config.apiUrl || null,
+      autoSync: config.autoSync !== undefined ? config.autoSync : null,
+      syncInterval: config.syncInterval || null,
+      lastSync: config.lastSync || null
+    };
+
+    console.log('[CONFIG SYNC] App config:', appConfig);
+
+    const response = await fetch(`${config.apiUrl}/kiosks/by-kioskid/${config.kioskId}/config/sync`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Kiosk-PosId': config.posId,
+        'X-Kiosk-Id': config.kioskId,
+        'X-Kiosk-No': config.kioskNo.toString()
+      },
+      body: JSON.stringify(appConfig)
+    });
+
+    if (!response.ok) {
+      console.log('[CONFIG SYNC] Server returned status:', response.status);
+      return false;
+    }
+
+    // Step 2 & 3: Server checks if web admin modified and returns updated config if needed
+    const syncResponse = await response.json();
+    console.log('[CONFIG SYNC] Sync response:', syncResponse);
+
+    // Step 4: If config was updated by web admin, save the updated config
+    if (syncResponse.configUpdated && syncResponse.updatedConfig) {
+      console.log('[CONFIG SYNC] Web admin modified config. Applying server config...');
+
+      const serverConfig = syncResponse.updatedConfig;
+      const updates = {};
+
+      // Compare and collect changes
+      if (serverConfig.downloadPath && serverConfig.downloadPath !== config.downloadPath) {
+        updates.downloadPath = serverConfig.downloadPath;
+      }
+      if (serverConfig.apiUrl && serverConfig.apiUrl !== config.apiUrl) {
+        updates.apiUrl = serverConfig.apiUrl;
+      }
+      if (serverConfig.autoSync !== null && serverConfig.autoSync !== config.autoSync) {
+        updates.autoSync = serverConfig.autoSync;
+      }
+      if (serverConfig.syncInterval && serverConfig.syncInterval !== config.syncInterval) {
+        updates.syncInterval = serverConfig.syncInterval;
+      }
+
+      if (Object.keys(updates).length > 0) {
+        console.log('[CONFIG SYNC] Applying updates:', updates);
+
+        // Update config object
+        Object.assign(config, updates);
+
+        // Save to file (keep local lastSync)
+        await window.electronAPI.saveConfig({
+          ...updates,
+          lastSync: config.lastSync // Preserve local lastSync
+        });
+
+        // Update UI
+        if (updates.downloadPath) elements.downloadPath.value = updates.downloadPath;
+        if (updates.apiUrl) elements.apiUrl.value = updates.apiUrl;
+        if (updates.autoSync !== undefined) elements.autoSync.checked = updates.autoSync;
+        if (updates.syncInterval) elements.syncInterval.value = updates.syncInterval;
+
+        console.log('[CONFIG SYNC] Local config updated successfully from web admin');
+
+        // Step 5: Record event with details of synced changes
+        const changedFields = [];
+        if (updates.downloadPath) changedFields.push(`다운로드 경로: ${updates.downloadPath}`);
+        if (updates.apiUrl) changedFields.push(`API URL: ${updates.apiUrl}`);
+        if (updates.autoSync !== undefined) changedFields.push(`자동동기화: ${updates.autoSync ? '활성' : '비활성'}`);
+        if (updates.syncInterval) changedFields.push(`동기화 간격: ${updates.syncInterval}시간`);
+
+        const eventMessage = `웹 관리자가 수정한 설정을 서버에서 동기화 완료 (${changedFields.join(', ')})`;
+
+        // Record event with metadata
+        recordKioskEvent('CONFIG_SYNCED_FROM_SERVER', eventMessage, {
+          updatedFields: Object.keys(updates),
+          downloadPath: updates.downloadPath || null,
+          apiUrl: updates.apiUrl || null,
+          autoSync: updates.autoSync !== undefined ? updates.autoSync : null,
+          syncInterval: updates.syncInterval || null
+        });
+
+        // Log sync action (silent mode for unattended kiosk)
+        console.log('[CONFIG SYNC] Configuration synchronized from server');
+        console.log('[CONFIG SYNC] Updated fields:', changedFields.join(', '));
+
+        return true;
+      }
+    }
+
+    console.log('[CONFIG SYNC] No config changes from web admin');
+    return false;
+
+  } catch (error) {
+    console.error('[CONFIG SYNC] Error syncing config:', error);
+    return false;
+  }
+}
+
 // Sync videos from server
 async function syncVideos(isAutoSync = false) {
   console.log('[DEBUG] syncVideos called, isAutoSync:', isAutoSync, 'config:', config);
@@ -710,6 +837,9 @@ async function syncVideos(isAutoSync = false) {
     }
     return;
   }
+
+  // Sync config from server first (in case admin updated settings)
+  await syncConfigFromServer();
 
   // Disable sync button and show loading state (only for manual sync)
   let originalText;
@@ -795,15 +925,18 @@ async function syncVideos(isAutoSync = false) {
     elements.downloadPath.disabled = false;
     elements.downloadPath.readOnly = false;
 
-    // Only show notification for manual sync
+    // Log sync action (silent mode for unattended kiosk)
     if (!isAutoSync) {
-      showNotification(`${videos.length}개의 영상을 동기화했습니다.`, 'success');
+      console.log('[VIDEO SYNC] Manual video synchronization completed');
+    } else {
+      console.log('[VIDEO SYNC] Automatic video synchronization completed');
     }
+    console.log(`[VIDEO SYNC] Synchronized ${videos.length} videos`);
 
     // Auto-download pending videos in background
     const pendingVideos = videos.filter(v => v.downloadStatus === 'PENDING');
     if (pendingVideos.length > 0) {
-      console.log(`Found ${pendingVideos.length} pending videos, starting background download...`);
+      console.log(`[VIDEO SYNC] Found ${pendingVideos.length} pending videos, starting background download...`);
       // Start downloads in background without waiting
       downloadPendingVideosInBackground(pendingVideos);
     }
@@ -813,7 +946,7 @@ async function syncVideos(isAutoSync = false) {
     elements.offlineMode.style.display = 'inline-block';
     if (!isAutoSync) {
       recordKioskEvent('SYNC_FAILED', `동기화 실패: ${result.error}`);
-      showNotification('동기화 실패: ' + result.error, 'error');
+      console.error('[VIDEO SYNC] Video synchronization failed:', result.error);
     }
   }
 }
@@ -965,7 +1098,7 @@ async function downloadVideo(video) {
       videoId: video.videoId,
       fileName: fileName
     }));
-    showNotification(`${video.title} 다운로드 완료`, 'success');
+    console.log(`[DOWNLOAD] Video download completed: ${video.title}`);
   } else {
     video.downloadStatus = 'PENDING';
     video.progress = 0;
@@ -973,7 +1106,7 @@ async function downloadVideo(video) {
       videoId: video.videoId,
       error: result.error
     }));
-    showNotification(`다운로드 실패: ${result.error}`, 'error');
+    console.error(`[DOWNLOAD] Video download failed: ${video.title} - ${result.error}`);
   }
 
   renderVideoList();
@@ -1004,7 +1137,7 @@ async function deleteVideo(video) {
 
     renderVideoList();
     updateStats();
-    showNotification('파일이 이미 삭제되어 상태를 대기중으로 변경했습니다.', 'info');
+    console.log('[VIDEO] File already deleted, status changed to pending');
     return;
   }
 
@@ -1466,6 +1599,99 @@ function checkAuthentication() {
     return false;
   }
   return true;
+}
+
+// ============================================
+// MQTT Real-time Sync Functions
+// ============================================
+
+/**
+ * Connect to MQTT broker via main process
+ */
+async function connectMQTT() {
+  try {
+    console.log('[MQTT] Requesting connection from main process...');
+    await window.electronAPI.mqttConnect();
+    console.log('[MQTT] Connection request sent');
+  } catch (error) {
+    console.error('[MQTT] Failed to request connection:', error);
+  }
+}
+
+/**
+ * Handle config update MQTT message
+ * Silent operation for unattended kiosk mode - logs only, no user notifications
+ */
+async function handleConfigUpdateMessage(payload) {
+  console.log('[MQTT] Config update notification received:', payload);
+  console.log('[MQTT] Starting automatic config synchronization...');
+
+  // Wait a moment for server to complete processing
+  await new Promise(resolve => setTimeout(resolve, 1000));
+
+  // Sync config from server (silent mode)
+  const synced = await syncConfigFromServer();
+
+  if (synced) {
+    console.log('[MQTT] Config synced successfully from server');
+  } else {
+    console.log('[MQTT] No config changes to sync');
+  }
+}
+
+/**
+ * Handle video update MQTT message
+ * Silent operation for unattended kiosk mode - logs only, no user notifications
+ */
+async function handleVideoUpdateMessage(payload) {
+  console.log('[MQTT] Video update notification received:', payload);
+  console.log('[MQTT] Starting automatic video synchronization...');
+
+  // Wait a moment for server to complete processing
+  await new Promise(resolve => setTimeout(resolve, 1000));
+
+  // Trigger video sync (silent mode - auto sync)
+  await syncVideos(true); // true = auto sync mode (no notifications)
+}
+
+/**
+ * Disconnect MQTT client via main process
+ */
+async function disconnectMQTT() {
+  try {
+    console.log('[MQTT] Requesting disconnection from main process...');
+    await window.electronAPI.mqttDisconnect();
+    console.log('[MQTT] Disconnection request sent');
+  } catch (error) {
+    console.error('[MQTT] Failed to request disconnection:', error);
+  }
+}
+
+// Setup MQTT event listeners
+function setupMQTTListeners() {
+  // Listen for MQTT connected event
+  window.electronAPI.onMqttConnected(() => {
+    console.log('[MQTT] Connected to broker (from main process)');
+    console.log('[MQTT] Real-time synchronization enabled');
+  });
+
+  // Listen for config update messages
+  window.electronAPI.onMqttConfigUpdate((payload) => {
+    handleConfigUpdateMessage(payload);
+  });
+
+  // Listen for video update messages
+  window.electronAPI.onMqttVideoUpdate((payload) => {
+    handleVideoUpdateMessage(payload);
+  });
+
+  // Listen for MQTT errors
+  window.electronAPI.onMqttError((error) => {
+    console.error('[MQTT] Error from main process:', error);
+    console.error('[MQTT] Connection error - will attempt to reconnect automatically');
+  });
+
+  console.log('[MQTT] Event listeners setup complete');
 }
 
 // Initialize when DOM is ready

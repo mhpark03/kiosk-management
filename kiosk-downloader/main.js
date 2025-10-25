@@ -1,10 +1,13 @@
 const { app, BrowserWindow, ipcMain, dialog, Menu, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const mqtt = require('mqtt');
 
 let mainWindow;
 let config = null;
+let mqttClient = null;
 const CONFIG_FILE = path.join(__dirname, 'config.json');
+const MQTT_BROKER_URL = 'mqtt://localhost:1883';
 
 // Create application menu
 function createMenu() {
@@ -158,6 +161,16 @@ ipcMain.handle('save-config', async (event, newConfig) => {
   console.trace("[STACK TRACE] save-config call stack:");
   config = { ...config, ...newConfig };
   const success = saveConfig();
+
+  // Reconnect MQTT if kioskId is set
+  if (success && config.kioskId && config.kioskId.trim() !== '') {
+    console.log("[IPC] Reconnecting MQTT after config save...");
+    // Small delay to ensure window is ready
+    setTimeout(() => {
+      connectMQTT();
+    }, 500);
+  }
+
   return { success, config };
 });
 
@@ -220,8 +233,7 @@ ipcMain.handle('login', async (event, apiUrl, email, password) => {
 ipcMain.handle('get-kiosk-by-kioskid', async (event, apiUrl, kioskid) => {
   try {
     const axios = require('axios');
-    const response = await axios.get(`${apiUrl}/kiosks/kioskid/${encodeURIComponent(kioskid)}`);
-    
+
     // Get kiosk info from config for authentication headers
     const headers = {};
     if (config && config.posId && config.kioskId && config.kioskNo) {
@@ -229,7 +241,9 @@ ipcMain.handle('get-kiosk-by-kioskid', async (event, apiUrl, kioskid) => {
       headers['X-Kiosk-Id'] = config.kioskId;
       headers['X-Kiosk-No'] = config.kioskNo.toString();
     }
-    
+
+    const response = await axios.get(`${apiUrl}/kiosks/kioskid/${encodeURIComponent(kioskid)}`, { headers });
+
     return { success: true, data: response.data };
   } catch (error) {
     console.error('Error fetching kiosk by kioskid:', error);
@@ -336,7 +350,7 @@ ipcMain.handle('update-download-status', async (event, { apiUrl, kioskId, videoI
     await axios.patch(
       `${apiUrl}/kiosks/by-kioskid/${encodeURIComponent(kioskId)}/videos/${videoId}/status`,
       null,
-      { params: { status } }
+      { params: { status }, headers }
     );
     return { success: true };
   } catch (error) {
@@ -420,6 +434,133 @@ ipcMain.handle('open-video-player', async (event, { filePath, title }) => {
     console.error('Error opening video player:', error);
     return { success: false, error: error.message };
   }
+});
+
+// MQTT Management
+function connectMQTT() {
+  if (!config || !config.kioskId || config.kioskId.trim() === '') {
+    console.log('[MQTT] Cannot connect: kioskId not set');
+    return;
+  }
+
+  // Disconnect existing client if any
+  if (mqttClient && mqttClient.connected) {
+    console.log('[MQTT] Disconnecting existing client...');
+    mqttClient.end();
+  }
+
+  console.log('[MQTT] Connecting to broker:', MQTT_BROKER_URL);
+
+  mqttClient = mqtt.connect(MQTT_BROKER_URL, {
+    clientId: `kiosk-${config.kioskId}-${Math.random().toString(16).substr(2, 8)}`,
+    clean: true,
+    reconnectPeriod: 5000,
+    connectTimeout: 10000,
+    keepalive: 60
+  });
+
+  mqttClient.on('connect', () => {
+    console.log('[MQTT] Connected to broker');
+
+    // Subscribe to config update topic
+    const configTopic = `kiosk/${config.kioskId}/config/update`;
+    mqttClient.subscribe(configTopic, { qos: 1 }, (err) => {
+      if (err) {
+        console.error('[MQTT] Failed to subscribe to', configTopic, err);
+      } else {
+        console.log('[MQTT] Subscribed to', configTopic);
+      }
+    });
+
+    // Subscribe to video update topic
+    const videoTopic = `kiosk/${config.kioskId}/video/update`;
+    mqttClient.subscribe(videoTopic, { qos: 1 }, (err) => {
+      if (err) {
+        console.error('[MQTT] Failed to subscribe to', videoTopic, err);
+      } else {
+        console.log('[MQTT] Subscribed to', videoTopic);
+      }
+    });
+
+    // Notify renderer
+    if (mainWindow) {
+      mainWindow.webContents.send('mqtt-connected');
+    }
+  });
+
+  mqttClient.on('message', (topic, message) => {
+    try {
+      const payload = JSON.parse(message.toString());
+      console.log('[MQTT] Message received on topic:', topic, payload);
+
+      if (topic === `kiosk/${config.kioskId}/config/update`) {
+        // Notify renderer about config update
+        if (mainWindow) {
+          mainWindow.webContents.send('mqtt-config-update', payload);
+        }
+      } else if (topic === `kiosk/${config.kioskId}/video/update`) {
+        // Notify renderer about video update
+        if (mainWindow) {
+          mainWindow.webContents.send('mqtt-video-update', payload);
+        }
+      }
+    } catch (err) {
+      console.error('[MQTT] Error processing message:', err);
+    }
+  });
+
+  mqttClient.on('error', (err) => {
+    console.error('[MQTT] Connection error:', err);
+    if (mainWindow) {
+      mainWindow.webContents.send('mqtt-error', err.message);
+    }
+  });
+
+  mqttClient.on('offline', () => {
+    console.log('[MQTT] Client is offline');
+  });
+
+  mqttClient.on('reconnect', () => {
+    console.log('[MQTT] Reconnecting to broker...');
+  });
+
+  mqttClient.on('close', () => {
+    console.log('[MQTT] Connection closed');
+  });
+}
+
+function disconnectMQTT() {
+  if (mqttClient && mqttClient.connected) {
+    console.log('[MQTT] Disconnecting...');
+    mqttClient.end();
+    mqttClient = null;
+  }
+}
+
+// IPC handler for MQTT connection
+ipcMain.handle('mqtt-connect', async () => {
+  connectMQTT();
+  return { success: true };
+});
+
+ipcMain.handle('mqtt-disconnect', async () => {
+  disconnectMQTT();
+  return { success: true };
+});
+
+// Connect MQTT when config is loaded with kioskId
+if (config && config.kioskId && config.kioskId.trim() !== '') {
+  // Wait for app to be ready before connecting
+  app.whenReady().then(() => {
+    setTimeout(() => {
+      connectMQTT();
+    }, 2000); // Delay to ensure window is created
+  });
+}
+
+// Disconnect MQTT when app is closing
+app.on('before-quit', () => {
+  disconnectMQTT();
 });
 
 console.log('Kiosk Video Downloader - Main process started');

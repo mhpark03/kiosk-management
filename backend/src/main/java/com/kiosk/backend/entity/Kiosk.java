@@ -56,6 +56,8 @@ public class Kiosk {
 
     private LocalDateTime lastSync; // Last sync timestamp
 
+    private Boolean configModifiedByWeb; // Flag indicating config was modified from web admin (not from kiosk app)
+
     private LocalDateTime regdate; // Registration date
 
     private LocalDateTime setdate; // Setup date
