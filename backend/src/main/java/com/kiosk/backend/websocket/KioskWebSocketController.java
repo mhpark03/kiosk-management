@@ -1,6 +1,8 @@
 package com.kiosk.backend.websocket;
 
 import com.kiosk.backend.dto.KioskVideoDTO;
+import com.kiosk.backend.entity.KioskEvent;
+import com.kiosk.backend.service.KioskEventService;
 import com.kiosk.backend.service.KioskService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,6 +24,7 @@ public class KioskWebSocketController {
 
     private final SimpMessagingTemplate messagingTemplate;
     private final KioskService kioskService;
+    private final KioskEventService kioskEventService;
 
     /**
      * Handle kiosk connection
@@ -35,6 +38,15 @@ public class KioskWebSocketController {
 
         // Store kiosk ID in session
         headerAccessor.getSessionAttributes().put("kioskId", kioskId);
+
+        // Record WebSocket connection event
+        try {
+            kioskEventService.recordEvent(kioskId, KioskEvent.EventType.WEBSOCKET_CONNECTED,
+                "WebSocket 연결됨");
+            log.info("Recorded WEBSOCKET_CONNECTED event for kiosk: {}", kioskId);
+        } catch (Exception e) {
+            log.error("Failed to record WebSocket connect event for kiosk: {}", kioskId, e);
+        }
 
         return Map.of(
             "type", "CONNECTED",
