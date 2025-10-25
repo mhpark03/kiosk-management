@@ -7,7 +7,6 @@ let mainWindow;
 let config = null;
 let mqttClient = null;
 const CONFIG_FILE = path.join(__dirname, 'config.json');
-const MQTT_BROKER_URL = 'mqtt://localhost:1883';
 
 // Create application menu
 function createMenu() {
@@ -443,15 +442,28 @@ function connectMQTT() {
     return;
   }
 
+  // Extract MQTT broker URL from API URL
+  let mqttBrokerUrl = 'mqtt://localhost:1883'; // default
+  if (config.apiUrl) {
+    try {
+      const apiUrlObj = new URL(config.apiUrl);
+      const hostname = apiUrlObj.hostname;
+      mqttBrokerUrl = `mqtt://${hostname}:1883`;
+      console.log('[MQTT] Derived broker URL from API URL:', mqttBrokerUrl);
+    } catch (err) {
+      console.error('[MQTT] Failed to parse API URL, using default localhost:', err);
+    }
+  }
+
   // Disconnect existing client if any
   if (mqttClient && mqttClient.connected) {
     console.log('[MQTT] Disconnecting existing client...');
     mqttClient.end();
   }
 
-  console.log('[MQTT] Connecting to broker:', MQTT_BROKER_URL);
+  console.log('[MQTT] Connecting to broker:', mqttBrokerUrl);
 
-  mqttClient = mqtt.connect(MQTT_BROKER_URL, {
+  mqttClient = mqtt.connect(mqttBrokerUrl, {
     clientId: `kiosk-${config.kioskId}-${Math.random().toString(16).substr(2, 8)}`,
     clean: true,
     reconnectPeriod: 5000,
