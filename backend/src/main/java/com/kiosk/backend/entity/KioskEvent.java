@@ -77,6 +77,8 @@ public class KioskEvent {
         // Configuration events
         CONFIG_SAVED,           // Configuration saved
         CONFIG_DELETED,         // Configuration deleted
+        CONFIG_SYNCED_FROM_SERVER, // Configuration synced from server via WebSocket
+        CONFIG_UPDATED_BY_WEB,  // Configuration updated by web admin
         CONNECTION_TEST,        // Connection test performed
         CONNECTION_SUCCESS,     // Connection test succeeded
         CONNECTION_FAILED,      // Connection test failed
@@ -105,7 +107,11 @@ public class KioskEvent {
         // System events
         AUTO_SYNC_TRIGGERED,    // Auto sync triggered
         MANUAL_ACTION,          // Manual action by user
-        HEALTH_CHECK            // Health check ping
+        HEALTH_CHECK,           // Health check ping
+
+        // WebSocket events
+        WEBSOCKET_CONNECTED,    // WebSocket connection established
+        WEBSOCKET_DISCONNECTED  // WebSocket connection closed
     }
 
     @PrePersist

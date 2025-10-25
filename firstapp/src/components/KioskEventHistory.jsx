@@ -100,36 +100,78 @@ function KioskEventHistory() {
 
   const getEventTypeLabel = (type) => {
     const labels = {
+      // App lifecycle
       'APP_START': '앱 시작',
       'APP_SHUTDOWN': '앱 종료',
+
+      // Sync events
       'SYNC_STARTED': '동기화 시작',
       'SYNC_COMPLETED': '동기화 완료',
       'SYNC_FAILED': '동기화 실패',
+      'AUTO_SYNC_TRIGGERED': '자동 동기화',
+
+      // Download events
       'DOWNLOAD_STARTED': '다운로드 시작',
       'DOWNLOAD_PROGRESS': '다운로드 진행',
       'DOWNLOAD_COMPLETED': '다운로드 완료',
       'DOWNLOAD_FAILED': '다운로드 실패',
+      'DOWNLOAD_CANCELLED': '다운로드 취소',
+
+      // Config events
       'CONFIG_SAVED': '설정 저장',
+      'CONFIG_DELETED': '설정 삭제',
+      'CONFIG_SYNCED_FROM_SERVER': '서버 설정 동기화',
+      'CONFIG_UPDATED_BY_WEB': '웹 설정 업데이트',
+
+      // WebSocket events
+      'WEBSOCKET_CONNECTED': 'WebSocket 연결',
+      'WEBSOCKET_DISCONNECTED': 'WebSocket 연결 해제',
+
+      // File events
+      'FILE_DELETED': '파일 삭제',
+      'FILE_VERIFIED': '파일 검증',
+
+      // Connection events
+      'CONNECTION_TEST': '연결 테스트',
+      'CONNECTION_SUCCESS': '연결 성공',
+      'CONNECTION_FAILED': '연결 실패',
+
+      // Generic events
       'ERROR': '오류',
+      'ERROR_OCCURRED': '오류 발생',
+      'NETWORK_ERROR': '네트워크 오류',
+      'STORAGE_ERROR': '저장소 오류',
       'WARNING': '경고',
-      'INFO': '정보'
+      'INFO': '정보',
+      'HEALTH_CHECK': '상태 확인',
+      'MANUAL_ACTION': '수동 작업'
     };
     return labels[type] || type;
   };
 
   const getEventTypeBadgeColor = (type) => {
-    if (type?.includes('COMPLETED') || type === 'APP_START' || type === 'CONFIG_SAVED') {
+    // Success/Completion events - green
+    if (type?.includes('COMPLETED') || type?.includes('SUCCESS') ||
+        type === 'APP_START' || type === 'CONFIG_SAVED' ||
+        type === 'WEBSOCKET_CONNECTED' || type === 'FILE_VERIFIED') {
       return 'action-create';
     }
-    if (type?.includes('FAILED') || type === 'ERROR') {
+    // Error/Failed events - red
+    if (type?.includes('FAILED') || type?.includes('ERROR') ||
+        type === 'APP_SHUTDOWN' || type === 'WEBSOCKET_DISCONNECTED') {
       return 'action-delete';
     }
-    if (type?.includes('STARTED') || type?.includes('PROGRESS')) {
+    // In-progress events - blue
+    if (type?.includes('STARTED') || type?.includes('PROGRESS') ||
+        type === 'AUTO_SYNC_TRIGGERED') {
       return 'action-update';
     }
-    if (type === 'WARNING') {
+    // Warning/Config events - yellow
+    if (type === 'WARNING' || type?.includes('CONFIG_') ||
+        type?.includes('CANCELLED') || type?.includes('DELETED')) {
       return 'action-state-change';
     }
+    // Default - gray
     return 'action-restore';
   };
 
@@ -221,19 +263,50 @@ function KioskEventHistory() {
             className="filter-select"
           >
             <option value="ALL">전체</option>
-            <option value="APP_START">앱 시작</option>
-            <option value="APP_SHUTDOWN">앱 종료</option>
-            <option value="SYNC_STARTED">동기화 시작</option>
-            <option value="SYNC_COMPLETED">동기화 완료</option>
-            <option value="SYNC_FAILED">동기화 실패</option>
-            <option value="DOWNLOAD_STARTED">다운로드 시작</option>
-            <option value="DOWNLOAD_PROGRESS">다운로드 진행</option>
-            <option value="DOWNLOAD_COMPLETED">다운로드 완료</option>
-            <option value="DOWNLOAD_FAILED">다운로드 실패</option>
-            <option value="CONFIG_SAVED">설정 저장</option>
-            <option value="ERROR">오류</option>
-            <option value="WARNING">경고</option>
-            <option value="INFO">정보</option>
+            <optgroup label="앱">
+              <option value="APP_START">앱 시작</option>
+              <option value="APP_SHUTDOWN">앱 종료</option>
+            </optgroup>
+            <optgroup label="동기화">
+              <option value="SYNC_STARTED">동기화 시작</option>
+              <option value="SYNC_COMPLETED">동기화 완료</option>
+              <option value="SYNC_FAILED">동기화 실패</option>
+              <option value="AUTO_SYNC_TRIGGERED">자동 동기화</option>
+            </optgroup>
+            <optgroup label="다운로드">
+              <option value="DOWNLOAD_STARTED">다운로드 시작</option>
+              <option value="DOWNLOAD_PROGRESS">다운로드 진행</option>
+              <option value="DOWNLOAD_COMPLETED">다운로드 완료</option>
+              <option value="DOWNLOAD_FAILED">다운로드 실패</option>
+              <option value="DOWNLOAD_CANCELLED">다운로드 취소</option>
+            </optgroup>
+            <optgroup label="설정">
+              <option value="CONFIG_SAVED">설정 저장</option>
+              <option value="CONFIG_DELETED">설정 삭제</option>
+              <option value="CONFIG_SYNCED_FROM_SERVER">서버 설정 동기화</option>
+              <option value="CONFIG_UPDATED_BY_WEB">웹 설정 업데이트</option>
+            </optgroup>
+            <optgroup label="WebSocket">
+              <option value="WEBSOCKET_CONNECTED">WebSocket 연결</option>
+              <option value="WEBSOCKET_DISCONNECTED">WebSocket 연결 해제</option>
+            </optgroup>
+            <optgroup label="연결">
+              <option value="CONNECTION_TEST">연결 테스트</option>
+              <option value="CONNECTION_SUCCESS">연결 성공</option>
+              <option value="CONNECTION_FAILED">연결 실패</option>
+            </optgroup>
+            <optgroup label="기타">
+              <option value="FILE_DELETED">파일 삭제</option>
+              <option value="FILE_VERIFIED">파일 검증</option>
+              <option value="ERROR">오류</option>
+              <option value="ERROR_OCCURRED">오류 발생</option>
+              <option value="NETWORK_ERROR">네트워크 오류</option>
+              <option value="STORAGE_ERROR">저장소 오류</option>
+              <option value="WARNING">경고</option>
+              <option value="INFO">정보</option>
+              <option value="HEALTH_CHECK">상태 확인</option>
+              <option value="MANUAL_ACTION">수동 작업</option>
+            </optgroup>
           </select>
         </div>
 
