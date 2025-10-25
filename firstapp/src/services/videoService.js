@@ -27,9 +27,16 @@ export const videoService = {
   },
 
   // Get all videos (admin only)
+  // Only returns manually uploaded videos (type=UPLOAD)
+  // Excludes AI-generated videos (type=RUNWAY_GENERATED) and images (mediaType=IMAGE)
   async getAllVideos() {
     try {
-      const response = await api.get('/videos');
+      const response = await api.get('/videos', {
+        params: {
+          type: 'UPLOAD',
+          mediaType: 'VIDEO'
+        }
+      });
       return response.data;
     } catch (error) {
       console.error('Get videos error:', error);

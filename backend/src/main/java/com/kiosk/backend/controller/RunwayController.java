@@ -21,8 +21,10 @@ public class RunwayController {
 
     @PostMapping("/generate-video")
     public ResponseEntity<RunwayVideoResponse> generateVideo(
-            @RequestParam("image1") MultipartFile image1,
-            @RequestParam("image2") MultipartFile image2,
+            @RequestParam(value = "image1", required = false) MultipartFile image1,
+            @RequestParam(value = "image2", required = false) MultipartFile image2,
+            @RequestParam(value = "image1Url", required = false) String image1Url,
+            @RequestParam(value = "image2Url", required = false) String image2Url,
             @RequestParam("prompt") String prompt,
             @RequestParam(value = "duration", defaultValue = "5") int duration,
             @RequestParam(value = "model", defaultValue = "gen3a_turbo") String model,
@@ -30,15 +32,40 @@ public class RunwayController {
     ) {
         try {
             log.info("Received video generation request");
-            log.info("Image 1: {}, size: {} bytes", image1.getOriginalFilename(), image1.getSize());
-            log.info("Image 2: {}, size: {} bytes", image2.getOriginalFilename(), image2.getSize());
+
+            // Validate that at least one source for each image is provided
+            if ((image1 == null || image1.isEmpty()) && (image1Url == null || image1Url.isEmpty())) {
+                return ResponseEntity.badRequest().body(RunwayVideoResponse.builder()
+                        .success(false)
+                        .message("Image 1 is required (either file upload or URL)")
+                        .build());
+            }
+            if ((image2 == null || image2.isEmpty()) && (image2Url == null || image2Url.isEmpty())) {
+                return ResponseEntity.badRequest().body(RunwayVideoResponse.builder()
+                        .success(false)
+                        .message("Image 2 is required (either file upload or URL)")
+                        .build());
+            }
+
+            if (image1 != null && !image1.isEmpty()) {
+                log.info("Image 1 (file): {}, size: {} bytes", image1.getOriginalFilename(), image1.getSize());
+            } else {
+                log.info("Image 1 (URL): {}", image1Url);
+            }
+
+            if (image2 != null && !image2.isEmpty()) {
+                log.info("Image 2 (file): {}, size: {} bytes", image2.getOriginalFilename(), image2.getSize());
+            } else {
+                log.info("Image 2 (URL): {}", image2Url);
+            }
+
             log.info("Prompt: {}", prompt);
             log.info("Duration: {} seconds", duration);
             log.info("Model: {}", model);
             log.info("Resolution: {}", resolution);
 
             // Generate video (images will be converted to base64 internally)
-            Map<String, Object> result = runwayService.generateVideo(image1, image2, prompt, duration, model, resolution);
+            Map<String, Object> result = runwayService.generateVideo(image1, image2, image1Url, image2Url, prompt, duration, model, resolution);
 
             String taskId = (String) result.get("id");
 
