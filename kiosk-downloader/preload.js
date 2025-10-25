@@ -32,6 +32,22 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   removeDownloadProgressListener: () => {
     ipcRenderer.removeAllListeners('download-progress');
+  },
+
+  // MQTT
+  mqttConnect: () => ipcRenderer.invoke('mqtt-connect'),
+  mqttDisconnect: () => ipcRenderer.invoke('mqtt-disconnect'),
+  onMqttConnected: (callback) => {
+    ipcRenderer.on('mqtt-connected', () => callback());
+  },
+  onMqttConfigUpdate: (callback) => {
+    ipcRenderer.on('mqtt-config-update', (event, data) => callback(data));
+  },
+  onMqttVideoUpdate: (callback) => {
+    ipcRenderer.on('mqtt-video-update', (event, data) => callback(data));
+  },
+  onMqttError: (callback) => {
+    ipcRenderer.on('mqtt-error', (event, error) => callback(error));
   }
 });
 
