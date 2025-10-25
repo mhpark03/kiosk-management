@@ -46,6 +46,8 @@ public class SecurityConfig {
                 .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
                 // Actuator endpoints (for AWS health checks)
                 .requestMatchers("/actuator/health", "/actuator/info").permitAll()
+                // WebSocket endpoints
+                .requestMatchers("/ws/**").permitAll()
                 // Kiosk initial lookup - no auth needed (to get posid/kioskno)
                 .requestMatchers("/api/kiosks/kioskid/*").permitAll()
                 // Kiosk events - no auth needed (kiosk apps can log events freely)
