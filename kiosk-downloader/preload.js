@@ -1,6 +1,4 @@
 const { contextBridge, ipcRenderer } = require('electron');
-const SockJS = require('sockjs-client');
-const { Client } = require('@stomp/stompjs');
 
 // Expose protected methods to the renderer process
 contextBridge.exposeInMainWorld('electronAPI', {
@@ -34,13 +32,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   removeDownloadProgressListener: () => {
     ipcRenderer.removeAllListeners('download-progress');
-  }
-});
+  },
 
-// Expose WebSocket libraries
-contextBridge.exposeInMainWorld('WebSocketLibs', {
-  SockJS: SockJS,
-  StompClient: Client
+  // WebSocket
+  connectWebSocket: (apiUrl, kioskId) => ipcRenderer.invoke('websocket-connect', apiUrl, kioskId),
+  disconnectWebSocket: () => ipcRenderer.invoke('websocket-disconnect'),
+  sendWebSocketStatus: (kioskId, status, details) => ipcRenderer.invoke('websocket-send-status', kioskId, status, details),
+  onWebSocketMessage: (callback) => {
+    ipcRenderer.on('websocket-message', (event, data) => callback(data));
+  },
+  onWebSocketStatus: (callback) => {
+    ipcRenderer.on('websocket-status', (event, data) => callback(data));
+  }
 });
 
 console.log('Preload script loaded - API bridge established');
