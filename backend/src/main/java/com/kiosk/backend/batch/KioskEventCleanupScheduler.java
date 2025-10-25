@@ -61,7 +61,8 @@ public class KioskEventCleanupScheduler {
                 status,
                 errorMessage,
                 null,
-                false
+                false,
+                "KIOSK_EVENT"
             );
         } catch (Exception e) {
             log.error("Failed to record batch execution history", e);
@@ -108,7 +109,8 @@ public class KioskEventCleanupScheduler {
                     status,
                     errorMessage,
                     currentUser,
-                    true
+                    true,
+                    "KIOSK_EVENT"
                 );
             } catch (Exception ex) {
                 log.error("Failed to record batch execution history", ex);
@@ -124,7 +126,8 @@ public class KioskEventCleanupScheduler {
                 status,
                 errorMessage,
                 currentUser,
-                true
+                true,
+                "KIOSK_EVENT"
             );
         } catch (Exception e) {
             log.error("Failed to record batch execution history", e);

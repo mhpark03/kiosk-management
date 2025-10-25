@@ -5,9 +5,12 @@ import './Management.css';
 
 function BatchManagement() {
   const { user } = useAuth();
-  const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState(null);
-  const [error, setError] = useState('');
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [loadingKioskEvent, setLoadingKioskEvent] = useState(false);
+  const [resultHistory, setResultHistory] = useState(null);
+  const [resultKioskEvent, setResultKioskEvent] = useState(null);
+  const [errorHistory, setErrorHistory] = useState('');
+  const [errorKioskEvent, setErrorKioskEvent] = useState('');
   const [executionHistory, setExecutionHistory] = useState([]);
 
   // Fetch execution history
@@ -33,13 +36,13 @@ function BatchManagement() {
     }
 
     try {
-      setError('');
-      setLoading(true);
-      setResult(null);
+      setErrorHistory('');
+      setLoadingHistory(true);
+      setResultHistory(null);
 
       const response = await api.post('/batch/cleanup-history');
 
-      setResult({
+      setResultHistory({
         success: true,
         deletedRecords: response.data.deletedRecords,
         message: response.data.message
@@ -50,9 +53,38 @@ function BatchManagement() {
 
     } catch (err) {
       console.error('Batch execution error:', err);
-      setError(err.response?.data?.message || '배치 실행 중 오류가 발생했습니다');
+      setErrorHistory(err.response?.data?.message || '배치 실행 중 오류가 발생했습니다');
     } finally {
-      setLoading(false);
+      setLoadingHistory(false);
+    }
+  };
+
+  const handleCleanupKioskEvents = async () => {
+    if (!window.confirm('정말로 2일 이상 지난 키오스크 이벤트를 삭제하시겠습니까?')) {
+      return;
+    }
+
+    try {
+      setErrorKioskEvent('');
+      setLoadingKioskEvent(true);
+      setResultKioskEvent(null);
+
+      const response = await api.post('/batch/cleanup-kiosk-events');
+
+      setResultKioskEvent({
+        success: true,
+        deletedRecords: response.data.deletedRecords,
+        message: response.data.message
+      });
+
+      // Refresh execution history after successful execution
+      fetchExecutionHistory();
+
+    } catch (err) {
+      console.error('Kiosk event cleanup error:', err);
+      setErrorKioskEvent(err.response?.data?.message || '배치 실행 중 오류가 발생했습니다');
+    } finally {
+      setLoadingKioskEvent(false);
     }
   };
 
@@ -94,6 +126,16 @@ function BatchManagement() {
     return result;
   };
 
+  // Get batch type label in Korean
+  const getBatchTypeLabel = (fieldName) => {
+    if (fieldName === 'kiosk_event_cleanup') {
+      return '키오스크 이벤트';
+    } else if (fieldName === 'entity_history_cleanup') {
+      return 'Entity History';
+    }
+    return fieldName || 'N/A';
+  };
+
   // Only accessible by ADMIN
   if (user?.role !== 'ADMIN') {
     return (
@@ -125,26 +167,66 @@ function BatchManagement() {
           <div className="batch-actions">
             <button
               onClick={handleCleanupHistory}
-              disabled={loading}
+              disabled={loadingHistory}
               className="btn-primary"
             >
-              {loading ? '실행 중...' : '수동 실행'}
+              {loadingHistory ? '실행 중...' : '수동 실행'}
             </button>
           </div>
 
-          {error && (
+          {errorHistory && (
             <div className="error-message" style={{ marginTop: '20px' }}>
-              {error}
+              {errorHistory}
             </div>
           )}
 
-          {result && (
+          {resultHistory && (
             <div className="success-message" style={{ marginTop: '20px' }}>
               <h3>실행 완료</h3>
-              <p>삭제된 레코드 수: <strong>{result.deletedRecords}</strong></p>
-              <p>{result.message}</p>
+              <p>삭제된 레코드 수: <strong>{resultHistory.deletedRecords}</strong></p>
+              <p>{resultHistory.message}</p>
               <p style={{ fontSize: '14px', marginTop: '10px', color: '#666' }}>
                 실행 결과는 History 페이지에서 확인할 수 있습니다.
+              </p>
+            </div>
+          )}
+        </div>
+
+        <div className="batch-card">
+          <h2>키오스크 이벤트 정리</h2>
+          <p className="batch-description">
+            2일 이상 지난 키오스크 이벤트 데이터를 삭제합니다.<br />
+            최근 2일간의 이벤트만 유지됩니다.
+          </p>
+
+          <div className="batch-info">
+            <h3>자동 실행 일정</h3>
+            <p>매일 새벽 3시 자동 실행</p>
+          </div>
+
+          <div className="batch-actions">
+            <button
+              onClick={handleCleanupKioskEvents}
+              disabled={loadingKioskEvent}
+              className="btn-primary"
+            >
+              {loadingKioskEvent ? '실행 중...' : '수동 실행'}
+            </button>
+          </div>
+
+          {errorKioskEvent && (
+            <div className="error-message" style={{ marginTop: '20px' }}>
+              {errorKioskEvent}
+            </div>
+          )}
+
+          {resultKioskEvent && (
+            <div className="success-message" style={{ marginTop: '20px' }}>
+              <h3>실행 완료</h3>
+              <p>삭제된 레코드 수: <strong>{resultKioskEvent.deletedRecords}</strong></p>
+              <p>{resultKioskEvent.message}</p>
+              <p style={{ fontSize: '14px', marginTop: '10px', color: '#666' }}>
+                실행 결과는 아래 실행 이력에서 확인할 수 있습니다.
               </p>
             </div>
           )}
@@ -169,6 +251,7 @@ function BatchManagement() {
                     backgroundColor: '#f9f9f9',
                     borderBottom: '2px solid #e0e0e0'
                   }}>
+                    <th style={{ padding: '12px 8px', textAlign: 'left' }}>배치 유형</th>
                     <th style={{ padding: '12px 8px', textAlign: 'left' }}>실행 시간</th>
                     <th style={{ padding: '12px 8px', textAlign: 'left' }}>실행자</th>
                     <th style={{ padding: '12px 8px', textAlign: 'center' }}>삭제 건수</th>
@@ -182,6 +265,18 @@ function BatchManagement() {
                       <tr key={record.id || index} style={{
                         borderBottom: '1px solid #e0e0e0'
                       }}>
+                        <td style={{ padding: '12px 8px' }}>
+                          <span style={{
+                            padding: '4px 8px',
+                            borderRadius: '8px',
+                            fontSize: '12px',
+                            fontWeight: 'bold',
+                            backgroundColor: record.fieldName === 'kiosk_event_cleanup' ? '#e0f2fe' : '#fef3c7',
+                            color: record.fieldName === 'kiosk_event_cleanup' ? '#075985' : '#92400e'
+                          }}>
+                            {getBatchTypeLabel(record.fieldName)}
+                          </span>
+                        </td>
                         <td style={{ padding: '12px 8px' }}>
                           {formatDate(record.timestamp)}
                         </td>
