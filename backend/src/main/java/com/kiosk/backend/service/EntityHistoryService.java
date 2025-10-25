@@ -87,11 +87,41 @@ public class EntityHistoryService {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void recordBatchExecution(LocalDateTime startTime, int deletedCount,
                                      String status, String errorMessage, User user, boolean isManual) {
+        recordBatchExecution(startTime, deletedCount, status, errorMessage, user, isManual, "ENTITY_HISTORY");
+    }
+
+    /**
+     * Records batch job execution result with batch type.
+     *
+     * @param startTime Batch execution start time
+     * @param deletedCount Number of deleted records
+     * @param status Execution status (SUCCESS/FAILED)
+     * @param errorMessage Error message if failed
+     * @param user User who executed (null for scheduled)
+     * @param isManual true if manually executed, false if scheduled
+     * @param batchType Type of batch: "ENTITY_HISTORY" or "KIOSK_EVENT"
+     */
+    public void recordBatchExecution(LocalDateTime startTime, int deletedCount,
+                                     String status, String errorMessage, User user, boolean isManual, String batchType) {
         try {
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
             String executionType = isManual ? "Manual Execution" : "Automatic Scheduled Execution";
             String executedBy = user != null ? user.getEmail() + " (" + user.getDisplayName() + ")" : "System Scheduler";
+
+            // Determine target description based on batch type
+            String target;
+            String fieldName;
+            String description;
+            if ("KIOSK_EVENT".equals(batchType)) {
+                target = "Kiosk event records older than 2 days";
+                fieldName = "kiosk_event_cleanup";
+                description = isManual ? "Manual kiosk event cleanup batch job" : "Automated kiosk event cleanup batch job";
+            } else {
+                target = "Non-USER entity history older than 1 month";
+                fieldName = "entity_history_cleanup";
+                description = isManual ? "Manual entity history cleanup batch job" : "Automated entity history cleanup batch job";
+            }
 
             String detail = String.format(
                 "Execution Type: %s\n" +
@@ -99,19 +129,19 @@ public class EntityHistoryService {
                 "Batch Execution Time: %s\n" +
                 "Status: %s\n" +
                 "Deleted Records: %d\n" +
-                "Target: Non-USER entity history older than 1 month\n" +
+                "Target: %s\n" +
                 "%s",
                 executionType,
                 executedBy,
                 startTime.format(formatter),
                 status,
                 deletedCount,
+                target,
                 errorMessage != null ? "Error: " + errorMessage : "Completed successfully"
             );
 
             String userid = user != null ? user.getEmail() : "SYSTEM";
             String username = user != null ? user.getDisplayName() : "System Batch Job";
-            String description = isManual ? "Manual entity history cleanup batch job" : "Automated entity history cleanup batch job";
 
             // Use KIOSK as entityType instead of null to avoid database constraint
             EntityHistory history = EntityHistory.builder()
@@ -122,7 +152,7 @@ public class EntityHistoryService {
                     .username(username)
                     .action(EntityHistory.ActionType.DELETE) // Represents cleanup/delete action
                     .timestamp(LocalDateTime.now())
-                    .fieldName("entity_history_cleanup")
+                    .fieldName(fieldName)
                     .oldValue(null)
                     .newValue(String.valueOf(deletedCount))
                     .description(description)
