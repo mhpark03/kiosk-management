@@ -1,6 +1,7 @@
 package com.kiosk.backend.controller;
 
 import com.kiosk.backend.batch.EntityHistoryCleanupScheduler;
+import com.kiosk.backend.batch.KioskEventCleanupScheduler;
 import com.kiosk.backend.entity.EntityHistory;
 import com.kiosk.backend.repository.EntityHistoryRepository;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +24,7 @@ import java.util.Map;
 public class BatchController {
 
     private final EntityHistoryCleanupScheduler cleanupScheduler;
+    private final KioskEventCleanupScheduler kioskEventCleanupScheduler;
     private final EntityHistoryRepository entityHistoryRepository;
 
     /**
@@ -41,6 +43,25 @@ public class BatchController {
         response.put("success", true);
         response.put("deletedRecords", deletedCount);
         response.put("message", "Entity history cleanup completed successfully");
+
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Manually trigger kiosk event cleanup batch job.
+     * Deletes kiosk event records older than 2 days.
+     *
+     * @return Response with number of deleted records
+     */
+    @PostMapping("/cleanup-kiosk-events")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Map<String, Object>> cleanupKioskEvents() {
+        int deletedCount = kioskEventCleanupScheduler.executeCleanupManually();
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", true);
+        response.put("deletedRecords", deletedCount);
+        response.put("message", "Kiosk event cleanup completed successfully. Deleted events older than 2 days.");
 
         return ResponseEntity.ok(response);
     }

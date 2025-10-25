@@ -211,4 +211,16 @@ public class KioskEventService {
         LocalDateTime cutoffDate = LocalDateTime.now().minusMonths(months);
         return cleanupOldEvents(cutoffDate);
     }
+
+    /**
+     * Clean up old events older than the specified number of days.
+     *
+     * @param days Number of days to keep
+     * @return Number of events deleted
+     */
+    @Transactional
+    public int cleanupOldEventsInDays(int days) {
+        LocalDateTime cutoffDate = LocalDateTime.now().minusDays(days);
+        return cleanupOldEvents(cutoffDate);
+    }
 }
