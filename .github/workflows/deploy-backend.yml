@@ -44,15 +44,8 @@ jobs:
     - name: Generate deployment package
       run: |
         cd backend
-        mkdir -p deploy
-        # Copy the Spring Boot executable JAR (exclude -plain.jar)
-        find build/libs -name "*.jar" ! -name "*-plain.jar" -exec cp {} deploy/application.jar \;
-        # Copy Procfile for port configuration
-        cp Procfile deploy/ 2>/dev/null || true
-        cp -r .ebextensions deploy/ 2>/dev/null || true
-        cp -r .platform deploy/ 2>/dev/null || true
-        cd deploy
-        zip -r ../deploy-${{ steps.timestamp.outputs.timestamp }}.zip .
+        python3 create_deployment_package.py
+        mv backend-unix-zip.zip deploy-${{ steps.timestamp.outputs.timestamp }}.zip
 
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v2
