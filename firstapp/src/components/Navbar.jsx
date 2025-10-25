@@ -10,6 +10,7 @@ function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isVideosOpen, setIsVideosOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const navbarRef = useRef(null);
 
   const handleLogout = () => {
@@ -26,16 +27,25 @@ function Navbar() {
     setIsMenuOpen(false);
     setIsVideosOpen(false);
     setIsSettingsOpen(false);
+    setIsHistoryOpen(false);
   };
 
   const toggleVideos = () => {
     setIsVideosOpen(!isVideosOpen);
-    setIsSettingsOpen(false);  // Close settings dropdown when opening videos
+    setIsSettingsOpen(false);
+    setIsHistoryOpen(false);
   };
 
   const toggleSettings = () => {
     setIsSettingsOpen(!isSettingsOpen);
-    setIsVideosOpen(false);  // Close videos dropdown when opening settings
+    setIsVideosOpen(false);
+    setIsHistoryOpen(false);
+  };
+
+  const toggleHistory = () => {
+    setIsHistoryOpen(!isHistoryOpen);
+    setIsVideosOpen(false);
+    setIsSettingsOpen(false);
   };
 
   // Close dropdowns when clicking outside
@@ -44,6 +54,7 @@ function Navbar() {
       if (navbarRef.current && !navbarRef.current.contains(event.target)) {
         setIsVideosOpen(false);
         setIsSettingsOpen(false);
+        setIsHistoryOpen(false);
       }
     };
 
@@ -170,6 +181,41 @@ function Navbar() {
                   {user?.role === 'ADMIN' && (
                     <li className="hide-mobile">
                       <Link
+                        to="/user-management"
+                        className={location.pathname === '/user-management' ? 'active' : ''}
+                        onClick={closeMenu}
+                      >
+                        사용자 관리
+                      </Link>
+                    </li>
+                  )}
+                  {user?.role === 'ADMIN' && (
+                    <li className="hide-mobile">
+                      <Link
+                        to="/batch-management"
+                        className={location.pathname === '/batch-management' ? 'active' : ''}
+                        onClick={closeMenu}
+                      >
+                        배치 관리
+                      </Link>
+                    </li>
+                  )}
+                </ul>
+              )}
+            </li>
+            <li className="dropdown">
+              <button
+                className={`dropdown-toggle ${isHistoryOpen ? 'active' : ''}`}
+                onClick={toggleHistory}
+              >
+                이력
+                <span className={`arrow ${isHistoryOpen ? 'open' : ''}`}>▼</span>
+              </button>
+              {isHistoryOpen && (
+                <ul className="dropdown-menu">
+                  {user?.role === 'ADMIN' && (
+                    <li className="hide-mobile">
+                      <Link
                         to="/user-history"
                         className={location.pathname === '/user-history' ? 'active' : ''}
                         onClick={closeMenu}
@@ -195,28 +241,6 @@ function Navbar() {
                         onClick={closeMenu}
                       >
                         키오스크 이벤트 이력
-                      </Link>
-                    </li>
-                  )}
-                  {user?.role === 'ADMIN' && (
-                    <li className="hide-mobile">
-                      <Link
-                        to="/user-management"
-                        className={location.pathname === '/user-management' ? 'active' : ''}
-                        onClick={closeMenu}
-                      >
-                        사용자 관리
-                      </Link>
-                    </li>
-                  )}
-                  {user?.role === 'ADMIN' && (
-                    <li className="hide-mobile">
-                      <Link
-                        to="/batch-management"
-                        className={location.pathname === '/batch-management' ? 'active' : ''}
-                        onClick={closeMenu}
-                      >
-                        배치 관리
                       </Link>
                     </li>
                   )}
