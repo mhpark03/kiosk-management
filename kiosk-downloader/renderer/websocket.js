@@ -26,12 +26,19 @@ function connectWebSocket(apiUrl, kioskId, statusCallback) {
 
   console.log('Connecting to WebSocket:', wsUrl);
 
-  // Import SockJS and STOMP (for browser environment)
-  const SockJS = require('sockjs-client');
-  const { Client } = require('@stomp/stompjs');
+  // Get SockJS and STOMP from preload script
+  if (!window.WebSocketLibs) {
+    console.error('WebSocket libraries not available. Check preload.js');
+    if (onConnectionStatusChange) {
+      onConnectionStatusChange(false, 'WebSocket libraries not loaded');
+    }
+    return;
+  }
+
+  const { SockJS, StompClient } = window.WebSocketLibs;
 
   // Create STOMP client
-  stompClient = new Client({
+  stompClient = new StompClient({
     webSocketFactory: () => new SockJS(wsUrl),
 
     connectHeaders: {
