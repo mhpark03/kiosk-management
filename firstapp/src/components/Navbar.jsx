@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import './Navbar.css';
@@ -10,6 +10,7 @@ function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isVideosOpen, setIsVideosOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const navbarRef = useRef(null);
 
   const handleLogout = () => {
     logout();
@@ -29,11 +30,28 @@ function Navbar() {
 
   const toggleVideos = () => {
     setIsVideosOpen(!isVideosOpen);
+    setIsSettingsOpen(false);  // Close settings dropdown when opening videos
   };
 
   const toggleSettings = () => {
     setIsSettingsOpen(!isSettingsOpen);
+    setIsVideosOpen(false);  // Close videos dropdown when opening settings
   };
+
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (navbarRef.current && !navbarRef.current.contains(event.target)) {
+        setIsVideosOpen(false);
+        setIsSettingsOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   // Don't show navbar on login, signup, and forgot password pages
   const hideNavbar = ['/login', '/signup', '/forgot-password'].includes(location.pathname);
@@ -43,7 +61,7 @@ function Navbar() {
   }
 
   return (
-    <nav className="navbar">
+    <nav className="navbar" ref={navbarRef}>
       <div className="navbar-container">
         <Link to="/dashboard" className="navbar-logo" onClick={closeMenu}>
           <h1>AiOZ 플랫폼</h1>
