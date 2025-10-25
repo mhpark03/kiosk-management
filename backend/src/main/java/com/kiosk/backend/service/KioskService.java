@@ -6,6 +6,7 @@ import com.kiosk.backend.dto.KioskDTO;
 import com.kiosk.backend.dto.UpdateKioskRequest;
 import com.kiosk.backend.entity.EntityHistory;
 import com.kiosk.backend.entity.Kiosk;
+import com.kiosk.backend.entity.KioskEvent;
 import com.kiosk.backend.entity.KioskVideo;
 import com.kiosk.backend.entity.Store;
 import com.kiosk.backend.repository.EntityHistoryRepository;
@@ -35,6 +36,7 @@ public class KioskService {
     private final KioskVideoRepository kioskVideoRepository;
     private final VideoRepository videoRepository;
     private final VideoService videoService;
+    private final KioskEventService kioskEventService;
 
     /**
      * Generate next sequential 12-digit Kiosk ID
@@ -708,13 +710,19 @@ public class KioskService {
                 kioskid, configDTO.getDownloadPath(), configDTO.getApiUrl(),
                 configDTO.getAutoSync(), configDTO.getSyncInterval());
 
-        // Log history
-        String configDetails = String.format("Configuration updated: autoSync=%s, syncInterval=%s hours, downloadPath=%s",
-                configDTO.getAutoSync(),
+        // Record event to kiosk_events (not entity_history)
+        String configDetails = String.format("자동동기화=%s, 동기화간격=%s시간, 다운로드경로=%s",
+                configDTO.getAutoSync() != null ? (configDTO.getAutoSync() ? "활성화" : "비활성화") : "N/A",
                 configDTO.getSyncInterval() != null ? configDTO.getSyncInterval() : "N/A",
                 configDTO.getDownloadPath() != null ? configDTO.getDownloadPath() : "N/A");
-        logHistory(kiosk.getKioskid(), kiosk.getPosid(), "kiosk-app", "Kiosk App", "UPDATE",
-            "kiosk_config", "N/A", "Updated", configDetails);
+
+        try {
+            kioskEventService.recordEvent(kioskid, KioskEvent.EventType.CONFIG_SAVED,
+                "키오스크 앱에서 설정 저장됨: " + configDetails);
+            log.info("Recorded CONFIG_SAVED event for kiosk: {}", kioskid);
+        } catch (Exception e) {
+            log.error("Failed to record CONFIG_SAVED event for kiosk: {}", kioskid, e);
+        }
     }
 
     /**
