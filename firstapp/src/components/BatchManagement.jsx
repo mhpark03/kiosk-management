@@ -152,84 +152,86 @@ function BatchManagement() {
       <h1>배치 관리</h1>
 
       <div className="batch-section">
-        <div className="batch-card">
-          <h2>Entity History 정리</h2>
-          <p className="batch-description">
-            1개월 이상 지난 Kiosk 및 Store 이력 데이터를 삭제합니다.<br />
-            사용자(USER) 관련 이력은 보존됩니다.
-          </p>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '30px' }}>
+          <div className="batch-card">
+            <h2>Entity History 정리</h2>
+            <p className="batch-description">
+              1개월 이상 지난 Kiosk 및 Store 이력 데이터를 삭제합니다.<br />
+              사용자(USER) 관련 이력은 보존됩니다.
+            </p>
 
-          <div className="batch-info">
-            <h3>자동 실행 일정</h3>
-            <p>매일 새벽 2시 자동 실행</p>
+            <div className="batch-info">
+              <h3>자동 실행 일정</h3>
+              <p>매일 새벽 2시 자동 실행</p>
+            </div>
+
+            <div className="batch-actions">
+              <button
+                onClick={handleCleanupHistory}
+                disabled={loadingHistory}
+                className="btn-primary"
+              >
+                {loadingHistory ? '실행 중...' : '수동 실행'}
+              </button>
+            </div>
+
+            {errorHistory && (
+              <div className="error-message" style={{ marginTop: '20px' }}>
+                {errorHistory}
+              </div>
+            )}
+
+            {resultHistory && (
+              <div className="success-message" style={{ marginTop: '20px' }}>
+                <h3>실행 완료</h3>
+                <p>삭제된 레코드 수: <strong>{resultHistory.deletedRecords}</strong></p>
+                <p>{resultHistory.message}</p>
+                <p style={{ fontSize: '14px', marginTop: '10px', color: '#666' }}>
+                  실행 결과는 History 페이지에서 확인할 수 있습니다.
+                </p>
+              </div>
+            )}
           </div>
 
-          <div className="batch-actions">
-            <button
-              onClick={handleCleanupHistory}
-              disabled={loadingHistory}
-              className="btn-primary"
-            >
-              {loadingHistory ? '실행 중...' : '수동 실행'}
-            </button>
+          <div className="batch-card">
+            <h2>키오스크 이벤트 정리</h2>
+            <p className="batch-description">
+              2일 이상 지난 키오스크 이벤트 데이터를 삭제합니다.<br />
+              최근 2일간의 이벤트만 유지됩니다.
+            </p>
+
+            <div className="batch-info">
+              <h3>자동 실행 일정</h3>
+              <p>매일 새벽 3시 자동 실행</p>
+            </div>
+
+            <div className="batch-actions">
+              <button
+                onClick={handleCleanupKioskEvents}
+                disabled={loadingKioskEvent}
+                className="btn-primary"
+              >
+                {loadingKioskEvent ? '실행 중...' : '수동 실행'}
+              </button>
+            </div>
+
+            {errorKioskEvent && (
+              <div className="error-message" style={{ marginTop: '20px' }}>
+                {errorKioskEvent}
+              </div>
+            )}
+
+            {resultKioskEvent && (
+              <div className="success-message" style={{ marginTop: '20px' }}>
+                <h3>실행 완료</h3>
+                <p>삭제된 레코드 수: <strong>{resultKioskEvent.deletedRecords}</strong></p>
+                <p>{resultKioskEvent.message}</p>
+                <p style={{ fontSize: '14px', marginTop: '10px', color: '#666' }}>
+                  실행 결과는 아래 실행 이력에서 확인할 수 있습니다.
+                </p>
+              </div>
+            )}
           </div>
-
-          {errorHistory && (
-            <div className="error-message" style={{ marginTop: '20px' }}>
-              {errorHistory}
-            </div>
-          )}
-
-          {resultHistory && (
-            <div className="success-message" style={{ marginTop: '20px' }}>
-              <h3>실행 완료</h3>
-              <p>삭제된 레코드 수: <strong>{resultHistory.deletedRecords}</strong></p>
-              <p>{resultHistory.message}</p>
-              <p style={{ fontSize: '14px', marginTop: '10px', color: '#666' }}>
-                실행 결과는 History 페이지에서 확인할 수 있습니다.
-              </p>
-            </div>
-          )}
-        </div>
-
-        <div className="batch-card">
-          <h2>키오스크 이벤트 정리</h2>
-          <p className="batch-description">
-            2일 이상 지난 키오스크 이벤트 데이터를 삭제합니다.<br />
-            최근 2일간의 이벤트만 유지됩니다.
-          </p>
-
-          <div className="batch-info">
-            <h3>자동 실행 일정</h3>
-            <p>매일 새벽 3시 자동 실행</p>
-          </div>
-
-          <div className="batch-actions">
-            <button
-              onClick={handleCleanupKioskEvents}
-              disabled={loadingKioskEvent}
-              className="btn-primary"
-            >
-              {loadingKioskEvent ? '실행 중...' : '수동 실행'}
-            </button>
-          </div>
-
-          {errorKioskEvent && (
-            <div className="error-message" style={{ marginTop: '20px' }}>
-              {errorKioskEvent}
-            </div>
-          )}
-
-          {resultKioskEvent && (
-            <div className="success-message" style={{ marginTop: '20px' }}>
-              <h3>실행 완료</h3>
-              <p>삭제된 레코드 수: <strong>{resultKioskEvent.deletedRecords}</strong></p>
-              <p>{resultKioskEvent.message}</p>
-              <p style={{ fontSize: '14px', marginTop: '10px', color: '#666' }}>
-                실행 결과는 아래 실행 이력에서 확인할 수 있습니다.
-              </p>
-            </div>
-          )}
         </div>
 
         <div className="batch-info-card">
