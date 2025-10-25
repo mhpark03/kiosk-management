@@ -17,5 +17,4 @@ public class KioskConfigDTO {
     private Boolean autoSync;
     private Integer syncInterval;
     private LocalDateTime lastSync;
-    private Boolean configModifiedByWeb;
 }

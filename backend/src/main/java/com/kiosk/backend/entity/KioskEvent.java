@@ -77,8 +77,6 @@ public class KioskEvent {
         // Configuration events
         CONFIG_SAVED,           // Configuration saved
         CONFIG_DELETED,         // Configuration deleted
-        CONFIG_UPDATED_BY_WEB,  // Configuration updated by web admin
-        CONFIG_SYNCED_FROM_SERVER, // Configuration synced from server to kiosk app
         CONNECTION_TEST,        // Connection test performed
         CONNECTION_SUCCESS,     // Connection test succeeded
         CONNECTION_FAILED,      // Connection test failed
