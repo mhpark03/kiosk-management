@@ -681,6 +681,42 @@ async function selectDownloadPath() {
   }
 }
 
+// Request video sync via WebSocket
+function requestSyncViaWebSocket() {
+  return new Promise((resolve, reject) => {
+    // Set up one-time event listener for sync response
+    const handleSyncResponse = (event) => {
+      window.removeEventListener('websocket-sync-response', handleSyncResponse);
+      clearTimeout(timeout);
+
+      const response = event.detail;
+      console.log('[WebSocket Sync] Received sync response:', response);
+
+      if (response.success) {
+        resolve({ success: true, data: response.data });
+      } else {
+        resolve({ success: false, error: response.error || response.message });
+      }
+    };
+
+    // Set timeout (30 seconds)
+    const timeout = setTimeout(() => {
+      window.removeEventListener('websocket-sync-response', handleSyncResponse);
+      reject(new Error('동기화 요청 시간 초과 (30초)'));
+    }, 30000);
+
+    // Listen for response
+    window.addEventListener('websocket-sync-response', handleSyncResponse);
+
+    // Send sync request
+    window.electronAPI.syncViaWebSocket(config.kioskId).catch(error => {
+      window.removeEventListener('websocket-sync-response', handleSyncResponse);
+      clearTimeout(timeout);
+      reject(error);
+    });
+  });
+}
+
 // Sync videos from server
 async function syncVideos(isAutoSync = false) {
   console.log('[DEBUG] syncVideos called, isAutoSync:', isAutoSync, 'config:', config);
@@ -698,10 +734,17 @@ async function syncVideos(isAutoSync = false) {
     originalText = elements.syncBtn.textContent;
     elements.syncBtn.disabled = true;
     elements.syncBtn.innerHTML = '<span class="icon">🔄</span> 동기화 중...';
-    recordKioskEvent('SYNC_STARTED', '수동 영상 동기화 시작');
+    recordKioskEvent('SYNC_STARTED', '수동 영상 동기화 시작 (WebSocket)');
   }
 
-  const result = await window.electronAPI.getVideos(config.apiUrl, config.kioskId);
+  // Request sync via WebSocket
+  let result;
+  try {
+    result = await requestSyncViaWebSocket();
+  } catch (error) {
+    console.error('WebSocket sync error:', error);
+    result = { success: false, error: error.message };
+  }
 
   // Re-enable sync button and restore text (only for manual sync)
   if (!isAutoSync) {

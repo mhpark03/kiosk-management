@@ -1,5 +1,8 @@
 package com.kiosk.backend.websocket;
 
+import com.kiosk.backend.dto.KioskVideoDTO;
+import com.kiosk.backend.service.KioskService;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
@@ -9,17 +12,16 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 
 @Controller
 @Slf4j
+@RequiredArgsConstructor
 public class KioskWebSocketController {
 
     private final SimpMessagingTemplate messagingTemplate;
-
-    public KioskWebSocketController(SimpMessagingTemplate messagingTemplate) {
-        this.messagingTemplate = messagingTemplate;
-    }
+    private final KioskService kioskService;
 
     /**
      * Handle kiosk connection
@@ -55,6 +57,44 @@ public class KioskWebSocketController {
             "type", "HEARTBEAT_ACK",
             "timestamp", LocalDateTime.now().toString()
         ));
+    }
+
+    /**
+     * Handle video sync request from kiosk
+     */
+    @MessageMapping("/kiosk/sync")
+    public void handleSyncRequest(@Payload Map<String, Object> payload,
+                                   SimpMessageHeaderAccessor headerAccessor) {
+        String kioskId = (String) payload.get("kioskId");
+        log.info("Video sync request from kiosk: {}", kioskId);
+
+        try {
+            // Get videos for this kiosk
+            List<KioskVideoDTO> videos = kioskService.getKioskVideosWithStatusByKioskId(kioskId);
+
+            // Send video list back to the requesting kiosk
+            messagingTemplate.convertAndSend("/topic/kiosk/" + kioskId, Map.of(
+                "type", "SYNC_RESPONSE",
+                "success", true,
+                "data", videos,
+                "timestamp", LocalDateTime.now().toString(),
+                "message", "영상 목록 동기화 완료"
+            ));
+
+            log.info("Sent {} videos to kiosk {}", videos.size(), kioskId);
+
+        } catch (Exception e) {
+            log.error("Error processing sync request for kiosk " + kioskId, e);
+
+            // Send error response
+            messagingTemplate.convertAndSend("/topic/kiosk/" + kioskId, Map.of(
+                "type", "SYNC_RESPONSE",
+                "success", false,
+                "error", e.getMessage(),
+                "timestamp", LocalDateTime.now().toString(),
+                "message", "영상 목록 동기화 실패"
+            ));
+        }
     }
 
     /**
