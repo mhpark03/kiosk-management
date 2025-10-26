@@ -16,6 +16,9 @@ let stompClient = null;
 let isWebSocketConnected = false;
 let heartbeatInterval = null;
 
+// Current log file path (set once on app start)
+let currentLogFilePath = null;
+
 // Logging System
 function ensureLogsDirectory() {
   if (!fs.existsSync(LOGS_DIR)) {
@@ -23,10 +26,74 @@ function ensureLogsDirectory() {
   }
 }
 
+/**
+ * Get Korea Standard Time (KST) formatted string
+ * @param {Date} date - Date object
+ * @returns {string} - ISO-like string in KST (YYYY-MM-DDTHH:mm:ss.sss+09:00)
+ */
+function toKST(date) {
+  // Convert to Korea timezone (UTC+9)
+  const kstDate = new Date(date.toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
+
+  const year = kstDate.getFullYear();
+  const month = String(kstDate.getMonth() + 1).padStart(2, '0');
+  const day = String(kstDate.getDate()).padStart(2, '0');
+  const hours = String(kstDate.getHours()).padStart(2, '0');
+  const minutes = String(kstDate.getMinutes()).padStart(2, '0');
+  const seconds = String(kstDate.getSeconds()).padStart(2, '0');
+  const milliseconds = String(kstDate.getMilliseconds()).padStart(3, '0');
+
+  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.${milliseconds}+09:00`;
+}
+
+/**
+ * Get unique log file path for this app session
+ * Creates a new log file for each app start to avoid overwriting
+ * Format: kiosk-events-YYYY-MM-DD-NNN.log
+ */
 function getLogFilePath() {
+  // Return cached path if already determined
+  if (currentLogFilePath) {
+    return currentLogFilePath;
+  }
+
   const date = new Date();
-  const dateStr = date.toISOString().split('T')[0]; // YYYY-MM-DD
-  return path.join(LOGS_DIR, `kiosk-events-${dateStr}.log`);
+  const kstDate = new Date(date.toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
+  const year = kstDate.getFullYear();
+  const month = String(kstDate.getMonth() + 1).padStart(2, '0');
+  const day = String(kstDate.getDate()).padStart(2, '0');
+  const dateStr = `${year}-${month}-${day}`; // YYYY-MM-DD in KST
+
+  ensureLogsDirectory();
+
+  // Find next available sequence number
+  let sequence = 1;
+  let logPath;
+
+  while (true) {
+    const seqStr = String(sequence).padStart(3, '0');
+    logPath = path.join(LOGS_DIR, `kiosk-events-${dateStr}-${seqStr}.log`);
+
+    // Check if this file already exists
+    if (!fs.existsSync(logPath)) {
+      break; // Found available filename
+    }
+    sequence++;
+
+    // Safety check to prevent infinite loop
+    if (sequence > 999) {
+      // Fallback to timestamp-based name if we somehow have 999 files today
+      const timestamp = toKST(new Date()).replace(/[:.+]/g, '-');
+      logPath = path.join(LOGS_DIR, `kiosk-events-${dateStr}-${timestamp}.log`);
+      break;
+    }
+  }
+
+  // Cache the determined path for this app session
+  currentLogFilePath = logPath;
+  console.log(`Log file for this session: ${path.basename(logPath)}`);
+
+  return logPath;
 }
 
 function rotateLogIfNeeded(logPath) {
@@ -34,10 +101,32 @@ function rotateLogIfNeeded(logPath) {
     if (fs.existsSync(logPath)) {
       const stats = fs.statSync(logPath);
       if (stats.size > MAX_LOG_SIZE) {
-        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-        const rotatedPath = logPath.replace('.log', `-${timestamp}.log`);
+        // Find a unique rotated filename
+        let rotatedPath;
+        let rotateSeq = 1;
+
+        while (true) {
+          const timestamp = toKST(new Date()).replace(/[:.+]/g, '-');
+          const seqStr = String(rotateSeq).padStart(3, '0');
+          rotatedPath = logPath.replace('.log', `-rotated-${seqStr}.log`);
+
+          if (!fs.existsSync(rotatedPath)) {
+            break; // Found available filename
+          }
+          rotateSeq++;
+
+          // Safety check
+          if (rotateSeq > 999) {
+            rotatedPath = logPath.replace('.log', `-rotated-${timestamp}.log`);
+            break;
+          }
+        }
+
         fs.renameSync(logPath, rotatedPath);
-        console.log(`Log file rotated: ${rotatedPath}`);
+        console.log(`Log file rotated: ${path.basename(rotatedPath)}`);
+
+        // Reset current log path so a new one will be created
+        currentLogFilePath = null;
       }
     }
   } catch (error) {
@@ -51,7 +140,7 @@ function writeLog(level, eventType, message, data = null) {
     const logPath = getLogFilePath();
     rotateLogIfNeeded(logPath);
 
-    const timestamp = new Date().toISOString();
+    const timestamp = toKST(new Date());
     const dataStr = data ? ` - ${JSON.stringify(data)}` : '';
     const logLine = `[${timestamp}] [${level}] [${eventType}] ${message}${dataStr}\n`;
 

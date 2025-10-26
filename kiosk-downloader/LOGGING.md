@@ -10,20 +10,23 @@
 ```
 kiosk-downloader/
 ├── logs/
-│   ├── kiosk-events-2025-10-26.log
-│   ├── kiosk-events-2025-10-27.log
+│   ├── kiosk-events-2025-10-26-001.log  (첫 번째 실행)
+│   ├── kiosk-events-2025-10-26-002.log  (두 번째 실행)
+│   ├── kiosk-events-2025-10-27-001.log
 │   └── ...
 ```
+
+**중요**: 앱을 시작할 때마다 새로운 로그 파일이 생성되어 기존 로그를 덮어쓰지 않습니다.
 
 ## 로그 파일 형식
 
 각 로그 항목은 다음 형식을 따릅니다:
 ```
-[2025-10-26T15:30:45.123Z] [INFO] [SYNC_COMPLETED] 수동 영상 동기화 완료 - {"kioskId":"000000000001","videoCount":5}
+[2025-10-26T23:30:45.123+09:00] [INFO] [SYNC_COMPLETED] 수동 영상 동기화 완료 - {"kioskId":"000000000001","videoCount":5}
 ```
 
 구성 요소:
-- **타임스탬프**: ISO 8601 형식 (UTC)
+- **타임스탬프**: ISO 8601 형식 (한국 표준시 KST, UTC+09:00)
 - **로그 레벨**: INFO, WARN, ERROR
 - **이벤트 타입**: 이벤트의 종류를 나타내는 상수
 - **메시지**: 이벤트에 대한 설명
@@ -92,12 +95,24 @@ kiosk-downloader/
 - `ERROR_NETWORK`: 네트워크 오류
 - `ERROR_FILE_SYSTEM`: 파일 시스템 오류
 
+## 로그 파일 명명 규칙
+
+- **기본 형식**: `kiosk-events-YYYY-MM-DD-NNN.log`
+  - `YYYY-MM-DD`: 한국 표준시 기준 날짜
+  - `NNN`: 해당 날짜의 순번 (001부터 시작)
+- **앱 시작마다 새 파일**: 기존 로그를 보존하기 위해 매번 새로운 순번의 파일 생성
+- **예시**:
+  - 첫 번째 실행: `kiosk-events-2025-10-26-001.log`
+  - 두 번째 실행: `kiosk-events-2025-10-26-002.log`
+  - 세 번째 실행: `kiosk-events-2025-10-26-003.log`
+
 ## 로그 로테이션
 
 - **최대 파일 크기**: 10MB
-- **로테이션 방식**: 파일이 10MB를 초과하면 타임스탬프가 추가된 이름으로 자동 백업
-  - 예: `kiosk-events-2025-10-26-2025-10-26T15-30-45-123Z.log`
-- **일별 로그**: 매일 새로운 로그 파일 생성 (YYYY-MM-DD 형식)
+- **로테이션 방식**: 파일이 10MB를 초과하면 순번이 추가된 이름으로 자동 백업
+  - 예: `kiosk-events-2025-10-26-001-rotated-001.log`
+- **로테이션 후**: 새로운 로그 파일이 자동으로 생성됩니다
+- **시간대**: 모든 로그는 한국 표준시(KST, UTC+09:00)로 기록됩니다
 
 ## 사용 예시
 
@@ -149,14 +164,20 @@ Get-ChildItem -Path "logs" -Filter "*.log" | Where-Object { $_.LastWriteTime -lt
 
 ### 로그 보기
 ```bash
-# 오늘의 로그 보기
-cat logs/kiosk-events-2025-10-26.log
+# 오늘의 최신 로그 보기 (가장 큰 순번)
+cat logs/kiosk-events-2025-10-26-003.log
 
-# 특정 이벤트 검색
-grep "DOWNLOAD_FAILED" logs/kiosk-events-2025-10-26.log
+# 오늘의 모든 로그 파일 보기
+cat logs/kiosk-events-2025-10-26-*.log
 
-# 실시간 로그 모니터링 (PowerShell)
-Get-Content logs/kiosk-events-2025-10-26.log -Wait -Tail 20
+# 특정 이벤트 검색 (오늘의 모든 로그)
+grep "DOWNLOAD_FAILED" logs/kiosk-events-2025-10-26-*.log
+
+# 실시간 로그 모니터링 (PowerShell, 최신 파일)
+Get-Content logs/kiosk-events-2025-10-26-003.log -Wait -Tail 20
+
+# 오늘의 로그 파일 목록 확인
+dir logs/kiosk-events-2025-10-26-*.log
 ```
 
 ## 주의사항
