@@ -156,15 +156,6 @@ function Navbar() {
                       이미지 만들기
                     </Link>
                   </li>
-                  <li>
-                    <Link
-                      to="/videos/merge"
-                      className={location.pathname === '/videos/merge' ? 'active' : ''}
-                      onClick={closeMenu}
-                    >
-                      비디오 병합
-                    </Link>
-                  </li>
                 </ul>
               )}
             </li>
