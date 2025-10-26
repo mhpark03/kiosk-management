@@ -63,6 +63,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/kiosks/by-kioskid/*/config").authenticated()
                 // Veo save endpoint - temporary permitAll for debugging
                 .requestMatchers("/api/videos/save-veo-video").permitAll()
+                .requestMatchers("/api/videos/save-runway-video").permitAll() // Temporary for debugging
                 .requestMatchers("/api/videos/*").authenticated()
                 // Veo proxy endpoint - public access for video playback (no auth needed)
                 .requestMatchers("/api/veo/proxy-video").permitAll()
