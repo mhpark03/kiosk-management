@@ -1,5 +1,6 @@
 name: Deploy Backend to AWS
 
+# Auto-deploy backend when backend/** files change
 on:
   push:
     branches:
