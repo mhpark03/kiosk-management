@@ -773,3 +773,4 @@ mhpark03
 
 - **Frontend Dashboard**: [firstapp](../firstapp) - React admin dashboard
 - **Kiosk App**: [kiosk-downloader](../kiosk-downloader) - Electron kiosk application
+
