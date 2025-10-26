@@ -113,6 +113,11 @@ function handleKioskMessage(message) {
       break;
 
     case 'SYNC_RESPONSE':
+      console.log('[SYNC_RESPONSE] 동기화 응답 수신:', message);
+      Logger.info(Logger.Events.WEBSOCKET_MESSAGE, '동기화 응답 수신', {
+        success: message.success,
+        videoCount: message.data ? message.data.length : 0
+      });
       // Dispatch sync response event to app.js
       window.dispatchEvent(new CustomEvent('websocket-sync-response', { detail: message }));
       break;
