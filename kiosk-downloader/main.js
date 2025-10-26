@@ -541,6 +541,11 @@ ipcMain.handle('websocket-connect', async (event, apiUrl, kioskId, posId, kioskN
         stompClient.subscribe(`/topic/kiosk/${kioskId}`, (message) => {
           const data = JSON.parse(message.body);
           console.log('Received kiosk message:', data);
+          logInfo('WEBSOCKET_MESSAGE_RECEIVED', `WebSocket 메시지 수신: ${data.type}`, {
+            kioskId,
+            type: data.type,
+            hasData: !!data.data
+          });
           if (mainWindow) {
             mainWindow.webContents.send('websocket-message', data);
           }
@@ -658,24 +663,32 @@ ipcMain.handle('websocket-send-status', async (event, kioskId, status, details) 
 ipcMain.handle('websocket-sync', async (event, kioskId) => {
   try {
     console.log('WebSocket sync request for kiosk:', kioskId);
+    logInfo('SYNC_REQUEST_SENT', 'WebSocket 동기화 요청 전송', { kioskId });
 
     if (!isWebSocketConnected || !stompClient) {
       console.error('WebSocket not connected');
+      logError('SYNC_REQUEST_FAILED', 'WebSocket 미연결 상태', { kioskId });
       return { success: false, error: 'WebSocket not connected' };
     }
 
+    const payload = {
+      kioskId: kioskId,
+      timestamp: new Date().toISOString()
+    };
+
+    console.log('Sending sync request to /app/kiosk/sync:', payload);
+
     stompClient.publish({
       destination: '/app/kiosk/sync',
-      body: JSON.stringify({
-        kioskId: kioskId,
-        timestamp: new Date().toISOString()
-      })
+      body: JSON.stringify(payload)
     });
 
     console.log('Sync request sent via WebSocket');
+    logInfo('SYNC_REQUEST_SENT', 'WebSocket 동기화 요청 전송 완료', { kioskId });
     return { success: true };
   } catch (error) {
     console.error('Failed to send WebSocket sync request:', error);
+    logError('SYNC_REQUEST_ERROR', 'WebSocket 동기화 요청 전송 실패', { kioskId, error: error.message });
     return { success: false, error: error.message };
   }
 });
