@@ -54,3 +54,35 @@ logs/
 # Windows reserved names
 nul
 NUL
+
+# Sensitive files - NEVER commit these!
+GITHUB_SECRETS_SETUP.md
+**/fix_*.py
+**/fix_*.sql
+**/check_*.py
+**/verify_*.py
+**/update_*.py
+**/*_connection.bat
+env-config.json
+
+# Temporary files and archives
+*.zip
+*.tar.gz
+*.bak
+logs*.zip
+eb-logs*.txt
+
+# Database migration scripts (may contain sensitive data)
+add_*.js
+add_*.py
+fix_*.js
+debug_*.js
+restore_*.js
+improve_*.js
+
+# Event documentation (may contain internal info)
+EVENT_*.md
+REMAINING_*.md
+
+# Deployment timestamps
+**/.deploy-timestamp.txt

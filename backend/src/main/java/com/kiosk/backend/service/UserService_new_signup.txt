@@ -1,0 +1,59 @@
+    @Transactional
+    public AuthResponse signup(SignupRequest request) {
+        if (userRepository.existsByEmail(request.getEmail())) {
+            throw new RuntimeException("Email already exists");
+        }
+
+        // Count total existing users (including all statuses)
+        long totalUsers = userRepository.count();
+        
+        // First 2 users become ADMIN with ACTIVE status
+        // 3rd user onwards become USER with PENDING_APPROVAL status
+        User.UserRole assignedRole;
+        User.UserStatus assignedStatus;
+        
+        if (totalUsers < 2) {
+            assignedRole = User.UserRole.ADMIN;
+            assignedStatus = User.UserStatus.ACTIVE;
+            log.info("Assigning ADMIN role to user {} (user #{} in system)", 
+                     request.getEmail(), totalUsers + 1);
+        } else {
+            assignedRole = User.UserRole.USER;
+            assignedStatus = User.UserStatus.PENDING_APPROVAL;
+            log.info("Assigning USER role with PENDING_APPROVAL status to user {} (user #{} in system)", 
+                     request.getEmail(), totalUsers + 1);
+        }
+
+        User user = User.builder()
+                .email(request.getEmail())
+                .password(passwordEncoder.encode(request.getPassword()))
+                .displayName(request.getDisplayName())
+                .phoneNumber(request.getPhoneNumber())
+                .role(assignedRole)
+                .status(assignedStatus)
+                .emailVerified(false)
+                .build();
+
+        User savedUser = userRepository.save(user);
+        log.info("User registered successfully: {} with role: {} and status: {}", 
+                 savedUser.getEmail(), savedUser.getRole(), savedUser.getStatus());
+
+        // Only generate token and allow login for ACTIVE users
+        // Users with PENDING_APPROVAL status cannot log in until approved
+        if (savedUser.getStatus() == User.UserStatus.ACTIVE) {
+            String token = tokenProvider.generateToken(savedUser.getEmail());
+            return AuthResponse.builder()
+                    .token(token)
+                    .email(savedUser.getEmail())
+                    .displayName(savedUser.getDisplayName())
+                    .role(savedUser.getRole().name())
+                    .build();
+        } else {
+            // Return response without token for pending approval users
+            return AuthResponse.builder()
+                    .email(savedUser.getEmail())
+                    .displayName(savedUser.getDisplayName())
+                    .role(savedUser.getRole().name())
+                    .build();
+        }
+    }

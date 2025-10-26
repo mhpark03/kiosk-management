@@ -1,0 +1,75 @@
+spring:
+  application:
+    name: kiosk-backend
+
+  # Profile-specific configurations are in application-{profile}.yml
+  # Available profiles: local, dev, prod
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:local}
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+  security:
+    user:
+      name: admin
+      password: admin
+
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 100MB
+      max-request-size: 100MB
+
+server:
+  port: 8080
+  # SSL disabled for local development (matching AWS environment)
+  # ssl:
+  #   enabled: true
+  #   key-store: classpath:keystore.p12
+  #   key-store-password: password
+  #   key-store-type: PKCS12
+  #   key-alias: kioskapp
+
+jwt:
+  secret: your-256-bit-secret-key-here-make-it-very-long-and-secure-at-least-32-characters
+  expiration: 86400000 # 24 hours in milliseconds
+
+aws:
+  s3:
+    bucket-name: ${AWS_S3_BUCKET_NAME:kiosk-video-bucket}
+    region: ${AWS_REGION:ap-northeast-2}
+    access-key: ${AWS_ACCESS_KEY_ID}
+    secret-key: ${AWS_SECRET_ACCESS_KEY}
+
+runway:
+  api:
+    key: ${RUNWAY_API_KEY:your-runway-api-key-here}
+    url: ${RUNWAY_API_URL:https://api.dev.runwayml.com}
+
+google:
+  ai:
+    api:
+      key: ${GOOGLE_AI_API_KEY:your-google-ai-api-key-here}
+      url: ${GOOGLE_AI_API_URL:https://generativelanguage.googleapis.com/v1beta}
+    veo:
+      model: ${GOOGLE_VEO_MODEL:veo-3.1-generate-preview}
+      aspect:
+        ratio: ${GOOGLE_VEO_ASPECT_RATIO:16:9}
+      resolution: ${GOOGLE_VEO_RESOLUTION:720p}
+      duration: ${GOOGLE_VEO_DURATION:8}
+      poll:
+        interval: ${GOOGLE_VEO_POLL_INTERVAL:5000}
+      max:
+        poll:
+          attempts: ${GOOGLE_VEO_MAX_POLL_ATTEMPTS:60}
+
+logging:
+  level:
+    com.kiosk.backend: DEBUG
+    org.springframework.security: DEBUG
