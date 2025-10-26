@@ -15,7 +15,6 @@ import UserManagement from './components/UserManagement';
 import BatchManagement from './components/BatchManagement';
 import VideoManagement from './components/VideoManagement';
 import VideoUpload from './components/VideoUpload';
-import VideoMerger from './components/VideoMerger';
 import VideoGenerator from './components/VideoGenerator';
 import VeoGenerator from './components/VeoGenerator';
 import ImageGenerator from './components/ImageGenerator';
@@ -155,14 +154,6 @@ function App() {
             element={
               <ProtectedRoute>
                 <VideoUpload />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/videos/merge"
-            element={
-              <ProtectedRoute>
-                <VideoMerger />
               </ProtectedRoute>
             }
           />
