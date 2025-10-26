@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import videoService from '../services/videoService';
 import { getAllStores } from '../services/storeService';
 import api from '../services/api';
-import { FiArrowLeft, FiCheck, FiPlus, FiX, FiTrash2, FiSearch, FiDownload } from 'react-icons/fi';
+import { FiArrowLeft, FiCheck, FiPlus, FiX, FiTrash2, FiSearch, FiDownload, FiRefreshCw } from 'react-icons/fi';
 import './VideoManagement.css';
 
 function KioskVideoManagement() {
@@ -27,6 +27,7 @@ function KioskVideoManagement() {
   const [searchInput, setSearchInput] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [videoStatusMap, setVideoStatusMap] = useState({});
+  const [syncing, setSyncing] = useState(false);
 
   useEffect(() => {
     console.log('KioskVideoManagement mounted');
@@ -199,6 +200,26 @@ function KioskVideoManagement() {
     }
   };
 
+  const handleSyncWithKiosk = async () => {
+    try {
+      setSyncing(true);
+      setError('');
+
+      const response = await api.post(`/kiosks/${kiosk.id}/sync`);
+
+      setSuccess('키오스크에 동기화 명령을 전송했습니다. 키오스크 앱에서 동기화가 시작됩니다.');
+      setTimeout(() => setSuccess(''), 5000);
+
+      console.log('Sync command sent:', response.data);
+    } catch (err) {
+      console.error('Failed to send sync command:', err);
+      setError('동기화 명령 전송에 실패했습니다: ' + (err.response?.data?.error || err.message));
+      setTimeout(() => setError(''), 5000);
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   const getStatusBadge = (status) => {
     const statusConfig = {
       'PENDING': { label: '대기', color: '#718096', bg: '#f7fafc' },
@@ -321,7 +342,30 @@ function KioskVideoManagement() {
             키오스크: {getStoreName(kiosk.posid)} {kiosk.kioskno}
           </p>
         </div>
-        <div>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button
+            onClick={handleSyncWithKiosk}
+            disabled={syncing}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '10px 20px',
+              fontSize: '14px',
+              fontWeight: '500',
+              color: '#fff',
+              background: syncing ? '#a0aec0' : '#48bb78',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: syncing ? 'not-allowed' : 'pointer',
+              transition: 'background-color 0.2s'
+            }}
+            onMouseEnter={(e) => !syncing && (e.target.style.background = '#38a169')}
+            onMouseLeave={(e) => !syncing && (e.target.style.background = '#48bb78')}
+          >
+            <FiRefreshCw style={{ animation: syncing ? 'spin 1s linear infinite' : 'none' }} />
+            {syncing ? '동기화 중...' : '키오스크와 동기화'}
+          </button>
           <button
             onClick={handleOpenModal}
             className="btn-add"
@@ -796,7 +840,7 @@ function KioskVideoManagement() {
                   fontWeight: '500'
                 }}
               >
-                선택 완료 ({tempSelectedVideos.size}개)
+                선택 완료 ({tempSelectedVideos.size - selectedVideos.size}개)
               </button>
             </div>
           </div>

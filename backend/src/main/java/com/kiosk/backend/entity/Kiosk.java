@@ -56,6 +56,9 @@ public class Kiosk {
 
     private LocalDateTime lastSync; // Last sync timestamp
 
+    @Column(nullable = false)
+    private Boolean configModifiedByWeb = false; // Flag: admin modified config via web
+
     private LocalDateTime regdate; // Registration date
 
     private LocalDateTime setdate; // Setup date

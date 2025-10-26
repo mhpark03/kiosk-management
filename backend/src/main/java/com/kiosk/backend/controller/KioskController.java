@@ -311,6 +311,39 @@ public class KioskController {
     }
 
     /**
+     * Update kiosk configuration from Admin Web
+     * PUT /api/kiosks/{id}/config
+     */
+    @PutMapping("/{id}/config")
+    public ResponseEntity<Map<String, String>> updateKioskConfigFromWeb(
+            @PathVariable Long id,
+            @RequestBody KioskConfigDTO configDTO) {
+        log.info("PUT /api/kiosks/{}/config - updating config from admin web", id);
+
+        // Get kiosk by ID to retrieve kioskid
+        KioskDTO kiosk = kioskService.getKioskById(id);
+
+        // Update config and set configModifiedByWeb flag
+        kioskService.updateKioskConfigFromWeb(kiosk.getKioskid(), configDTO);
+
+        // Send WebSocket notification to the kiosk
+        try {
+            webSocketController.sendNotificationToKiosk(
+                kiosk.getKioskid(),
+                "키오스크 설정이 관리자에 의해 업데이트되었습니다. 새로운 설정을 적용합니다.",
+                "CONFIG_UPDATE"
+            );
+            log.info("Sent CONFIG_UPDATE notification to kiosk {} (admin web update)", kiosk.getKioskid());
+        } catch (Exception e) {
+            log.warn("Failed to send WebSocket notification to kiosk {}: {}", kiosk.getKioskid(), e.getMessage());
+        }
+
+        Map<String, String> response = new HashMap<>();
+        response.put("message", "Kiosk configuration updated successfully from admin web");
+        return ResponseEntity.ok(response);
+    }
+
+    /**
      * Update kiosk configuration (from Kiosk app)
      * PATCH /api/kiosks/by-kioskid/{kioskid}/config
      */
@@ -324,19 +357,23 @@ public class KioskController {
                 configDTO.getDownloadPath(), configDTO.getApiUrl(),
                 configDTO.getAutoSync(), configDTO.getSyncInterval());
 
-        kioskService.updateKioskConfig(kioskid, configDTO);
+        boolean wasModifiedByWeb = kioskService.updateKioskConfig(kioskid, configDTO);
 
-        // Send WebSocket notification to the kiosk
-        try {
-            webSocketController.sendNotificationToKiosk(
-                kioskid,
-                "키오스크 설정이 관리자에 의해 업데이트되었습니다. 새로운 설정을 적용합니다.",
-                "CONFIG_UPDATE"
-            );
-            log.info("Sent CONFIG_UPDATE notification to kiosk {}", kioskid);
-        } catch (Exception e) {
-            log.warn("Failed to send WebSocket notification to kiosk {}: {}", kioskid, e.getMessage());
-            // Don't fail the request if WebSocket notification fails
+        // Send WebSocket notification only if config was modified by web (admin)
+        if (wasModifiedByWeb) {
+            try {
+                webSocketController.sendNotificationToKiosk(
+                    kioskid,
+                    "키오스크 설정이 관리자에 의해 업데이트되었습니다. 새로운 설정을 적용합니다.",
+                    "CONFIG_UPDATE"
+                );
+                log.info("Sent CONFIG_UPDATE notification to kiosk {} (config was modified by web)", kioskid);
+            } catch (Exception e) {
+                log.warn("Failed to send WebSocket notification to kiosk {}: {}", kioskid, e.getMessage());
+                // Don't fail the request if WebSocket notification fails
+            }
+        } else {
+            log.info("Skipping CONFIG_UPDATE notification for kiosk {} (config was not modified by web)", kioskid);
         }
 
         Map<String, String> response = new HashMap<>();
@@ -353,5 +390,33 @@ public class KioskController {
         log.info("GET /api/kiosks/by-kioskid/{}/config", kioskid);
         KioskConfigDTO config = kioskService.getKioskConfig(kioskid);
         return ResponseEntity.ok(config);
+    }
+
+    /**
+     * Send sync command to kiosk via WebSocket
+     * POST /api/kiosks/{id}/sync
+     */
+    @PostMapping("/{id}/sync")
+    public ResponseEntity<Map<String, String>> sendSyncCommand(@PathVariable Long id) {
+        log.info("POST /api/kiosks/{}/sync - sending sync command via WebSocket", id);
+
+        try {
+            // Get kiosk by ID to retrieve kioskid
+            KioskDTO kiosk = kioskService.getKioskById(id);
+
+            // Send WebSocket notification to the kiosk
+            webSocketController.sendSyncCommandToKiosk(kiosk.getKioskid());
+            log.info("Sent SYNC_COMMAND to kiosk {} (kioskid: {})", id, kiosk.getKioskid());
+
+            Map<String, String> response = new HashMap<>();
+            response.put("message", "동기화 명령이 키오스크에 전송되었습니다.");
+            response.put("kioskid", kiosk.getKioskid());
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("Failed to send sync command to kiosk {}: {}", id, e.getMessage());
+            Map<String, String> response = new HashMap<>();
+            response.put("error", "동기화 명령 전송에 실패했습니다: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
     }
 }

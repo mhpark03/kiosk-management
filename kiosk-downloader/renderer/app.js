@@ -905,6 +905,9 @@ async function syncVideos(isAutoSync = false) {
   }
 }
 
+// Expose syncVideos to window for WebSocket access
+window.syncVideos = syncVideos;
+
 // Download pending videos in background
 async function downloadPendingVideosInBackground(pendingVideos) {
   for (let video of pendingVideos) {

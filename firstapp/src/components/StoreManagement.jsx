@@ -11,7 +11,7 @@ import {
 } from '../services/storeService';
 import { useAuth } from '../context/AuthContext';
 import { Timestamp } from 'firebase/firestore';
-import { FiEdit, FiTrash2, FiX, FiRotateCcw, FiClock } from 'react-icons/fi';
+import { FiEdit, FiTrash2, FiX, FiRotateCcw, FiClock, FiSearch } from 'react-icons/fi';
 import './StoreManagement.css';
 
 function StoreManagement() {
@@ -30,6 +30,7 @@ function StoreManagement() {
   const [filterRegion, setFilterRegion] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+  const [searchTerm, setSearchTerm] = useState('');
 
   const [formData, setFormData] = useState({
     posid: '',
@@ -108,18 +109,30 @@ function StoreManagement() {
     return '기타';
   };
 
-  // Apply filter when stores or filterRegion changes
+  // Apply filter when stores, filterRegion, or searchTerm changes
   useEffect(() => {
-    if (!filterRegion) {
-      setFilteredStores(stores);
-    } else {
-      const filtered = stores.filter(store => {
+    let filtered = stores;
+
+    // Apply region filter
+    if (filterRegion) {
+      filtered = filtered.filter(store => {
         const region = extractRegion(store.baseaddress);
         return region === filterRegion;
       });
-      setFilteredStores(filtered);
     }
-  }, [stores, filterRegion]);
+
+    // Apply search filter (매장명 또는 주소)
+    if (searchTerm) {
+      const searchLower = searchTerm.toLowerCase();
+      filtered = filtered.filter(store => {
+        const nameMatch = store.posname?.toLowerCase().includes(searchLower);
+        const addressMatch = store.posaddress?.toLowerCase().includes(searchLower);
+        return nameMatch || addressMatch;
+      });
+    }
+
+    setFilteredStores(filtered);
+  }, [stores, filterRegion, searchTerm]);
 
   const loadStores = async () => {
     try {
@@ -512,6 +525,56 @@ function StoreManagement() {
     <div className="store-management">
       <div className="store-header">
         <h1>매장 관리</h1>
+
+        {/* 검색 입력창 */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px',
+          margin: '15px 0',
+          maxWidth: '500px'
+        }}>
+          <div style={{
+            position: 'relative',
+            flex: 1
+          }}>
+            <FiSearch style={{
+              position: 'absolute',
+              left: '12px',
+              top: '50%',
+              transform: 'translateY(-50%)',
+              color: '#718096',
+              fontSize: '16px'
+            }} />
+            <input
+              type="text"
+              placeholder="매장명 또는 주소로 검색..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '10px 15px 10px 40px',
+                fontSize: '14px',
+                border: '1px solid #cbd5e0',
+                borderRadius: '6px',
+                outline: 'none',
+                transition: 'border-color 0.2s'
+              }}
+              onFocus={(e) => e.target.style.borderColor = '#667eea'}
+              onBlur={(e) => e.target.style.borderColor = '#cbd5e0'}
+            />
+          </div>
+          {searchTerm && (
+            <div style={{
+              fontSize: '13px',
+              color: '#718096',
+              whiteSpace: 'nowrap'
+            }}>
+              {filteredStores.length}개 매장
+            </div>
+          )}
+        </div>
+
         <div className="header-actions">
           <label className="toggle-deleted">
             <input

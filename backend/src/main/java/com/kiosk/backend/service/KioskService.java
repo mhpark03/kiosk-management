@@ -7,9 +7,11 @@ import com.kiosk.backend.dto.UpdateKioskRequest;
 import com.kiosk.backend.entity.EntityHistory;
 import com.kiosk.backend.entity.Kiosk;
 import com.kiosk.backend.entity.KioskEvent;
+import com.kiosk.backend.entity.KioskHistory;
 import com.kiosk.backend.entity.KioskVideo;
 import com.kiosk.backend.entity.Store;
 import com.kiosk.backend.repository.EntityHistoryRepository;
+import com.kiosk.backend.repository.KioskHistoryRepository;
 import com.kiosk.backend.repository.KioskRepository;
 import com.kiosk.backend.repository.KioskVideoRepository;
 import com.kiosk.backend.repository.StoreRepository;
@@ -32,6 +34,7 @@ public class KioskService {
 
     private final KioskRepository kioskRepository;
     private final EntityHistoryRepository entityHistoryRepository;
+    private final KioskHistoryRepository kioskHistoryRepository;
     private final StoreRepository storeRepository;
     private final KioskVideoRepository kioskVideoRepository;
     private final VideoRepository videoRepository;
@@ -692,8 +695,9 @@ public class KioskService {
 
     /**
      * Update kiosk configuration from Kiosk app
+     * @return true if config was modified by web (should send notification)
      */
-    public void updateKioskConfig(String kioskid, KioskConfigDTO configDTO) {
+    public boolean updateKioskConfig(String kioskid, KioskConfigDTO configDTO) {
         Kiosk kiosk = kioskRepository.findByKioskid(kioskid)
                 .orElseThrow(() -> new RuntimeException("Kiosk not found with kioskid: " + kioskid));
 
@@ -703,6 +707,9 @@ public class KioskService {
         kiosk.setAutoSync(configDTO.getAutoSync());
         kiosk.setSyncInterval(configDTO.getSyncInterval());
         kiosk.setLastSync(configDTO.getLastSync());
+
+        // Check if config was modified by web before saving
+        boolean wasModifiedByWeb = kiosk.getConfigModifiedByWeb();
 
         kioskRepository.save(kiosk);
 
@@ -723,6 +730,65 @@ public class KioskService {
         } catch (Exception e) {
             log.error("Failed to record CONFIG_SAVED event for kiosk: {}", kioskid, e);
         }
+
+        // Return the flag value (will be used to decide whether to send notification)
+        return wasModifiedByWeb;
+    }
+
+    /**
+     * Update kiosk configuration from Admin Web (sets configModifiedByWeb flag)
+     */
+    public void updateKioskConfigFromWeb(String kioskid, KioskConfigDTO configDTO) {
+        Kiosk kiosk = kioskRepository.findByKioskid(kioskid)
+                .orElseThrow(() -> new RuntimeException("Kiosk not found with kioskid: " + kioskid));
+
+        StringBuilder changes = new StringBuilder();
+
+        // Track changes
+        if (configDTO.getDownloadPath() != null && !configDTO.getDownloadPath().equals(kiosk.getDownloadPath())) {
+            changes.append(String.format("downloadPath: %s -> %s; ", kiosk.getDownloadPath(), configDTO.getDownloadPath()));
+            kiosk.setDownloadPath(configDTO.getDownloadPath());
+        }
+        if (configDTO.getApiUrl() != null && !configDTO.getApiUrl().equals(kiosk.getApiUrl())) {
+            changes.append(String.format("apiUrl: %s -> %s; ", kiosk.getApiUrl(), configDTO.getApiUrl()));
+            kiosk.setApiUrl(configDTO.getApiUrl());
+        }
+        if (configDTO.getAutoSync() != null && !configDTO.getAutoSync().equals(kiosk.getAutoSync())) {
+            changes.append(String.format("autoSync: %s -> %s; ", kiosk.getAutoSync(), configDTO.getAutoSync()));
+            kiosk.setAutoSync(configDTO.getAutoSync());
+        }
+        if (configDTO.getSyncInterval() != null && !configDTO.getSyncInterval().equals(kiosk.getSyncInterval())) {
+            changes.append(String.format("syncInterval: %s -> %s; ", kiosk.getSyncInterval(), configDTO.getSyncInterval()));
+            kiosk.setSyncInterval(configDTO.getSyncInterval());
+        }
+
+        // Set flag to indicate config was modified by web
+        kiosk.setConfigModifiedByWeb(true);
+
+        kioskRepository.save(kiosk);
+
+        log.info("Updated configuration from WEB for kiosk {}: downloadPath={}, apiUrl={}, autoSync={}, syncInterval={}, configModifiedByWeb=true",
+                kioskid, configDTO.getDownloadPath(), configDTO.getApiUrl(),
+                configDTO.getAutoSync(), configDTO.getSyncInterval());
+
+        // Save to entity_history (admin web modification)
+        if (changes.length() > 0) {
+            EntityHistory entityHistory = EntityHistory.builder()
+                    .entityType(EntityHistory.EntityType.KIOSK)
+                    .entityId(kioskid)
+                    .posid(kiosk.getPosid())
+                    .userid("admin@web") // Default admin web user
+                    .username("Admin Web")
+                    .action(EntityHistory.ActionType.UPDATE)
+                    .timestamp(LocalDateTime.now())
+                    .fieldName("config")
+                    .description("키오스크 설정이 관리자 웹에서 변경됨")
+                    .detail(changes.toString())
+                    .build();
+
+            entityHistoryRepository.save(entityHistory);
+            log.info("Saved config update to entity_history for kiosk {}", kioskid);
+        }
     }
 
     /**
@@ -731,6 +797,28 @@ public class KioskService {
     public KioskConfigDTO getKioskConfig(String kioskid) {
         Kiosk kiosk = kioskRepository.findByKioskid(kioskid)
                 .orElseThrow(() -> new RuntimeException("Kiosk not found with kioskid: " + kioskid));
+
+        // Reset config modified flag when kiosk app reads the config
+        if (kiosk.getConfigModifiedByWeb()) {
+            log.info("Kiosk {} read config, resetting configModifiedByWeb flag", kioskid);
+            kiosk.setConfigModifiedByWeb(false);
+            kioskRepository.save(kiosk);
+        }
+
+        // Save to kiosk_history (kiosk app read config)
+        KioskHistory kioskHistory = KioskHistory.builder()
+                .kioskid(kioskid)
+                .posid(kiosk.getPosid())
+                .action(KioskHistory.ActionType.CONFIG_READ)
+                .timestamp(LocalDateTime.now())
+                .description("키오스크 앱이 설정 정보를 조회함")
+                .detail(String.format("downloadPath=%s, apiUrl=%s, autoSync=%s, syncInterval=%s",
+                        kiosk.getDownloadPath(), kiosk.getApiUrl(),
+                        kiosk.getAutoSync(), kiosk.getSyncInterval()))
+                .build();
+
+        kioskHistoryRepository.save(kioskHistory);
+        log.info("Saved config read to kiosk_history for kiosk {}", kioskid);
 
         return KioskConfigDTO.builder()
                 .downloadPath(kiosk.getDownloadPath())

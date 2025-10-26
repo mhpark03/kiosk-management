@@ -151,4 +151,17 @@ public class KioskWebSocketController {
             "timestamp", LocalDateTime.now().toString()
         ));
     }
+
+    /**
+     * Send sync command to specific kiosk from admin web
+     */
+    public void sendSyncCommandToKiosk(String kioskId) {
+        log.info("Sending SYNC_COMMAND to kiosk: {}", kioskId);
+
+        messagingTemplate.convertAndSend("/topic/kiosk/" + kioskId, Map.of(
+            "type", "SYNC_COMMAND",
+            "message", "관리자가 영상 동기화를 요청했습니다.",
+            "timestamp", LocalDateTime.now().toString()
+        ));
+    }
 }

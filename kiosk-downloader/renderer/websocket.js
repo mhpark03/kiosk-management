@@ -65,7 +65,7 @@ function handleKioskMessage(message) {
 
   switch (message.type) {
     case 'CONNECTED':
-      showNotification('서버 연결됨', message.message, 'success');
+      console.log('[CONNECTED] 서버에 연결되었습니다:', message.message);
       break;
 
     case 'HEARTBEAT_ACK':
@@ -73,11 +73,24 @@ function handleKioskMessage(message) {
       break;
 
     case 'SYNC_REQUEST':
-      showNotification('동기화 요청', '서버에서 동기화를 요청했습니다.', 'info');
-      // Trigger sync if button exists
-      const syncBtn = document.getElementById('sync-btn');
-      if (syncBtn) {
-        syncBtn.click();
+      console.log('[SYNC_REQUEST] 서버에서 동기화를 요청했습니다');
+      // Trigger auto-sync (no popup)
+      if (window.syncVideos) {
+        console.log('[SYNC_REQUEST] 자동 동기화 시작 (팝업 없음)');
+        window.syncVideos(true); // isAutoSync = true
+      } else {
+        console.warn('[SYNC_REQUEST] syncVideos 함수를 찾을 수 없습니다');
+      }
+      break;
+
+    case 'SYNC_COMMAND':
+      console.log('[SYNC_COMMAND] 관리자가 영상 동기화를 요청했습니다:', message.message);
+      // Trigger auto-sync (no popup)
+      if (window.syncVideos) {
+        console.log('[SYNC_COMMAND] 자동 동기화 시작 (팝업 없음)');
+        window.syncVideos(true); // isAutoSync = true
+      } else {
+        console.warn('[SYNC_COMMAND] syncVideos 함수를 찾을 수 없습니다');
       }
       break;
 

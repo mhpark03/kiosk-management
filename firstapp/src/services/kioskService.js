@@ -250,6 +250,22 @@ export const updateKioskConfig = async (kioskid, configData) => {
 };
 
 /**
+ * Update kiosk configuration from admin web (sets configModifiedByWeb flag)
+ * @param {number} id - Kiosk database ID
+ * @param {Object} configData - Configuration data
+ * @returns {Promise} - Response data
+ */
+export const updateKioskConfigFromWeb = async (id, configData) => {
+  try {
+    const response = await api.put(`/kiosks/${id}/config`, configData);
+    return response.data;
+  } catch (error) {
+    console.error('Error updating kiosk config from web:', error);
+    throw error;
+  }
+};
+
+/**
  * Convert kiosk data from API format to app format
  * @param {Object} apiKiosk - Kiosk data from API
  * @returns {Object} - Converted kiosk data
