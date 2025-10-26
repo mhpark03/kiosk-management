@@ -49,8 +49,25 @@ aws:
 
 runway:
   api:
-    key: ${RUNWAY_API_KEY:key_51795ced3da73579936a7ac67742b9f42e5d62e77673ccdf33ecb52af57dda1a37206045addb88294a3bc97849a7506b666b8901c49e6b9782ab1712df06a232}
+    key: ${RUNWAY_API_KEY:}
     url: ${RUNWAY_API_URL:https://api.dev.runwayml.com}
+
+google:
+  ai:
+    api:
+      key: ${GOOGLE_AI_API_KEY:}
+      url: ${GOOGLE_AI_API_URL:https://generativelanguage.googleapis.com/v1beta}
+    veo:
+      model: ${GOOGLE_VEO_MODEL:veo-3.1-generate-preview}
+      aspect:
+        ratio: ${GOOGLE_VEO_ASPECT_RATIO:16:9}
+      resolution: ${GOOGLE_VEO_RESOLUTION:720p}
+      duration: ${GOOGLE_VEO_DURATION:8}
+      poll:
+        interval: ${GOOGLE_VEO_POLL_INTERVAL:5000}
+      max:
+        poll:
+          attempts: ${GOOGLE_VEO_MAX_POLL_ATTEMPTS:60}
 
 logging:
   level:

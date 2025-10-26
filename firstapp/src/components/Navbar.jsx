@@ -153,7 +153,16 @@ function Navbar() {
                       className={location.pathname === '/videos/generate' ? 'active' : ''}
                       onClick={closeMenu}
                     >
-                      영상 만들기
+                      영상 만들기 (Runway)
+                    </Link>
+                  </li>
+                  <li>
+                    <Link
+                      to="/videos/generate-veo"
+                      className={location.pathname === '/videos/generate-veo' ? 'active' : ''}
+                      onClick={closeMenu}
+                    >
+                      Veo 영상 만들기
                     </Link>
                   </li>
                 </ul>
