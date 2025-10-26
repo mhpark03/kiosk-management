@@ -8,11 +8,74 @@ const { Client } = require('@stomp/stompjs');
 let mainWindow;
 let config = null;
 const CONFIG_FILE = path.join(__dirname, 'config.json');
+const LOGS_DIR = path.join(__dirname, 'logs');
+const MAX_LOG_SIZE = 10 * 1024 * 1024; // 10MB
 
 // WebSocket client
 let stompClient = null;
 let isWebSocketConnected = false;
 let heartbeatInterval = null;
+
+// Logging System
+function ensureLogsDirectory() {
+  if (!fs.existsSync(LOGS_DIR)) {
+    fs.mkdirSync(LOGS_DIR, { recursive: true });
+  }
+}
+
+function getLogFilePath() {
+  const date = new Date();
+  const dateStr = date.toISOString().split('T')[0]; // YYYY-MM-DD
+  return path.join(LOGS_DIR, `kiosk-events-${dateStr}.log`);
+}
+
+function rotateLogIfNeeded(logPath) {
+  try {
+    if (fs.existsSync(logPath)) {
+      const stats = fs.statSync(logPath);
+      if (stats.size > MAX_LOG_SIZE) {
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        const rotatedPath = logPath.replace('.log', `-${timestamp}.log`);
+        fs.renameSync(logPath, rotatedPath);
+        console.log(`Log file rotated: ${rotatedPath}`);
+      }
+    }
+  } catch (error) {
+    console.error('Error rotating log file:', error);
+  }
+}
+
+function writeLog(level, eventType, message, data = null) {
+  try {
+    ensureLogsDirectory();
+    const logPath = getLogFilePath();
+    rotateLogIfNeeded(logPath);
+
+    const timestamp = new Date().toISOString();
+    const dataStr = data ? ` - ${JSON.stringify(data)}` : '';
+    const logLine = `[${timestamp}] [${level}] [${eventType}] ${message}${dataStr}\n`;
+
+    fs.appendFileSync(logPath, logLine, 'utf8');
+
+    // Also log to console
+    console.log(logLine.trim());
+  } catch (error) {
+    console.error('Error writing log:', error);
+  }
+}
+
+// Log level helpers
+function logInfo(eventType, message, data = null) {
+  writeLog('INFO', eventType, message, data);
+}
+
+function logWarn(eventType, message, data = null) {
+  writeLog('WARN', eventType, message, data);
+}
+
+function logError(eventType, message, data = null) {
+  writeLog('ERROR', eventType, message, data);
+}
 
 // Create application menu
 function createMenu() {
@@ -664,4 +727,17 @@ function stopWebSocketHeartbeat() {
   }
 }
 
+// IPC Handler for logging from renderer process
+ipcMain.handle('write-log', async (event, level, eventType, message, data) => {
+  try {
+    writeLog(level, eventType, message, data);
+    return { success: true };
+  } catch (error) {
+    console.error('Error writing log from renderer:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Log app start
+logInfo('APP_START', 'Kiosk Video Downloader - Main process started');
 console.log('Kiosk Video Downloader - Main process started');

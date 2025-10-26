@@ -44,7 +44,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   onWebSocketStatus: (callback) => {
     ipcRenderer.on('websocket-status', (event, data) => callback(data));
-  }
+  },
+
+  // Logging
+  writeLog: (level, eventType, message, data) => ipcRenderer.invoke('write-log', level, eventType, message, data)
 });
 
 console.log('Preload script loaded - API bridge established');

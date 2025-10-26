@@ -52,6 +52,12 @@ function handleWebSocketStatus(data) {
   console.log('WebSocket status changed:', data);
   isConnected = data.connected;
 
+  if (data.connected) {
+    Logger.info(Logger.Events.WEBSOCKET_CONNECTED, 'WebSocket 연결됨', { message: data.message });
+  } else {
+    Logger.warn(Logger.Events.WEBSOCKET_DISCONNECTED, 'WebSocket 연결 끊김', { message: data.message });
+  }
+
   if (onConnectionStatusChange) {
     onConnectionStatusChange(data.connected, data.message);
   }
@@ -85,6 +91,9 @@ function handleKioskMessage(message) {
 
     case 'SYNC_COMMAND':
       console.log('[SYNC_COMMAND] 관리자가 영상 동기화를 요청했습니다:', message.message);
+      Logger.info(Logger.Events.SYNC_COMMAND_RECEIVED, '관리자가 영상 동기화를 요청함', {
+        message: message.message
+      });
       // Trigger auto-sync (no popup)
       if (window.syncVideos) {
         console.log('[SYNC_COMMAND] 자동 동기화 시작 (팝업 없음)');
@@ -96,6 +105,9 @@ function handleKioskMessage(message) {
 
     case 'CONFIG_UPDATE':
       console.log('[WebSocket] Config update notification:', message.message);
+      Logger.info(Logger.Events.CONFIG_UPDATED, '서버에서 설정 업데이트 알림 수신', {
+        message: message.message
+      });
       // Dispatch event to app.js to reload configuration
       window.dispatchEvent(new CustomEvent('websocket-config-update', { detail: message }));
       break;
