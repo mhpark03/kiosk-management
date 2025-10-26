@@ -11,7 +11,8 @@ import {
   generateKioskNo,
   checkKioskDuplicate,
   getKioskConfig,
-  updateKioskConfig
+  updateKioskConfig,
+  updateKioskConfigFromWeb
 } from '../services/kioskService';
 import {
   logKioskCreation,
@@ -708,9 +709,10 @@ function KioskManagement() {
   const handleUpdateConfig = async (e) => {
     e.preventDefault();
     try {
-      await updateKioskConfig(selectedKiosk.kioskid, kioskConfig);
-      setSuccess('키오스크 설정이 업데이트되었습니다.');
-      setTimeout(() => setSuccess(''), 3000);
+      // Use admin web endpoint to set configModifiedByWeb flag
+      await updateKioskConfigFromWeb(selectedKiosk.id, kioskConfig);
+      setSuccess('키오스크 설정이 업데이트되었습니다. 키오스크 앱에 알림이 전송되었습니다.');
+      setTimeout(() => setSuccess(''), 5000);
       setShowConfigModal(false);
       setSelectedKiosk(null);
       setKioskConfig({

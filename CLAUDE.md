@@ -105,13 +105,15 @@ The Video entity handles both videos and images with dual classification:
 ```
 videos/
   ├── uploads/        # User uploaded videos
-  └── runway/         # AI-generated videos
+  ├── runway/         # Runway ML generated videos
+  └── veo/            # Google Veo generated videos
 images/
   ├── uploads/        # User uploaded images
-  └── runway/         # AI-generated images
+  └── runway/         # Runway ML generated images
 thumbnails/
   ├── uploads/        # Thumbnails for uploaded content
-  └── runway/         # Thumbnails for AI-generated content
+  ├── runway/         # Thumbnails for Runway ML content
+  └── veo/            # Thumbnails for Google Veo content
 ```
 
 **Runway ML Integration:**
@@ -127,6 +129,21 @@ thumbnails/
 - `/api/runway/task-status/{taskId}` - Poll generation status
 - `/api/videos/save-runway-video` - Save generated video to S3 and DB
 - `/api/videos/save-runway-image` - Save generated image to S3 and DB
+
+**Google Veo Integration:**
+- Video generation using Google Generative Language API
+- Model: `veo-3.1-generate-preview`
+- API base: `https://generativelanguage.googleapis.com/v1beta`
+- Requires `GOOGLE_AI_API_KEY` environment variable
+- Task-based async generation similar to Runway ML
+- Default settings: 720p resolution, 16:9 aspect ratio, 8 second duration
+- S3 folder structure: `videos/veo/` and `thumbnails/veo/`
+- VideoType enum includes `VEO_GENERATED` alongside `UPLOAD` and `RUNWAY_GENERATED`
+
+**Veo Endpoints:**
+- `/api/veo/generate-video` - Start Veo video generation
+- `/api/veo/task-status/{taskId}` - Poll Veo generation status
+- `/api/videos/save-veo-video` - Save generated video to S3 and DB
 
 ### Event Tracking System
 
@@ -209,12 +226,37 @@ Configured in `kiosk-downloader/renderer/app.js` server selector radio buttons.
 
 ## AWS Deployment
 
+### GitHub Actions CI/CD (Recommended)
+
+The project uses **GitHub Actions for automated deployment** to avoid Windows ZIP path separator issues:
+
+**Trigger Conditions:**
+- Automatic: Push to `main` branch with changes in `backend/` folder
+- Manual: Via GitHub Actions UI (workflow_dispatch)
+
+**Deployment Process:**
+1. Ubuntu runner builds JAR with Gradle
+2. Python script (`create_deployment_package.py`) creates Linux-compatible ZIP with forward slashes
+3. Uploads to S3 bucket: `elasticbeanstalk-ap-northeast-2-638596943554`
+4. Creates Elastic Beanstalk application version
+5. Deploys to environment: `Kiosk-backend-env`
+6. Waits for deployment completion and verifies health
+
+**Required GitHub Secrets:**
+- `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`
+- `EB_S3_BUCKET`, `EB_APPLICATION_NAME`, `EB_ENVIRONMENT_NAME`, `EB_ENVIRONMENT_URL`
+
+**Important:** Never create deployment ZIPs on Windows with PowerShell `Compress-Archive` - it uses backslashes which causes EB deployment failures. Always use the GitHub Actions workflow or the `create_deployment_package.py` script.
+
 ### Elastic Beanstalk (Backend)
 
-- Platform: Java 17 Corretto
+- Platform: Java 17 Corretto (Amazon Linux 2023)
+- Environment: `Kiosk-backend-env`
+- Application: `Kiosk-backend`
 - Environment variables must include: `DB_PASSWORD`, `AWS_S3_BUCKET_NAME`, `AWS_REGION`, `runway.api.key`
 - Health check endpoint: `/actuator/health`
 - JAR name fixed: `backend-0.0.1-SNAPSHOT.jar` (see `build.gradle`)
+- Port: 5000 (set in Procfile, overriding application.yml's 8080)
 
 ### S3 Media Storage
 
@@ -252,6 +294,45 @@ All kiosk updates are automatically recorded in `kiosk_history` table via `@Enti
 3. Downloads file from S3 using presigned URL
 4. Records events: DOWNLOAD_STARTED, DOWNLOAD_PROGRESS, DOWNLOAD_COMPLETED/FAILED
 
+### Kiosk Unattended Operation
+
+**IMPORTANT:** Kiosks operate unattended without human supervision. UI behavior must follow these rules:
+
+**Popup Display Rules:**
+- ✅ **Show popups ONLY for manual user actions** (button clicks when a person is present)
+- ❌ **NEVER show popups for automated events** (WebSocket commands, background sync, scheduled tasks)
+
+**Automated Events (Console Log Only):**
+- WebSocket SYNC_COMMAND from admin web
+- Automatic video synchronization
+- Background downloads
+- Config updates pushed from backend
+- Heartbeat and connection status updates
+
+**Manual Events (Allow Popups):**
+- User clicks "동기화" button manually
+- User triggers downloads via UI
+- User changes settings
+- Errors that require user intervention
+
+**Implementation Pattern:**
+```javascript
+// Good: Automated sync (no popup)
+case 'SYNC_COMMAND':
+  console.log('[SYNC_COMMAND] Starting automated sync...');
+  if (window.syncVideos) {
+    window.syncVideos(true); // isAutoSync = true, no popups
+  }
+  break;
+
+// Good: Manual sync (with popup)
+function onManualSyncClick() {
+  window.syncVideos(false); // isAutoSync = false, show popups
+}
+```
+
+This ensures kiosks can operate 24/7 without user interaction or popup accumulation blocking the screen.
+
 ### FFmpeg Thumbnail Generation
 
 For uploaded videos, thumbnails are generated using FFmpeg:
@@ -278,14 +359,44 @@ X-Runway-Version: 2024-11-06
 
 Task polling typically requires 60-120 attempts with 3-5 second intervals depending on generation complexity.
 
+### String Truncation for Database Saves
+
+VideoService automatically truncates VARCHAR fields to prevent database errors:
+
+```java
+// Database column length limits enforced
+private static final int MAX_TITLE_LENGTH = 255;
+private static final int MAX_FILENAME_LENGTH = 255;
+private static final int MAX_RUNWAY_TASK_ID_LENGTH = 100;
+private static final int MAX_RUNWAY_MODEL_LENGTH = 50;
+private static final int MAX_RUNWAY_RESOLUTION_LENGTH = 50;
+private static final int MAX_IMAGE_STYLE_LENGTH = 50;
+
+// Truncate utility logs warnings when truncation occurs
+private String truncate(String value, int maxLength) { ... }
+```
+
+Applied to all save/update methods:
+- `uploadVideo()` - User uploads
+- `saveRunwayGeneratedVideo()` - Runway ML videos
+- `saveRunwayGeneratedImage()` - Runway ML images
+- `saveVeoGeneratedVideo()` - Google Veo videos
+- `updateVideo()` - Title/description updates
+
+TEXT columns (description, runwayPrompt) have no length limits.
+
 ## Configuration Files
 
 - `backend/src/main/resources/application.yml` - Main Spring Boot config
 - `backend/src/main/resources/application-local.yml` - Local MySQL configuration
 - `backend/src/main/resources/application-dev.yml` - AWS development environment configuration
+- `backend/Procfile` - Elastic Beanstalk process definition (sets port 5000)
+- `backend/create_deployment_package.py` - Creates Linux-compatible deployment ZIPs
 - `kiosk-downloader/config.json` - Electron app persistent config (API URL, credentials, download path)
 - `firstapp/src/firebase-config.js` - Firebase configuration for admin dashboard
 - `firstapp/.env.production` - Production API URL for React app
+- `.github/workflows/deploy-backend.yml` - Backend CI/CD pipeline
+- `.github/workflows/deploy-frontend.yml` - Frontend CI/CD pipeline
 
 ## Testing
 
@@ -294,3 +405,59 @@ Backend has minimal test coverage. When writing tests:
 - Use `@DataJpaTest` for repository tests
 - Mock `HttpServletRequest` for controllers that extract headers
 - For Runway ML integration, mock `RestTemplate` responses
+
+## Troubleshooting
+
+### Common Deployment Issues
+
+**1. ZIP File Path Separator Errors**
+```
+Error: warning: /opt/elasticbeanstalk/deployment/app_source_bundle appears to use backslashes as path separators
+```
+**Solution:** Never use Windows PowerShell's `Compress-Archive`. Use GitHub Actions or `jar` command:
+```bash
+cd backend
+jar cvf ../deploy.zip Procfile -C . build/libs/backend-0.0.1-SNAPSHOT.jar
+```
+
+**2. Application Not Starting (502 Bad Gateway)**
+- Check EB environment health: Should be Green/Ok
+- Verify environment variables are set (especially `DB_PASSWORD`)
+- Check application logs in CloudWatch
+- Try restarting the app server: `aws elasticbeanstalk restart-app-server`
+
+**3. Database Connection Errors**
+- Verify `DB_PASSWORD` environment variable matches RDS password
+- Check RDS security group allows inbound from EB environment
+- Ensure `SPRING_PROFILES_ACTIVE` is set to correct profile (local/dev/prod)
+
+**4. Video Upload/Download Failures**
+- Verify AWS credentials (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`)
+- Check S3 bucket permissions
+- Ensure bucket name matches `AWS_S3_BUCKET_NAME` env var
+- Check CORS configuration allows the origin domain
+
+**5. Kiosk Event Recording Failures**
+If you see transaction rollback errors:
+- Check `entity_history` table schema
+- Ensure `action` column is VARCHAR(50), not ENUM
+- Ensure `entity_type` column is VARCHAR(50), not ENUM
+- Ensure `userid` column allows NULL
+
+### Manual Rollback
+
+If deployment fails, rollback to previous version:
+```bash
+aws elasticbeanstalk update-environment \
+  --environment-name Kiosk-backend-env \
+  --version-label backend-YYYYMMDD-HHMMSS \
+  --region ap-northeast-2
+```
+
+Find available versions:
+```bash
+aws elasticbeanstalk describe-application-versions \
+  --application-name Kiosk-backend \
+  --region ap-northeast-2 \
+  --query "ApplicationVersions[*].VersionLabel"
+```
