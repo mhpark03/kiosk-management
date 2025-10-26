@@ -11,7 +11,7 @@ function VideoMerger() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const ffmpegRef = useRef(new FFmpeg());
-  const [loaded, setLoaded] = useState(false); // FFmpeg loaded status
+  const [loaded, setLoaded] = useState(false);
   const [videos, setVideos] = useState([]);
   const [selectedVideo1, setSelectedVideo1] = useState(null);
   const [selectedVideo2, setSelectedVideo2] = useState(null);
@@ -35,6 +35,7 @@ function VideoMerger() {
 
   const loadFFmpeg = async () => {
     try {
+      const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
       const ffmpeg = ffmpegRef.current;
 
       ffmpeg.on('log', ({ message }) => {
@@ -47,39 +48,16 @@ function VideoMerger() {
         setProgressMessage(`처리 중... ${percent}%`);
       });
 
-      // Try multiple CDN sources for better reliability
-      const cdnSources = [
-        'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd',
-        'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd',
-      ];
-
-      let loadSuccess = false;
-      let lastError = null;
-
-      for (const baseURL of cdnSources) {
-        try {
-          console.log(`Trying to load FFmpeg from: ${baseURL}`);
-          await ffmpeg.load({
-            coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-            wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
-          });
-          loadSuccess = true;
-          console.log(`FFmpeg loaded successfully from: ${baseURL}`);
-          break;
-        } catch (err) {
-          console.warn(`Failed to load from ${baseURL}:`, err);
-          lastError = err;
-        }
-      }
-
-      if (!loadSuccess) {
-        throw lastError || new Error('Failed to load FFmpeg from all CDN sources');
-      }
+      await ffmpeg.load({
+        coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+        wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+      });
 
       setLoaded(true);
+      console.log('FFmpeg loaded successfully');
     } catch (err) {
       console.error('Failed to load FFmpeg:', err);
-      setError('FFmpeg 로딩 실패. 네트워크 연결을 확인하고 페이지를 새로고침해주세요.');
+      setError('FFmpeg 로딩 실패. 페이지를 새로고침해주세요.');
     }
   };
 
