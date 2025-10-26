@@ -499,7 +499,8 @@ export async function saveGeneratedVideoToBackend(videoUrl, title, description, 
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('jwtToken')}`
-        }
+        },
+        timeout: 600000 // 10 minutes timeout for large video download + S3 upload
       }
     );
 
@@ -510,12 +511,134 @@ export async function saveGeneratedVideoToBackend(videoUrl, title, description, 
     console.error('Save video error:', error);
 
     if (error.response) {
+      const status = error.response.status;
       const errorMessage = error.response.data?.error || error.response.data?.message || error.response.statusText;
-      throw new Error(`비디오 저장 실패: ${errorMessage}`);
+
+      console.log('Save error status:', status);
+      console.log('Save error message:', errorMessage);
+
+      // 429 - Rate Limit / Quota Exceeded
+      if (status === 429 ||
+          errorMessage.toLowerCase().includes('quota') ||
+          errorMessage.toLowerCase().includes('resource_exhausted') ||
+          errorMessage.includes('RESOURCE_EXHAUSTED')) {
+        throw new Error(
+          '⚠️ Google Veo API 할당량 초과\n\n' +
+          '오늘 사용 가능한 무료 할당량을 모두 사용했습니다.\n\n' +
+          '✅ 해결 방법:\n' +
+          '1. 내일 할당량 리셋 후 재시도 (한국시간 오후 5시경)\n' +
+          '2. Google AI Studio에서 사용량 확인\n' +
+          '3. 유료 플랜 업그레이드 고려\n\n' +
+          '📊 사용량 확인: https://aistudio.google.com/app/prompts/quota'
+        );
+      }
+
+      // 500 - Internal Server Error (various causes)
+      if (status === 500) {
+        // Check for VeoService not available
+        if (errorMessage.includes('VeoService') || errorMessage.includes('not available')) {
+          throw new Error(
+            '🔧 서버 설정 오류\n\n' +
+            'Google Veo 서비스가 초기화되지 않았습니다.\n\n' +
+            '관리자에게 문의하세요.\n' +
+            '(VeoService 설정 필요)'
+          );
+        }
+
+        // Check for transaction/database errors
+        if (errorMessage.includes('transaction') ||
+            errorMessage.includes('rolled back') ||
+            errorMessage.includes('database')) {
+          throw new Error(
+            '💾 데이터베이스 저장 오류\n\n' +
+            '비디오 파일은 다운로드했으나 데이터베이스에 저장할 수 없습니다.\n\n' +
+            '잠시 후 다시 시도해주세요.'
+          );
+        }
+
+        // Check for S3 upload errors
+        if (errorMessage.includes('S3') || errorMessage.includes('upload')) {
+          throw new Error(
+            '☁️ 파일 업로드 오류\n\n' +
+            'AWS S3에 비디오를 업로드할 수 없습니다.\n\n' +
+            '네트워크 연결을 확인하고 잠시 후 다시 시도해주세요.'
+          );
+        }
+
+        // Check for Google API download errors
+        if (errorMessage.includes('download') ||
+            errorMessage.includes('Failed to save Google Veo') ||
+            errorMessage.includes('IOException')) {
+          throw new Error(
+            '📥 비디오 다운로드 오류\n\n' +
+            'Google에서 비디오를 다운로드할 수 없습니다.\n\n' +
+            '가능한 원인:\n' +
+            '• Google Veo API 할당량 초과\n' +
+            '• 비디오 URL 만료\n' +
+            '• 네트워크 연결 문제\n\n' +
+            '잠시 후 다시 시도해주세요.'
+          );
+        }
+
+        // Generic 500 error
+        throw new Error(
+          '🔧 서버 오류\n\n' +
+          '서버에서 비디오 저장 중 오류가 발생했습니다.\n\n' +
+          '잠시 후 다시 시도해주세요.\n\n' +
+          '상세 오류: ' + (errorMessage.length > 100 ? errorMessage.substring(0, 100) + '...' : errorMessage)
+        );
+      }
+
+      // 504 - Gateway Timeout
+      if (status === 504) {
+        throw new Error(
+          '⏱️ 시간 초과\n\n' +
+          '비디오 저장 작업이 너무 오래 걸립니다.\n\n' +
+          '가능한 원인:\n' +
+          '• 비디오 파일이 너무 큼\n' +
+          '• 네트워크 속도가 느림\n\n' +
+          '잠시 후 다시 시도해주세요.'
+        );
+      }
+
+      // 401/403 - Authentication/Authorization errors
+      if (status === 401 || status === 403) {
+        throw new Error(
+          '🔒 권한 오류\n\n' +
+          '비디오를 저장할 권한이 없습니다.\n\n' +
+          '로그인 상태를 확인하고 다시 시도해주세요.'
+        );
+      }
+
+      // 400 - Bad Request
+      if (status === 400) {
+        throw new Error(
+          '❌ 잘못된 요청\n\n' +
+          '제목, 설명, 비디오 URL이 모두 입력되었는지 확인해주세요.\n\n' +
+          '상세 오류: ' + errorMessage
+        );
+      }
+
+      // Other HTTP errors
+      throw new Error(
+        `⚠️ 비디오 저장 실패 (오류 ${status})\n\n` +
+        '요청을 처리할 수 없습니다.\n\n' +
+        (errorMessage.length > 100 ? errorMessage.substring(0, 100) + '...' : errorMessage)
+      );
+
     } else if (error.request) {
-      throw new Error('서버 연결 오류: 비디오를 저장할 수 없습니다.');
+      throw new Error(
+        '🌐 서버 연결 오류\n\n' +
+        '백엔드 서버에 연결할 수 없습니다.\n\n' +
+        '서버가 실행 중인지 확인하고\n' +
+        '잠시 후 다시 시도해주세요.'
+      );
     } else {
-      throw new Error('비디오 저장 중 오류가 발생했습니다.');
+      throw new Error(
+        '❌ 비디오 저장 오류\n\n' +
+        '비디오 저장 중 알 수 없는 오류가 발생했습니다.\n\n' +
+        '잠시 후 다시 시도해주세요.'
+      );
     }
   }
 }
