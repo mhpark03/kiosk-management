@@ -16,8 +16,9 @@ let stompClient = null;
 let isWebSocketConnected = false;
 let heartbeatInterval = null;
 
-// Current log file path (set once on app start)
+// Current log file path and date (reset when date changes)
 let currentLogFilePath = null;
+let currentLogDate = null; // Format: YYYY-MM-DD
 
 // Logging System
 function ensureLogsDirectory() {
@@ -29,7 +30,7 @@ function ensureLogsDirectory() {
 /**
  * Get Korea Standard Time (KST) formatted string
  * @param {Date} date - Date object
- * @returns {string} - ISO-like string in KST (YYYY-MM-DDTHH:mm:ss.sss+09:00)
+ * @returns {string} - Formatted string in KST (YYYY/MM/DD-HH:mm:ss)
  */
 function toKST(date) {
   // Convert to Korea timezone (UTC+9)
@@ -41,22 +42,18 @@ function toKST(date) {
   const hours = String(kstDate.getHours()).padStart(2, '0');
   const minutes = String(kstDate.getMinutes()).padStart(2, '0');
   const seconds = String(kstDate.getSeconds()).padStart(2, '0');
-  const milliseconds = String(kstDate.getMilliseconds()).padStart(3, '0');
 
-  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.${milliseconds}+09:00`;
+  return `${year}/${month}/${day}-${hours}:${minutes}:${seconds}`;
 }
 
 /**
- * Get unique log file path for this app session
- * Creates a new log file for each app start to avoid overwriting
+ * Get unique log file path for current date
+ * Creates a new log file when:
+ * 1. App starts for the first time
+ * 2. Date changes (midnight rollover)
  * Format: kiosk-events-YYYY-MM-DD-NNN.log
  */
 function getLogFilePath() {
-  // Return cached path if already determined
-  if (currentLogFilePath) {
-    return currentLogFilePath;
-  }
-
   const date = new Date();
   const kstDate = new Date(date.toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
   const year = kstDate.getFullYear();
@@ -64,6 +61,12 @@ function getLogFilePath() {
   const day = String(kstDate.getDate()).padStart(2, '0');
   const dateStr = `${year}-${month}-${day}`; // YYYY-MM-DD in KST
 
+  // Check if date has changed - if so, create new log file
+  if (currentLogFilePath && currentLogDate === dateStr) {
+    return currentLogFilePath; // Same date, use existing file
+  }
+
+  // Date changed or first run - create new log file
   ensureLogsDirectory();
 
   // Find next available sequence number
@@ -83,14 +86,15 @@ function getLogFilePath() {
     // Safety check to prevent infinite loop
     if (sequence > 999) {
       // Fallback to timestamp-based name if we somehow have 999 files today
-      const timestamp = toKST(new Date()).replace(/[:.+]/g, '-');
+      const timestamp = toKST(new Date()).replace(/[/:]/g, '-');
       logPath = path.join(LOGS_DIR, `kiosk-events-${dateStr}-${timestamp}.log`);
       break;
     }
   }
 
-  // Cache the determined path for this app session
+  // Cache the determined path and date
   currentLogFilePath = logPath;
+  currentLogDate = dateStr;
   console.log(`Log file for this session: ${path.basename(logPath)}`);
 
   return logPath;
@@ -106,7 +110,6 @@ function rotateLogIfNeeded(logPath) {
         let rotateSeq = 1;
 
         while (true) {
-          const timestamp = toKST(new Date()).replace(/[:.+]/g, '-');
           const seqStr = String(rotateSeq).padStart(3, '0');
           rotatedPath = logPath.replace('.log', `-rotated-${seqStr}.log`);
 
@@ -117,6 +120,7 @@ function rotateLogIfNeeded(logPath) {
 
           // Safety check
           if (rotateSeq > 999) {
+            const timestamp = toKST(new Date()).replace(/[/:]/g, '-');
             rotatedPath = logPath.replace('.log', `-rotated-${timestamp}.log`);
             break;
           }
@@ -125,8 +129,9 @@ function rotateLogIfNeeded(logPath) {
         fs.renameSync(logPath, rotatedPath);
         console.log(`Log file rotated: ${path.basename(rotatedPath)}`);
 
-        // Reset current log path so a new one will be created
+        // Reset current log path and date so a new one will be created
         currentLogFilePath = null;
+        currentLogDate = null;
       }
     }
   } catch (error) {
