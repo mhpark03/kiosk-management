@@ -733,4 +733,60 @@ public class VideoController {
         }
     }
 
+    /**
+     * Merge two videos into one (Admin only)
+     * POST /api/videos/merge
+     */
+    @PostMapping("/merge")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> mergeVideos(
+            @RequestBody Map<String, Object> request,
+            Authentication authentication) {
+        try {
+            String userEmail = authentication.getName();
+            User user = userRepository.findByEmail(userEmail)
+                    .orElseThrow(() -> new RuntimeException("User not found: " + userEmail));
+
+            // Extract parameters
+            Long videoId1 = Long.valueOf(request.get("videoId1").toString());
+            Long videoId2 = Long.valueOf(request.get("videoId2").toString());
+            String title = (String) request.get("title");
+            String description = (String) request.get("description");
+            String transitionType = (String) request.getOrDefault("transitionType", "concat");
+            Double transitionDuration = request.containsKey("transitionDuration")
+                    ? Double.valueOf(request.get("transitionDuration").toString())
+                    : 1.0;
+            String outputQuality = (String) request.getOrDefault("outputQuality", "medium");
+
+            log.info("Merging videos: {} + {} with transition: {}", videoId1, videoId2, transitionType);
+
+            Video mergedVideo = videoService.mergeVideos(
+                    videoId1, videoId2, title, description,
+                    transitionType, transitionDuration, outputQuality, user.getId()
+            );
+
+            // Record merge activity
+            entityHistoryService.recordVideoActivity(
+                    mergedVideo.getId(),
+                    mergedVideo.getTitle(),
+                    user,
+                    EntityHistory.ActionType.VIDEO_UPLOAD,
+                    "영상 병합: " + mergedVideo.getTitle()
+            );
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", "Videos merged successfully");
+            response.put("video", mergedVideo);
+
+            return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        } catch (IllegalArgumentException e) {
+            log.error("Invalid merge request: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            log.error("Failed to merge videos", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to merge videos: " + e.getMessage()));
+        }
+    }
+
 }

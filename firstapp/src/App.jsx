@@ -21,6 +21,7 @@ import ImageGenerator from './components/ImageGenerator';
 import AIVideoManagement from './components/AIVideoManagement';
 import KioskVideoManagement from './components/KioskVideoManagement';
 import KioskEventHistory from './components/KioskEventHistory';
+import VideoMerger from './components/VideoMerger';
 import ProtectedRoute from './components/ProtectedRoute';
 import './App.css';
 
@@ -194,6 +195,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <VeoGenerator />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/videos/merge"
+            element={
+              <ProtectedRoute>
+                <VideoMerger />
               </ProtectedRoute>
             }
           />
