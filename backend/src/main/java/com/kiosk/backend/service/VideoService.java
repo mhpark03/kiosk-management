@@ -47,6 +47,28 @@ public class VideoService {
     private static final String THUMBNAIL_UPLOAD_FOLDER = "thumbnails/uploads/";
     private static final String THUMBNAIL_RUNWAY_FOLDER = "thumbnails/runway/";
     private static final long MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB
+
+    // Database column length limits
+    private static final int MAX_TITLE_LENGTH = 255;
+    private static final int MAX_FILENAME_LENGTH = 255;
+    private static final int MAX_RUNWAY_TASK_ID_LENGTH = 100;
+    private static final int MAX_RUNWAY_MODEL_LENGTH = 50;
+    private static final int MAX_RUNWAY_RESOLUTION_LENGTH = 50;
+    private static final int MAX_IMAGE_STYLE_LENGTH = 50;
+
+    /**
+     * Truncate string to maximum length if needed
+     */
+    private String truncate(String value, int maxLength) {
+        if (value == null) {
+            return null;
+        }
+        if (value.length() <= maxLength) {
+            return value;
+        }
+        log.warn("Truncating string from {} to {} characters: {}", value.length(), maxLength, value.substring(0, Math.min(50, value.length())) + "...");
+        return value.substring(0, maxLength);
+    }
     private static final List<String> ALLOWED_CONTENT_TYPES = List.of(
             "video/mp4",
             "video/mpeg",
@@ -170,8 +192,8 @@ public class VideoService {
         // Save metadata to database with UPLOAD type
         Video video = Video.builder()
                 .videoType(Video.VideoType.UPLOAD)
-                .filename(extractFilename(s3Key))
-                .originalFilename(file.getOriginalFilename())
+                .filename(truncate(extractFilename(s3Key), MAX_FILENAME_LENGTH))
+                .originalFilename(truncate(file.getOriginalFilename(), MAX_FILENAME_LENGTH))
                 .fileSize(file.getSize())
                 .contentType(file.getContentType())
                 .s3Key(s3Key)
@@ -179,8 +201,8 @@ public class VideoService {
                 .thumbnailS3Key(thumbnailS3Key)
                 .thumbnailUrl(thumbnailUrl)
                 .uploadedById(uploadedById)
-                .title(title)
-                .description(description)
+                .title(truncate(title, MAX_TITLE_LENGTH))
+                .description(description) // TEXT column - no limit
                 .build();
 
         Video savedVideo = videoRepository.save(video);
@@ -321,10 +343,10 @@ public class VideoService {
         }
 
         if (title != null) {
-            video.setTitle(title);
+            video.setTitle(truncate(title, MAX_TITLE_LENGTH));
         }
         if (description != null) {
-            video.setDescription(description);
+            video.setDescription(description); // TEXT column - no limit
         }
         Video updatedVideo = videoRepository.save(video);
         log.info("Video updated: {} by user ID {}", id, requestingUserId);
@@ -556,8 +578,8 @@ public class VideoService {
             // Save metadata to database with Runway ML info and RUNWAY_GENERATED type
             Video video = Video.builder()
                     .videoType(Video.VideoType.RUNWAY_GENERATED)
-                    .filename(filename)
-                    .originalFilename("runway_generated_" + runwayTaskId + ".mp4")
+                    .filename(truncate(filename, MAX_FILENAME_LENGTH))
+                    .originalFilename(truncate("runway_generated_" + runwayTaskId + ".mp4", MAX_FILENAME_LENGTH))
                     .fileSize(fileSize)
                     .contentType("video/mp4")
                     .s3Key(uploadedS3Key)
@@ -565,12 +587,12 @@ public class VideoService {
                     .thumbnailS3Key(thumbnailS3Key)
                     .thumbnailUrl(thumbnailUrl)
                     .uploadedById(uploadedById)
-                    .title(title)
-                    .description(description)
-                    .runwayTaskId(runwayTaskId)
-                    .runwayModel(runwayModel)
-                    .runwayResolution(runwayResolution)
-                    .runwayPrompt(runwayPrompt)
+                    .title(truncate(title, MAX_TITLE_LENGTH))
+                    .description(description) // TEXT column - no limit
+                    .runwayTaskId(truncate(runwayTaskId, MAX_RUNWAY_TASK_ID_LENGTH))
+                    .runwayModel(truncate(runwayModel, MAX_RUNWAY_MODEL_LENGTH))
+                    .runwayResolution(truncate(runwayResolution, MAX_RUNWAY_RESOLUTION_LENGTH))
+                    .runwayPrompt(runwayPrompt) // TEXT column - no limit
                     .build();
 
             Video savedVideo = videoRepository.save(video);
@@ -646,8 +668,8 @@ public class VideoService {
             Video video = Video.builder()
                     .videoType(Video.VideoType.RUNWAY_GENERATED)
                     .mediaType(Video.MediaType.IMAGE)
-                    .filename(filename)
-                    .originalFilename("runway_generated_image_" + runwayTaskId + ".png")
+                    .filename(truncate(filename, MAX_FILENAME_LENGTH))
+                    .originalFilename(truncate("runway_generated_image_" + runwayTaskId + ".png", MAX_FILENAME_LENGTH))
                     .fileSize(fileSize)
                     .contentType("image/png")
                     .s3Key(uploadedS3Key)
@@ -655,13 +677,13 @@ public class VideoService {
                     .thumbnailS3Key(thumbnailS3Key)
                     .thumbnailUrl(thumbnailUrl)
                     .uploadedById(uploadedById)
-                    .title(title)
-                    .description(description)
-                    .runwayTaskId(runwayTaskId)
-                    .runwayModel("gen4_image")
-                    .runwayResolution(runwayResolution)
-                    .runwayPrompt(runwayPrompt)
-                    .imageStyle(imageStyle)
+                    .title(truncate(title, MAX_TITLE_LENGTH))
+                    .description(description) // TEXT column - no limit
+                    .runwayTaskId(truncate(runwayTaskId, MAX_RUNWAY_TASK_ID_LENGTH))
+                    .runwayModel("gen4_image") // Fixed string, no truncation needed
+                    .runwayResolution(truncate(runwayResolution, MAX_RUNWAY_RESOLUTION_LENGTH))
+                    .runwayPrompt(runwayPrompt) // TEXT column - no limit
+                    .imageStyle(truncate(imageStyle, MAX_IMAGE_STYLE_LENGTH))
                     .build();
 
             Video savedVideo = videoRepository.save(video);
@@ -784,8 +806,8 @@ public class VideoService {
             // Note: We reuse runway fields for Veo data (runwayTaskId stores veoTaskId, etc.)
             Video video = Video.builder()
                     .videoType(Video.VideoType.VEO_GENERATED)
-                    .filename(filename)
-                    .originalFilename("veo_generated_" + veoTaskId + ".mp4")
+                    .filename(truncate(filename, MAX_FILENAME_LENGTH))
+                    .originalFilename(truncate("veo_generated_" + veoTaskId + ".mp4", MAX_FILENAME_LENGTH))
                     .fileSize(fileSize)
                     .contentType("video/mp4")
                     .s3Key(uploadedS3Key)
@@ -793,11 +815,11 @@ public class VideoService {
                     .thumbnailS3Key(thumbnailS3Key)
                     .thumbnailUrl(thumbnailUrl)
                     .uploadedById(uploadedById)
-                    .title(title)
-                    .description(description)
-                    .runwayTaskId(veoTaskId)  // Reusing runway field for Veo task ID
-                    .runwayModel("veo-3.1-generate-preview")  // Veo model name
-                    .runwayPrompt(veoPrompt)  // Reusing runway field for Veo prompt
+                    .title(truncate(title, MAX_TITLE_LENGTH))
+                    .description(description) // TEXT column - no limit
+                    .runwayTaskId(truncate(veoTaskId, MAX_RUNWAY_TASK_ID_LENGTH))  // Reusing runway field for Veo task ID
+                    .runwayModel(truncate("veo-3.1-generate-preview", MAX_RUNWAY_MODEL_LENGTH))  // Veo model name
+                    .runwayPrompt(veoPrompt)  // TEXT column - no limit, reusing runway field for Veo prompt
                     .build();
 
             Video savedVideo = videoRepository.save(video);
