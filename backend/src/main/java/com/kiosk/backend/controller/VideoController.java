@@ -640,20 +640,20 @@ public class VideoController {
             log.info("Request: {}", request);
             log.info("Auth: {}", authentication != null ? authentication.getName() : "null");
 
-            // Get user from authentication or use default
-            Long userId;
+            // Get user from authentication or use null
+            Long userId = null;
             User user = null;
             if (authentication != null) {
                 String userEmail = authentication.getName();
-                user = userRepository.findByEmail(userEmail)
-                        .orElseThrow(() -> new RuntimeException("User not found: " + userEmail));
-                userId = user.getId();
+                user = userRepository.findByEmail(userEmail).orElse(null);
+                if (user != null) {
+                    userId = user.getId();
+                    log.info("Authenticated user: {}", userEmail);
+                } else {
+                    log.warn("⚠️ User not found in database: {}", userEmail);
+                }
             } else {
-                // Default to user ID 1 for testing (first admin user)
-                log.warn("⚠️ No authentication, using default user ID 1");
-                userId = 1L;
-                user = userRepository.findById(userId)
-                        .orElseThrow(() -> new RuntimeException("Default user not found"));
+                log.warn("⚠️ No authentication, saving video without user association");
             }
 
             String videoUrl = request.get("videoUrl");
@@ -691,14 +691,18 @@ public class VideoController {
             );
             log.info("✅ Video saved successfully: {}", video.getId());
 
-            // Record video upload activity to entity history
-            entityHistoryService.recordVideoActivity(
-                    video.getId(),
-                    video.getTitle(),
-                    user,
-                    EntityHistory.ActionType.VIDEO_UPLOAD,
-                    "Google Veo 영상 생성: " + video.getTitle()
-            );
+            // Record video upload activity to entity history (if user is available)
+            if (user != null) {
+                entityHistoryService.recordVideoActivity(
+                        video.getId(),
+                        video.getTitle(),
+                        user,
+                        EntityHistory.ActionType.VIDEO_UPLOAD,
+                        "Google Veo 영상 생성: " + video.getTitle()
+                );
+            } else {
+                log.info("Skipping entity history record (no user authentication)");
+            }
 
             Map<String, Object> response = new HashMap<>();
             response.put("message", "Google Veo generated video saved successfully");
