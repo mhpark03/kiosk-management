@@ -18,6 +18,7 @@ import VideoUpload from './components/VideoUpload';
 import VideoGenerator from './components/VideoGenerator';
 import VeoGenerator from './components/VeoGenerator';
 import ImageGenerator from './components/ImageGenerator';
+import AIVideoManagement from './components/AIVideoManagement';
 import KioskVideoManagement from './components/KioskVideoManagement';
 import KioskEventHistory from './components/KioskEventHistory';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -161,6 +162,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <VideoManagement />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/videos/ai-generated"
+            element={
+              <ProtectedRoute>
+                <AIVideoManagement />
               </ProtectedRoute>
             }
           />

@@ -70,6 +70,31 @@ export const videoService = {
     }
   },
 
+  // Get all AI-generated videos (RUNWAY_GENERATED and VEO_GENERATED)
+  async getAIVideos(aiModelFilter = null) {
+    try {
+      const response = await api.get('/videos', {
+        params: {
+          mediaType: 'VIDEO'
+        }
+      });
+      // Filter for AI-generated videos only
+      let aiVideos = response.data.filter(v =>
+        v.videoType === 'RUNWAY_GENERATED' || v.videoType === 'VEO_GENERATED'
+      );
+
+      // Apply additional AI model filter if specified
+      if (aiModelFilter && aiModelFilter !== 'ALL') {
+        aiVideos = aiVideos.filter(v => v.videoType === aiModelFilter);
+      }
+
+      return aiVideos;
+    } catch (error) {
+      console.error('Get AI videos error:', error);
+      throw new Error(error.response?.data?.error || 'Failed to fetch AI videos');
+    }
+  },
+
   // Get a specific video by ID
   async getVideoById(id) {
     try {

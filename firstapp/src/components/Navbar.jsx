@@ -140,29 +140,20 @@ function Navbar() {
                   </li>
                   <li>
                     <Link
+                      to="/videos/ai-generated"
+                      className={location.pathname === '/videos/ai-generated' ? 'active' : ''}
+                      onClick={closeMenu}
+                    >
+                      편집영상관리
+                    </Link>
+                  </li>
+                  <li>
+                    <Link
                       to="/images/generate"
                       className={location.pathname === '/images/generate' ? 'active' : ''}
                       onClick={closeMenu}
                     >
                       이미지 만들기
-                    </Link>
-                  </li>
-                  <li>
-                    <Link
-                      to="/videos/generate"
-                      className={location.pathname === '/videos/generate' ? 'active' : ''}
-                      onClick={closeMenu}
-                    >
-                      영상 만들기 (Runway)
-                    </Link>
-                  </li>
-                  <li>
-                    <Link
-                      to="/videos/generate-veo"
-                      className={location.pathname === '/videos/generate-veo' ? 'active' : ''}
-                      onClick={closeMenu}
-                    >
-                      Veo 영상 만들기
                     </Link>
                   </li>
                 </ul>
