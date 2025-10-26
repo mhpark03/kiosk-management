@@ -5,6 +5,12 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   server: {
-    port: 5173
+    port: 5173,
+    headers: {
+      // Use credentialless for better compatibility with third-party resources (e.g., Daum Postcode API)
+      // while still enabling SharedArrayBuffer for FFmpeg.wasm
+      'Cross-Origin-Embedder-Policy': 'credentialless',
+      'Cross-Origin-Opener-Policy': 'same-origin',
+    }
   }
 })
