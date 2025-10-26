@@ -90,6 +90,23 @@ public class RunwayController {
         try {
             log.info("Checking task status: {}", taskId);
             Map<String, Object> status = runwayService.getTaskStatus(taskId);
+
+            // Convert HTTP URLs to HTTPS to prevent Mixed Content errors
+            if (status.containsKey("artifacts") && status.get("artifacts") instanceof java.util.List) {
+                @SuppressWarnings("unchecked")
+                java.util.List<Map<String, Object>> artifacts = (java.util.List<Map<String, Object>>) status.get("artifacts");
+                for (Map<String, Object> artifact : artifacts) {
+                    if (artifact.containsKey("url") && artifact.get("url") instanceof String) {
+                        String url = (String) artifact.get("url");
+                        if (url.startsWith("http://")) {
+                            String httpsUrl = url.replaceFirst("^http://", "https://");
+                            artifact.put("url", httpsUrl);
+                            log.info("Converted HTTP to HTTPS: {} -> {}", url, httpsUrl);
+                        }
+                    }
+                }
+            }
+
             return ResponseEntity.ok(status);
         } catch (Exception e) {
             log.error("Error getting task status", e);
