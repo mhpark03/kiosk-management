@@ -50,6 +50,7 @@ const elements = {
 // Initialize app
 async function initialize() {
   console.log('Initializing Kiosk Video Downloader...');
+  await Logger.info(Logger.Events.APP_INIT, 'Initializing Kiosk Video Downloader');
 
   // Explicitly enable all input fields
   elements.apiUrl.readOnly = false;
@@ -597,6 +598,11 @@ async function saveConfig() {
         showNotification('설정이 저장되었습니다.', 'success');
       }
       recordKioskEvent('CONFIG_SAVED', configExists ? '설정이 수정됨' : '설정이 저장됨');
+      Logger.info(Logger.Events.CONFIG_SAVED, configExists ? '설정이 수정됨' : '설정이 저장됨', {
+        kioskId: config.kioskId,
+        posId: config.posId,
+        autoSync: config.autoSync
+      });
 
       // Sync configuration to server
       syncConfigToServer(config);
@@ -798,6 +804,9 @@ async function syncVideos(isAutoSync = false) {
     elements.syncBtn.disabled = true;
     elements.syncBtn.innerHTML = '<span class="icon">🔄</span> 동기화 중...';
     recordKioskEvent('SYNC_STARTED', '수동 영상 동기화 시작 (WebSocket)');
+    Logger.info(Logger.Events.SYNC_STARTED, '수동 영상 동기화 시작', { kioskId: config.kioskId });
+  } else {
+    Logger.info(Logger.Events.AUTO_SYNC_STARTED, '자동 영상 동기화 시작', { kioskId: config.kioskId });
   }
 
   // Request sync via WebSocket
@@ -864,8 +873,16 @@ async function syncVideos(isAutoSync = false) {
 
     if (!isAutoSync) {
       recordKioskEvent('SYNC_COMPLETED', `수동 영상 파일 ${videos.length} 개 동기완료`);
+      Logger.info(Logger.Events.SYNC_COMPLETED, `수동 영상 동기화 완료`, {
+        kioskId: config.kioskId,
+        videoCount: videos.length
+      });
     } else {
       recordKioskEvent('AUTO_SYNC_TRIGGERED', `자동 영상 동기화하여 ${videos.length} 개 동기완료`);
+      Logger.info(Logger.Events.SYNC_COMPLETED, `자동 영상 동기화 완료`, {
+        kioskId: config.kioskId,
+        videoCount: videos.length
+      });
     }
 
     updateConnectionStatus(true);
@@ -987,6 +1004,11 @@ async function downloadVideoInBackground(video) {
       fileName: fileName
     }));
     console.log(`Background download completed: ${video.title}`);
+    Logger.info(Logger.Events.DOWNLOAD_COMPLETED, `다운로드 완료: ${video.title}`, {
+      videoId: video.videoId,
+      fileName: fileName,
+      kioskId: config.kioskId
+    });
   } else {
     video.downloadStatus = 'PENDING';
     video.progress = 0;
@@ -995,6 +1017,11 @@ async function downloadVideoInBackground(video) {
       error: result.error
     }));
     console.error(`Background download failed: ${video.title} - ${result.error}`);
+    Logger.error(Logger.Events.DOWNLOAD_FAILED, `다운로드 실패: ${video.title}`, {
+      videoId: video.videoId,
+      error: result.error,
+      kioskId: config.kioskId
+    });
   }
 
   renderVideoList();
