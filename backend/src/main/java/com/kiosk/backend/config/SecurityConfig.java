@@ -38,6 +38,8 @@ public class SecurityConfig {
 
             // Configure authorization
             .authorizeHttpRequests(auth -> auth
+                // CORS preflight requests (OPTIONS) - must be permitAll
+                .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
                 // Public endpoints - authentication not required
                 .requestMatchers("/api/auth/login", "/api/auth/signup", "/api/auth/reset-password").permitAll()
                 // Kiosk authentication - token generation for WebSocket
