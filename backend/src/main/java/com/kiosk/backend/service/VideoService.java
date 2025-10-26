@@ -2,6 +2,7 @@ package com.kiosk.backend.service;
 
 import com.kiosk.backend.entity.User;
 import com.kiosk.backend.entity.Video;
+import com.kiosk.backend.repository.KioskVideoRepository;
 import com.kiosk.backend.repository.UserRepository;
 import com.kiosk.backend.repository.VideoRepository;
 import lombok.RequiredArgsConstructor;
@@ -23,12 +24,15 @@ public class VideoService {
 
     private final VideoRepository videoRepository;
     private final UserRepository userRepository;
+    private final KioskVideoRepository kioskVideoRepository;
     private final S3Service s3Service;
     private VeoService veoService; // Lazy injection to avoid circular dependency
 
-    public VideoService(VideoRepository videoRepository, UserRepository userRepository, S3Service s3Service) {
+    public VideoService(VideoRepository videoRepository, UserRepository userRepository,
+                       KioskVideoRepository kioskVideoRepository, S3Service s3Service) {
         this.videoRepository = videoRepository;
         this.userRepository = userRepository;
+        this.kioskVideoRepository = kioskVideoRepository;
         this.s3Service = s3Service;
     }
 
@@ -304,12 +308,32 @@ public class VideoService {
             throw new RuntimeException("You don't have permission to delete this video");
         }
 
+        // Delete kiosk-video mappings first
+        try {
+            kioskVideoRepository.deleteByVideoId(id);
+            log.info("Deleted kiosk-video mappings for video ID: {}", id);
+        } catch (Exception e) {
+            log.error("Failed to delete kiosk-video mappings for video ID: {}", id, e);
+            throw new RuntimeException("Failed to delete kiosk-video mappings", e);
+        }
+
         // Delete from S3
         try {
             s3Service.deleteFile(video.getS3Key());
         } catch (Exception e) {
             log.error("Failed to delete file from S3: {}", video.getS3Key(), e);
             throw new RuntimeException("Failed to delete video file from storage", e);
+        }
+
+        // Delete thumbnail from S3 if exists
+        if (video.getThumbnailS3Key() != null && !video.getThumbnailS3Key().isEmpty()) {
+            try {
+                s3Service.deleteFile(video.getThumbnailS3Key());
+                log.info("Deleted thumbnail from S3: {}", video.getThumbnailS3Key());
+            } catch (Exception e) {
+                log.warn("Failed to delete thumbnail from S3: {}", video.getThumbnailS3Key(), e);
+                // Don't throw exception for thumbnail deletion failure
+            }
         }
 
         // Delete from database

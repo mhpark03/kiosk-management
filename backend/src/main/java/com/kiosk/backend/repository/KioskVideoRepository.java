@@ -30,6 +30,13 @@ public interface KioskVideoRepository extends JpaRepository<KioskVideo, Long> {
     void deleteByKioskId(@Param("kioskId") Long kioskId);
 
     /**
+     * Delete all kiosk assignments for a specific video
+     */
+    @Modifying
+    @Query("DELETE FROM KioskVideo kv WHERE kv.videoId = :videoId")
+    void deleteByVideoId(@Param("videoId") Long videoId);
+
+    /**
      * Delete a specific kiosk-video assignment
      */
     @Modifying

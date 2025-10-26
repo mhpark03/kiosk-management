@@ -322,13 +322,6 @@ function AIVideoManagement() {
                   <td>
                     <div className="action-buttons">
                       <button
-                        onClick={() => handlePlay(video)}
-                        className="btn-edit"
-                        title="재생"
-                      >
-                        <FiPlay />
-                      </button>
-                      <button
                         onClick={() => handleEdit(video)}
                         className="btn-edit"
                         title="수정"
