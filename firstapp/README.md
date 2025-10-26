@@ -300,3 +300,4 @@ mhpark03
 
 - Backend API: [kiosk-backend](../backend)
 - Kiosk App: [kiosk-downloader](../kiosk-downloader)
+# Updated 2025년 10월 26일 일 오전 11:58:33
