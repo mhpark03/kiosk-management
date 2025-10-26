@@ -13,6 +13,7 @@ let autoSyncDebounceTimer = null;
 let isOnline = true;
 let authToken = null;
 let currentUser = null;
+let shouldSyncAfterReconnect = false; // Flag to sync after WebSocket reconnect
 
 // DOM elements
 const elements = {
@@ -607,15 +608,13 @@ async function saveConfig() {
       // Sync configuration to server
       syncConfigToServer(config);
 
-      // Reconnect WebSocket with new config
+      // Reconnect WebSocket with new config and sync after reconnection
+      shouldSyncAfterReconnect = true; // Set flag to sync after reconnect
       disconnectWebSocket();
       setTimeout(() => {
         connectToWebSocket();
+        // Note: Auto-sync will happen in handleWebSocketStatusChange when connected
       }, 500);
-
-      // Auto-sync videos after config save/update
-      console.log('Auto-syncing videos after config save...');
-      syncVideos(true); // Auto-sync mode (no notifications)
     }, 100);
 
     // Force enable input fields after a short delay to ensure they stay enabled
@@ -953,6 +952,12 @@ async function downloadVideoInBackground(video) {
   const fileExists = await window.electronAPI.checkFileExists(filePath);
   if (fileExists) {
     console.log(`File already exists, skipping: ${fileName}`);
+    Logger.info(Logger.Events.DOWNLOAD_COMPLETED, `파일이 이미 존재하여 스킵: ${video.title}`, {
+      videoId: video.videoId,
+      fileName: fileName,
+      kioskId: config.kioskId,
+      skipped: true
+    });
 
     // Update status to COMPLETED since file exists
     video.downloadStatus = 'COMPLETED';
@@ -1641,6 +1646,15 @@ function handleWebSocketStatusChange(isConnected, message) {
         version: '1.0.0',
         platform: 'Windows'
       });
+    }
+
+    // Check if we need to sync after reconnect (e.g., after config save)
+    if (shouldSyncAfterReconnect) {
+      shouldSyncAfterReconnect = false; // Reset flag
+      console.log('Auto-syncing videos after WebSocket reconnect...');
+      setTimeout(() => {
+        syncVideos(true); // Auto-sync mode (no notifications)
+      }, 1000); // Wait 1 second to ensure WebSocket is fully ready
     }
   } else {
     // Don't change connection status to offline for WebSocket disconnection
