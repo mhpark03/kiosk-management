@@ -1,0 +1,11 @@
+[
+  {
+    "Condition": {
+      "HttpErrorCodeReturnedEquals": "404"
+    },
+    "Redirect": {
+      "HostName": "kiosk-frontend-20251018.s3-website.ap-northeast-2.amazonaws.com",
+      "ReplaceKeyPrefixWith": "#/"
+    }
+  }
+]
