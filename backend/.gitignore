@@ -42,6 +42,9 @@ data/
 ### Environment Variables ###
 .env
 
+### Local Development Configuration (contains API keys) ###
+src/main/resources/application-local.yml
+
 ### Deployment Artifacts ###
 *.zip
 logs/

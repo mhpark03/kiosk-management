@@ -19,7 +19,8 @@ public class Video {
 
     public enum VideoType {
         UPLOAD,           // Regular uploaded video/image
-        RUNWAY_GENERATED  // AI-generated video/image from Runway ML
+        RUNWAY_GENERATED, // AI-generated video/image from Runway ML
+        VEO_GENERATED     // AI-generated video from Google Veo
     }
 
     public enum MediaType {

@@ -11,7 +11,7 @@
   background: white;
   border-radius: 16px;
   padding: 40px;
-  max-width: 900px;
+  max-width: 1400px;
   width: 100%;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   position: relative;
@@ -379,8 +379,10 @@
 
 .video-preview video {
   width: 100%;
+  max-height: 700px;
   border-radius: 8px;
   margin-bottom: 15px;
+  background: #000;
 }
 
 .save-section {

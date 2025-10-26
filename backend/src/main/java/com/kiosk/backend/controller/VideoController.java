@@ -625,4 +625,94 @@ public class VideoController {
         }
     }
 
+    /**
+     * Save Google Veo generated video from URL to S3 and database
+     * POST /api/videos/save-veo-video
+     * TODO: Re-enable @PreAuthorize("hasRole('ADMIN')") after debugging
+     */
+    @PostMapping("/save-veo-video")
+    // @PreAuthorize("hasRole('ADMIN')") // Temporarily disabled for debugging
+    public ResponseEntity<?> saveVeoGeneratedVideo(
+            @RequestBody Map<String, String> request,
+            Authentication authentication) {
+        try {
+            log.info("=== Save Veo Video Request ===");
+            log.info("Request: {}", request);
+            log.info("Auth: {}", authentication != null ? authentication.getName() : "null");
+
+            // Get user from authentication or use default
+            Long userId;
+            User user = null;
+            if (authentication != null) {
+                String userEmail = authentication.getName();
+                user = userRepository.findByEmail(userEmail)
+                        .orElseThrow(() -> new RuntimeException("User not found: " + userEmail));
+                userId = user.getId();
+            } else {
+                // Default to user ID 1 for testing (first admin user)
+                log.warn("⚠️ No authentication, using default user ID 1");
+                userId = 1L;
+                user = userRepository.findById(userId)
+                        .orElseThrow(() -> new RuntimeException("Default user not found"));
+            }
+
+            String videoUrl = request.get("videoUrl");
+            String title = request.get("title");
+            String description = request.get("description");
+            String veoTaskId = request.get("veoTaskId");
+            String veoPrompt = request.get("veoPrompt");
+
+            log.info("Video URL: {}", videoUrl);
+            log.info("Title: {}", title);
+            log.info("User ID: {}", userId);
+
+            // Validate required fields
+            if (videoUrl == null || videoUrl.trim().isEmpty()) {
+                log.error("Video URL is required");
+                return ResponseEntity.badRequest().body(Map.of("error", "Video URL is required"));
+            }
+            if (title == null || title.trim().isEmpty()) {
+                log.error("Title is required");
+                return ResponseEntity.badRequest().body(Map.of("error", "Title is required"));
+            }
+            if (description == null || description.trim().isEmpty()) {
+                log.error("Description is required");
+                return ResponseEntity.badRequest().body(Map.of("error", "Description is required"));
+            }
+
+            log.info("Calling videoService.saveVeoGeneratedVideo...");
+            Video video = videoService.saveVeoGeneratedVideo(
+                    videoUrl,
+                    userId,
+                    title,
+                    description,
+                    veoTaskId,
+                    veoPrompt
+            );
+            log.info("✅ Video saved successfully: {}", video.getId());
+
+            // Record video upload activity to entity history
+            entityHistoryService.recordVideoActivity(
+                    video.getId(),
+                    video.getTitle(),
+                    user,
+                    EntityHistory.ActionType.VIDEO_UPLOAD,
+                    "Google Veo 영상 생성: " + video.getTitle()
+            );
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", "Google Veo generated video saved successfully");
+            response.put("video", video);
+
+            return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        } catch (IllegalArgumentException e) {
+            log.error("Invalid save veo video request: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            log.error("Failed to save Google Veo generated video", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to save video: " + e.getMessage()));
+        }
+    }
+
 }

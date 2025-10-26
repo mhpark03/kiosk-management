@@ -16,6 +16,7 @@ import BatchManagement from './components/BatchManagement';
 import VideoManagement from './components/VideoManagement';
 import VideoUpload from './components/VideoUpload';
 import VideoGenerator from './components/VideoGenerator';
+import VeoGenerator from './components/VeoGenerator';
 import ImageGenerator from './components/ImageGenerator';
 import KioskVideoManagement from './components/KioskVideoManagement';
 import KioskEventHistory from './components/KioskEventHistory';
@@ -176,6 +177,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <VideoGenerator />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/videos/generate-veo"
+            element={
+              <ProtectedRoute>
+                <VeoGenerator />
               </ProtectedRoute>
             }
           />
