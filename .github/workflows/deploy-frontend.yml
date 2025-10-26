@@ -1,5 +1,6 @@
 name: Deploy Frontend to S3
 
+# Auto-deploy frontend when firstapp/** files change
 on:
   push:
     branches:
