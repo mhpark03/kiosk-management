@@ -82,6 +82,11 @@ kiosk-downloader/
 - `WEBSOCKET_MESSAGE`: WebSocket 메시지 수신
 - `SYNC_COMMAND_RECEIVED`: 관리자의 동기화 명령 수신
 
+### 사용자 인증
+- `USER_LOGIN_SUCCESS`: 로그인 성공
+- `USER_LOGIN_FAILED`: 로그인 실패 (승인 대기, 계정 정지, 인증 오류 포함)
+- `USER_LOGOUT`: 로그아웃
+
 ### 일반 오류
 - `ERROR_GENERAL`: 일반적인 오류
 - `ERROR_NETWORK`: 네트워크 오류
@@ -105,15 +110,31 @@ await Logger.info(Logger.Events.SYNC_COMPLETED, '동기화 완료', {
   videoCount: 5
 });
 
+await Logger.info(Logger.Events.USER_LOGIN_SUCCESS, '로그인 성공', {
+  email: 'user@example.com',
+  name: '홍길동',
+  apiUrl: 'http://localhost:8080/api'
+});
+
 // WARN 레벨 로그
 await Logger.warn(Logger.Events.WEBSOCKET_DISCONNECTED, 'WebSocket 연결 끊김', {
   reason: 'Network timeout'
+});
+
+await Logger.warn(Logger.Events.USER_LOGIN_FAILED, '로그인 실패: 승인 대기', {
+  email: 'user@example.com',
+  reason: 'PENDING_APPROVAL'
 });
 
 // ERROR 레벨 로그
 await Logger.error(Logger.Events.DOWNLOAD_FAILED, '다운로드 실패', {
   videoId: 123,
   error: 'Network error'
+});
+
+await Logger.error(Logger.Events.USER_LOGIN_FAILED, '로그인 실패', {
+  email: 'user@example.com',
+  error: '이메일 또는 비밀번호가 올바르지 않습니다'
 });
 ```
 
