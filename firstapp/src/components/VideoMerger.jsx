@@ -59,27 +59,13 @@ function VideoMerger() {
       for (const baseURL of cdnSources) {
         try {
           console.log(`Trying to load FFmpeg from: ${baseURL}`);
-
-          // Try using direct URLs first (better for incognito mode)
-          try {
-            await ffmpeg.load({
-              coreURL: `${baseURL}/ffmpeg-core.js`,
-              wasmURL: `${baseURL}/ffmpeg-core.wasm`,
-            });
-            loadSuccess = true;
-            console.log(`FFmpeg loaded successfully from: ${baseURL} (direct URLs)`);
-            break;
-          } catch (directErr) {
-            console.log(`Direct URL failed, trying blob URLs...`);
-            // Fallback to blob URLs
-            await ffmpeg.load({
-              coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-              wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
-            });
-            loadSuccess = true;
-            console.log(`FFmpeg loaded successfully from: ${baseURL} (blob URLs)`);
-            break;
-          }
+          await ffmpeg.load({
+            coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+            wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+          });
+          loadSuccess = true;
+          console.log(`FFmpeg loaded successfully from: ${baseURL}`);
+          break;
         } catch (err) {
           console.warn(`Failed to load from ${baseURL}:`, err);
           lastError = err;
