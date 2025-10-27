@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: file:; media-src 'self' file:; connect-src 'self' http://localhost:* http://127.0.0.1:*;">
+  <title>Kiosk Video Editor - 고급 영상/음성 편집</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header -->
+    <header class="header">
+      <h1>Kiosk Video Editor</h1>
+      <p class="subtitle">고급 영상/음성 편집 도구</p>
+    </header>
+
+    <!-- Main Content -->
+    <div class="main-content">
+      <!-- Sidebar - Tool Panel -->
+      <aside class="sidebar">
+        <h2>편집 도구</h2>
+
+        <div class="tool-section">
+          <h3>기본 작업</h3>
+          <button class="tool-btn" data-tool="import">
+            <span class="icon">📁</span>
+            영상 가져오기
+          </button>
+          <button class="tool-btn" data-tool="trim">
+            <span class="icon">✂️</span>
+            영상 자르기
+          </button>
+          <button class="tool-btn" data-tool="merge">
+            <span class="icon">🔗</span>
+            영상 병합
+          </button>
+        </div>
+
+        <div class="tool-section">
+          <h3>오디오</h3>
+          <button class="tool-btn" data-tool="add-audio">
+            <span class="icon">🎵</span>
+            오디오 삽입
+          </button>
+          <button class="tool-btn" data-tool="extract-audio">
+            <span class="icon">🎤</span>
+            오디오 추출
+          </button>
+          <button class="tool-btn" data-tool="volume">
+            <span class="icon">🔊</span>
+            볼륨 조절
+          </button>
+        </div>
+
+        <div class="tool-section">
+          <h3>효과</h3>
+          <button class="tool-btn" data-tool="filter">
+            <span class="icon">🎨</span>
+            필터/색상 조정
+          </button>
+          <button class="tool-btn" data-tool="text">
+            <span class="icon">📝</span>
+            텍스트/자막
+          </button>
+          <button class="tool-btn" data-tool="transition">
+            <span class="icon">✨</span>
+            트랜지션
+          </button>
+          <button class="tool-btn" data-tool="speed">
+            <span class="icon">⚡</span>
+            속도 조절
+          </button>
+        </div>
+
+        <div class="tool-section">
+          <h3>내보내기</h3>
+          <button class="tool-btn export-btn" data-tool="export">
+            <span class="icon">💾</span>
+            비디오 내보내기
+          </button>
+        </div>
+      </aside>
+
+      <!-- Center - Preview & Timeline -->
+      <main class="editor-area">
+        <!-- Video Preview -->
+        <div class="preview-container">
+          <div id="video-preview" class="video-preview">
+            <video id="preview-video">
+              <source src="" type="video/mp4">
+            </video>
+            <div id="preview-placeholder" class="preview-placeholder">
+              <p>영상을 가져와주세요</p>
+              <button class="import-btn-large" onclick="importVideo()">📁 영상 선택</button>
+            </div>
+          </div>
+
+          <!-- Video Info -->
+          <div id="video-info" class="video-info" style="display: none;">
+            <span id="info-duration">00:00:00.00</span>
+            <span id="info-resolution">0x0</span>
+            <span id="info-fps">0 fps</span>
+            <span id="info-size">0 MB</span>
+          </div>
+        </div>
+
+        <!-- Timeline -->
+        <div class="timeline-container">
+          <div class="timeline-controls">
+            <button id="play-btn" class="timeline-btn" disabled>▶️ 재생</button>
+            <button id="pause-btn" class="timeline-btn" disabled>⏸️ 일시정지</button>
+            <span id="current-time" class="time-display">00:00:00.00</span>
+            <div class="timeline-slider-container">
+              <div id="trim-range-overlay" class="trim-range-overlay" style="display: none;"></div>
+              <div id="audio-range-overlay" class="audio-range-overlay" style="display: none;"></div>
+              <input type="range" id="timeline-slider" class="timeline-slider" min="0" max="100" value="0" disabled>
+            </div>
+          </div>
+
+          <!-- Multi-track Timeline -->
+          <div class="tracks">
+            <div class="track video-track">
+              <div class="track-label">Video</div>
+              <div class="track-content" id="video-track"></div>
+            </div>
+            <div class="track audio-track">
+              <div class="track-label">Audio</div>
+              <div class="track-content" id="audio-track"></div>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <!-- Right Panel - Properties -->
+      <aside class="properties-panel">
+        <h2>속성</h2>
+        <div id="tool-properties" class="tool-properties">
+          <p class="placeholder-text">편집 도구를 선택하세요</p>
+        </div>
+
+        <!-- Progress Section -->
+        <div id="progress-section" class="progress-section" style="display: none;">
+          <h3>처리 중...</h3>
+          <div class="progress-bar">
+            <div id="progress-fill" class="progress-fill"></div>
+          </div>
+          <p id="progress-text" class="progress-text">대기 중...</p>
+        </div>
+
+        <!-- Console Log Section -->
+        <div class="console-section">
+          <div class="console-header">
+            <h3>콘솔 로그</h3>
+            <button id="clear-logs-btn" class="console-btn">지우기</button>
+          </div>
+          <div id="console-logs" class="console-logs"></div>
+        </div>
+      </aside>
+    </div>
+
+    <!-- Status Bar -->
+    <footer class="status-bar">
+      <span id="status-text">준비</span>
+      <span id="current-file">파일 없음</span>
+    </footer>
+  </div>
+
+  <!-- Modals -->
+  <div id="modal-overlay" class="modal-overlay" style="display: none;">
+    <div id="modal-content" class="modal-content"></div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
