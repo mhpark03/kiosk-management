@@ -45,6 +45,8 @@ public class TtsService {
         if (credentialsJson != null && !credentialsJson.isEmpty()) {
             try {
                 log.info("Loading Google Cloud TTS credentials from GOOGLE_CREDENTIALS_JSON environment variable");
+                log.debug("Credentials JSON length: {} bytes", credentialsJson.length());
+                log.debug("Credentials JSON first 100 chars: {}", credentialsJson.substring(0, Math.min(100, credentialsJson.length())));
                 try (ByteArrayInputStream credentialsStream =
                         new ByteArrayInputStream(credentialsJson.getBytes(StandardCharsets.UTF_8))) {
                     credentials = GoogleCredentials.fromStream(credentialsStream);
@@ -52,7 +54,12 @@ public class TtsService {
                 log.info("Google Cloud TTS credentials loaded successfully from environment variable");
                 return;
             } catch (IOException e) {
-                log.error("Failed to load Google Cloud TTS credentials from environment variable", e);
+                log.error("Failed to load Google Cloud TTS credentials from environment variable: {}", e.getMessage());
+                log.error("Exception details:", e);
+                log.warn("TTS service will attempt to use file path or default credentials");
+            } catch (Exception e) {
+                log.error("Unexpected error loading Google Cloud TTS credentials: {}", e.getMessage());
+                log.error("Exception details:", e);
                 log.warn("TTS service will attempt to use file path or default credentials");
             }
         }
