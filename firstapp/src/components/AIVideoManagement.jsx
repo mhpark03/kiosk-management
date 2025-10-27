@@ -9,6 +9,7 @@ function AIVideoManagement() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [videos, setVideos] = useState([]);
+  const [allVideos, setAllVideos] = useState([]); // For merge modal - all videos
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -33,6 +34,7 @@ function AIVideoManagement() {
 
   useEffect(() => {
     loadAIVideos();
+    loadAllVideos();
   }, []);
 
   const loadAIVideos = async () => {
@@ -48,6 +50,24 @@ function AIVideoManagement() {
       setError('AI 생성 영상을 불러오는데 실패했습니다.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadAllVideos = async () => {
+    try {
+      // Load all videos (UPLOAD type) for merge modal
+      const data = await videoService.getAllVideos();
+      // Also load AI videos and combine
+      const aiData = await videoService.getAIVideos();
+      const combined = [...data, ...aiData];
+      // Remove duplicates by id and sort
+      const uniqueVideos = combined.filter((video, index, self) =>
+        index === self.findIndex((v) => v.id === video.id)
+      );
+      const sortedData = [...uniqueVideos].sort((a, b) => b.id - a.id);
+      setAllVideos(sortedData);
+    } catch (err) {
+      console.error('Failed to load all videos:', err);
     }
   };
 
@@ -665,7 +685,7 @@ function AIVideoManagement() {
                   <select
                     value={selectedVideo1?.id || ''}
                     onChange={(e) => {
-                      const video = videos.find(v => v.id === Number(e.target.value));
+                      const video = allVideos.find(v => v.id === Number(e.target.value));
                       setSelectedVideo1(video);
                     }}
                     disabled={merging}
@@ -679,7 +699,7 @@ function AIVideoManagement() {
                     }}
                   >
                     <option value="">영상을 선택하세요</option>
-                    {videos.map((video) => (
+                    {allVideos.map((video) => (
                       <option key={video.id} value={video.id}>
                         {video.title || video.originalFilename}
                       </option>
@@ -708,7 +728,7 @@ function AIVideoManagement() {
                   <select
                     value={selectedVideo2?.id || ''}
                     onChange={(e) => {
-                      const video = videos.find(v => v.id === Number(e.target.value));
+                      const video = allVideos.find(v => v.id === Number(e.target.value));
                       setSelectedVideo2(video);
                     }}
                     disabled={merging}
@@ -722,7 +742,7 @@ function AIVideoManagement() {
                     }}
                   >
                     <option value="">영상을 선택하세요</option>
-                    {videos.map((video) => (
+                    {allVideos.map((video) => (
                       <option key={video.id} value={video.id}>
                         {video.title || video.originalFilename}
                       </option>
