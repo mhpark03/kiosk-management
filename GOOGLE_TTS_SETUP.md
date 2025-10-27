@@ -56,7 +56,7 @@ This guide explains how to set up Google Cloud TTS (Text-to-Speech) API for the 
 
 ## Step 7: Configure Backend
 
-### Option 1: File Path Configuration (Recommended)
+### Option 1: Local Development - File Path Configuration (Recommended)
 
 1. Place the JSON key file somewhere secure on your system, for example:
    ```
@@ -73,7 +73,46 @@ This guide explains how to set up Google Cloud TTS (Text-to-Speech) API for the 
 
 3. Restart the backend server
 
-### Option 2: Environment Variable (Alternative)
+### Option 2: AWS Elastic Beanstalk Deployment (Production)
+
+For AWS deployment, use the `GOOGLE_CREDENTIALS_JSON` environment variable:
+
+1. **Prepare the JSON credentials:**
+   - Open your downloaded service account JSON file
+   - Copy the entire JSON content (all the text from `{` to `}`)
+
+2. **Set the environment variable in AWS EB Console:**
+   - Go to AWS Elastic Beanstalk Console
+   - Select your environment (e.g., `Kiosk-backend-env`)
+   - Click **Configuration**
+   - In **Software** section, click **Edit**
+   - Scroll to **Environment properties**
+   - Add a new property:
+     - **Name**: `GOOGLE_CREDENTIALS_JSON`
+     - **Value**: Paste the entire JSON content
+   - Click **Apply**
+
+3. **Or use AWS CLI:**
+   ```bash
+   # Read the JSON file and set as environment variable
+   aws elasticbeanstalk update-environment \
+     --environment-name Kiosk-backend-env \
+     --option-settings Namespace=aws:elasticbeanstalk:application:environment,OptionName=GOOGLE_CREDENTIALS_JSON,Value="$(cat /path/to/google-tts-service-account.json)" \
+     --region ap-northeast-2
+   ```
+
+   **Windows PowerShell:**
+   ```powershell
+   $jsonContent = Get-Content "C:\secure\google-tts-service-account.json" -Raw
+   aws elasticbeanstalk update-environment `
+     --environment-name Kiosk-backend-env `
+     --option-settings "Namespace=aws:elasticbeanstalk:application:environment,OptionName=GOOGLE_CREDENTIALS_JSON,Value=$jsonContent" `
+     --region ap-northeast-2
+   ```
+
+4. Wait for the environment to update (this may take a few minutes)
+
+### Option 3: Environment Variable (Alternative for Local Development)
 
 Set the `GOOGLE_APPLICATION_CREDENTIALS` environment variable:
 
@@ -93,6 +132,14 @@ export GOOGLE_APPLICATION_CREDENTIALS=/path/to/google-tts-service-account.json
 ```
 
 Then run the backend as usual.
+
+### Credentials Loading Priority
+
+The backend loads credentials in the following order:
+
+1. **GOOGLE_CREDENTIALS_JSON** environment variable (JSON content) - for AWS deployment
+2. **google.tts.credentials.file** property (file path) - for local development
+3. **GOOGLE_APPLICATION_CREDENTIALS** environment variable (file path) - fallback
 
 ## Step 8: Verify Setup
 
