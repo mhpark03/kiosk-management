@@ -26,6 +26,31 @@ export const videoService = {
     }
   },
 
+  // Upload an image file
+  async uploadImage(file, title = '', description = '') {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      if (title) {
+        formData.append('title', title);
+      }
+      if (description) {
+        formData.append('description', description);
+      }
+
+      const response = await api.post('/videos/upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      return response.data;
+    } catch (error) {
+      console.error('Image upload error:', error);
+      throw new Error(error.response?.data?.error || 'Failed to upload image');
+    }
+  },
+
   // Get all videos (admin only)
   // Only returns manually uploaded videos (type=UPLOAD)
   // Excludes AI-generated videos (type=RUNWAY_GENERATED) and images (mediaType=IMAGE)
@@ -137,6 +162,11 @@ export const videoService = {
   // Update video description (backward compatibility)
   async updateDescription(id, description) {
     return this.updateVideo(id, undefined, description);
+  },
+
+  // Update image title and/or description (alias for updateVideo)
+  async updateImage(id, title, description) {
+    return this.updateVideo(id, title, description);
   },
 
   // Delete a video
