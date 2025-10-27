@@ -33,6 +33,9 @@ public class TtsService {
     @Value("${google.tts.credentials.file:}")
     private String credentialsFilePath;
 
+    @Value("${google.tts.credentials.s3.key:credentials/google-tts-service-account.json}")
+    private String credentialsS3Key;
+
     private final AudioRepository audioRepository;
     private final S3Service s3Service;
 
@@ -44,7 +47,34 @@ public class TtsService {
 
     @PostConstruct
     public void init() {
-        // First, try to load credentials from base64-encoded environment variable (for AWS EB deployment)
+        // First, try to load credentials from S3 (recommended for AWS EB deployment)
+        String s3Key = System.getenv("GOOGLE_TTS_CREDENTIALS_S3_KEY");
+        if (s3Key == null || s3Key.isEmpty()) {
+            s3Key = credentialsS3Key; // Use default from @Value
+        }
+
+        if (s3Key != null && !s3Key.isEmpty()) {
+            try {
+                log.info("Loading Google Cloud TTS credentials from S3: {}", s3Key);
+
+                // Download credentials file from S3
+                byte[] credentialsBytes = s3Service.downloadFile(s3Key);
+
+                log.info("Downloaded credentials from S3, size: {} bytes", credentialsBytes.length);
+
+                try (ByteArrayInputStream credentialsStream = new ByteArrayInputStream(credentialsBytes)) {
+                    credentials = GoogleCredentials.fromStream(credentialsStream);
+                }
+                log.info("Google Cloud TTS credentials loaded successfully from S3");
+                return;
+            } catch (Exception e) {
+                log.error("Failed to load Google Cloud TTS credentials from S3: {}", e.getMessage());
+                log.error("Full exception:", e);
+                log.warn("TTS service will attempt to use other credential sources");
+            }
+        }
+
+        // Second, try to load credentials from base64-encoded environment variable (for AWS EB deployment)
         String credentialsBase64 = System.getenv("GOOGLE_CREDENTIALS_BASE64");
         if (credentialsBase64 != null && !credentialsBase64.isEmpty()) {
             try {
@@ -69,7 +99,7 @@ public class TtsService {
             }
         }
 
-        // Second, try to load credentials from JSON environment variable (primary method)
+        // Third, try to load credentials from JSON environment variable
         String credentialsJson = System.getenv("GOOGLE_CREDENTIALS_JSON");
         if (credentialsJson != null && !credentialsJson.isEmpty()) {
             try {
@@ -91,7 +121,7 @@ public class TtsService {
             }
         }
 
-        // Third, try to load credentials from file path (for local development)
+        // Fourth, try to load credentials from file path (for local development)
         if (credentialsFilePath != null && !credentialsFilePath.isEmpty()) {
             try {
                 log.info("Loading Google Cloud TTS credentials from file: {}", credentialsFilePath);
