@@ -428,6 +428,37 @@ public class VideoService {
     }
 
     /**
+     * Update video downloadable flag
+     * @param id Video ID
+     * @param downloadable Whether video can be downloaded to kiosks
+     * @param requestingUserId ID of the user requesting update
+     * @return Updated Video entity
+     */
+    @Transactional
+    public Video updateDownloadable(Long id, Boolean downloadable, Long requestingUserId) {
+        Video video = getVideoById(id);
+
+        // Get requesting user
+        User requestingUser = userRepository.findById(requestingUserId)
+                .orElseThrow(() -> new RuntimeException("User not found with id: " + requestingUserId));
+
+        // Check if user has permission to update
+        // ADMIN can update any video, regular users can only update their own
+        if (requestingUser.getRole() != User.UserRole.ADMIN &&
+            !video.getUploadedById().equals(requestingUserId)) {
+            log.warn("User ID {} attempted to update video {} owned by user ID {}",
+                    requestingUserId, id, video.getUploadedById());
+            throw new RuntimeException("You don't have permission to update this video");
+        }
+
+        video.setDownloadable(downloadable);
+        Video updatedVideo = videoRepository.save(video);
+        log.info("Video downloadable flag updated to {} for video {} by user ID {}", downloadable, id, requestingUserId);
+
+        return updatedVideo;
+    }
+
+    /**
      * Regenerate thumbnail for a video
      * @param id Video ID
      * @param requestingUserId ID of the user requesting regeneration

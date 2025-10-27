@@ -14,6 +14,7 @@ function KioskVideoManagement() {
   const kiosk = location.state?.kiosk;
 
   const [videos, setVideos] = useState([]);
+  const [assignedVideos, setAssignedVideos] = useState([]);
   const [stores, setStores] = useState([]);
   const [selectedVideos, setSelectedVideos] = useState(new Set());
   const [loading, setLoading] = useState(true);
@@ -57,7 +58,9 @@ function KioskVideoManagement() {
     try {
       setLoading(true);
       const data = await videoService.getAllVideos();
-      const sortedData = [...data].sort((a, b) => b.id - a.id);
+      // Filter to show only downloadable videos
+      const downloadableVideos = data.filter(video => video.downloadable === true);
+      const sortedData = [...downloadableVideos].sort((a, b) => b.id - a.id);
       setVideos(sortedData);
       setError('');
     } catch (err) {
@@ -81,10 +84,33 @@ function KioskVideoManagement() {
         statusMap[kv.videoId] = kv.downloadStatus || 'PENDING';
       });
       setVideoStatusMap(statusMap);
+
+      // Load full video details for assigned videos (including non-downloadable ones)
+      if (videoIds.length > 0) {
+        try {
+          const videoDetailsPromises = videoIds.map(id =>
+            api.get(`/videos/${id}`).catch(err => {
+              console.error(`Failed to load video ${id}:`, err);
+              return null;
+            })
+          );
+          const videoDetailsResponses = await Promise.all(videoDetailsPromises);
+          const videoDetails = videoDetailsResponses
+            .filter(response => response !== null)
+            .map(response => response.data);
+          setAssignedVideos(videoDetails);
+        } catch (err) {
+          console.error('Failed to load assigned video details:', err);
+          setAssignedVideos([]);
+        }
+      } else {
+        setAssignedVideos([]);
+      }
     } catch (err) {
       console.error('Failed to load kiosk videos:', err);
       setSelectedVideos(new Set());
       setVideoStatusMap({});
+      setAssignedVideos([]);
     }
   };
 
@@ -312,7 +338,8 @@ function KioskVideoManagement() {
     return <div className="loading">영상 목록을 불러오는 중...</div>;
   }
 
-  const selectedVideosArray = videos.filter(v => selectedVideos.has(v.id));
+  // Use assignedVideos instead of filtering from videos
+  const selectedVideosArray = assignedVideos;
 
   // Filter videos by search term
   const filteredVideos = selectedVideosArray.filter(video => {

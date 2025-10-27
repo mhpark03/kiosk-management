@@ -137,6 +137,7 @@ public class VideoController {
                 videoMap.put("uploadedAt", video.getUploadedAt());
                 videoMap.put("title", video.getTitle());
                 videoMap.put("description", video.getDescription());
+                videoMap.put("downloadable", video.getDownloadable());
                 videoMap.put("uploadedById", video.getUploadedById());
 
                 // Add Runway ML specific fields if applicable
@@ -217,6 +218,7 @@ public class VideoController {
                 videoMap.put("uploadedAt", video.getUploadedAt());
                 videoMap.put("title", video.getTitle());
                 videoMap.put("description", video.getDescription());
+                videoMap.put("downloadable", video.getDownloadable());
                 videoMap.put("uploadedById", video.getUploadedById());
                 videoMap.put("uploadedByEmail", user.getEmail());
                 videoMap.put("uploadedByName", user.getDisplayName());
@@ -343,15 +345,15 @@ public class VideoController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> updateVideo(
             @PathVariable Long id,
-            @RequestBody Map<String, String> request,
+            @RequestBody Map<String, Object> request,
             Authentication authentication) {
         try {
             String userEmail = authentication.getName();
             User user = userRepository.findByEmail(userEmail)
                     .orElseThrow(() -> new RuntimeException("User not found: " + userEmail));
 
-            String title = request.get("title");
-            String description = request.get("description");
+            String title = (String) request.get("title");
+            String description = (String) request.get("description");
 
             Video updatedVideo = videoService.updateVideo(id, title, description, user.getId());
             return ResponseEntity.ok(Map.of("message", "Video updated successfully", "video", updatedVideo));
@@ -363,6 +365,39 @@ public class VideoController {
             log.error("Failed to update video", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "Failed to update video: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Toggle video downloadable flag (Admin only)
+     * PATCH /api/videos/{id}/downloadable
+     */
+    @PatchMapping("/{id}/downloadable")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> toggleDownloadable(
+            @PathVariable Long id,
+            @RequestBody Map<String, Boolean> request,
+            Authentication authentication) {
+        try {
+            String userEmail = authentication.getName();
+            User user = userRepository.findByEmail(userEmail)
+                    .orElseThrow(() -> new RuntimeException("User not found: " + userEmail));
+
+            Boolean downloadable = request.get("downloadable");
+            if (downloadable == null) {
+                return ResponseEntity.badRequest().body(Map.of("error", "downloadable field is required"));
+            }
+
+            Video updatedVideo = videoService.updateDownloadable(id, downloadable, user.getId());
+            return ResponseEntity.ok(Map.of("message", "Video downloadable flag updated successfully", "video", updatedVideo));
+        } catch (RuntimeException e) {
+            log.error("Failed to update video downloadable flag: {}", id, e);
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            log.error("Failed to update downloadable flag", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to update downloadable flag: " + e.getMessage()));
         }
     }
 

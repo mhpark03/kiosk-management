@@ -169,6 +169,17 @@ export const videoService = {
     return this.updateVideo(id, title, description);
   },
 
+  // Update video downloadable flag
+  async updateDownloadable(id, downloadable) {
+    try {
+      const response = await api.patch(`/videos/${id}/downloadable`, { downloadable });
+      return response.data;
+    } catch (error) {
+      console.error('Update downloadable error:', error);
+      throw new Error(error.response?.data?.error || 'Failed to update downloadable flag');
+    }
+  },
+
   // Delete a video
   async deleteVideo(id) {
     try {
