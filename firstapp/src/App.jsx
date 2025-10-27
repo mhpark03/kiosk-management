@@ -22,6 +22,7 @@ import AIVideoManagement from './components/AIVideoManagement';
 import KioskVideoManagement from './components/KioskVideoManagement';
 import KioskEventHistory from './components/KioskEventHistory';
 import VideoMerger from './components/VideoMerger';
+import AudioGenerator from './components/AudioGenerator';
 import ProtectedRoute from './components/ProtectedRoute';
 import './App.css';
 
@@ -203,6 +204,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <VideoMerger />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/audio/generate"
+            element={
+              <ProtectedRoute>
+                <AudioGenerator />
               </ProtectedRoute>
             }
           />

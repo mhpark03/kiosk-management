@@ -45,6 +45,11 @@ data/
 ### Local Development Configuration (contains API keys) ###
 src/main/resources/application-local.yml
 
+### Google Cloud Credentials ###
+*-service-account.json
+*-credentials.json
+google-tts-*.json
+
 ### Deployment Artifacts ###
 *.zip
 logs/

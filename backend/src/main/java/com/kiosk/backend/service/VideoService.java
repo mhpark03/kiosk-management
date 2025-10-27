@@ -1,7 +1,9 @@
 package com.kiosk.backend.service;
 
+import com.kiosk.backend.entity.Audio;
 import com.kiosk.backend.entity.User;
 import com.kiosk.backend.entity.Video;
+import com.kiosk.backend.repository.AudioRepository;
 import com.kiosk.backend.repository.KioskVideoRepository;
 import com.kiosk.backend.repository.UserRepository;
 import com.kiosk.backend.repository.VideoRepository;
@@ -25,14 +27,17 @@ public class VideoService {
     private final VideoRepository videoRepository;
     private final UserRepository userRepository;
     private final KioskVideoRepository kioskVideoRepository;
+    private final AudioRepository audioRepository;
     private final S3Service s3Service;
     private VeoService veoService; // Lazy injection to avoid circular dependency
 
     public VideoService(VideoRepository videoRepository, UserRepository userRepository,
-                       KioskVideoRepository kioskVideoRepository, S3Service s3Service) {
+                       KioskVideoRepository kioskVideoRepository, AudioRepository audioRepository,
+                       S3Service s3Service) {
         this.videoRepository = videoRepository;
         this.userRepository = userRepository;
         this.kioskVideoRepository = kioskVideoRepository;
+        this.audioRepository = audioRepository;
         this.s3Service = s3Service;
     }
 
@@ -1125,6 +1130,189 @@ public class VideoService {
                 }
                 if (tempVideo2Path != null && Files.exists(tempVideo2Path)) {
                     Files.delete(tempVideo2Path);
+                }
+                if (tempOutputPath != null && Files.exists(tempOutputPath)) {
+                    Files.delete(tempOutputPath);
+                }
+            } catch (IOException e) {
+                log.error("Failed to delete temporary files: {}", e.getMessage());
+            }
+        }
+    }
+
+    /**
+     * Add audio to video using FFmpeg
+     * @param videoId Video ID
+     * @param audioId Audio ID (from TTS or uploaded)
+     * @param title Title for the new video
+     * @param description Description for the new video
+     * @param replaceAudio If true, replace existing audio; if false, mix with existing audio
+     * @param uploadedById User ID
+     * @return New Video entity with audio added
+     */
+    public Video addAudioToVideo(Long videoId, Long audioId, String title, String description,
+                                 Boolean replaceAudio, Long uploadedById) throws IOException {
+        log.info("Adding audio to video: videoId={}, audioId={}, replaceAudio={}", videoId, audioId, replaceAudio);
+
+        // Validate inputs
+        if (title == null || title.trim().isEmpty()) {
+            throw new IllegalArgumentException("Title is required");
+        }
+        if (description == null || description.trim().isEmpty()) {
+            throw new IllegalArgumentException("Description is required");
+        }
+
+        // Get video and audio
+        Video video = getVideoById(videoId);
+        Audio audio = audioRepository.findById(audioId)
+                .orElseThrow(() -> new RuntimeException("Audio not found with id: " + audioId));
+
+        Path tempVideoPath = null;
+        Path tempAudioPath = null;
+        Path tempOutputPath = null;
+
+        try {
+            // Download video and audio from S3
+            tempVideoPath = Files.createTempFile("video_", ".mp4");
+            tempAudioPath = Files.createTempFile("audio_", ".mp3");
+            tempOutputPath = Files.createTempFile("output_", ".mp4");
+
+            byte[] videoBytes = s3Service.downloadFile(video.getS3Key());
+            byte[] audioBytes = s3Service.downloadFile(audio.getS3Key());
+
+            Files.write(tempVideoPath, videoBytes);
+            Files.write(tempAudioPath, audioBytes);
+
+            log.info("Downloaded video and audio to temporary files");
+
+            // Build FFmpeg command
+            ProcessBuilder processBuilder;
+
+            if (replaceAudio) {
+                // Replace existing audio with new audio
+                processBuilder = new ProcessBuilder(
+                    "ffmpeg",
+                    "-i", tempVideoPath.toString(),
+                    "-i", tempAudioPath.toString(),
+                    "-c:v", "copy",  // Copy video stream without re-encoding
+                    "-c:a", "aac",   // Encode audio to AAC
+                    "-map", "0:v:0", // Map video from first input
+                    "-map", "1:a:0", // Map audio from second input
+                    "-shortest",     // End when shortest stream ends
+                    "-y",
+                    tempOutputPath.toString()
+                );
+            } else {
+                // Mix existing audio with new audio
+                processBuilder = new ProcessBuilder(
+                    "ffmpeg",
+                    "-i", tempVideoPath.toString(),
+                    "-i", tempAudioPath.toString(),
+                    "-filter_complex", "[0:a][1:a]amix=inputs=2:duration=longest[aout]",
+                    "-map", "0:v:0",
+                    "-map", "[aout]",
+                    "-c:v", "copy",
+                    "-c:a", "aac",
+                    "-shortest",
+                    "-y",
+                    tempOutputPath.toString()
+                );
+            }
+
+            processBuilder.redirectErrorStream(true);
+            Process process = processBuilder.start();
+
+            // Log FFmpeg output
+            try (java.io.BufferedReader reader = new java.io.BufferedReader(
+                    new java.io.InputStreamReader(process.getInputStream()))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    log.debug("FFmpeg: {}", line);
+                }
+            }
+
+            int exitCode = process.waitFor();
+
+            if (exitCode != 0 || !Files.exists(tempOutputPath) || Files.size(tempOutputPath) == 0) {
+                throw new RuntimeException("FFmpeg failed to add audio to video, exit code: " + exitCode);
+            }
+
+            log.info("Audio added to video successfully");
+
+            // Upload result to S3
+            String filename = "with_audio_" + java.util.UUID.randomUUID().toString() + ".mp4";
+            byte[] outputBytes = Files.readAllBytes(tempOutputPath);
+            String uploadedS3Key = s3Service.uploadBytes(outputBytes, VIDEO_UPLOAD_FOLDER, filename, "video/mp4");
+            String s3Url = s3Service.getFileUrl(uploadedS3Key);
+
+            log.info("Uploaded video with audio to S3: {}", uploadedS3Key);
+
+            // Generate thumbnail
+            String thumbnailS3Key = null;
+            String thumbnailUrl = null;
+            try {
+                Path tempThumbnailPath = Files.createTempFile("thumbnail_", ".jpg");
+
+                ProcessBuilder thumbnailBuilder = new ProcessBuilder(
+                    "ffmpeg",
+                    "-i", tempOutputPath.toString(),
+                    "-ss", "00:00:01.000",
+                    "-vframes", "1",
+                    "-vf", "scale=320:-1",
+                    "-y",
+                    tempThumbnailPath.toString()
+                );
+
+                thumbnailBuilder.redirectErrorStream(true);
+                Process thumbnailProcess = thumbnailBuilder.start();
+                int thumbnailExitCode = thumbnailProcess.waitFor();
+
+                if (thumbnailExitCode == 0 && Files.exists(tempThumbnailPath)) {
+                    byte[] thumbnailBytes = Files.readAllBytes(tempThumbnailPath);
+                    String thumbnailFilename = filename.replace(".mp4", "_thumb.jpg");
+                    thumbnailS3Key = s3Service.uploadBytes(thumbnailBytes, THUMBNAIL_UPLOAD_FOLDER, thumbnailFilename, "image/jpeg");
+                    thumbnailUrl = s3Service.getFileUrl(thumbnailS3Key);
+                    log.info("Thumbnail uploaded successfully: {}", thumbnailS3Key);
+
+                    Files.deleteIfExists(tempThumbnailPath);
+                }
+            } catch (Exception e) {
+                log.error("Failed to generate/upload thumbnail: {}", e.getMessage());
+                // Continue without thumbnail
+            }
+
+            // Save new video to database
+            Video newVideo = Video.builder()
+                    .videoType(Video.VideoType.UPLOAD)
+                    .filename(truncate(filename, MAX_FILENAME_LENGTH))
+                    .originalFilename(truncate(title + ".mp4", MAX_FILENAME_LENGTH))
+                    .fileSize((long) outputBytes.length)
+                    .contentType("video/mp4")
+                    .s3Key(uploadedS3Key)
+                    .s3Url(s3Url)
+                    .thumbnailS3Key(thumbnailS3Key)
+                    .thumbnailUrl(thumbnailUrl)
+                    .uploadedById(uploadedById)
+                    .title(truncate(title, MAX_TITLE_LENGTH))
+                    .description(description)
+                    .build();
+
+            Video savedVideo = videoRepository.save(newVideo);
+            log.info("Video with audio saved to database with ID: {}", savedVideo.getId());
+
+            return savedVideo;
+
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IOException("Audio addition was interrupted", e);
+        } finally {
+            // Clean up temporary files
+            try {
+                if (tempVideoPath != null && Files.exists(tempVideoPath)) {
+                    Files.delete(tempVideoPath);
+                }
+                if (tempAudioPath != null && Files.exists(tempAudioPath)) {
+                    Files.delete(tempAudioPath);
                 }
                 if (tempOutputPath != null && Files.exists(tempOutputPath)) {
                     Files.delete(tempOutputPath);

@@ -165,6 +165,15 @@ function Navbar() {
                       비디오 병합
                     </Link>
                   </li>
+                  <li>
+                    <Link
+                      to="/audio/generate"
+                      className={location.pathname === '/audio/generate' ? 'active' : ''}
+                      onClick={closeMenu}
+                    >
+                      TTS 음성 생성
+                    </Link>
+                  </li>
                 </ul>
               )}
             </li>
