@@ -149,20 +149,11 @@ function Navbar() {
                   </li>
                   <li>
                     <Link
-                      to="/images/generate"
-                      className={location.pathname === '/images/generate' ? 'active' : ''}
+                      to="/images"
+                      className={location.pathname === '/images' ? 'active' : ''}
                       onClick={closeMenu}
                     >
-                      이미지 만들기
-                    </Link>
-                  </li>
-                  <li>
-                    <Link
-                      to="/videos/merge"
-                      className={location.pathname === '/videos/merge' ? 'active' : ''}
-                      onClick={closeMenu}
-                    >
-                      비디오 병합
+                      이미지 관리
                     </Link>
                   </li>
                   <li>
@@ -171,7 +162,7 @@ function Navbar() {
                       className={location.pathname === '/audio/generate' ? 'active' : ''}
                       onClick={closeMenu}
                     >
-                      TTS 음성 생성
+                      오디오 관리
                     </Link>
                   </li>
                 </ul>

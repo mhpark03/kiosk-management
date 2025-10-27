@@ -18,10 +18,11 @@ import VideoUpload from './components/VideoUpload';
 import VideoGenerator from './components/VideoGenerator';
 import VeoGenerator from './components/VeoGenerator';
 import ImageGenerator from './components/ImageGenerator';
+import ImageManagement from './components/ImageManagement';
+import ImageEdit from './components/ImageEdit';
 import AIVideoManagement from './components/AIVideoManagement';
 import KioskVideoManagement from './components/KioskVideoManagement';
 import KioskEventHistory from './components/KioskEventHistory';
-import VideoMerger from './components/VideoMerger';
 import AudioGenerator from './components/AudioGenerator';
 import AudioEdit from './components/AudioEdit';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -177,10 +178,18 @@ function App() {
             }
           />
           <Route
-            path="/images/generate"
+            path="/images"
             element={
               <ProtectedRoute>
-                <ImageGenerator />
+                <ImageManagement />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/images/edit/:id"
+            element={
+              <ProtectedRoute>
+                <ImageEdit />
               </ProtectedRoute>
             }
           />
@@ -197,14 +206,6 @@ function App() {
             element={
               <ProtectedRoute>
                 <VeoGenerator />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/videos/merge"
-            element={
-              <ProtectedRoute>
-                <VideoMerger />
               </ProtectedRoute>
             }
           />

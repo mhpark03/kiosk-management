@@ -20,6 +20,17 @@ function AIVideoManagement() {
   const [searchTerm, setSearchTerm] = useState('');
   const itemsPerPage = 10;
 
+  // Video Merge Modal State
+  const [showMergeModal, setShowMergeModal] = useState(false);
+  const [selectedVideo1, setSelectedVideo1] = useState(null);
+  const [selectedVideo2, setSelectedVideo2] = useState(null);
+  const [mergeTitle, setMergeTitle] = useState('');
+  const [mergeDescription, setMergeDescription] = useState('');
+  const [transitionType, setTransitionType] = useState('concat');
+  const [transitionDuration, setTransitionDuration] = useState(1);
+  const [outputQuality, setOutputQuality] = useState('medium');
+  const [merging, setMerging] = useState(false);
+
   useEffect(() => {
     loadAIVideos();
   }, []);
@@ -80,6 +91,70 @@ function AIVideoManagement() {
       title: video.title || '',
       description: video.description || ''
     });
+  };
+
+  const handleMergeClick = () => {
+    setShowMergeModal(true);
+    setSelectedVideo1(null);
+    setSelectedVideo2(null);
+    setMergeTitle('');
+    setMergeDescription('');
+    setTransitionType('concat');
+    setTransitionDuration(1);
+    setOutputQuality('medium');
+    setError('');
+  };
+
+  const handleMerge = async (e) => {
+    e.preventDefault();
+
+    if (!selectedVideo1 || !selectedVideo2) {
+      setError('두 개의 비디오를 선택해주세요.');
+      setTimeout(() => setError(''), 3000);
+      return;
+    }
+
+    if (selectedVideo1.id === selectedVideo2.id) {
+      setError('서로 다른 비디오를 선택해주세요.');
+      setTimeout(() => setError(''), 3000);
+      return;
+    }
+
+    if (!mergeTitle.trim() || !mergeDescription.trim()) {
+      setError('제목과 설명을 입력해주세요.');
+      setTimeout(() => setError(''), 3000);
+      return;
+    }
+
+    try {
+      setMerging(true);
+      setError('');
+      setSuccess('');
+
+      await videoService.mergeVideos(
+        selectedVideo1.id,
+        selectedVideo2.id,
+        mergeTitle,
+        mergeDescription,
+        transitionType,
+        transitionDuration,
+        outputQuality
+      );
+
+      setSuccess('비디오 병합이 완료되었습니다!');
+
+      // Reload videos and close modal
+      await loadAIVideos();
+      setTimeout(() => {
+        setShowMergeModal(false);
+        setSuccess('');
+      }, 2000);
+    } catch (err) {
+      setError(err.message || '비디오 병합에 실패했습니다.');
+      setTimeout(() => setError(''), 5000);
+    } finally {
+      setMerging(false);
+    }
   };
 
   const handleEditSave = async () => {
@@ -212,6 +287,20 @@ function AIVideoManagement() {
 
         <div className="header-actions">
           <div style={{display: 'flex', gap: '10px'}}>
+            <button
+              onClick={handleMergeClick}
+              className="btn-secondary"
+              style={{
+                background: '#f59e0b',
+                color: '#fff',
+                border: 'none',
+                padding: '10px 20px',
+                fontSize: '14px',
+                fontWeight: '500'
+              }}
+            >
+              영상 병합
+            </button>
             <button
               onClick={() => navigate('/videos/generate')}
               className="btn-secondary"
@@ -554,6 +643,287 @@ function AIVideoManagement() {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Video Merge Modal */}
+      {showMergeModal && (
+        <div className="video-modal" onClick={() => !merging && setShowMergeModal(false)}>
+          <div className="video-modal-content" style={{maxWidth: '900px', maxHeight: '90vh', overflow: 'auto'}} onClick={(e) => e.stopPropagation()}>
+            <button className="modal-close" onClick={() => !merging && setShowMergeModal(false)} disabled={merging}>×</button>
+            <h3>영상 병합</h3>
+
+            <form onSubmit={handleMerge} style={{marginTop: '20px'}}>
+              {/* Video Selection */}
+              <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px'}}>
+                {/* First Video */}
+                <div>
+                  <label style={{display: 'block', fontWeight: '600', marginBottom: '8px', color: '#2d3748'}}>
+                    첫 번째 영상
+                  </label>
+                  <select
+                    value={selectedVideo1?.id || ''}
+                    onChange={(e) => {
+                      const video = videos.find(v => v.id === Number(e.target.value));
+                      setSelectedVideo1(video);
+                    }}
+                    disabled={merging}
+                    style={{
+                      width: '100%',
+                      padding: '10px',
+                      border: '1px solid #cbd5e0',
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                      marginBottom: '10px'
+                    }}
+                  >
+                    <option value="">영상을 선택하세요</option>
+                    {videos.map((video) => (
+                      <option key={video.id} value={video.id}>
+                        {video.title || video.originalFilename}
+                      </option>
+                    ))}
+                  </select>
+                  {selectedVideo1 && (
+                    <div style={{
+                      padding: '10px',
+                      background: '#f7fafc',
+                      borderRadius: '6px',
+                      fontSize: '13px',
+                      color: '#4a5568'
+                    }}>
+                      <p style={{margin: '5px 0'}}><strong>제목:</strong> {selectedVideo1.title}</p>
+                      <p style={{margin: '5px 0'}}><strong>파일:</strong> {selectedVideo1.originalFilename}</p>
+                      <p style={{margin: '5px 0'}}><strong>크기:</strong> {(selectedVideo1.fileSize / 1024 / 1024).toFixed(2)} MB</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Second Video */}
+                <div>
+                  <label style={{display: 'block', fontWeight: '600', marginBottom: '8px', color: '#2d3748'}}>
+                    두 번째 영상
+                  </label>
+                  <select
+                    value={selectedVideo2?.id || ''}
+                    onChange={(e) => {
+                      const video = videos.find(v => v.id === Number(e.target.value));
+                      setSelectedVideo2(video);
+                    }}
+                    disabled={merging}
+                    style={{
+                      width: '100%',
+                      padding: '10px',
+                      border: '1px solid #cbd5e0',
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                      marginBottom: '10px'
+                    }}
+                  >
+                    <option value="">영상을 선택하세요</option>
+                    {videos.map((video) => (
+                      <option key={video.id} value={video.id}>
+                        {video.title || video.originalFilename}
+                      </option>
+                    ))}
+                  </select>
+                  {selectedVideo2 && (
+                    <div style={{
+                      padding: '10px',
+                      background: '#f7fafc',
+                      borderRadius: '6px',
+                      fontSize: '13px',
+                      color: '#4a5568'
+                    }}>
+                      <p style={{margin: '5px 0'}}><strong>제목:</strong> {selectedVideo2.title}</p>
+                      <p style={{margin: '5px 0'}}><strong>파일:</strong> {selectedVideo2.originalFilename}</p>
+                      <p style={{margin: '5px 0'}}><strong>크기:</strong> {(selectedVideo2.fileSize / 1024 / 1024).toFixed(2)} MB</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Merge Settings */}
+              <div style={{padding: '20px', background: '#f7fafc', borderRadius: '8px', marginBottom: '20px'}}>
+                <h4 style={{marginTop: 0, marginBottom: '15px', color: '#2d3748'}}>병합 설정</h4>
+
+                {/* Title */}
+                <div style={{marginBottom: '15px'}}>
+                  <label style={{display: 'block', fontWeight: '600', marginBottom: '8px', color: '#2d3748'}}>
+                    제목 *
+                  </label>
+                  <input
+                    type="text"
+                    value={mergeTitle}
+                    onChange={(e) => setMergeTitle(e.target.value)}
+                    placeholder="병합된 영상의 제목"
+                    disabled={merging}
+                    required
+                    style={{
+                      width: '100%',
+                      padding: '10px',
+                      border: '1px solid #cbd5e0',
+                      borderRadius: '6px',
+                      fontSize: '14px'
+                    }}
+                  />
+                </div>
+
+                {/* Description */}
+                <div style={{marginBottom: '15px'}}>
+                  <label style={{display: 'block', fontWeight: '600', marginBottom: '8px', color: '#2d3748'}}>
+                    설명 *
+                  </label>
+                  <textarea
+                    value={mergeDescription}
+                    onChange={(e) => setMergeDescription(e.target.value)}
+                    placeholder="병합된 영상의 설명"
+                    rows={3}
+                    disabled={merging}
+                    required
+                    style={{
+                      width: '100%',
+                      padding: '10px',
+                      border: '1px solid #cbd5e0',
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                      resize: 'vertical'
+                    }}
+                  />
+                </div>
+
+                {/* Transition Type */}
+                <div style={{marginBottom: '15px'}}>
+                  <label style={{display: 'block', fontWeight: '600', marginBottom: '8px', color: '#2d3748'}}>
+                    전환 효과
+                  </label>
+                  <select
+                    value={transitionType}
+                    onChange={(e) => setTransitionType(e.target.value)}
+                    disabled={merging}
+                    style={{
+                      width: '100%',
+                      padding: '10px',
+                      border: '1px solid #cbd5e0',
+                      borderRadius: '6px',
+                      fontSize: '14px'
+                    }}
+                  >
+                    <option value="concat">단순 연결 (전환 효과 없음)</option>
+                    <option value="fade">페이드 (Fade Out/In)</option>
+                    <option value="xfade">크로스페이드 (Crossfade)</option>
+                  </select>
+                </div>
+
+                {/* Transition Duration */}
+                {(transitionType === 'fade' || transitionType === 'xfade') && (
+                  <div style={{marginBottom: '15px'}}>
+                    <label style={{display: 'block', fontWeight: '600', marginBottom: '8px', color: '#2d3748'}}>
+                      전환 시간 (초)
+                    </label>
+                    <input
+                      type="number"
+                      value={transitionDuration}
+                      onChange={(e) => setTransitionDuration(Number(e.target.value))}
+                      min="0.5"
+                      max="5"
+                      step="0.5"
+                      disabled={merging}
+                      style={{
+                        width: '100%',
+                        padding: '10px',
+                        border: '1px solid #cbd5e0',
+                        borderRadius: '6px',
+                        fontSize: '14px'
+                      }}
+                    />
+                  </div>
+                )}
+
+                {/* Output Quality */}
+                <div style={{marginBottom: '15px'}}>
+                  <label style={{display: 'block', fontWeight: '600', marginBottom: '8px', color: '#2d3748'}}>
+                    출력 품질
+                  </label>
+                  <select
+                    value={outputQuality}
+                    onChange={(e) => setOutputQuality(e.target.value)}
+                    disabled={merging}
+                    style={{
+                      width: '100%',
+                      padding: '10px',
+                      border: '1px solid #cbd5e0',
+                      borderRadius: '6px',
+                      fontSize: '14px'
+                    }}
+                  >
+                    <option value="low">낮음 (1 Mbps)</option>
+                    <option value="medium">중간 (4 Mbps)</option>
+                    <option value="high">높음 (8 Mbps)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div style={{display: 'flex', gap: '10px', justifyContent: 'flex-end'}}>
+                <button
+                  type="button"
+                  onClick={() => setShowMergeModal(false)}
+                  disabled={merging}
+                  style={{
+                    padding: '12px 24px',
+                    background: '#fff',
+                    color: '#2d3748',
+                    border: '1px solid #cbd5e0',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    cursor: merging ? 'not-allowed' : 'pointer'
+                  }}
+                >
+                  취소
+                </button>
+                <button
+                  type="submit"
+                  disabled={merging || !selectedVideo1 || !selectedVideo2 || !mergeTitle.trim() || !mergeDescription.trim()}
+                  style={{
+                    padding: '12px 24px',
+                    background: merging || !selectedVideo1 || !selectedVideo2 || !mergeTitle.trim() || !mergeDescription.trim() ? '#a0aec0' : '#f59e0b',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    cursor: merging || !selectedVideo1 || !selectedVideo2 ? 'not-allowed' : 'pointer'
+                  }}
+                >
+                  {merging ? '병합 중...' : '영상 병합'}
+                </button>
+              </div>
+            </form>
+
+            {/* Loading Indicator */}
+            {merging && (
+              <div style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                background: 'rgba(255, 255, 255, 0.95)',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRadius: '8px',
+                zIndex: 10
+              }}>
+                <div className="loading-spinner"></div>
+                <p style={{marginTop: '20px', fontSize: '16px', fontWeight: '600'}}>영상을 병합하는 중입니다...</p>
+                <p style={{color: '#718096', fontSize: '14px'}}>잠시만 기다려주세요. (수 분 소요될 수 있습니다)</p>
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -84,7 +84,14 @@ public class VideoService {
             "video/quicktime",
             "video/x-msvideo",
             "video/x-ms-wmv",
-            "video/webm"
+            "video/webm",
+            "image/jpeg",
+            "image/jpg",
+            "image/png",
+            "image/gif",
+            "image/webp",
+            "image/bmp",
+            "image/svg+xml"
     );
 
     /**
@@ -175,21 +182,43 @@ public class VideoService {
         String s3Key = s3Service.uploadFile(file, VIDEO_UPLOAD_FOLDER);
         String s3Url = s3Service.getFileUrl(s3Key);
 
+        // Determine mediaType based on contentType
+        String contentType = file.getContentType();
+        Video.MediaType mediaType = Video.MediaType.VIDEO; // default
+        if (contentType != null && contentType.toLowerCase().startsWith("image/")) {
+            mediaType = Video.MediaType.IMAGE;
+        }
+
         // Generate and upload thumbnail
         String thumbnailS3Key = null;
         String thumbnailUrl = null;
         try {
-            byte[] thumbnailBytes = generateThumbnail(file);
+            byte[] thumbnailBytes = null;
+
+            // For images, use the original image as thumbnail
+            if (mediaType == Video.MediaType.IMAGE) {
+                thumbnailBytes = file.getBytes();
+            } else {
+                // For videos, generate thumbnail using FFmpeg
+                thumbnailBytes = generateThumbnail(file);
+            }
+
             if (thumbnailBytes != null) {
-                // Remove file extension and add _thumb.jpg
+                // Remove file extension and add _thumb with appropriate extension
                 String filenameWithExt = extractFilename(s3Key);
                 int lastDotIndex = filenameWithExt.lastIndexOf(".");
                 String filenameWithoutExt = (lastDotIndex > 0)
                     ? filenameWithExt.substring(0, lastDotIndex)
                     : filenameWithExt;
-                String thumbnailFilename = filenameWithoutExt + "_thumb.jpg";
+                String extension = (mediaType == Video.MediaType.IMAGE)
+                    ? filenameWithExt.substring(lastDotIndex)
+                    : ".jpg";
+                String thumbnailFilename = filenameWithoutExt + "_thumb" + extension;
 
-                thumbnailS3Key = s3Service.uploadBytes(thumbnailBytes, THUMBNAIL_UPLOAD_FOLDER, thumbnailFilename, "image/jpeg");
+                String thumbContentType = (mediaType == Video.MediaType.IMAGE)
+                    ? contentType
+                    : "image/jpeg";
+                thumbnailS3Key = s3Service.uploadBytes(thumbnailBytes, THUMBNAIL_UPLOAD_FOLDER, thumbnailFilename, thumbContentType);
                 thumbnailUrl = s3Service.getFileUrl(thumbnailS3Key);
                 log.info("Thumbnail uploaded successfully: {}", thumbnailS3Key);
             }
@@ -201,6 +230,7 @@ public class VideoService {
         // Save metadata to database with UPLOAD type
         Video video = Video.builder()
                 .videoType(Video.VideoType.UPLOAD)
+                .mediaType(mediaType)
                 .filename(truncate(extractFilename(s3Key), MAX_FILENAME_LENGTH))
                 .originalFilename(truncate(file.getOriginalFilename(), MAX_FILENAME_LENGTH))
                 .fileSize(file.getSize())

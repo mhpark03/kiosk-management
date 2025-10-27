@@ -1,9 +1,11 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { generateImage, downloadImage, saveGeneratedImageToBackend } from '../services/imageService';
 import S3ImageSelector from './S3ImageSelector';
 import './ImageGenerator.css';
 
 function ImageGenerator() {
+  const navigate = useNavigate();
   // Image data structure: {source: 'local'|'s3', file: File|null, url: string|null, preview: string|null}
   const [images, setImages] = useState([
     {source: 'local', file: null, url: null, preview: null},
@@ -278,8 +280,39 @@ function ImageGenerator() {
   return (
     <div className="image-generator-container">
       <div className="image-generator-card">
-        <h1>AI 이미지 생성기</h1>
-        <p className="subtitle">최대 5개의 참조 이미지로 새로운 이미지 생성</p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '20px' }}>
+          <button
+            onClick={() => navigate('/images')}
+            style={{
+              padding: '8px 16px',
+              fontSize: '14px',
+              border: '1px solid #cbd5e0',
+              borderRadius: '6px',
+              background: '#fff',
+              color: '#2d3748',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '5px',
+              fontWeight: '500',
+              transition: 'all 0.2s'
+            }}
+            onMouseOver={(e) => {
+              e.currentTarget.style.background = '#f7fafc';
+              e.currentTarget.style.borderColor = '#667eea';
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.background = '#fff';
+              e.currentTarget.style.borderColor = '#cbd5e0';
+            }}
+          >
+            ← 목록으로
+          </button>
+          <div>
+            <h1 style={{ margin: 0 }}>AI 이미지 생성기</h1>
+            <p className="subtitle" style={{ margin: '5px 0 0 0' }}>최대 5개의 참조 이미지로 새로운 이미지 생성</p>
+          </div>
+        </div>
 
         {error && <div className="error-message">{error}</div>}
 
