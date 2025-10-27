@@ -8,7 +8,9 @@ import com.google.auth.oauth2.GoogleCredentials;
 import com.google.cloud.texttospeech.v1.*;
 import com.google.protobuf.ByteString;
 import com.kiosk.backend.entity.Audio;
+import com.kiosk.backend.entity.User;
 import com.kiosk.backend.repository.AudioRepository;
+import com.kiosk.backend.repository.UserRepository;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -37,6 +39,7 @@ public class TtsService {
     private String credentialsS3Key;
 
     private final AudioRepository audioRepository;
+    private final UserRepository userRepository;
     private final S3Service s3Service;
 
     private static final String AUDIO_TTS_FOLDER = "audio/tts/";
@@ -292,6 +295,8 @@ public class TtsService {
                 audio.setS3Url(presignedUrl);
             }
         }
+        // Populate uploader names
+        populateUploadedByNames(audios);
         return audios;
     }
 
@@ -308,6 +313,9 @@ public class TtsService {
             audio.setS3Url(presignedUrl);
         }
 
+        // Populate uploader name
+        populateUploadedByName(audio);
+
         return audio;
     }
 
@@ -323,6 +331,8 @@ public class TtsService {
                 audio.setS3Url(presignedUrl);
             }
         }
+        // Populate uploader names
+        populateUploadedByNames(audios);
         return audios;
     }
 
@@ -338,6 +348,8 @@ public class TtsService {
                 audio.setS3Url(presignedUrl);
             }
         }
+        // Populate uploader names
+        populateUploadedByNames(audios);
         return audios;
     }
 
@@ -374,5 +386,25 @@ public class TtsService {
         log.warn("Truncated value from {} to {} characters: {} -> {}",
                 value.length(), maxLength, value, truncated);
         return truncated;
+    }
+
+    /**
+     * Populate uploadedByName for a single audio
+     */
+    private void populateUploadedByName(Audio audio) {
+        if (audio.getUploadedById() != null) {
+            userRepository.findById(audio.getUploadedById()).ifPresent(user -> {
+                audio.setUploadedByName(user.getDisplayName() != null ? user.getDisplayName() : user.getEmail());
+            });
+        }
+    }
+
+    /**
+     * Populate uploadedByName for a list of audios
+     */
+    private void populateUploadedByNames(List<Audio> audios) {
+        for (Audio audio : audios) {
+            populateUploadedByName(audio);
+        }
     }
 }

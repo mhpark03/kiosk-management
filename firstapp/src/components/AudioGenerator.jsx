@@ -219,15 +219,9 @@ export default function AudioGenerator() {
   };
 
   const getUploaderName = (audio) => {
+    // uploadedByName is now populated by backend from User entity (displayName or email)
     if (audio.uploadedByName) {
       return audio.uploadedByName;
-    }
-    if (audio.uploadedBy) {
-      const atIndex = audio.uploadedBy.indexOf('@');
-      if (atIndex > 0) {
-        return audio.uploadedBy.substring(0, atIndex);
-      }
-      return audio.uploadedBy;
     }
     return 'N/A';
   };
