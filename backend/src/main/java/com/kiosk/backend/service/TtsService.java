@@ -1,5 +1,8 @@
 package com.kiosk.backend.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.api.gax.core.FixedCredentialsProvider;
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.cloud.texttospeech.v1.*;
@@ -46,9 +49,25 @@ public class TtsService {
             try {
                 log.info("Loading Google Cloud TTS credentials from GOOGLE_CREDENTIALS_JSON environment variable");
                 log.debug("Credentials JSON length: {} bytes", credentialsJson.length());
-                log.debug("Credentials JSON first 100 chars: {}", credentialsJson.substring(0, Math.min(100, credentialsJson.length())));
+
+                // Parse JSON and fix escaped newlines in private_key field
+                ObjectMapper mapper = new ObjectMapper();
+                JsonNode jsonNode = mapper.readTree(credentialsJson);
+
+                // Check if private_key exists and fix escaped newlines
+                if (jsonNode.has("private_key")) {
+                    String privateKey = jsonNode.get("private_key").asText();
+                    // Replace literal \n with actual newlines
+                    String fixedPrivateKey = privateKey.replace("\\n", "\n");
+                    ((ObjectNode) jsonNode).put("private_key", fixedPrivateKey);
+                    log.debug("Fixed private_key newline escaping");
+                }
+
+                // Convert back to JSON string
+                String fixedJson = mapper.writeValueAsString(jsonNode);
+
                 try (ByteArrayInputStream credentialsStream =
-                        new ByteArrayInputStream(credentialsJson.getBytes(StandardCharsets.UTF_8))) {
+                        new ByteArrayInputStream(fixedJson.getBytes(StandardCharsets.UTF_8))) {
                     credentials = GoogleCredentials.fromStream(credentialsStream);
                 }
                 log.info("Google Cloud TTS credentials loaded successfully from environment variable");
