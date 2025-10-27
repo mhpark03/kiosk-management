@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import videoService from '../services/videoService';
 import ttsService from '../services/ttsService';
-import { FiTrash2, FiPlay, FiPlusCircle, FiSearch, FiEdit } from 'react-icons/fi';
+import { FiTrash2, FiPlay, FiPlusCircle, FiSearch, FiEdit, FiDownload } from 'react-icons/fi';
 import './VideoManagement.css';
 
 export default function AudioGenerator() {
@@ -19,8 +19,15 @@ export default function AudioGenerator() {
   const [currentPage, setCurrentPage] = useState(1);
   const [showGenerateModal, setShowGenerateModal] = useState(false);
   const [showAddToVideoModal, setShowAddToVideoModal] = useState(false);
+  const [showUploadModal, setShowUploadModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const itemsPerPage = 10;
+
+  // Upload Form State
+  const [uploadFile, setUploadFile] = useState(null);
+  const [uploadTitle, setUploadTitle] = useState('');
+  const [uploadDescription, setUploadDescription] = useState('');
+  const [uploading, setUploading] = useState(false);
 
   // TTS Form State
   const [text, setText] = useState('');
@@ -87,6 +94,44 @@ export default function AudioGenerator() {
       setVideos(data);
     } catch (err) {
       console.error('Failed to load videos:', err);
+    }
+  };
+
+  const handleUploadAudio = async (e) => {
+    e.preventDefault();
+    if (!uploadFile) {
+      setError('음성 파일을 선택해주세요');
+      setTimeout(() => setError(''), 3000);
+      return;
+    }
+
+    setUploading(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      const data = await ttsService.uploadAudio(
+        uploadFile,
+        uploadTitle || uploadFile.name,
+        uploadDescription
+      );
+
+      setSuccess(`음성이 성공적으로 업로드되었습니다: ${data.audio.title}`);
+
+      // Reset form
+      setUploadFile(null);
+      setUploadTitle('');
+      setUploadDescription('');
+
+      // Reload audio list and close modal
+      await loadAudios();
+      setShowUploadModal(false);
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      setError(err.message);
+      setTimeout(() => setError(''), 3000);
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -177,6 +222,17 @@ export default function AudioGenerator() {
     setShowAddToVideoModal(true);
   };
 
+  const handleDownload = (audio) => {
+    // Create a temporary anchor element to trigger download
+    const link = document.createElement('a');
+    link.href = audio.s3Url;
+    link.download = audio.originalFilename || audio.filename || 'audio.mp3';
+    link.target = '_blank';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const handleDelete = async (audioId) => {
     if (!window.confirm('정말로 이 음성을 삭제하시겠습니까?')) {
       return;
@@ -209,7 +265,7 @@ export default function AudioGenerator() {
   };
 
   const formatDate = (timestamp) => {
-    if (!timestamp) return 'N/A';
+    if (!timestamp) return '';
     const date = new Date(timestamp);
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
@@ -223,11 +279,11 @@ export default function AudioGenerator() {
     if (audio.uploadedByName) {
       return audio.uploadedByName;
     }
-    return 'N/A';
+    return '';
   };
 
   const formatFileSize = (bytes) => {
-    if (!bytes) return 'N/A';
+    if (!bytes) return '';
     if (bytes < 1024) return bytes + ' B';
     else if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
     else return (bytes / 1048576).toFixed(1) + ' MB';
@@ -283,7 +339,7 @@ export default function AudioGenerator() {
   return (
     <div className="store-management">
       <div className="store-header">
-        <h1>TTS 음성 관리</h1>
+        <h1>음성 관리</h1>
 
         {/* 검색 입력창 */}
         <div style={{
@@ -335,6 +391,9 @@ export default function AudioGenerator() {
         </div>
 
         <div className="header-actions">
+          <button onClick={() => setShowUploadModal(true)} className="btn-secondary" style={{marginRight: '10px'}}>
+            + 음성 업로드
+          </button>
           <button onClick={() => setShowGenerateModal(true)} className="btn-add">
             + 음성생성
           </button>
@@ -376,8 +435,8 @@ export default function AudioGenerator() {
                   <td style={{maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}>
                     {audio.description || '-'}
                   </td>
-                  <td>{audio.voiceName?.split('-').pop() || 'N/A'}</td>
-                  <td>{audio.languageCode || 'N/A'}</td>
+                  <td>{audio.voiceName?.split('-').pop() || ''}</td>
+                  <td>{audio.languageCode || ''}</td>
                   <td>{formatFileSize(audio.fileSize)}</td>
                   <td>{formatDate(audio.uploadedAt)}</td>
                   <td>{getUploaderName(audio)}</td>
@@ -406,6 +465,14 @@ export default function AudioGenerator() {
                         style={{marginRight: '8px'}}
                       >
                         <FiPlusCircle />
+                      </button>
+                      <button
+                        onClick={() => handleDownload(audio)}
+                        className="btn-secondary"
+                        title="다운로드"
+                        style={{marginRight: '8px'}}
+                      >
+                        <FiDownload />
                       </button>
                       <button
                         onClick={() => handleDelete(audio.id)}
@@ -520,6 +587,110 @@ export default function AudioGenerator() {
                 <p className="modal-description" style={{marginTop: '15px'}}>{playingAudio.description}</p>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Upload Audio Modal */}
+      {showUploadModal && (
+        <div className="video-modal" onClick={() => setShowUploadModal(false)}>
+          <div className="video-modal-content" onClick={(e) => e.stopPropagation()} style={{maxWidth: '600px'}}>
+            <button className="modal-close" onClick={() => setShowUploadModal(false)}>×</button>
+            <h3>음성 파일 업로드</h3>
+            <form onSubmit={handleUploadAudio} style={{padding: '20px 0'}}>
+              <div style={{marginBottom: '20px'}}>
+                <label style={{display: 'block', marginBottom: '8px', fontWeight: '600', color: '#2d3748'}}>
+                  음성 파일 선택 *
+                </label>
+                <input
+                  type="file"
+                  accept="audio/*"
+                  onChange={(e) => setUploadFile(e.target.files[0])}
+                  required
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    border: '1px solid #cbd5e0',
+                    borderRadius: '4px',
+                    fontSize: '14px'
+                  }}
+                />
+                {uploadFile && (
+                  <div style={{marginTop: '10px', fontSize: '13px', color: '#4a5568'}}>
+                    선택된 파일: <strong>{uploadFile.name}</strong> ({(uploadFile.size / 1024 / 1024).toFixed(2)} MB)
+                  </div>
+                )}
+              </div>
+
+              <div style={{marginBottom: '20px'}}>
+                <label style={{display: 'block', marginBottom: '8px', fontWeight: '600', color: '#2d3748'}}>
+                  제목
+                </label>
+                <input
+                  type="text"
+                  value={uploadTitle}
+                  onChange={(e) => setUploadTitle(e.target.value)}
+                  placeholder="제목을 입력하세요 (선택사항, 미입력시 파일명 사용)"
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    border: '1px solid #cbd5e0',
+                    borderRadius: '4px',
+                    fontSize: '14px'
+                  }}
+                />
+              </div>
+
+              <div style={{marginBottom: '20px'}}>
+                <label style={{display: 'block', marginBottom: '8px', fontWeight: '600', color: '#2d3748'}}>
+                  설명
+                </label>
+                <textarea
+                  value={uploadDescription}
+                  onChange={(e) => setUploadDescription(e.target.value)}
+                  placeholder="설명을 입력하세요 (선택사항)"
+                  rows={4}
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    border: '1px solid #cbd5e0',
+                    borderRadius: '4px',
+                    fontSize: '14px',
+                    resize: 'vertical'
+                  }}
+                />
+              </div>
+
+              <div style={{display: 'flex', gap: '10px', justifyContent: 'flex-end'}}>
+                <button
+                  type="button"
+                  onClick={() => setShowUploadModal(false)}
+                  className="btn-cancel"
+                  style={{
+                    padding: '10px 20px',
+                    border: '1px solid #cbd5e0',
+                    borderRadius: '4px',
+                    background: '#fff',
+                    cursor: 'pointer',
+                    fontSize: '14px'
+                  }}
+                >
+                  취소
+                </button>
+                <button
+                  type="submit"
+                  disabled={uploading || !uploadFile}
+                  className="btn-add"
+                  style={{
+                    padding: '10px 20px',
+                    opacity: uploading || !uploadFile ? 0.5 : 1,
+                    cursor: uploading || !uploadFile ? 'not-allowed' : 'pointer'
+                  }}
+                >
+                  {uploading ? '업로드 중...' : '업로드'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
