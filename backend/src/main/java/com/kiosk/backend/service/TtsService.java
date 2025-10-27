@@ -12,8 +12,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.io.ByteArrayInputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -38,21 +40,41 @@ public class TtsService {
 
     @PostConstruct
     public void init() {
+        // First, try to load credentials from environment variable (for AWS EB deployment)
+        String credentialsJson = System.getenv("GOOGLE_CREDENTIALS_JSON");
+        if (credentialsJson != null && !credentialsJson.isEmpty()) {
+            try {
+                log.info("Loading Google Cloud TTS credentials from GOOGLE_CREDENTIALS_JSON environment variable");
+                try (ByteArrayInputStream credentialsStream =
+                        new ByteArrayInputStream(credentialsJson.getBytes(StandardCharsets.UTF_8))) {
+                    credentials = GoogleCredentials.fromStream(credentialsStream);
+                }
+                log.info("Google Cloud TTS credentials loaded successfully from environment variable");
+                return;
+            } catch (IOException e) {
+                log.error("Failed to load Google Cloud TTS credentials from environment variable", e);
+                log.warn("TTS service will attempt to use file path or default credentials");
+            }
+        }
+
+        // Second, try to load credentials from file path (for local development)
         if (credentialsFilePath != null && !credentialsFilePath.isEmpty()) {
             try {
-                log.info("Loading Google Cloud TTS credentials from: {}", credentialsFilePath);
+                log.info("Loading Google Cloud TTS credentials from file: {}", credentialsFilePath);
                 try (FileInputStream serviceAccountStream = new FileInputStream(credentialsFilePath)) {
                     credentials = GoogleCredentials.fromStream(serviceAccountStream);
                 }
-                log.info("Google Cloud TTS credentials loaded successfully");
+                log.info("Google Cloud TTS credentials loaded successfully from file");
+                return;
             } catch (IOException e) {
-                log.error("Failed to load Google Cloud TTS credentials from: {}", credentialsFilePath, e);
+                log.error("Failed to load Google Cloud TTS credentials from file: {}", credentialsFilePath, e);
                 log.warn("TTS service will attempt to use default credentials");
             }
-        } else {
-            log.warn("Google Cloud TTS credentials file not configured. Set 'google.tts.credentials.file' in application.yml");
-            log.info("Attempting to use default application credentials (GOOGLE_APPLICATION_CREDENTIALS env var)");
         }
+
+        // Finally, use default application credentials (GOOGLE_APPLICATION_CREDENTIALS env var)
+        log.warn("Google Cloud TTS credentials not configured via JSON env var or file path");
+        log.info("Attempting to use default application credentials (GOOGLE_APPLICATION_CREDENTIALS env var)");
     }
 
     /**
