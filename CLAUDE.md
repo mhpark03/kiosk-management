@@ -186,7 +186,20 @@ The backend uses **Hibernate auto-DDL** (`spring.jpa.hibernate.ddl-auto=update`)
 
 Backend allows:
 - React dev server: `https://localhost:5173`
+- Production S3 frontend: `http://kiosk-frontend-20251018.s3-website.ap-northeast-2.amazonaws.com`
 - Electron app: All localhost ports via `http://localhost:*`
+
+**CORS Implementation:**
+- `CorsConfig.java` - Configures allowed origins, methods, headers
+- `SecurityConfig.java` - Explicitly allows OPTIONS preflight requests with:
+  ```java
+  .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+  ```
+- Without OPTIONS permitAll, CORS preflight requests will fail with 403 Forbidden
+- All API endpoints return proper CORS headers:
+  - `Access-Control-Allow-Origin`
+  - `Access-Control-Allow-Credentials: true`
+  - `Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS`
 
 ### Electron CSP (Content Security Policy)
 
@@ -350,6 +363,91 @@ ProcessBuilder processBuilder = new ProcessBuilder(
 
 For images (both uploaded and AI-generated), the original image is copied as the thumbnail.
 
+### Video Merging Feature
+
+The system supports **server-side video merging** using FFmpeg with automatic resolution normalization.
+
+**Features:**
+- Merge two videos with three transition types:
+  - `concat` - Simple concatenation without transition
+  - `fade` - Fade out/in transition between videos
+  - `xfade` - Crossfade transition
+- Three quality levels: low (1Mbps), medium (4Mbps), high (8Mbps)
+- Automatic resolution normalization to 1920x1080 with aspect ratio preservation
+- Handles videos with or without audio streams
+- Automatic thumbnail generation for merged videos
+
+**FFmpeg Filter Chains:**
+```java
+// Concat (simple) - normalizes both videos to 1920x1080
+"[0:v]scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1[v0];" +
+"[1:v]scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1[v1];" +
+"[v0][v1]concat=n=2:v=1:a=0[outv]"
+
+// Fade - applies fade effect after scaling
+"[0:v]scale=...,setsar=1,fade=t=out:st=%.2f:d=%.2f[v0];" +
+"[1:v]scale=...,setsar=1,fade=t=in:st=0:d=%.2f[v1];" +
+"[v0][v1]concat=n=2:v=1:a=0[outv]"
+
+// Xfade - crossfade transition after scaling
+"[0:v]scale=...,setsar=1[v0];" +
+"[1:v]scale=...,setsar=1[v1];" +
+"[v0][v1]xfade=transition=fade:duration=%.2f:offset=%.2f[outv]"
+```
+
+**Backend Implementation:**
+- `VideoController.mergeVideos()` - Admin-only endpoint at `/api/videos/merge`
+- `VideoService.mergeVideos()` - Downloads videos from S3, processes with FFmpeg, uploads result
+- `VideoService.getVideoDuration()` - Uses FFprobe to get video duration for transition timing
+- Temporary files cleaned up after processing
+- Entity history recording for audit trail
+
+**Frontend Implementation:**
+- `VideoMerger.jsx` - UI component with dual video selection
+- Route: `/videos/merge` in navigation menu under "영상" dropdown
+- `videoService.mergeVideos()` - API client method
+
+**API Endpoint:**
+```
+POST /api/videos/merge
+Authorization: Required (Admin only)
+Content-Type: application/json
+
+Request Body:
+{
+  "videoId1": 123,
+  "videoId2": 456,
+  "title": "Merged Video Title",
+  "description": "Description",
+  "transitionType": "fade",        // concat | fade | xfade
+  "transitionDuration": 1.0,       // seconds (for fade/xfade)
+  "outputQuality": "medium"        // low | medium | high
+}
+
+Response:
+{
+  "message": "Videos merged successfully",
+  "video": { ... }  // Video entity with merged video details
+}
+```
+
+**FFmpeg Installation (Production):**
+- **Local development:** FFmpeg must be installed and available in PATH
+- **Production (Elastic Beanstalk):** Currently disabled due to t3.micro memory constraints
+  - Configuration file: `backend/.ebextensions/03_ffmpeg.config.disabled`
+  - Installation attempts timeout on small instances
+  - Options for production deployment:
+    1. Manual SSH installation on EC2 instance
+    2. Upgrade to t3.small or larger instance type
+    3. Use Lambda function for video processing
+    4. Pre-build Docker image with FFmpeg included
+
+**Important Notes:**
+- Video-only processing: Audio streams not currently supported (concat filter uses `v=1:a=0`)
+- Resolution normalization ensures videos with different dimensions can be merged
+- Black padding added to maintain 16:9 aspect ratio when needed
+- CORS must allow OPTIONS preflight requests for cross-origin access
+
 ### Runway ML API Version Header
 
 All Runway ML API requests must include:
@@ -443,6 +541,28 @@ If you see transaction rollback errors:
 - Ensure `action` column is VARCHAR(50), not ENUM
 - Ensure `entity_type` column is VARCHAR(50), not ENUM
 - Ensure `userid` column allows NULL
+
+**6. FFmpeg Installation Issues (Elastic Beanstalk)**
+If deployment hangs or times out with FFmpeg installation:
+- **Symptom:** Deployment stuck for 10+ minutes, command timeout on instance
+- **Cause:** t3.micro instances (1GB RAM) cannot handle large FFmpeg binary downloads
+- **Solution:** Temporarily disable FFmpeg installation:
+  ```bash
+  mv backend/.ebextensions/03_ffmpeg.config backend/.ebextensions/03_ffmpeg.config.disabled
+  ```
+- **Video merge feature requires FFmpeg:**
+  - Works on local development with FFmpeg installed
+  - Production workarounds: larger instance, manual install, or Lambda processing
+
+**7. CORS Preflight Request Failures**
+If you see CORS errors in browser console:
+- **Symptom:** `No 'Access-Control-Allow-Origin' header is present`
+- **Cause:** OPTIONS preflight requests blocked by authentication
+- **Solution:** Verify `SecurityConfig.java` includes:
+  ```java
+  .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+  ```
+- Must be placed BEFORE other authorization rules
 
 ### Manual Rollback
 
