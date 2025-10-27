@@ -4,7 +4,7 @@
   "description": "Kiosk Video Downloader - Windows application for downloading and managing kiosk videos",
   "main": "main.js",
   "scripts": {
-    "start": "electron .",
+    "start": "chcp 65001 > nul && electron .",
     "build:win": "electron-builder --win --x64",
     "postinstall": "electron-builder install-app-deps"
   },

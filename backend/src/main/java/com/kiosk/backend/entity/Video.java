@@ -97,4 +97,9 @@ public class Video {
     // Image generation specific fields
     @Column(length = 50)
     private String imageStyle; // Style used for image generation (e.g., "anime", "realistic")
+
+    // Kiosk download flag
+    @Column(nullable = false)
+    @Builder.Default
+    private Boolean downloadable = false; // Whether this video/image can be downloaded to kiosks
 }

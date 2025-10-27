@@ -497,11 +497,11 @@ ipcMain.handle('update-download-status', async (event, { apiUrl, kioskId, videoI
       headers['X-Kiosk-Id'] = config.kioskId;
       headers['X-Kiosk-No'] = config.kioskNo.toString();
     }
-    
+
     await axios.patch(
       `${apiUrl}/kiosks/by-kioskid/${encodeURIComponent(kioskId)}/videos/${videoId}/status`,
       null,
-      { params: { status } }
+      { params: { status }, headers }
     );
     return { success: true };
   } catch (error) {

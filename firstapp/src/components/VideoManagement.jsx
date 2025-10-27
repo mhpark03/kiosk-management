@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import videoService from '../services/videoService';
-import { FiUpload, FiTrash2, FiPlay, FiImage, FiEdit } from 'react-icons/fi';
+import { FiUpload, FiTrash2, FiPlay, FiImage, FiEdit, FiDownload } from 'react-icons/fi';
 import './VideoManagement.css';
 
 function VideoManagement() {
@@ -18,6 +18,7 @@ function VideoManagement() {
   const [editingVideo, setEditingVideo] = useState(null);
   const [editForm, setEditForm] = useState({ title: '', description: '' });
   const [regeneratingThumbnail, setRegeneratingThumbnail] = useState(false);
+  const [showDownloadableOnly, setShowDownloadableOnly] = useState(false);
   const itemsPerPage = 10;
 
   useEffect(() => {
@@ -28,7 +29,7 @@ function VideoManagement() {
     try {
       setLoading(true);
       const data = await videoService.getAllVideos();
-      // Sort by ID in descending order (newest first)
+      // Sort by ID in descending order (newest first) - show all videos
       const sortedData = [...data].sort((a, b) => b.id - a.id);
       setVideos(sortedData);
       setError('');
@@ -139,6 +140,18 @@ function VideoManagement() {
     }
   };
 
+  const handleToggleDownloadable = async (videoId, currentDownloadable) => {
+    try {
+      await videoService.updateDownloadable(videoId, !currentDownloadable);
+      console.log(`Video ${videoId}: downloadable ${currentDownloadable} -> ${!currentDownloadable}`);
+      await loadVideos();
+    } catch (err) {
+      console.error('Failed to toggle downloadable:', err);
+      setError(err.message);
+      setTimeout(() => setError(''), 3000);
+    }
+  };
+
   const formatDate = (timestamp) => {
     if (!timestamp) return 'N/A';
     const date = new Date(timestamp);
@@ -166,11 +179,16 @@ function VideoManagement() {
     return 'N/A';
   };
 
+  // Filter logic
+  const filteredVideos = showDownloadableOnly
+    ? videos.filter(video => video.downloadable === true)
+    : videos;
+
   // Pagination logic
-  const totalPages = Math.ceil(videos.length / itemsPerPage);
+  const totalPages = Math.ceil(filteredVideos.length / itemsPerPage);
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentVideos = videos.slice(indexOfFirstItem, indexOfLastItem);
+  const currentVideos = filteredVideos.slice(indexOfFirstItem, indexOfLastItem);
 
   const handlePageChange = (pageNumber) => {
     setCurrentPage(pageNumber);
@@ -188,10 +206,10 @@ function VideoManagement() {
     }
   };
 
-  // Reset to page 1 when videos change
+  // Reset to page 1 when videos or filter changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [videos.length]);
+  }, [videos.length, showDownloadableOnly]);
 
   if (loading) {
     return <div className="loading">비디오 목록을 불러오는 중...</div>;
@@ -201,6 +219,32 @@ function VideoManagement() {
     <div className="store-management">
       <div className="store-header">
         <h1>영상 관리</h1>
+
+        {/* Filter checkbox between title and button */}
+        <label style={{
+          display: 'flex',
+          alignItems: 'center',
+          cursor: 'pointer',
+          fontSize: '14px',
+          fontWeight: '500',
+          color: '#2d3748',
+          marginLeft: 'auto',
+          marginRight: '16px'
+        }}>
+          <input
+            type="checkbox"
+            checked={showDownloadableOnly}
+            onChange={(e) => setShowDownloadableOnly(e.target.checked)}
+            style={{
+              width: '16px',
+              height: '16px',
+              marginRight: '8px',
+              cursor: 'pointer'
+            }}
+          />
+          다운로드 가능 영상만
+        </label>
+
         <div className="header-actions">
           <button onClick={handleUploadClick} className="btn-add">
             + 영상등록
@@ -267,6 +311,21 @@ function VideoManagement() {
                   <td>
                     <div className="action-buttons">
                       <button
+                        onClick={() => handleToggleDownloadable(video.id, video.downloadable)}
+                        className={video.downloadable ? "btn-download-active" : "btn-download-inactive"}
+                        title={video.downloadable ? "키오스크 다운로드 활성화됨 (클릭하여 비활성화)" : "키오스크 다운로드 비활성화됨 (클릭하여 활성화)"}
+                        style={{
+                          color: video.downloadable ? '#10b981' : '#94a3b8',
+                          background: 'transparent',
+                          border: 'none',
+                          cursor: 'pointer',
+                          padding: '8px',
+                          fontSize: '18px'
+                        }}
+                      >
+                        <FiDownload />
+                      </button>
+                      <button
                         onClick={() => handleEdit(video)}
                         className="btn-edit"
                         title="수정"
@@ -290,7 +349,7 @@ function VideoManagement() {
       </div>
 
       {/* Pagination */}
-      {videos.length > 0 && totalPages > 1 && (
+      {filteredVideos.length > 0 && totalPages > 1 && (
         <div style={{
           display: 'flex',
           justifyContent: 'center',
