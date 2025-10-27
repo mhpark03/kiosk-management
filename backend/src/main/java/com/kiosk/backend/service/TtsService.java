@@ -57,10 +57,15 @@ public class TtsService {
                 // Check if private_key exists and fix escaped newlines
                 if (jsonNode.has("private_key")) {
                     String privateKey = jsonNode.get("private_key").asText();
-                    // Replace literal \n with actual newlines
-                    String fixedPrivateKey = privateKey.replace("\\n", "\n");
-                    ((ObjectNode) jsonNode).put("private_key", fixedPrivateKey);
-                    log.debug("Fixed private_key newline escaping");
+                    log.debug("Original private_key first 100 chars: {}", privateKey.substring(0, Math.min(100, privateKey.length())));
+                    log.debug("Contains \\n literal: {}", privateKey.contains("\\n"));
+                    log.debug("Contains actual newline: {}", privateKey.contains("\n"));
+
+                    // The JSON parser already converts \n to actual newlines
+                    // No replacement needed
+                    log.debug("Private key length: {}, starts with: {}",
+                        privateKey.length(),
+                        privateKey.substring(0, Math.min(50, privateKey.length())));
                 }
 
                 // Convert back to JSON string
