@@ -82,4 +82,7 @@ public class Audio {
     @Column(nullable = false)
     @Builder.Default
     private Double pitch = 0.0; // -20.0 ~ 20.0
+
+    @Transient  // Not stored in database, populated at runtime from User entity
+    private String uploadedByName;
 }
