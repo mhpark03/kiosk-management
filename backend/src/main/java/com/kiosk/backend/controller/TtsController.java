@@ -12,6 +12,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.HashMap;
 import java.util.List;
@@ -26,6 +27,52 @@ public class TtsController {
     private final TtsService ttsService;
     private final UserRepository userRepository;
     private final EntityHistoryService entityHistoryService;
+
+    /**
+     * Upload audio file
+     * POST /api/tts/upload
+     */
+    @PostMapping("/upload")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> uploadAudio(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam("title") String title,
+            @RequestParam(value = "description", required = false) String description,
+            Authentication authentication) {
+        try {
+            String userEmail = authentication.getName();
+            User user = userRepository.findByEmail(userEmail)
+                    .orElseThrow(() -> new RuntimeException("User not found: " + userEmail));
+
+            log.info("Uploading audio file: name={}, size={}, type={}",
+                    file.getOriginalFilename(), file.getSize(), file.getContentType());
+
+            Audio audio = ttsService.uploadAudio(file, title, description, user.getId());
+
+            // Record activity
+            entityHistoryService.recordVideoActivity(
+                    audio.getId(),
+                    audio.getTitle(),
+                    user,
+                    com.kiosk.backend.entity.EntityHistory.ActionType.CREATE,
+                    "음성 파일 업로드: " + audio.getTitle()
+            );
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", "Audio uploaded successfully");
+            response.put("audio", audio);
+
+            return ResponseEntity.status(HttpStatus.CREATED).body(response);
+
+        } catch (IllegalArgumentException e) {
+            log.error("Invalid upload request: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            log.error("Failed to upload audio", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to upload audio: " + e.getMessage()));
+        }
+    }
 
     /**
      * Generate audio from text using Google Cloud TTS
@@ -76,7 +123,7 @@ public class TtsController {
                     audio.getId(),
                     audio.getTitle(),
                     user,
-                    com.kiosk.backend.entity.EntityHistory.ActionType.VIDEO_UPLOAD,
+                    com.kiosk.backend.entity.EntityHistory.ActionType.CREATE,
                     "TTS 음성 생성: " + audio.getTitle()
             );
 
@@ -152,6 +199,58 @@ public class TtsController {
     }
 
     /**
+     * Update audio metadata (title, description)
+     * PUT /api/tts/{id}
+     */
+    @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> updateAudio(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> request,
+            Authentication authentication) {
+        try {
+            String userEmail = authentication.getName();
+            User user = userRepository.findByEmail(userEmail)
+                    .orElseThrow(() -> new RuntimeException("User not found: " + userEmail));
+
+            String title = request.get("title");
+            String description = request.get("description");
+
+            if (title == null || title.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Title is required"));
+            }
+
+            log.info("Updating audio {}: title={}", id, title);
+
+            Audio audio = ttsService.updateAudio(id, title, description);
+
+            // Record activity
+            entityHistoryService.recordVideoActivity(
+                    audio.getId(),
+                    audio.getTitle(),
+                    user,
+                    com.kiosk.backend.entity.EntityHistory.ActionType.UPDATE,
+                    "음성 정보 수정: " + audio.getTitle()
+            );
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", "Audio updated successfully");
+            response.put("audio", audio);
+
+            return ResponseEntity.ok(response);
+
+        } catch (RuntimeException e) {
+            log.error("Audio not found: {}", id);
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            log.error("Failed to update audio", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to update audio: " + e.getMessage()));
+        }
+    }
+
+    /**
      * Delete audio
      * DELETE /api/tts/{id}
      */
@@ -172,8 +271,8 @@ public class TtsController {
                     audio.getId(),
                     audio.getTitle(),
                     user,
-                    com.kiosk.backend.entity.EntityHistory.ActionType.VIDEO_DELETE,
-                    "TTS 음성 삭제: " + audio.getTitle()
+                    com.kiosk.backend.entity.EntityHistory.ActionType.DELETE,
+                    "음성 삭제: " + audio.getTitle()
             );
 
             ttsService.deleteAudio(id);

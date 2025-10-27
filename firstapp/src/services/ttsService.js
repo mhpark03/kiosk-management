@@ -1,6 +1,28 @@
 import api from './api';
 
 export const ttsService = {
+  // Upload audio file
+  async uploadAudio(file, title, description) {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('title', title);
+      if (description) {
+        formData.append('description', description);
+      }
+
+      const response = await api.post('/tts/upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Audio upload error:', error);
+      throw new Error(error.response?.data?.error || 'Failed to upload audio');
+    }
+  },
+
   // Generate audio from text using Google Cloud TTS
   async generateAudio(text, title, description, languageCode, voiceName, gender, speakingRate, pitch) {
     try {
@@ -53,6 +75,22 @@ export const ttsService = {
     } catch (error) {
       console.error('Get user audios error:', error);
       throw new Error(error.response?.data?.error || 'Failed to fetch user audios');
+    }
+  },
+
+  // Update audio metadata
+  async updateAudio(id, title, description) {
+    try {
+      const requestBody = {
+        title,
+        description
+      };
+
+      const response = await api.put(`/tts/${id}`, requestBody);
+      return response.data;
+    } catch (error) {
+      console.error('Update audio error:', error);
+      throw new Error(error.response?.data?.error || 'Failed to update audio');
     }
   },
 

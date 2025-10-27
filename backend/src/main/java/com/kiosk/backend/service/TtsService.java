@@ -16,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.io.ByteArrayInputStream;
 import java.io.FileInputStream;
@@ -142,6 +143,86 @@ public class TtsService {
         // Finally, use default application credentials (GOOGLE_APPLICATION_CREDENTIALS env var)
         log.warn("Google Cloud TTS credentials not configured via JSON env var or file path");
         log.info("Attempting to use default application credentials (GOOGLE_APPLICATION_CREDENTIALS env var)");
+    }
+
+    /**
+     * Upload audio file to S3 and save metadata
+     */
+    public Audio uploadAudio(
+            MultipartFile file,
+            String title,
+            String description,
+            Long userId
+    ) throws IOException {
+
+        // Validate inputs
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("Audio file is required");
+        }
+        if (title == null || title.trim().isEmpty()) {
+            throw new IllegalArgumentException("Title is required");
+        }
+
+        // Validate file type
+        String contentType = file.getContentType();
+        if (contentType == null || !contentType.startsWith("audio/")) {
+            throw new IllegalArgumentException("File must be an audio file");
+        }
+
+        String originalFilename = file.getOriginalFilename();
+        if (originalFilename == null || originalFilename.isEmpty()) {
+            originalFilename = "audio_" + System.currentTimeMillis();
+        }
+
+        log.info("Uploading audio file: name={}, size={} bytes, type={}",
+                originalFilename, file.getSize(), contentType);
+
+        try {
+            // Generate unique filename
+            String fileExtension = originalFilename.lastIndexOf('.') > 0
+                    ? originalFilename.substring(originalFilename.lastIndexOf('.'))
+                    : ".mp3";
+            String filename = "upload_" + UUID.randomUUID().toString() + fileExtension;
+
+            // Upload to S3
+            byte[] audioBytes = file.getBytes();
+            String uploadedS3Key = s3Service.uploadBytes(audioBytes, AUDIO_TTS_FOLDER, filename, contentType);
+            String s3Url = s3Service.getFileUrl(uploadedS3Key);
+
+            log.info("Uploaded audio to S3: {}", uploadedS3Key);
+
+            // Save to database
+            Audio audio = Audio.builder()
+                    .filename(truncate(filename, MAX_TITLE_LENGTH))
+                    .originalFilename(truncate(originalFilename, MAX_TITLE_LENGTH))
+                    .fileSize(file.getSize())
+                    .contentType(contentType)
+                    .s3Key(uploadedS3Key)
+                    .s3Url(s3Url)
+                    .uploadedById(userId)
+                    .title(truncate(title, MAX_TITLE_LENGTH))
+                    .description(description)
+                    .text("") // Empty for uploaded files
+                    .languageCode("") // Unknown for uploaded files
+                    .voiceName("") // Not applicable for uploaded files
+                    .gender(Audio.VoiceGender.NEUTRAL) // Not applicable for uploaded files
+                    .speakingRate(1.0)
+                    .pitch(0.0)
+                    .build();
+
+            Audio savedAudio = audioRepository.save(audio);
+            log.info("Audio saved to database with ID: {}", savedAudio.getId());
+
+            // Generate presigned URL for immediate playback
+            String presignedUrl = s3Service.generatePresignedUrl(uploadedS3Key, 60);
+            savedAudio.setS3Url(presignedUrl);
+
+            return savedAudio;
+
+        } catch (IOException e) {
+            log.error("Failed to upload audio file", e);
+            throw new IOException("Failed to upload audio file: " + e.getMessage(), e);
+        }
     }
 
     /**
@@ -317,6 +398,32 @@ public class TtsService {
         populateUploadedByName(audio);
 
         return audio;
+    }
+
+    /**
+     * Update audio metadata (title, description)
+     */
+    public Audio updateAudio(Long id, String title, String description) {
+        Audio audio = audioRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Audio not found with id: " + id));
+
+        // Update fields
+        audio.setTitle(truncate(title, MAX_TITLE_LENGTH));
+        audio.setDescription(description);
+
+        Audio updatedAudio = audioRepository.save(audio);
+        log.info("Audio metadata updated: id={}, title={}", id, title);
+
+        // Generate presigned URL
+        if (updatedAudio.getS3Key() != null && !updatedAudio.getS3Key().isEmpty()) {
+            String presignedUrl = s3Service.generatePresignedUrl(updatedAudio.getS3Key(), 60);
+            updatedAudio.setS3Url(presignedUrl);
+        }
+
+        // Populate uploader name
+        populateUploadedByName(updatedAudio);
+
+        return updatedAudio;
     }
 
     /**
