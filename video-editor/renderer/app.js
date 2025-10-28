@@ -451,9 +451,47 @@ function setupVideoControls() {
     }
   });
 
-  // Track when user starts dragging slider
-  slider.addEventListener('mousedown', () => {
+  // Track slider drag using pixel-based coordinates (like audio zoom)
+  let sliderDragStartX = null;
+  let sliderDragStartTime = null;
+  let sliderIsDragging = false;
+  const sliderDragSelection = document.getElementById('slider-drag-selection');
+
+  // Get slider container for coordinate calculations
+  const sliderContainer = slider.parentElement;
+
+  slider.addEventListener('mousedown', (e) => {
     isUserSeekingSlider = true;
+
+    // Record pixel position for trim mode
+    if (activeTool === 'trim' && video.duration && sliderContainer) {
+      const rect = sliderContainer.getBoundingClientRect();
+      sliderDragStartX = e.clientX - rect.left; // Pixel position, not percentage
+      sliderDragStartTime = video.currentTime;
+      console.log(`[Slider] Drag start: x=${sliderDragStartX.toFixed(0)}px, time=${sliderDragStartTime.toFixed(2)}s`);
+    }
+  });
+
+  // Track mouse movement using global document listener (like audio zoom)
+  document.addEventListener('mousemove', (e) => {
+    if (isUserSeekingSlider && sliderDragStartX !== null && activeTool === 'trim' && sliderContainer) {
+      const rect = sliderContainer.getBoundingClientRect();
+      const currentX = e.clientX - rect.left;
+      const moveDistance = Math.abs(currentX - sliderDragStartX);
+
+      // Detect actual drag (10px threshold)
+      if (moveDistance > 10) {
+        sliderIsDragging = true;
+
+        // Show drag selection box using pixel coordinates
+        const width = Math.abs(currentX - sliderDragStartX);
+        const left = Math.min(sliderDragStartX, currentX);
+
+        sliderDragSelection.style.left = `${left}px`;
+        sliderDragSelection.style.width = `${width}px`;
+        sliderDragSelection.style.display = 'block';
+      }
+    }
   });
 
   slider.addEventListener('input', (e) => {
@@ -463,19 +501,52 @@ function setupVideoControls() {
     }
   });
 
-  // Reset flag when user releases slider
-  slider.addEventListener('mouseup', () => {
-    // Small delay to ensure timeupdate doesn't trigger immediately
-    setTimeout(() => {
-      isUserSeekingSlider = false;
-    }, 100);
-  });
+  // Global mouseup listener (like audio zoom)
+  document.addEventListener('mouseup', (e) => {
+    if (isUserSeekingSlider && activeTool === 'trim' && sliderIsDragging && sliderDragStartX !== null && video.duration && sliderContainer) {
+      const rect = sliderContainer.getBoundingClientRect();
+      const currentX = e.clientX - rect.left;
 
-  // Also handle when user clicks on slider track (not dragging)
-  slider.addEventListener('change', () => {
-    setTimeout(() => {
-      isUserSeekingSlider = false;
-    }, 100);
+      // Calculate start and end percentages from pixel positions
+      const startPercent = Math.min(sliderDragStartX, currentX) / rect.width;
+      const endPercent = Math.max(sliderDragStartX, currentX) / rect.width;
+
+      // Convert to time values
+      const startTime = startPercent * video.duration;
+      const endTime = endPercent * video.duration;
+
+      // Only set if drag distance is significant (at least 0.5 seconds)
+      if (Math.abs(endTime - startTime) > 0.5) {
+        const startInput = document.getElementById('trim-start');
+        const endInput = document.getElementById('trim-end');
+
+        if (startInput && endInput) {
+          startInput.value = startTime.toFixed(2);
+          endInput.value = endTime.toFixed(2);
+
+          updateTrimDurationDisplay();
+          updateTrimRangeOverlay(startTime, endTime, video.duration);
+          updateStatus(`구간 선택: ${formatTime(startTime)} ~ ${formatTime(endTime)}`);
+
+          console.log(`[Slider] Trim range set: ${startTime.toFixed(2)}s - ${endTime.toFixed(2)}s (from pixels: ${Math.min(sliderDragStartX, currentX).toFixed(0)}-${Math.max(sliderDragStartX, currentX).toFixed(0)})`);
+        }
+      }
+    }
+
+    // Reset drag state
+    if (sliderIsDragging || isUserSeekingSlider) {
+      sliderDragStartX = null;
+      sliderDragStartTime = null;
+      sliderIsDragging = false;
+
+      if (sliderDragSelection) {
+        sliderDragSelection.style.display = 'none';
+      }
+
+      setTimeout(() => {
+        isUserSeekingSlider = false;
+      }, 100);
+    }
   });
 
   video.addEventListener('loadedmetadata', () => {
