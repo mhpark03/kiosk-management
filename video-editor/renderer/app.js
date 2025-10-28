@@ -630,13 +630,35 @@ async function loadVideo(path) {
 
 // Display video info
 function displayVideoInfo(info) {
+  if (!info || !info.streams || !info.format) {
+    console.error('Invalid video info:', info);
+    return;
+  }
+
   const videoStream = info.streams.find(s => s.codec_type === 'video');
-  const duration = parseFloat(info.format.duration);
-  const size = (parseFloat(info.format.size) / (1024 * 1024)).toFixed(2);
+  const duration = parseFloat(info.format.duration) || 0;
+  const size = (parseFloat(info.format.size || 0) / (1024 * 1024)).toFixed(2);
 
   document.getElementById('info-duration').textContent = formatTime(duration);
-  document.getElementById('info-resolution').textContent = `${videoStream.width}x${videoStream.height}`;
-  document.getElementById('info-fps').textContent = `${eval(videoStream.r_frame_rate).toFixed(2)} fps`;
+
+  if (videoStream && videoStream.width && videoStream.height) {
+    document.getElementById('info-resolution').textContent = `${videoStream.width}x${videoStream.height}`;
+
+    if (videoStream.r_frame_rate) {
+      try {
+        const fps = eval(videoStream.r_frame_rate);
+        document.getElementById('info-fps').textContent = `${fps.toFixed(2)} fps`;
+      } catch (e) {
+        document.getElementById('info-fps').textContent = 'N/A fps';
+      }
+    } else {
+      document.getElementById('info-fps').textContent = 'N/A fps';
+    }
+  } else {
+    document.getElementById('info-resolution').textContent = 'N/A';
+    document.getElementById('info-fps').textContent = 'N/A fps';
+  }
+
   document.getElementById('info-size').textContent = `${size} MB`;
   document.getElementById('video-info').style.display = 'flex';
 }
@@ -1340,7 +1362,11 @@ async function executeTrim() {
 
     hideProgress();
     alert('영상 자르기 완료!');
-    loadVideo(result.outputPath);
+
+    // Wait a bit for file to be fully written
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    await loadVideo(result.outputPath);
     currentVideo = result.outputPath;
   } catch (error) {
     hideProgress();
@@ -1592,7 +1618,11 @@ async function executeTrimVideoOnly() {
 
     hideProgress();
     alert('영상만 자르기 완료! (오디오는 원본 유지)');
-    loadVideo(result.outputPath);
+
+    // Wait a bit for file to be fully written
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    await loadVideo(result.outputPath);
     currentVideo = result.outputPath;
   } catch (error) {
     hideProgress();
@@ -1844,7 +1874,11 @@ async function executeTrimAudioOnly() {
 
     hideProgress();
     alert('오디오만 자르기 완료! (영상은 원본 유지)');
-    loadVideo(result.outputPath);
+
+    // Wait a bit for file to be fully written
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    await loadVideo(result.outputPath);
     currentVideo = result.outputPath;
   } catch (error) {
     hideProgress();
