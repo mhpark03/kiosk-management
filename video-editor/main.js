@@ -816,6 +816,61 @@ ipcMain.handle('trim-audio-only', async (event, options) => {
   });
 });
 
+// Adjust audio volume (audio-only files)
+ipcMain.handle('adjust-audio-volume', async (event, options) => {
+  const { inputPath, outputPath, volumeLevel } = options;
+
+  logInfo('ADJUST_AUDIO_VOLUME_START', 'Starting audio volume adjustment', { inputPath, outputPath, volumeLevel });
+
+  return new Promise((resolve, reject) => {
+    const args = [
+      '-i', inputPath,
+      '-af', `volume=${volumeLevel}`,
+      '-c:a', 'libmp3lame',  // Use MP3 encoder
+      '-b:a', '192k',  // Bitrate
+      '-y',  // Overwrite output file
+      outputPath
+    ];
+
+    logInfo('ADJUST_AUDIO_VOLUME_COMMAND', 'Executing FFmpeg command', { ffmpegPath, args });
+
+    const ffmpeg = spawn(ffmpegPath, args, {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true
+    });
+
+    let stderrOutput = '';
+
+    ffmpeg.stdout.on('data', (data) => {
+      const message = data.toString('utf8');
+      logInfo('ADJUST_AUDIO_VOLUME_STDOUT', 'FFmpeg stdout', { message: message.trim() });
+      mainWindow.webContents.send('ffmpeg-progress', message);
+    });
+
+    ffmpeg.stderr.on('data', (data) => {
+      const message = data.toString('utf8');
+      stderrOutput += message;
+      logInfo('ADJUST_AUDIO_VOLUME_STDERR', 'FFmpeg stderr', { message: message.trim() });
+      mainWindow.webContents.send('ffmpeg-progress', message);
+    });
+
+    ffmpeg.on('close', (code) => {
+      if (code === 0) {
+        logInfo('ADJUST_AUDIO_VOLUME_SUCCESS', 'Audio volume adjustment completed', { outputPath, code });
+        resolve({ outputPath, success: true });
+      } else {
+        logError('ADJUST_AUDIO_VOLUME_FAILED', 'FFmpeg exited with non-zero code', { code, stderr: stderrOutput });
+        reject(new Error(stderrOutput || `FFmpeg exited with code ${code}`));
+      }
+    });
+
+    ffmpeg.on('error', (err) => {
+      logError('ADJUST_AUDIO_VOLUME_ERROR', 'FFmpeg spawn error', { error: err.message });
+      reject(new Error(`FFmpeg error: ${err.message}`));
+    });
+  });
+});
+
 // Add audio to video
 ipcMain.handle('add-audio', async (event, options) => {
   const { videoPath, audioPath, outputPath, volumeLevel, audioStartTime, isSilence, silenceDuration, insertMode } = options;
