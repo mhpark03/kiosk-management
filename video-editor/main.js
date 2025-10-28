@@ -433,10 +433,11 @@ ipcMain.handle('generate-waveform', async (event, videoPath) => {
     // Generate waveform using FFmpeg showwavespic filter
     // draw=scale - draws a center line for silent parts
     // scale=lin - linear scale for better visibility
+    // split_channels=1 - separate stereo channels (L/R) vertically
     const args = [
       '-i', videoPath,
       '-filter_complex',
-      '[0:a]showwavespic=s=1200x100:colors=#667eea:draw=scale:scale=lin:split_channels=1[wave]',
+      '[0:a]showwavespic=s=1200x300:colors=#667eea:draw=scale:scale=lin:split_channels=1[wave]',
       '-map', '[wave]',
       '-frames:v', '1',
       '-y',
@@ -481,6 +482,91 @@ ipcMain.handle('generate-waveform', async (event, videoPath) => {
 
     ffmpeg.on('error', (err) => {
       logError('WAVEFORM_FAILED', 'FFmpeg spawn error', { error: err.message });
+      reject(new Error(`FFmpeg error: ${err.message}`));
+    });
+  });
+});
+
+// Generate waveform for a specific time range (for zoom)
+ipcMain.handle('generate-waveform-range', async (event, options) => {
+  const { videoPath, startTime, duration } = options;
+
+  logInfo('WAVEFORM_RANGE_START', 'Generating waveform for time range', {
+    videoPath,
+    startTime,
+    duration
+  });
+
+  const path = require('path');
+  const os = require('os');
+
+  // Create temp file path for waveform image
+  const tempDir = os.tmpdir();
+  const waveformPath = path.join(tempDir, `waveform_range_${Date.now()}.png`);
+
+  return new Promise((resolve, reject) => {
+    // Generate waveform for specific time range using FFmpeg
+    // -ss: start time, -t: duration
+    const args = [
+      '-ss', startTime.toString(),
+      '-i', videoPath,
+      '-t', duration.toString(),
+      '-filter_complex',
+      '[0:a]showwavespic=s=1200x300:colors=#667eea:draw=scale:scale=lin:split_channels=1[wave]',
+      '-map', '[wave]',
+      '-frames:v', '1',
+      '-y',
+      waveformPath
+    ];
+
+    const ffmpeg = spawn(ffmpegPath, args, {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true
+    });
+    let errorOutput = '';
+
+    ffmpeg.stderr.on('data', (data) => {
+      errorOutput += data.toString('utf8');
+    });
+
+    ffmpeg.on('close', (code) => {
+      if (code === 0) {
+        try {
+          // Read the generated PNG and convert to base64
+          const imageBuffer = fs.readFileSync(waveformPath);
+          const base64Image = `data:image/png;base64,${imageBuffer.toString('base64')}`;
+
+          // Clean up temp file
+          try {
+            fs.unlinkSync(waveformPath);
+          } catch (cleanupErr) {
+            logError('WAVEFORM_RANGE_CLEANUP', 'Failed to delete temp waveform file', {
+              error: cleanupErr.message
+            });
+          }
+
+          logInfo('WAVEFORM_RANGE_SUCCESS', 'Range waveform generated', {
+            length: base64Image.length,
+            startTime,
+            duration
+          });
+          resolve(base64Image);
+        } catch (readErr) {
+          logError('WAVEFORM_RANGE_READ_FAILED', 'Failed to read waveform file', {
+            error: readErr.message
+          });
+          reject(new Error(`Failed to read waveform: ${readErr.message}`));
+        }
+      } else {
+        logError('WAVEFORM_RANGE_FAILED', 'Waveform range generation failed', {
+          error: errorOutput
+        });
+        reject(new Error(errorOutput || 'FFmpeg waveform range generation failed'));
+      }
+    });
+
+    ffmpeg.on('error', (err) => {
+      logError('WAVEFORM_RANGE_FAILED', 'FFmpeg spawn error', { error: err.message });
       reject(new Error(`FFmpeg error: ${err.message}`));
     });
   });

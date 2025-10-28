@@ -119,9 +119,9 @@ body {
   background: #1e1e1e;
 }
 
-/* Preview Container */
+/* Preview Container - Reduced to 70% of original size */
 .preview-container {
-  flex: 1;
+  flex: 0.7;
   padding: 20px;
   display: flex;
   flex-direction: column;
@@ -352,20 +352,54 @@ body {
 }
 
 .audio-track .track-content {
-  min-height: 120px;
+  min-height: 300px;
+  overflow: hidden;
 }
 
-/* Audio Waveform */
+/* Audio Waveform - Increased height for stereo channel separation */
 .audio-waveform {
   width: 100%;
-  height: 120px;
-  object-fit: fill;
+  height: 100%;
+  object-fit: contain;
   opacity: 1;
   position: absolute;
-  top: 0;
+  top: 50%;
   left: 0;
+  transform: translateY(-50%);
   z-index: 2;
   pointer-events: none;
+}
+
+/* Channel Labels (L/R) */
+.channel-labels {
+  position: absolute;
+  left: 5px;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.channel-label {
+  background: rgba(102, 126, 234, 0.8);
+  color: white;
+  font-size: 11px;
+  font-weight: bold;
+  padding: 3px 6px;
+  border-radius: 3px;
+  text-align: center;
+  min-width: 20px;
+}
+
+.left-label {
+  margin-top: 10px;
+}
+
+.right-label {
+  margin-bottom: 10px;
 }
 
 /* Playhead Bar */
