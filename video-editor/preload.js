@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Video info
   getVideoInfo: (videoPath) => ipcRenderer.invoke('get-video-info', videoPath),
   generateWaveform: (videoPath) => ipcRenderer.invoke('generate-waveform', videoPath),
+  generateWaveformRange: (options) => ipcRenderer.invoke('generate-waveform-range', options),
 
   // Video operations
   trimVideo: (options) => ipcRenderer.invoke('trim-video', options),

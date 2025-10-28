@@ -13,6 +13,11 @@ let zoomEnd = 1;    // 0-1 (percentage of video)
 let playheadInteractionSetup = false;  // Flag to prevent duplicate event listeners
 let audioLayers = [];
 
+// Debounce state for waveform regeneration
+let waveformRegenerateTimer = null;
+let isRegeneratingWaveform = false;
+let isWaveformRegenerated = false;  // Flag to track if current waveform is regenerated (zoomed-in detail)
+
 // Slider interaction state
 let isUserSeekingSlider = false;  // Flag to prevent auto-skip during manual seek
 let isPreviewingRange = false;    // Flag to prevent auto-skip during range preview
@@ -995,12 +1000,14 @@ async function generateAndDisplayWaveform(videoPath) {
     console.log('Generating waveform...');
     updateStatus('오디오 파형 생성 중...');
 
-    const result = await window.electronAPI.generateWaveform(videoPath);
+    // Reset regenerated flag when loading new waveform
+    isWaveformRegenerated = false;
 
-    if (result.success && result.waveformPath) {
-      // Display the waveform image
-      const imgSrc = `file:///${result.waveformPath.replace(/\\/g, '/')}`;
-      console.log('Setting waveform src to:', imgSrc);
+    const base64Image = await window.electronAPI.generateWaveform(videoPath);
+
+    if (base64Image) {
+      // Display the waveform image (base64 format)
+      console.log('Setting waveform src (base64, length:', base64Image.length, ')');
       console.log('Waveform img element:', waveformImg);
 
       waveformImg.onload = () => {
@@ -1012,13 +1019,21 @@ async function generateAndDisplayWaveform(videoPath) {
 
       waveformImg.onerror = (e) => {
         console.error('Failed to load waveform image:', e);
-        console.error('Image src was:', waveformImg.src);
+        console.error('Image src length:', waveformImg.src.length);
       };
 
-      waveformImg.src = imgSrc;
+      waveformImg.src = base64Image;
       waveformImg.style.display = 'block';
-      console.log('Waveform displayed:', result.waveformPath);
+      console.log('Waveform displayed successfully');
       updateStatus('오디오 파형 생성 완료');
+
+      // Show channel labels if stereo (2 channels)
+      const channelLabels = document.getElementById('channel-labels');
+      if (channelLabels && audioStream.channels === 2) {
+        channelLabels.style.display = 'flex';
+      } else if (channelLabels) {
+        channelLabels.style.display = 'none';
+      }
     }
   } catch (error) {
     console.error('Failed to generate waveform:', error);
@@ -1042,18 +1057,12 @@ function updatePlayheadPosition(currentTime, duration) {
   // Always show playhead bar
   playheadBar.style.display = 'block';
 
-  // Apply the same zoom transformation as the waveform
+  // For scaled original waveform, apply the zoom transformation
   const zoomRange = zoomEnd - zoomStart;
   const scale = 1 / zoomRange;
 
-  // Playhead needs to be positioned at totalPercentage within the FULL waveform
-  // But the waveform is now scaled and shifted
-
-  // Position in the original (unscaled) waveform: totalPercentage * 100%
-  // After scaling: we need to apply the same width and margin-left as waveform
-
   // The playhead's left position relative to the SCALED waveform
-  const playheadPositionOnScaledWaveform = totalPercentage * scale * 100; // percentage of scaled width
+  const playheadPositionOnScaledWaveform = totalPercentage * scale * 100;
 
   // Apply the same margin-left shift as the waveform
   const marginLeftPercent = -(zoomStart / zoomRange) * 100;
@@ -1134,7 +1143,7 @@ function setupPlayheadInteraction() {
   });
 
   // Mouse up
-  document.addEventListener('mouseup', (e) => {
+  document.addEventListener('mouseup', async (e) => {
     if (isDraggingZoom) {
       const rect = audioTrack.getBoundingClientRect();
       const currentX = e.clientX - rect.left;
@@ -1151,7 +1160,15 @@ function setupPlayheadInteraction() {
         zoomStart = newZoomStart;
         zoomEnd = newZoomEnd;
 
-        console.log(`Zoomed to: ${(zoomStart * 100).toFixed(1)}% - ${(zoomEnd * 100).toFixed(1)}%`);
+        // Get duration for time display
+        const duration = videoInfo?.format?.duration || audioFileInfo?.format?.duration;
+        if (duration) {
+          const startTime = zoomStart * duration;
+          const endTime = zoomEnd * duration;
+          console.log(`Zoomed to: ${startTime.toFixed(2)}s - ${endTime.toFixed(2)}s (${(zoomStart * 100).toFixed(1)}% - ${(zoomEnd * 100).toFixed(1)}%)`);
+        } else {
+          console.log(`Zoomed to: ${(zoomStart * 100).toFixed(1)}% - ${(zoomEnd * 100).toFixed(1)}%`);
+        }
 
         // Apply zoom to waveform
         applyWaveformZoom();
@@ -1165,10 +1182,39 @@ function setupPlayheadInteraction() {
   });
 
   // Double-click to reset zoom
-  audioTrack.addEventListener('dblclick', () => {
+  audioTrack.addEventListener('dblclick', async () => {
     zoomStart = 0;
     zoomEnd = 1;
-    console.log('Zoom reset');
+    console.log('Zoom reset - reloading full waveform');
+
+    // Cancel any pending regeneration
+    if (waveformRegenerateTimer) {
+      clearTimeout(waveformRegenerateTimer);
+      waveformRegenerateTimer = null;
+    }
+
+    // Reset regenerated flag since we're loading the original full waveform
+    isWaveformRegenerated = false;
+
+    // Reload original full waveform
+    const videoPath = currentVideo || currentAudioFile;
+    if (videoPath) {
+      try {
+        const base64Image = await window.electronAPI.generateWaveform(videoPath);
+        if (base64Image) {
+          const waveformImg = document.getElementById('audio-waveform');
+          if (waveformImg) {
+            waveformImg.style.width = '100%';
+            waveformImg.style.marginLeft = '0';
+            waveformImg.src = base64Image;
+            console.log('Full waveform reloaded');
+          }
+        }
+      } catch (error) {
+        console.error('Failed to reload full waveform:', error);
+      }
+    }
+
     applyWaveformZoom();
   });
 }
@@ -1259,7 +1305,7 @@ function setupAudioTrackInteraction() {
   });
 
   // Mouse up
-  document.addEventListener('mouseup', (e) => {
+  document.addEventListener('mouseup', async (e) => {
     if (isDraggingZoom) {
       const rect = audioTrack.getBoundingClientRect();
       const currentX = e.clientX - rect.left;
@@ -1276,7 +1322,15 @@ function setupAudioTrackInteraction() {
         zoomStart = newZoomStart;
         zoomEnd = newZoomEnd;
 
-        console.log(`Audio zoom: ${(zoomStart * 100).toFixed(1)}% - ${(zoomEnd * 100).toFixed(1)}%`);
+        // Get duration for time display
+        const duration = audioFileInfo?.format?.duration;
+        if (duration) {
+          const startTime = zoomStart * duration;
+          const endTime = zoomEnd * duration;
+          console.log(`Audio zoom: ${startTime.toFixed(2)}s - ${endTime.toFixed(2)}s (${(zoomStart * 100).toFixed(1)}% - ${(zoomEnd * 100).toFixed(1)}%)`);
+        } else {
+          console.log(`Audio zoom: ${(zoomStart * 100).toFixed(1)}% - ${(zoomEnd * 100).toFixed(1)}%`);
+        }
 
         // Apply zoom to waveform
         applyWaveformZoom();
@@ -1290,15 +1344,44 @@ function setupAudioTrackInteraction() {
   });
 
   // Double-click to reset zoom
-  audioTrack.addEventListener('dblclick', () => {
+  audioTrack.addEventListener('dblclick', async () => {
     zoomStart = 0;
     zoomEnd = 1;
-    console.log('Audio zoom reset');
+    console.log('Audio zoom reset - reloading full waveform');
+
+    // Cancel any pending regeneration
+    if (waveformRegenerateTimer) {
+      clearTimeout(waveformRegenerateTimer);
+      waveformRegenerateTimer = null;
+    }
+
+    // Reset regenerated flag since we're loading the original full waveform
+    isWaveformRegenerated = false;
+
+    // Reload original full waveform
+    const audioPath = currentAudioFile;
+    if (audioPath) {
+      try {
+        const base64Image = await window.electronAPI.generateWaveform(audioPath);
+        if (base64Image) {
+          const waveformImg = document.getElementById('audio-waveform');
+          if (waveformImg) {
+            waveformImg.style.width = '100%';
+            waveformImg.style.marginLeft = '0';
+            waveformImg.src = base64Image;
+            console.log('Full waveform reloaded');
+          }
+        }
+      } catch (error) {
+        console.error('Failed to reload full waveform:', error);
+      }
+    }
+
     applyWaveformZoom();
   });
 }
 
-// Apply zoom transform to waveform image
+// Apply zoom transform to waveform image (immediate, for smooth interaction)
 function applyWaveformZoom() {
   const waveformImg = document.getElementById('audio-waveform');
   const audioTrack = document.getElementById('audio-track');
@@ -1335,6 +1418,96 @@ function applyWaveformZoom() {
 
   // Update zoom range overlay on timeline slider
   updateZoomRangeOverlay();
+
+  // Note: Debounced waveform regeneration is disabled
+  // The scaled original waveform will be used instead
+  // applyWaveformZoomDebounced();
+}
+
+// Regenerate waveform for zoomed range (debounced)
+async function applyWaveformZoomDebounced() {
+  // Clear existing timer
+  if (waveformRegenerateTimer) {
+    clearTimeout(waveformRegenerateTimer);
+  }
+
+  // Set new timer for 800ms delay
+  waveformRegenerateTimer = setTimeout(async () => {
+    // Don't regenerate if already in progress
+    if (isRegeneratingWaveform) {
+      console.log('Waveform regeneration already in progress, skipping...');
+      return;
+    }
+
+    // Don't regenerate if not zoomed or if zoom range is invalid
+    const zoomRange = zoomEnd - zoomStart;
+    if (zoomRange >= 0.99 || zoomRange <= 0) {
+      console.log('Not zoomed or invalid range, skipping waveform regeneration');
+      return;
+    }
+
+    // Get video info
+    const videoPath = currentVideo || currentAudioFile;
+    if (!videoPath) {
+      console.log('No video/audio loaded, skipping waveform regeneration');
+      return;
+    }
+
+    const duration = videoInfo?.format?.duration || audioFileInfo?.format?.duration;
+    if (!duration) {
+      console.log('No duration info, skipping waveform regeneration');
+      return;
+    }
+
+    try {
+      isRegeneratingWaveform = true;
+
+      const startTime = zoomStart * duration;
+      const endTime = zoomEnd * duration;
+      const rangeDuration = zoomRange * duration;
+
+      console.log(`Regenerating waveform for time range: ${startTime.toFixed(2)}s - ${endTime.toFixed(2)}s (duration: ${rangeDuration.toFixed(2)}s)`);
+      console.log(`  Percentage: ${(zoomStart*100).toFixed(1)}% - ${(zoomEnd*100).toFixed(1)}%`);
+
+      // Generate waveform for the zoomed range
+      const base64Image = await window.electronAPI.generateWaveformRange({
+        videoPath: videoPath,
+        startTime: startTime,
+        duration: rangeDuration
+      });
+
+      if (base64Image) {
+        const waveformImg = document.getElementById('audio-waveform');
+        if (waveformImg) {
+          // Replace with the zoomed-in waveform at 100% width
+          waveformImg.style.width = '100%';
+          waveformImg.style.marginLeft = '0';
+          waveformImg.src = base64Image;
+
+          // Mark waveform as regenerated to prevent re-scaling
+          isWaveformRegenerated = true;
+          console.log('Zoomed waveform regenerated successfully - showing detailed range');
+
+          // Move video to the start of the zoomed range if in video mode
+          const video = document.getElementById('preview-video');
+          if (video && video.duration && currentMode === 'video') {
+            // Only move if current time is outside the zoom range
+            const currentPercentage = video.currentTime / video.duration;
+            if (currentPercentage < zoomStart || currentPercentage > zoomEnd) {
+              video.currentTime = startTime;
+              console.log(`Moved playhead to zoom start: ${startTime.toFixed(2)}s`);
+            }
+            updatePlayheadPosition(video.currentTime, video.duration);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Failed to regenerate zoomed waveform:', error);
+      // Keep the scaled original waveform on error
+    } finally {
+      isRegeneratingWaveform = false;
+    }
+  }, 800);
 }
 
 // Update zoom range overlay on timeline slider
@@ -2991,6 +3164,9 @@ async function importAudioFile() {
     // Generate and display waveform in audio track
     updateStatus('파형 생성 중...');
 
+    // Reset regenerated flag when loading new audio file
+    isWaveformRegenerated = false;
+
     try {
       const waveformBase64 = await window.electronAPI.generateWaveform(audioPath);
       console.log('Waveform generated:', waveformBase64 ? 'Success' : 'Failed');
@@ -3000,10 +3176,16 @@ async function importAudioFile() {
         if (waveformBase64) {
           waveformImg.src = waveformBase64;
           waveformImg.style.display = 'block';
-          waveformImg.style.width = '100%';
-          waveformImg.style.height = '60px';
-          waveformImg.style.objectFit = 'fill';
           console.log('Waveform image src set successfully');
+
+          // Show channel labels if stereo (2 channels)
+          const channelLabels = document.getElementById('channel-labels');
+          const audioStream = audioFileInfo.streams.find(s => s.codec_type === 'audio');
+          if (channelLabels && audioStream && audioStream.channels === 2) {
+            channelLabels.style.display = 'flex';
+          } else if (channelLabels) {
+            channelLabels.style.display = 'none';
+          }
         } else {
           console.error('Waveform generation returned empty result');
           // Show placeholder waveform
