@@ -569,25 +569,6 @@ ipcMain.handle('generate-waveform-range', async (event, options) => {
           const imageBuffer = fs.readFileSync(waveformPath);
           const base64Image = `data:image/png;base64,${imageBuffer.toString('base64')}`;
 
-          // Save debug copy to waveform_debug folder
-          try {
-            const debugDir = path.join(__dirname, 'waveform_debug');
-            if (!fs.existsSync(debugDir)) {
-              fs.mkdirSync(debugDir, { recursive: true });
-            }
-
-            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-            const debugFileName = `waveform_${startTime.toFixed(3)}s-${(startTime + duration).toFixed(3)}s_dur${duration.toFixed(3)}s_${timestamp}.png`;
-            const debugPath = path.join(debugDir, debugFileName);
-
-            fs.copyFileSync(waveformPath, debugPath);
-            console.log(`🖼️ Waveform debug image saved: ${debugPath}`);
-          } catch (debugErr) {
-            logError('WAVEFORM_DEBUG_SAVE', 'Failed to save debug waveform', {
-              error: debugErr.message
-            });
-          }
-
           // Clean up temp file
           try {
             fs.unlinkSync(waveformPath);
