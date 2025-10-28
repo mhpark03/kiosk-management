@@ -86,3 +86,4 @@ REMAINING_*.md
 
 # Deployment timestamps
 **/.deploy-timestamp.txt
+video-editor/waveform_debug/
