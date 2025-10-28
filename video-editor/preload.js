@@ -8,9 +8,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Video info
   getVideoInfo: (videoPath) => ipcRenderer.invoke('get-video-info', videoPath),
+  generateWaveform: (videoPath) => ipcRenderer.invoke('generate-waveform', videoPath),
 
   // Video operations
   trimVideo: (options) => ipcRenderer.invoke('trim-video', options),
+  trimVideoOnly: (options) => ipcRenderer.invoke('trim-video-only', options),
+  trimAudioOnly: (options) => ipcRenderer.invoke('trim-audio-only', options),
   addAudio: (options) => ipcRenderer.invoke('add-audio', options),
   applyFilter: (options) => ipcRenderer.invoke('apply-filter', options),
   mergeVideos: (options) => ipcRenderer.invoke('merge-videos', options),
