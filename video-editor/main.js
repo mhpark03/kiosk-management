@@ -495,6 +495,18 @@ ipcMain.handle('trim-video-only', async (event, options) => {
 
   logInfo('TRIM_VIDEO_ONLY_START', 'Starting video-only trim', { inputPath, startTime, duration });
 
+  // Check if input and output are the same file
+  const isSameFile = path.resolve(inputPath) === path.resolve(outputPath);
+
+  // If same file, create temp file with proper extension
+  let actualOutputPath = outputPath;
+  if (isSameFile) {
+    const ext = path.extname(outputPath);
+    const base = outputPath.slice(0, -ext.length);
+    actualOutputPath = `${base}_temp_${Date.now()}${ext}`;
+    logInfo('TRIM_VIDEO_ONLY_SAME_FILE', 'Same file detected, using temp file', { actualOutputPath });
+  }
+
   return new Promise((resolve, reject) => {
     // Trim video stream, and also trim audio to match video duration
     const args = [
@@ -506,7 +518,7 @@ ipcMain.handle('trim-video-only', async (event, options) => {
       '-c:v', 'libx264', // Re-encode video
       '-c:a', 'aac',    // Re-encode audio (trim applies to both streams)
       '-y',
-      outputPath
+      actualOutputPath
     ];
 
     const ffmpeg = spawn(ffmpegPath, args, {
@@ -523,15 +535,46 @@ ipcMain.handle('trim-video-only', async (event, options) => {
 
     ffmpeg.on('close', (code) => {
       if (code === 0) {
-        logInfo('TRIM_VIDEO_ONLY_SUCCESS', 'Video-only trim completed', { outputPath });
+        // If we used a temp file, replace the original
+        if (isSameFile) {
+          try {
+            if (fs.existsSync(outputPath)) {
+              fs.unlinkSync(outputPath);
+            }
+            fs.renameSync(actualOutputPath, outputPath);
+            logInfo('TRIM_VIDEO_ONLY_SUCCESS', 'Video-only trim completed, temp file replaced', { outputPath });
+          } catch (err) {
+            logError('TRIM_VIDEO_ONLY_REPLACE_FAILED', 'Failed to replace original file', { error: err.message });
+            reject(new Error(`Failed to replace file: ${err.message}`));
+            return;
+          }
+        } else {
+          logInfo('TRIM_VIDEO_ONLY_SUCCESS', 'Video-only trim completed', { outputPath });
+        }
         resolve({ success: true, outputPath });
       } else {
+        // Clean up temp file if it exists
+        if (isSameFile && fs.existsSync(actualOutputPath)) {
+          try {
+            fs.unlinkSync(actualOutputPath);
+          } catch (err) {
+            logError('TRIM_VIDEO_ONLY_CLEANUP_FAILED', 'Failed to clean up temp file', { error: err.message });
+          }
+        }
         logError('TRIM_VIDEO_ONLY_FAILED', 'Video-only trim failed', { error: errorOutput });
         reject(new Error(errorOutput || 'FFmpeg failed'));
       }
     });
 
     ffmpeg.on('error', (err) => {
+      // Clean up temp file if it exists
+      if (isSameFile && fs.existsSync(actualOutputPath)) {
+        try {
+          fs.unlinkSync(actualOutputPath);
+        } catch (cleanupErr) {
+          logError('TRIM_VIDEO_ONLY_CLEANUP_FAILED', 'Failed to clean up temp file', { error: cleanupErr.message });
+        }
+      }
       logError('TRIM_VIDEO_ONLY_FAILED', 'FFmpeg spawn error', { error: err.message });
       reject(new Error(`FFmpeg error: ${err.message}`));
     });
@@ -543,6 +586,18 @@ ipcMain.handle('trim-audio-only', async (event, options) => {
   const { inputPath, outputPath, startTime, endTime } = options;
 
   logInfo('TRIM_AUDIO_ONLY_START', 'Starting audio-only trim', { inputPath, startTime, endTime });
+
+  // Check if input and output are the same file
+  const isSameFile = path.resolve(inputPath) === path.resolve(outputPath);
+
+  // If same file, create temp file with proper extension
+  let actualOutputPath = outputPath;
+  if (isSameFile) {
+    const ext = path.extname(outputPath);
+    const base = outputPath.slice(0, -ext.length);
+    actualOutputPath = `${base}_temp_${Date.now()}${ext}`;
+    logInfo('TRIM_AUDIO_ONLY_SAME_FILE', 'Same file detected, using temp file', { actualOutputPath });
+  }
 
   // Get video duration using ffprobe
   const getVideoDuration = () => {
@@ -573,7 +628,7 @@ ipcMain.handle('trim-audio-only', async (event, options) => {
       '-c:v', 'copy',   // Copy video without modification
       '-c:a', 'aac',    // Encode filtered audio
       '-y',
-      outputPath
+      actualOutputPath
     ];
 
     const ffmpeg = spawn(ffmpegPath, args, {
@@ -590,15 +645,46 @@ ipcMain.handle('trim-audio-only', async (event, options) => {
 
     ffmpeg.on('close', (code) => {
       if (code === 0) {
-        logInfo('TRIM_AUDIO_ONLY_SUCCESS', 'Audio-only trim completed (padded to video duration)', { outputPath, videoDuration });
+        // If we used a temp file, replace the original
+        if (isSameFile) {
+          try {
+            if (fs.existsSync(outputPath)) {
+              fs.unlinkSync(outputPath);
+            }
+            fs.renameSync(actualOutputPath, outputPath);
+            logInfo('TRIM_AUDIO_ONLY_SUCCESS', 'Audio-only trim completed, temp file replaced', { outputPath, videoDuration });
+          } catch (err) {
+            logError('TRIM_AUDIO_ONLY_REPLACE_FAILED', 'Failed to replace original file', { error: err.message });
+            reject(new Error(`Failed to replace file: ${err.message}`));
+            return;
+          }
+        } else {
+          logInfo('TRIM_AUDIO_ONLY_SUCCESS', 'Audio-only trim completed (padded to video duration)', { outputPath, videoDuration });
+        }
         resolve({ success: true, outputPath });
       } else {
+        // Clean up temp file if it exists
+        if (isSameFile && fs.existsSync(actualOutputPath)) {
+          try {
+            fs.unlinkSync(actualOutputPath);
+          } catch (err) {
+            logError('TRIM_AUDIO_ONLY_CLEANUP_FAILED', 'Failed to clean up temp file', { error: err.message });
+          }
+        }
         logError('TRIM_AUDIO_ONLY_FAILED', 'Audio-only trim failed', { error: errorOutput });
         reject(new Error(errorOutput || 'FFmpeg failed'));
       }
     });
 
     ffmpeg.on('error', (err) => {
+      // Clean up temp file if it exists
+      if (isSameFile && fs.existsSync(actualOutputPath)) {
+        try {
+          fs.unlinkSync(actualOutputPath);
+        } catch (cleanupErr) {
+          logError('TRIM_AUDIO_ONLY_CLEANUP_FAILED', 'Failed to clean up temp file', { error: cleanupErr.message });
+        }
+      }
       logError('TRIM_AUDIO_ONLY_FAILED', 'FFmpeg spawn error', { error: err.message });
       reject(new Error(`FFmpeg error: ${err.message}`));
     });
