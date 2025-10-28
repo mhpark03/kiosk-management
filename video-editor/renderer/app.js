@@ -41,9 +41,24 @@ document.addEventListener('DOMContentLoaded', () => {
   setupLogListener();
   setupClearLogsButton();
   setupModeListener();
+  setupImportButton();
   updateModeUI();
   updateStatus('준비 완료');
 });
+
+// Setup import button in preview placeholder
+function setupImportButton() {
+  const importBtn = document.getElementById('import-video-btn');
+  if (importBtn) {
+    importBtn.addEventListener('click', () => {
+      if (currentMode === 'video') {
+        importVideo();
+      } else {
+        importAudioFile();
+      }
+    });
+  }
+}
 
 // Setup tool buttons
 function setupToolButtons() {
@@ -2847,6 +2862,19 @@ function updateModeUI() {
 
   // Re-setup tool buttons after updating sidebar
   setupToolButtons();
+
+  // Update placeholder text based on mode
+  const placeholderP = document.querySelector('#preview-placeholder p');
+  const importBtn = document.getElementById('import-video-btn');
+  if (placeholderP && importBtn) {
+    if (currentMode === 'audio') {
+      placeholderP.textContent = '음성 파일을 가져와주세요';
+      importBtn.textContent = '🎵 음성 선택';
+    } else {
+      placeholderP.textContent = '영상을 가져와주세요';
+      importBtn.textContent = '📁 영상 선택';
+    }
+  }
 
   // Clear current tool selection
   activeTool = null;
