@@ -31,14 +31,6 @@
             <span class="icon">✂️</span>
             영상 자르기
           </button>
-          <button class="tool-btn" data-tool="trim-video-only">
-            <span class="icon">🎬</span>
-            영상만 자르기
-          </button>
-          <button class="tool-btn" data-tool="trim-audio-only">
-            <span class="icon">🔉</span>
-            오디오만 자르기
-          </button>
           <button class="tool-btn" data-tool="merge">
             <span class="icon">🔗</span>
             영상 병합
@@ -122,6 +114,7 @@
             <div class="timeline-slider-container">
               <div id="trim-range-overlay" class="trim-range-overlay" style="display: none;"></div>
               <div id="audio-range-overlay" class="audio-range-overlay" style="display: none;"></div>
+              <div id="zoom-range-overlay" class="zoom-range-overlay" style="display: none;"></div>
               <input type="range" id="timeline-slider" class="timeline-slider" min="0" max="100" value="0" disabled>
             </div>
           </div>

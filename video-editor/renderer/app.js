@@ -10,6 +10,10 @@ let zoomEnd = 1;    // 0-1 (percentage of video)
 let playheadInteractionSetup = false;  // Flag to prevent duplicate event listeners
 let audioLayers = [];
 
+// Slider interaction state
+let isUserSeekingSlider = false;  // Flag to prevent auto-skip during manual seek
+let isPreviewingRange = false;    // Flag to prevent auto-skip during range preview
+
 // 공통 오류 처리 함수
 function handleError(operation, error, userMessage) {
   // 콘솔에 상세한 오류 정보 기록
@@ -122,93 +126,20 @@ function showToolProperties(tool) {
         <div style="display: flex; gap: 10px; margin-top: 10px;">
           <button class="property-btn secondary" onclick="previewTrimRange()" style="flex: 1;">🎬 구간 미리보기</button>
         </div>
-        <button class="property-btn" onclick="executeTrim()">영상 자르기</button>
+        <button class="property-btn" onclick="executeTrim()">✂️ 영상+오디오 자르기</button>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px;">
+          <button class="property-btn secondary" onclick="executeTrimVideoOnly()" style="margin: 0;">🎬 영상만 자르기</button>
+          <button class="property-btn secondary" onclick="executeTrimAudioOnly()" style="margin: 0;">🔉 오디오만 자르기</button>
+        </div>
+        <div style="background: #3a3a3a; padding: 10px; border-radius: 5px; margin-top: 10px;">
+          <small style="color: #aaa;">💡 영상만: 오디오 원본 유지 | 오디오만: 영상 원본 유지</small>
+        </div>
       `;
       // Add event listeners for real-time duration calculation
       setTimeout(() => {
         document.getElementById('trim-start').addEventListener('input', updateTrimDurationDisplay);
         document.getElementById('trim-end').addEventListener('input', updateTrimDurationDisplay);
         updateTrimDurationDisplay();
-      }, 0);
-      break;
-
-    case 'trim-video-only':
-      const maxDuration2 = videoInfo ? parseFloat(videoInfo.format.duration) : 100;
-      propertiesPanel.innerHTML = `
-        <div class="property-group">
-          <label>시작 시간 (초)</label>
-          <div style="display: flex; gap: 5px; align-items: center;">
-            <input type="number" id="trim-video-start" min="0" max="${maxDuration2}" step="0.1" value="0" oninput="updateTrimVideoEndMax()" style="flex: 1;">
-            <button class="property-btn secondary" onclick="setVideoStartFromCurrentTime()" style="width: auto; padding: 8px 12px; margin: 0;" title="현재 재생 위치를 시작 시간으로">🔄</button>
-            <button class="property-btn secondary" onclick="previewVideoStartTime()" style="width: auto; padding: 8px 12px; margin: 0;" title="시작 위치로 이동">▶️</button>
-          </div>
-          <small style="color: #888; font-size: 11px;">최대: ${maxDuration2.toFixed(2)}초</small>
-        </div>
-        <div class="property-group">
-          <label>끝 시간 (초)</label>
-          <div style="display: flex; gap: 5px; align-items: center;">
-            <input type="number" id="trim-video-end" min="0" max="${maxDuration2}" step="0.1" value="${maxDuration2.toFixed(2)}" style="flex: 1;">
-            <button class="property-btn secondary" onclick="setVideoEndFromCurrentTime()" style="width: auto; padding: 8px 12px; margin: 0;" title="현재 재생 위치를 끝 시간으로">🔄</button>
-            <button class="property-btn secondary" onclick="previewVideoEndTime()" style="width: auto; padding: 8px 12px; margin: 0;" title="끝 위치로 이동">▶️</button>
-          </div>
-          <small style="color: #888; font-size: 11px;">최대: ${maxDuration2.toFixed(2)}초</small>
-        </div>
-        <div class="property-group" style="background: #2d2d2d; padding: 10px; border-radius: 5px; margin-top: 10px;">
-          <label style="color: #667eea;">자르기 구간 길이</label>
-          <div id="trim-video-duration-display" style="font-size: 16px; font-weight: 600; color: #e0e0e0; margin-top: 5px;">0.00초</div>
-        </div>
-        <div style="background: #3a3a3a; padding: 10px; border-radius: 5px; margin-top: 10px;">
-          <small style="color: #aaa;">💡 영상만 자르고 오디오는 원본 그대로 유지됩니다</small>
-        </div>
-        <div style="display: flex; gap: 10px; margin-top: 10px;">
-          <button class="property-btn secondary" onclick="previewVideoTrimRange()" style="flex: 1;">🎬 구간 미리보기</button>
-        </div>
-        <button class="property-btn" onclick="executeTrimVideoOnly()">영상만 자르기</button>
-      `;
-      setTimeout(() => {
-        document.getElementById('trim-video-start').addEventListener('input', updateTrimVideoDurationDisplay);
-        document.getElementById('trim-video-end').addEventListener('input', updateTrimVideoDurationDisplay);
-        updateTrimVideoDurationDisplay();
-      }, 0);
-      break;
-
-    case 'trim-audio-only':
-      const maxDuration3 = videoInfo ? parseFloat(videoInfo.format.duration) : 100;
-      propertiesPanel.innerHTML = `
-        <div class="property-group">
-          <label>시작 시간 (초)</label>
-          <div style="display: flex; gap: 5px; align-items: center;">
-            <input type="number" id="trim-audio-start" min="0" max="${maxDuration3}" step="0.1" value="0" oninput="updateTrimAudioEndMax()" style="flex: 1;">
-            <button class="property-btn secondary" onclick="setAudioStartFromCurrentTime()" style="width: auto; padding: 8px 12px; margin: 0;" title="현재 재생 위치를 시작 시간으로">🔄</button>
-            <button class="property-btn secondary" onclick="previewAudioStartTime()" style="width: auto; padding: 8px 12px; margin: 0;" title="시작 위치로 이동">▶️</button>
-          </div>
-          <small style="color: #888; font-size: 11px;">최대: ${maxDuration3.toFixed(2)}초</small>
-        </div>
-        <div class="property-group">
-          <label>끝 시간 (초)</label>
-          <div style="display: flex; gap: 5px; align-items: center;">
-            <input type="number" id="trim-audio-end" min="0" max="${maxDuration3}" step="0.1" value="${maxDuration3.toFixed(2)}" style="flex: 1;">
-            <button class="property-btn secondary" onclick="setAudioEndFromCurrentTime()" style="width: auto; padding: 8px 12px; margin: 0;" title="현재 재생 위치를 끝 시간으로">🔄</button>
-            <button class="property-btn secondary" onclick="previewAudioEndTime()" style="width: auto; padding: 8px 12px; margin: 0;" title="끝 위치로 이동">▶️</button>
-          </div>
-          <small style="color: #888; font-size: 11px;">최대: ${maxDuration3.toFixed(2)}초</small>
-        </div>
-        <div class="property-group" style="background: #2d2d2d; padding: 10px; border-radius: 5px; margin-top: 10px;">
-          <label style="color: #667eea;">자르기 구간 길이</label>
-          <div id="trim-audio-duration-display" style="font-size: 16px; font-weight: 600; color: #e0e0e0; margin-top: 5px;">0.00초</div>
-        </div>
-        <div style="background: #3a3a3a; padding: 10px; border-radius: 5px; margin-top: 10px;">
-          <small style="color: #aaa;">💡 오디오만 자르고 영상은 원본 그대로 유지됩니다</small>
-        </div>
-        <div style="display: flex; gap: 10px; margin-top: 10px;">
-          <button class="property-btn secondary" onclick="previewAudioTrimRange()" style="flex: 1;">🎬 구간 미리보기</button>
-        </div>
-        <button class="property-btn" onclick="executeTrimAudioOnly()">오디오만 자르기</button>
-      `;
-      setTimeout(() => {
-        document.getElementById('trim-audio-start').addEventListener('input', updateTrimAudioDurationDisplay);
-        document.getElementById('trim-audio-end').addEventListener('input', updateTrimAudioDurationDisplay);
-        updateTrimAudioDurationDisplay();
       }, 0);
       break;
 
@@ -391,7 +322,7 @@ function setupVideoControls() {
   const currentTimeDisplay = document.getElementById('current-time');
 
   playBtn.addEventListener('click', () => {
-    // 영상 자르기 모드에서는 시작 시간부터 재생
+    // 영상 자르기 모드에서는 처음부터 재생 (선택 구간 제외)
     if (activeTool === 'trim') {
       const startInput = document.getElementById('trim-start');
       if (startInput) {
@@ -399,9 +330,13 @@ function setupVideoControls() {
         const endInput = document.getElementById('trim-end');
         const endTime = endInput ? (parseFloat(endInput.value) || video.duration) : video.duration;
 
-        // 현재 시간이 범위 밖이면 시작 시간으로 이동
-        if (video.currentTime < startTime || video.currentTime >= endTime) {
-          video.currentTime = startTime;
+        // 처음부터 재생 시작 (선택 구간은 timeupdate에서 스킵)
+        if (video.currentTime === 0 || video.currentTime >= video.duration) {
+          video.currentTime = 0;
+        }
+        // 선택 구간 내에 있으면 끝 시간으로 이동
+        else if (video.currentTime >= startTime && video.currentTime < endTime) {
+          video.currentTime = endTime;
         }
       }
     }
@@ -459,8 +394,8 @@ function setupVideoControls() {
       // Update playhead bar position
       updatePlayheadPosition(video.currentTime, video.duration);
 
-      // 영상 자르기 모드에서는 설정된 범위 내에서만 재생
-      if (activeTool === 'trim') {
+      // 영상 자르기 모드에서는 선택 구간을 제외하고 재생
+      if (activeTool === 'trim' && !isUserSeekingSlider && !isPreviewingRange) {
         const startInput = document.getElementById('trim-start');
         const endInput = document.getElementById('trim-end');
 
@@ -468,10 +403,15 @@ function setupVideoControls() {
           const startTime = parseFloat(startInput.value) || 0;
           const endTime = parseFloat(endInput.value) || video.duration;
 
-          // 끝 시간을 초과하면 일시정지 (1회 재생)
-          if (video.currentTime >= endTime) {
-            video.pause();
+          // 선택 구간에 도달하면 자동으로 스킵 (재생 중일 때만)
+          if (!video.paused && video.currentTime >= startTime && video.currentTime < endTime) {
             video.currentTime = endTime;
+          }
+
+          // 영상 끝까지 재생하면 일시정지
+          if (video.currentTime >= video.duration) {
+            video.pause();
+            video.currentTime = video.duration;
           }
         }
       }
@@ -511,11 +451,31 @@ function setupVideoControls() {
     }
   });
 
+  // Track when user starts dragging slider
+  slider.addEventListener('mousedown', () => {
+    isUserSeekingSlider = true;
+  });
+
   slider.addEventListener('input', (e) => {
     if (video.duration) {
       const time = (e.target.value / 100) * video.duration;
       video.currentTime = time;
     }
+  });
+
+  // Reset flag when user releases slider
+  slider.addEventListener('mouseup', () => {
+    // Small delay to ensure timeupdate doesn't trigger immediately
+    setTimeout(() => {
+      isUserSeekingSlider = false;
+    }, 100);
+  });
+
+  // Also handle when user clicks on slider track (not dragging)
+  slider.addEventListener('change', () => {
+    setTimeout(() => {
+      isUserSeekingSlider = false;
+    }, 100);
   });
 
   video.addEventListener('loadedmetadata', () => {
@@ -705,28 +665,38 @@ function updatePlayheadPosition(currentTime, duration) {
   if (!playheadBar || !videoInfo) return;
 
   const audioTrack = document.getElementById('audio-track');
+  const waveformImg = document.getElementById('audio-waveform');
   if (!audioTrack) return;
-
-  // Show playhead bar
-  playheadBar.style.display = 'block';
 
   // Calculate position as percentage of total duration
   const totalPercentage = currentTime / duration;
 
-  // Check if playhead is within zoomed range
-  if (totalPercentage < zoomStart || totalPercentage > zoomEnd) {
-    // Playhead is outside visible range
-    playheadBar.style.display = 'none';
-    return;
-  }
+  // Always show playhead bar
+  playheadBar.style.display = 'block';
 
-  // Map to visible range
+  // Apply the same zoom transformation as the waveform
   const zoomRange = zoomEnd - zoomStart;
-  const percentageInZoom = (totalPercentage - zoomStart) / zoomRange;
-  const displayPercentage = percentageInZoom * 100;
+  const scale = 1 / zoomRange;
+
+  // Playhead needs to be positioned at totalPercentage within the FULL waveform
+  // But the waveform is now scaled and shifted
+
+  // Position in the original (unscaled) waveform: totalPercentage * 100%
+  // After scaling: we need to apply the same width and margin-left as waveform
+
+  // The playhead's left position relative to the SCALED waveform
+  const playheadPositionOnScaledWaveform = totalPercentage * scale * 100; // percentage of scaled width
+
+  // Apply the same margin-left shift as the waveform
+  const marginLeftPercent = -(zoomStart / zoomRange) * 100;
+
+  // Final position: position on scaled waveform + margin shift
+  const finalLeft = playheadPositionOnScaledWaveform + marginLeftPercent;
+
+  console.log(`Playhead update: time=${currentTime.toFixed(2)}s, totalPct=${(totalPercentage*100).toFixed(1)}%, zoom=${(zoomStart*100).toFixed(1)}-${(zoomEnd*100).toFixed(1)}%, finalLeft=${finalLeft.toFixed(1)}%`);
 
   // Update playhead position
-  playheadBar.style.left = `${displayPercentage}%`;
+  playheadBar.style.left = `${finalLeft}%`;
 }
 
 // Setup playhead interaction (click and drag)
@@ -860,6 +830,36 @@ function applyWaveformZoom() {
   console.log(`Waveform zoom: zoomStart=${(zoomStart*100).toFixed(1)}%, zoomEnd=${(zoomEnd*100).toFixed(1)}%`);
   console.log(`Applied: width=${(scale*100).toFixed(1)}%, marginLeft=${marginLeftPercent.toFixed(1)}%`);
   console.log(`Container width: ${containerWidth}px`);
+
+  // Update playhead position after zoom
+  const video = document.getElementById('preview-video');
+  if (video && video.duration) {
+    updatePlayheadPosition(video.currentTime, video.duration);
+  }
+
+  // Update zoom range overlay on timeline slider
+  updateZoomRangeOverlay();
+}
+
+// Update zoom range overlay on timeline slider
+function updateZoomRangeOverlay() {
+  const overlay = document.getElementById('zoom-range-overlay');
+  if (!overlay) return;
+
+  // If not zoomed (full range), hide overlay
+  if (zoomStart === 0 && zoomEnd === 1) {
+    overlay.style.display = 'none';
+    return;
+  }
+
+  // Show overlay and position it
+  overlay.style.display = 'block';
+  const startPercent = zoomStart * 100;
+  const endPercent = zoomEnd * 100;
+  const widthPercent = endPercent - startPercent;
+
+  overlay.style.left = `${startPercent}%`;
+  overlay.style.width = `${widthPercent}%`;
 }
 
 // Update trim duration display
@@ -1153,6 +1153,9 @@ function previewTrimRange() {
     return;
   }
 
+  // Set preview flag to prevent auto-skip
+  isPreviewingRange = true;
+
   // Move to start position and play
   video.currentTime = startTime;
   video.play();
@@ -1173,6 +1176,9 @@ function previewTrimRange() {
     if (video.currentTime >= endTime) {
       video.pause();
       clearInterval(checkTime);
+
+      // Reset preview flag
+      isPreviewingRange = false;
 
       // Update timeline to end position
       if (video.duration && slider) {
@@ -1463,8 +1469,8 @@ async function executeTrimVideoOnly() {
   }
 
   const maxDuration = parseFloat(videoInfo.format.duration);
-  const startTime = parseFloat(document.getElementById('trim-video-start').value);
-  const endTime = parseFloat(document.getElementById('trim-video-end').value);
+  const startTime = parseFloat(document.getElementById('trim-start').value);
+  const endTime = parseFloat(document.getElementById('trim-end').value);
 
   if (isNaN(startTime) || isNaN(endTime)) {
     alert('유효한 숫자를 입력해주세요.');
@@ -1715,8 +1721,8 @@ async function executeTrimAudioOnly() {
   }
 
   const maxDuration = parseFloat(videoInfo.format.duration);
-  const startTime = parseFloat(document.getElementById('trim-audio-start').value);
-  const endTime = parseFloat(document.getElementById('trim-audio-end').value);
+  const startTime = parseFloat(document.getElementById('trim-start').value);
+  const endTime = parseFloat(document.getElementById('trim-end').value);
 
   if (isNaN(startTime) || isNaN(endTime)) {
     alert('유효한 숫자를 입력해주세요.');
