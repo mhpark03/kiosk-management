@@ -4,11 +4,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## System Overview
 
-This is a **Kiosk Management System** consisting of three applications:
+This is a **Kiosk Management System** consisting of four applications:
 
 1. **backend/** - Spring Boot REST API for managing kiosks, stores, videos/images, and events
 2. **firstapp/** - React web dashboard for administrators (Vite + React 19)
 3. **kiosk-downloader/** - Electron desktop app for kiosk devices to download/manage videos
+4. **video-editor/** - Electron desktop app for advanced video/audio editing with FFmpeg
 
 ### Architecture Flow
 
@@ -63,6 +64,18 @@ npm run lint         # Run ESLint
 cd kiosk-downloader
 npm install
 npm start                    # Run in development
+npm run build:win            # Build Windows installer
+```
+
+### Video Editor (Electron)
+
+**Prerequisites**: FFmpeg must be installed and available in PATH or placed in `video-editor/ffmpeg/` directory.
+
+```bash
+cd video-editor
+npm install
+npm start                    # Run in development (with UTF-8 encoding)
+npm start-dev                # Run in development mode
 npm run build:win            # Build Windows installer
 ```
 
@@ -447,6 +460,79 @@ Response:
 - Resolution normalization ensures videos with different dimensions can be merged
 - Black padding added to maintain 16:9 aspect ratio when needed
 - CORS must allow OPTIONS preflight requests for cross-origin access
+
+### Video Editor Application Architecture
+
+The video-editor is a standalone Electron desktop application for advanced video/audio editing using FFmpeg.
+
+**Key Components:**
+- `main.js` - Electron main process with FFmpeg integration and IPC handlers
+- `preload.js` - Exposes safe FFmpeg APIs to renderer process
+- `renderer/app.js` - UI logic with timeline, waveform visualization, and editing controls (~2500 lines)
+- `renderer/index.html` - Multi-panel UI (sidebar, preview, timeline, properties)
+- `renderer/styles.css` - Comprehensive styling with z-index layering
+
+**FFmpeg Integration:**
+- Searches for FFmpeg in: system PATH → `video-editor/ffmpeg/` → bundled resources
+- All video operations execute via child processes with progress callbacks
+- Supports video formats: MP4, AVI, MOV, MKV, WebM
+- Supports audio formats: MP3, WAV, AAC, OGG
+
+**Audio Waveform Visualization:**
+- Generated using FFmpeg showwavespic filter at 1800x200 resolution
+- Stored as PNG in temp directory, displayed in timeline
+- Zoom functionality: Double-click to reset, drag to select zoom range
+- Playhead bar synchronized with video currentTime, accounts for zoom transform
+- Uses pixel-based coordinate system for accurate positioning
+
+**Timeline Slider Drag System:**
+- Pixel-based coordinates (not percentage-based) for stable drag state
+- Global document listeners for mousemove/mouseup to prevent state loss
+- 10px threshold to distinguish click from drag
+- Auto-sets trim range on drag completion in trim mode
+- Visual feedback with red selection box during drag (z-index: 4)
+- Implementation pattern matches audio track zoom for consistency
+
+**Timeline Overlay Z-Index Hierarchy:**
+1. Timeline slider (z-index: 1, bottom layer)
+2. Zoom range overlay (z-index: 2, yellow, for audio zoom visualization)
+3. Trim/audio range overlays (z-index: 3, red/purple, for editing ranges)
+4. Drag selection box (z-index: 4, top layer, shown during active drag)
+
+**Logging System:**
+- Daily log files: `logs/video-editor-YYYY-MM-DD-NNN.log` with sequence numbers
+- UTF-8 encoding with BOM for Korean character support
+- KST timezone formatting: `YYYY/MM/DD-HH:MM:SS`
+- All FFmpeg operations logged with command, progress, and results
+- Logs sent to renderer via IPC for console display
+
+**Editing Features:**
+- Trim: Extract specific time range (video-only, audio-only, or both)
+- Merge: Concatenate multiple videos with transition effects (fade, xfade)
+- Audio insert: Add background music with volume control at specific timestamp
+- Audio extract: Save audio track as separate file
+- Volume adjust: Amplify/reduce audio levels
+- Filters: Brightness, contrast, saturation, blur, sharpen
+- Text overlay: Position, size, color, time-based display
+- Speed adjust: 0.25x to 4x playback speed
+
+**State Management:**
+- Global variables track: currentVideo, videoInfo, activeTool, zoomStart/End
+- Flags for user interaction: isUserSeekingSlider, sliderIsDragging
+- Audio preview element for background music testing before insertion
+- Trim/audio range overlays updated in real-time based on input values
+
+**Backend Integration (Optional):**
+- Can connect to backend API for video upload/download
+- Uses presigned S3 URLs for large file transfers
+- Configured via `renderer/api.js` with axios HTTP client
+
+**Important Implementation Notes:**
+- Always use pixel coordinates for drag operations, convert to percentages only when needed
+- Reset drag state on mouseup, mouseleave, and global document mouseup
+- Update overlays synchronously with input changes for immediate feedback
+- Use `chcp 65001` in npm scripts to ensure UTF-8 encoding on Windows
+- FFmpeg processes spawn with `{ encoding: 'utf8' }` for proper Korean text handling
 
 ### Runway ML API Version Header
 
