@@ -1309,6 +1309,17 @@ function setupAudioTrackInteraction() {
     isDraggingZoom = true;
     const rect = audioTrack.getBoundingClientRect();
     zoomStartX = e.clientX - rect.left;
+
+    // Log drag start
+    const duration = audioFileInfo?.format?.duration;
+    if (duration) {
+      const startPercent = zoomStartX / rect.width;
+      const currentRangeDuration = (zoomEnd - zoomStart) * duration;
+      const currentStartTime = zoomStart * duration;
+      const dragStartTime = currentStartTime + (startPercent * currentRangeDuration);
+      console.log(`🖱️ Drag START at pixel ${zoomStartX.toFixed(0)}px (${(startPercent*100).toFixed(1)}%) → ${dragStartTime.toFixed(3)}s`);
+    }
+
     zoomSelection.style.left = zoomStartX + 'px';
     zoomSelection.style.width = '0px';
     zoomSelection.style.display = 'block';
@@ -1337,6 +1348,17 @@ function setupAudioTrackInteraction() {
       const currentX = e.clientX - rect.left;
       const startPercent = Math.min(zoomStartX, currentX) / rect.width;
       const endPercent = Math.max(zoomStartX, currentX) / rect.width;
+
+      // Log drag end
+      const duration = audioFileInfo?.format?.duration;
+      if (duration) {
+        const currentRangeDuration = (zoomEnd - zoomStart) * duration;
+        const currentStartTime = zoomStart * duration;
+        const endPixel = Math.max(zoomStartX, currentX);
+        const endPercent_ = endPixel / rect.width;
+        const dragEndTime = currentStartTime + (endPercent_ * currentRangeDuration);
+        console.log(`🖱️ Drag END at pixel ${endPixel.toFixed(0)}px (${(endPercent_*100).toFixed(1)}%) → ${dragEndTime.toFixed(3)}s`);
+      }
 
       // Only zoom if selection is big enough (at least 5% of visible track)
       if (endPercent - startPercent > 0.05) {
@@ -1533,6 +1555,11 @@ async function applyWaveformZoomDebounced() {
       console.log(`Regenerating waveform for time range: ${startTime.toFixed(2)}s - ${endTime.toFixed(2)}s (duration: ${rangeDuration.toFixed(2)}s)`);
       console.log(`  Percentage: ${(zoomStart*100).toFixed(1)}% - ${(zoomEnd*100).toFixed(1)}%`);
 
+      // Log waveform regeneration start time for debugging
+      const regenerationStartTime = new Date().toISOString().split('T')[1].slice(0, -1); // HH:MM:SS.mmm format
+      console.log(`🎨 Waveform regeneration STARTED at ${regenerationStartTime}`);
+      console.log(`  → Display start: ${startTime.toFixed(3)}s | Range: ${rangeDuration.toFixed(3)}s | Zoom: ${(1/zoomRange).toFixed(1)}x`);
+
       // Generate waveform for the zoomed range
       const base64Image = await window.electronAPI.generateWaveformRange({
         videoPath: videoPath,
@@ -1556,6 +1583,10 @@ async function applyWaveformZoomDebounced() {
 
           // Mark waveform as regenerated to prevent re-scaling
           isWaveformRegenerated = true;
+
+          // Log completion time
+          const regenerationEndTime = new Date().toISOString().split('T')[1].slice(0, -1);
+          console.log(`✅ Waveform regeneration COMPLETED at ${regenerationEndTime}`);
           console.log('Zoomed waveform regenerated successfully - showing detailed range');
 
           // Move video to the start of the zoomed range if in video mode

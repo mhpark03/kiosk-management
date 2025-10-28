@@ -540,13 +540,12 @@ ipcMain.handle('generate-waveform-range', async (event, options) => {
 
   return new Promise((resolve, reject) => {
     // Generate waveform for specific time range using FFmpeg
-    // -ss: start time, -t: duration
+    // Use atrim filter to precisely trim audio before generating waveform
+    const endTime = startTime + duration;
     const args = [
-      '-ss', startTime.toString(),
       '-i', videoPath,
-      '-t', duration.toString(),
       '-filter_complex',
-      '[0:a]showwavespic=s=1200x300:colors=#667eea:draw=scale:scale=lin:split_channels=1[wave]',
+      `[0:a]atrim=start=${startTime}:end=${endTime},asetpts=PTS-STARTPTS[trimmed];[trimmed]showwavespic=s=1200x300:colors=#667eea:draw=scale:scale=lin:split_channels=1[wave]`,
       '-map', '[wave]',
       '-frames:v', '1',
       '-y',
@@ -569,6 +568,25 @@ ipcMain.handle('generate-waveform-range', async (event, options) => {
           // Read the generated PNG and convert to base64
           const imageBuffer = fs.readFileSync(waveformPath);
           const base64Image = `data:image/png;base64,${imageBuffer.toString('base64')}`;
+
+          // Save debug copy to waveform_debug folder
+          try {
+            const debugDir = path.join(__dirname, 'waveform_debug');
+            if (!fs.existsSync(debugDir)) {
+              fs.mkdirSync(debugDir, { recursive: true });
+            }
+
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+            const debugFileName = `waveform_${startTime.toFixed(3)}s-${(startTime + duration).toFixed(3)}s_dur${duration.toFixed(3)}s_${timestamp}.png`;
+            const debugPath = path.join(debugDir, debugFileName);
+
+            fs.copyFileSync(waveformPath, debugPath);
+            console.log(`🖼️ Waveform debug image saved: ${debugPath}`);
+          } catch (debugErr) {
+            logError('WAVEFORM_DEBUG_SAVE', 'Failed to save debug waveform', {
+              error: debugErr.message
+            });
+          }
 
           // Clean up temp file
           try {
