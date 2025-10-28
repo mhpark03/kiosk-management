@@ -73,10 +73,19 @@ function setupToolButtons() {
 
 // Select tool
 function selectTool(tool) {
-  // 영상 가져오기를 제외한 모든 도구는 영상이 로드되지 않았으면 선택 불가
-  if (tool !== 'import' && !currentVideo) {
-    alert('먼저 영상을 가져와주세요.');
-    return;
+  // Check if file is loaded based on current mode
+  if (currentMode === 'video') {
+    // Video mode: require video for all tools except import
+    if (tool !== 'import' && !currentVideo) {
+      alert('먼저 영상을 가져와주세요.');
+      return;
+    }
+  } else if (currentMode === 'audio') {
+    // Audio mode: require audio for all tools except import-audio
+    if (tool !== 'import-audio' && !currentAudioFile) {
+      alert('먼저 음성 파일을 가져와주세요.');
+      return;
+    }
   }
 
   activeTool = tool;
@@ -116,6 +125,10 @@ function showToolProperties(tool) {
   switch (tool) {
     case 'import':
       importVideo();
+      break;
+
+    case 'import-audio':
+      importAudioFile();
       break;
 
     case 'trim':
@@ -176,17 +189,28 @@ function showToolProperties(tool) {
       propertiesPanel.innerHTML = `
         <div class="property-group">
           <label>시작 시간 (초)</label>
-          <input type="number" id="audio-trim-start" min="0" max="${audioDuration}" step="0.1" value="0" style="width: 100%; padding: 10px;">
-          <small style="color: #888; font-size: 11px; display: block; margin-top: 5px;">최대: ${audioDuration.toFixed(2)}초</small>
+          <div style="display: flex; gap: 5px; align-items: center;">
+            <input type="number" id="audio-trim-start" min="0" max="${audioDuration}" step="0.1" value="0" style="flex: 1; padding: 8px;">
+            <button class="property-btn secondary" onclick="setAudioStartFromSlider()" style="width: auto; padding: 8px 12px; margin: 0;" title="타임라인 위치를 시작 시간으로">🔄</button>
+            <button class="property-btn secondary" onclick="moveSliderToAudioStart()" style="width: auto; padding: 8px 12px; margin: 0;" title="시작 위치로 이동">▶️</button>
+          </div>
+          <small style="color: #888; font-size: 11px;">최대: ${audioDuration.toFixed(2)}초</small>
         </div>
         <div class="property-group">
           <label>끝 시간 (초)</label>
-          <input type="number" id="audio-trim-end" min="0" max="${audioDuration}" step="0.1" value="${audioDuration.toFixed(2)}" style="width: 100%; padding: 10px;">
-          <small style="color: #888; font-size: 11px; display: block; margin-top: 5px;">최대: ${audioDuration.toFixed(2)}초</small>
+          <div style="display: flex; gap: 5px; align-items: center;">
+            <input type="number" id="audio-trim-end" min="0" max="${audioDuration}" step="0.1" value="${audioDuration.toFixed(2)}" style="flex: 1; padding: 8px;">
+            <button class="property-btn secondary" onclick="setAudioEndFromSlider()" style="width: auto; padding: 8px 12px; margin: 0;" title="타임라인 위치를 끝 시간으로">🔄</button>
+            <button class="property-btn secondary" onclick="moveSliderToAudioEnd()" style="width: auto; padding: 8px 12px; margin: 0;" title="끝 위치로 이동">▶️</button>
+          </div>
+          <small style="color: #888; font-size: 11px;">최대: ${audioDuration.toFixed(2)}초</small>
         </div>
-        <div class="property-group" style="background: #2d2d2d; padding: 10px; border-radius: 5px;">
+        <div class="property-group" style="background: #2d2d2d; padding: 10px; border-radius: 5px; margin-top: 10px;">
           <label style="color: #667eea;">자르기 구간 길이</label>
           <div id="audio-trim-duration-display" style="font-size: 16px; font-weight: 600; color: #e0e0e0; margin-top: 5px;">0.00초</div>
+        </div>
+        <div style="display: flex; gap: 10px; margin-top: 10px;">
+          <button class="property-btn secondary" onclick="previewAudioTrimRange()" style="flex: 1;">🎵 구간 미리듣기</button>
         </div>
         <button class="property-btn" onclick="executeTrimAudioFile()">✂️ 음성 자르기</button>
         <div style="background: #3a3a3a; padding: 10px; border-radius: 5px; margin-top: 10px;">
@@ -262,6 +286,25 @@ function showToolProperties(tool) {
 
       // 파일 리스트 업데이트
       updateMergeFileList();
+      break;
+
+    case 'merge-audio':
+      // 현재 로드된 오디오가 있으면 병합 리스트에 자동 추가
+      if (currentAudioFile && !mergeAudios.includes(currentAudioFile)) {
+        mergeAudios = [currentAudioFile]; // 현재 오디오를 첫 번째로 설정
+      }
+
+      propertiesPanel.innerHTML = `
+        <div class="property-group">
+          <label>병합할 오디오 파일들 (순서대로 이어붙이기)</label>
+          <div id="merge-audio-files" class="file-list"></div>
+          <button class="property-btn secondary" onclick="addAudioToMerge()">+ 오디오 추가</button>
+        </div>
+        <button class="property-btn" onclick="executeMergeAudio()">오디오 병합</button>
+      `;
+
+      // 파일 리스트 업데이트
+      updateMergeAudioFileList();
       break;
 
     case 'add-audio':
@@ -413,6 +456,37 @@ function setupVideoControls() {
   const currentTimeDisplay = document.getElementById('current-time');
 
   playBtn.addEventListener('click', () => {
+    // Audio mode: play audio file
+    if (currentMode === 'audio') {
+      const audioElement = document.getElementById('preview-audio');
+      if (audioElement) {
+        // 음성 자르기 모드에서는 선택 구간을 제외하고 재생
+        if (activeTool === 'trim-audio') {
+          const startInput = document.getElementById('audio-trim-start');
+          const endInput = document.getElementById('audio-trim-end');
+
+          if (startInput && endInput) {
+            const startTime = parseFloat(startInput.value) || 0;
+            const endTime = parseFloat(endInput.value) || audioElement.duration;
+
+            // 처음부터 재생 시작 (선택 구간은 timeupdate에서 스킵)
+            if (audioElement.currentTime === 0 || audioElement.currentTime >= audioElement.duration) {
+              audioElement.currentTime = 0;
+            }
+            // 선택 구간 내에 있으면 끝 시간으로 이동
+            else if (audioElement.currentTime >= startTime && audioElement.currentTime < endTime) {
+              audioElement.currentTime = endTime;
+            }
+          }
+        }
+
+        audioElement.play();
+        updateStatus('재생 중...');
+      }
+      return;
+    }
+
+    // Video mode: existing video playback logic
     // 영상 자르기 모드에서는 처음부터 재생 (선택 구간 제외)
     if (activeTool === 'trim') {
       const startInput = document.getElementById('trim-start');
@@ -469,6 +543,17 @@ function setupVideoControls() {
   });
 
   pauseBtn.addEventListener('click', () => {
+    // Audio mode: pause audio file
+    if (currentMode === 'audio') {
+      const audioElement = document.getElementById('preview-audio');
+      if (audioElement) {
+        audioElement.pause();
+        updateStatus('일시정지');
+      }
+      return;
+    }
+
+    // Video mode: existing video pause logic
     video.pause();
     // Stop audio preview when pausing
     if (audioPreviewElement) {
@@ -551,30 +636,65 @@ function setupVideoControls() {
   // Get slider container for coordinate calculations
   const sliderContainer = slider.parentElement;
 
-  slider.addEventListener('mousedown', (e) => {
-    isUserSeekingSlider = true;
+  // Function to check if click is near the thumb position
+  const isClickNearThumb = (clickX, sliderValue, sliderMax, sliderWidth) => {
+    const thumbPosition = (sliderValue / sliderMax) * sliderWidth;
+    const distance = Math.abs(clickX - thumbPosition);
+    const threshold = 15; // pixels - thumb hit area
+    return distance <= threshold;
+  };
 
-    // Record pixel position for trim mode
-    if (activeTool === 'trim' && video.duration && sliderContainer) {
-      const rect = sliderContainer.getBoundingClientRect();
-      sliderDragStartX = e.clientX - rect.left; // Pixel position, not percentage
-      sliderDragStartTime = video.currentTime;
-      console.log(`[Slider] Drag start: x=${sliderDragStartX.toFixed(0)}px, time=${sliderDragStartTime.toFixed(2)}s`);
+  // Add mousedown listener to slider for both thumb drag and trim range selection
+  slider.addEventListener('mousedown', (e) => {
+    const isVideoTrim = activeTool === 'trim' && currentMode === 'video' && video.duration;
+    const isAudioTrim = activeTool === 'trim-audio' && currentMode === 'audio' && audioFileInfo;
+
+    if (isVideoTrim || isAudioTrim) {
+      const rect = slider.getBoundingClientRect();
+      const clickX = e.clientX - rect.left;
+      const sliderWidth = rect.width;
+      const sliderValue = parseFloat(slider.value);
+      const sliderMax = parseFloat(slider.max);
+
+      // Check if clicking near the thumb
+      const clickingThumb = isClickNearThumb(clickX, sliderValue, sliderMax, sliderWidth);
+
+      if (clickingThumb) {
+        // Clicking on thumb - allow normal seeking
+        // Set flag to prevent auto-skip during thumb drag
+        isUserSeekingSlider = true;
+        // DO NOT call preventDefault() - let the slider handle it
+      } else {
+        // Clicking away from thumb - start trim range selection
+        isUserSeekingSlider = true;
+        sliderDragStartX = clickX;
+
+        if (isVideoTrim) {
+          sliderDragStartTime = video.currentTime;
+        } else if (isAudioTrim) {
+          sliderDragStartTime = 0;
+        }
+        e.preventDefault(); // Prevent slider from seeking
+      }
     }
   });
 
   // Track mouse movement using global document listener (like audio zoom)
   document.addEventListener('mousemove', (e) => {
-    if (isUserSeekingSlider && sliderDragStartX !== null && activeTool === 'trim' && sliderContainer) {
-      const rect = sliderContainer.getBoundingClientRect();
+    const isTrimMode = activeTool === 'trim' || activeTool === 'trim-audio';
+
+    if (isUserSeekingSlider && sliderDragStartX !== null && isTrimMode && slider) {
+      const rect = slider.getBoundingClientRect();
       const currentX = e.clientX - rect.left;
       const moveDistance = Math.abs(currentX - sliderDragStartX);
 
       // Detect actual drag (10px threshold)
       if (moveDistance > 10) {
         sliderIsDragging = true;
+      }
 
-        // Show drag selection box using pixel coordinates
+      if (sliderIsDragging) {
+        // Show drag selection box using pixel coordinates relative to slider
         const width = Math.abs(currentX - sliderDragStartX);
         const left = Math.min(sliderDragStartX, currentX);
 
@@ -586,42 +706,106 @@ function setupVideoControls() {
   });
 
   slider.addEventListener('input', (e) => {
-    if (video.duration) {
+    // Only update video time in video mode
+    if (currentMode === 'video' && video && video.duration) {
       const time = (e.target.value / 100) * video.duration;
       video.currentTime = time;
+    }
+
+    // In audio mode, slider value is already in seconds (slider.max = duration)
+    if (currentMode === 'audio' && audioFileInfo) {
+      const audioDuration = parseFloat(audioFileInfo.format.duration);
+      const time = parseFloat(e.target.value); // Direct time value in seconds
+      const currentTimeDisplay = document.getElementById('current-time');
+      if (currentTimeDisplay) {
+        currentTimeDisplay.textContent = formatTime(time);
+      }
+
+      // Seek audio element to slider position
+      const audioElement = document.getElementById('preview-audio');
+      if (audioElement && !isNaN(audioElement.duration)) {
+        audioElement.currentTime = time;
+      }
+
+      // Update playhead bar position in audio track
+      const playheadBar = document.getElementById('playhead-bar');
+      if (playheadBar) {
+        // Calculate percentage relative to full duration
+        const percentage = time / audioDuration;
+
+        // Check if current time is within zoomed range
+        if (percentage >= zoomStart && percentage <= zoomEnd) {
+          // Show playhead and position it relative to zoomed range
+          playheadBar.style.display = 'block';
+          const relativePosition = ((percentage - zoomStart) / (zoomEnd - zoomStart)) * 100;
+          playheadBar.style.left = `${relativePosition}%`;
+        } else {
+          // Hide playhead when outside zoomed range
+          playheadBar.style.display = 'none';
+        }
+      }
     }
   });
 
   // Global mouseup listener (like audio zoom)
   document.addEventListener('mouseup', (e) => {
-    if (isUserSeekingSlider && activeTool === 'trim' && sliderIsDragging && sliderDragStartX !== null && video.duration && sliderContainer) {
-      const rect = sliderContainer.getBoundingClientRect();
+    const isVideoTrim = activeTool === 'trim' && currentMode === 'video' && video.duration;
+    const isAudioTrim = activeTool === 'trim-audio' && currentMode === 'audio' && audioFileInfo;
+
+    // Handle drag to set trim range
+    if (isUserSeekingSlider && sliderIsDragging && sliderDragStartX !== null && slider) {
+      const rect = slider.getBoundingClientRect();
       const currentX = e.clientX - rect.left;
 
-      // Calculate start and end percentages from pixel positions
+      // Calculate start and end percentages from pixel positions (relative to slider)
       const startPercent = Math.min(sliderDragStartX, currentX) / rect.width;
       const endPercent = Math.max(sliderDragStartX, currentX) / rect.width;
 
-      // Convert to time values
-      const startTime = startPercent * video.duration;
-      const endTime = endPercent * video.duration;
+      if (isVideoTrim) {
+        // Video trim mode
+        const startTime = startPercent * video.duration;
+        const endTime = endPercent * video.duration;
 
-      // Only set if drag distance is significant (at least 0.5 seconds)
-      if (Math.abs(endTime - startTime) > 0.5) {
-        const startInput = document.getElementById('trim-start');
-        const endInput = document.getElementById('trim-end');
+        // Only set if drag distance is significant (at least 0.5 seconds)
+        if (Math.abs(endTime - startTime) > 0.5) {
+          const startInput = document.getElementById('trim-start');
+          const endInput = document.getElementById('trim-end');
 
-        if (startInput && endInput) {
-          startInput.value = startTime.toFixed(2);
-          endInput.value = endTime.toFixed(2);
+          if (startInput && endInput) {
+            startInput.value = startTime.toFixed(2);
+            endInput.value = endTime.toFixed(2);
 
-          updateTrimDurationDisplay();
-          updateTrimRangeOverlay(startTime, endTime, video.duration);
-          updateStatus(`구간 선택: ${formatTime(startTime)} ~ ${formatTime(endTime)}`);
+            updateTrimDurationDisplay();
+            updateTrimRangeOverlay(startTime, endTime, video.duration);
+            updateStatus(`구간 선택: ${formatTime(startTime)} ~ ${formatTime(endTime)}`);
 
-          console.log(`[Slider] Trim range set: ${startTime.toFixed(2)}s - ${endTime.toFixed(2)}s (from pixels: ${Math.min(sliderDragStartX, currentX).toFixed(0)}-${Math.max(sliderDragStartX, currentX).toFixed(0)})`);
+            console.log(`[Slider] Video trim range set: ${startTime.toFixed(2)}s - ${endTime.toFixed(2)}s`);
+          }
+        }
+      } else if (isAudioTrim) {
+        // Audio trim mode
+        const audioDuration = parseFloat(audioFileInfo.format.duration);
+        const startTime = startPercent * audioDuration;
+        const endTime = endPercent * audioDuration;
+
+        // Only set if drag distance is significant (at least 0.5 seconds)
+        if (Math.abs(endTime - startTime) > 0.5) {
+          const startInput = document.getElementById('audio-trim-start');
+          const endInput = document.getElementById('audio-trim-end');
+
+          if (startInput && endInput) {
+            startInput.value = startTime.toFixed(2);
+            endInput.value = endTime.toFixed(2);
+
+            updateAudioTrimDurationDisplay();
+            updateStatus(`구간 선택: ${formatTime(startTime)} ~ ${formatTime(endTime)}`);
+          }
         }
       }
+    }
+    // Handle click (not drag) - allow normal seeking even in trim range
+    else if (isUserSeekingSlider && !sliderIsDragging && (isVideoTrim || isAudioTrim)) {
+      // Click without drag - the slider's input event already handled the position update
     }
 
     // Reset drag state
@@ -890,7 +1074,8 @@ function setupPlayheadInteraction() {
   const video = document.getElementById('preview-video');
   const zoomSelection = document.getElementById('zoom-selection');
 
-  if (!audioTrack || !playheadBar || !video || !zoomSelection) return;
+  if (!audioTrack || !playheadBar || !zoomSelection) return;
+  if (!video && currentMode === 'video') return; // Video is required only in video mode
 
   let isDraggingPlayhead = false;
   let isDraggingZoom = false;
@@ -898,6 +1083,8 @@ function setupPlayheadInteraction() {
 
   // Function to update video time based on click position (considering zoom)
   const updateVideoTimeFromClick = (e) => {
+    if (currentMode !== 'video' || !video) return; // Only for video mode
+
     const rect = audioTrack.getBoundingClientRect();
     const clickX = e.clientX - rect.left;
     const percentage = (clickX / rect.width);
@@ -982,6 +1169,131 @@ function setupPlayheadInteraction() {
     zoomStart = 0;
     zoomEnd = 1;
     console.log('Zoom reset');
+    applyWaveformZoom();
+  });
+}
+
+// Setup audio track interaction for audio mode (zoom only, no playhead)
+function setupAudioTrackInteraction() {
+  const audioTrack = document.getElementById('audio-track');
+  const zoomSelection = document.getElementById('zoom-selection');
+  const playheadBar = document.getElementById('playhead-bar');
+
+  if (!audioTrack || !zoomSelection) {
+    console.error('Audio track or zoom selection element not found');
+    return;
+  }
+
+  let isDraggingZoom = false;
+  let isDraggingPlayhead = false;
+  let zoomStartX = 0;
+
+  // Function to update audio time based on click position (considering zoom)
+  const updateAudioTimeFromClick = (e) => {
+    if (currentMode !== 'audio' || !audioFileInfo) return;
+
+    const rect = audioTrack.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const percentage = (clickX / rect.width);
+    const clampedPercentage = Math.max(0, Math.min(1, percentage));
+
+    const audioDuration = parseFloat(audioFileInfo.format.duration);
+    if (audioDuration) {
+      // Map percentage to zoomed time range
+      const zoomRange = zoomEnd - zoomStart;
+      const timeInZoom = zoomStart + (clampedPercentage * zoomRange);
+      const newTime = timeInZoom * audioDuration;
+
+      // Update audio element
+      const audioElement = document.getElementById('preview-audio');
+      if (audioElement) {
+        audioElement.currentTime = newTime;
+      }
+
+      // Update timeline slider
+      const timelineSlider = document.getElementById('timeline-slider');
+      if (timelineSlider) {
+        timelineSlider.value = newTime;
+      }
+
+      // Update time display
+      const currentTimeDisplay = document.getElementById('current-time');
+      if (currentTimeDisplay) {
+        currentTimeDisplay.textContent = formatTime(newTime);
+      }
+    }
+  };
+
+  // Mouse down on audio track
+  audioTrack.addEventListener('mousedown', (e) => {
+    // Check if clicking on playhead
+    if (e.target === playheadBar || e.target.closest('.playhead-bar')) {
+      isDraggingPlayhead = true;
+      e.preventDefault();
+      return;
+    }
+
+    // Start zoom selection
+    isDraggingZoom = true;
+    const rect = audioTrack.getBoundingClientRect();
+    zoomStartX = e.clientX - rect.left;
+    zoomSelection.style.left = zoomStartX + 'px';
+    zoomSelection.style.width = '0px';
+    zoomSelection.style.display = 'block';
+    e.preventDefault();
+  });
+
+  // Mouse move
+  document.addEventListener('mousemove', (e) => {
+    if (isDraggingPlayhead) {
+      updateAudioTimeFromClick(e);
+    } else if (isDraggingZoom) {
+      const rect = audioTrack.getBoundingClientRect();
+      const currentX = e.clientX - rect.left;
+      const width = Math.abs(currentX - zoomStartX);
+      const left = Math.min(zoomStartX, currentX);
+
+      zoomSelection.style.left = left + 'px';
+      zoomSelection.style.width = width + 'px';
+    }
+  });
+
+  // Mouse up
+  document.addEventListener('mouseup', (e) => {
+    if (isDraggingZoom) {
+      const rect = audioTrack.getBoundingClientRect();
+      const currentX = e.clientX - rect.left;
+      const startPercent = Math.min(zoomStartX, currentX) / rect.width;
+      const endPercent = Math.max(zoomStartX, currentX) / rect.width;
+
+      // Only zoom if selection is big enough (at least 5% of track)
+      if (endPercent - startPercent > 0.05) {
+        // Map percentages to zoom range
+        const zoomRange = zoomEnd - zoomStart;
+        const newZoomStart = zoomStart + (startPercent * zoomRange);
+        const newZoomEnd = zoomStart + (endPercent * zoomRange);
+
+        zoomStart = newZoomStart;
+        zoomEnd = newZoomEnd;
+
+        console.log(`Audio zoom: ${(zoomStart * 100).toFixed(1)}% - ${(zoomEnd * 100).toFixed(1)}%`);
+
+        // Apply zoom to waveform
+        applyWaveformZoom();
+      }
+
+      zoomSelection.style.display = 'none';
+    }
+
+    isDraggingZoom = false;
+    isDraggingPlayhead = false;
+  });
+
+  // Double-click to reset zoom
+  audioTrack.addEventListener('dblclick', () => {
+    zoomStart = 0;
+    zoomEnd = 1;
+    console.log('Audio zoom reset');
     applyWaveformZoom();
   });
 }
@@ -1979,6 +2291,7 @@ async function executeTrimAudioOnly() {
 
 // Merge videos
 let mergeVideos = [];
+let mergeAudios = [];
 
 async function addVideoToMerge() {
   const videoPath = await window.electronAPI.selectVideo();
@@ -2034,6 +2347,60 @@ async function executeMerge() {
   } catch (error) {
     hideProgress();
     handleError('영상 병합', error, '영상 병합에 실패했습니다.');
+  }
+}
+
+// Audio merge functions
+async function addAudioToMerge() {
+  const audioPath = await window.electronAPI.selectAudio();
+  if (!audioPath) return;
+
+  mergeAudios.push(audioPath);
+  updateMergeAudioFileList();
+}
+
+function updateMergeAudioFileList() {
+  const list = document.getElementById('merge-audio-files');
+  list.innerHTML = mergeAudios.map((path, index) => `
+    <div class="file-item">
+      <span>${path.split('\\').pop()}</span>
+      <button onclick="removeMergeAudio(${index})">제거</button>
+    </div>
+  `).join('');
+}
+
+function removeMergeAudio(index) {
+  mergeAudios.splice(index, 1);
+  updateMergeAudioFileList();
+}
+
+async function executeMergeAudio() {
+  if (mergeAudios.length < 2) {
+    alert('최소 2개 이상의 오디오가 필요합니다.');
+    return;
+  }
+
+  const outputPath = await window.electronAPI.selectOutput('merged_audio.mp3');
+
+  if (!outputPath) return;
+
+  showProgress();
+  updateProgress(0, '오디오 병합 중...');
+
+  try {
+    const result = await window.electronAPI.mergeAudios({
+      audioPaths: mergeAudios,
+      outputPath
+    });
+
+    hideProgress();
+    alert('오디오 병합 완료!');
+    loadAudio(result.outputPath);
+    currentAudioFile = result.outputPath;
+    mergeAudios = [];
+  } catch (error) {
+    hideProgress();
+    handleError('오디오 병합', error, '오디오 병합에 실패했습니다.');
   }
 }
 
@@ -2597,10 +2964,146 @@ async function importAudioFile() {
     const duration = parseFloat(audioFileInfo.format.duration);
     const size = (parseFloat(audioFileInfo.format.size || 0) / (1024 * 1024)).toFixed(2);
 
+    // Update status bar
     document.getElementById('current-file').textContent = audioPath.split('\\').pop();
     updateStatus(`음성 파일 로드됨: ${duration.toFixed(2)}초, ${size}MB`);
 
-    alert(`음성 파일이 로드되었습니다.\n길이: ${formatTime(duration)}\n크기: ${size}MB`);
+    // Update preview area to show audio mode
+    const placeholder = document.getElementById('preview-placeholder');
+    const placeholderP = placeholder.querySelector('p');
+    const importBtn = document.getElementById('import-video-btn');
+
+    if (placeholderP) {
+      placeholderP.innerHTML = `
+        <div style="text-align: center;">
+          <div style="font-size: 48px; margin-bottom: 15px;">🎵</div>
+          <div style="font-size: 18px; font-weight: 600; margin-bottom: 10px;">음성 파일 편집 중</div>
+          <div style="font-size: 14px; color: #aaa;">${audioPath.split('\\').pop()}</div>
+          <div style="font-size: 12px; color: #888; margin-top: 8px;">길이: ${formatTime(duration)} | 크기: ${size}MB</div>
+        </div>
+      `;
+    }
+
+    if (importBtn) {
+      importBtn.textContent = '🔄 다른 음성 선택';
+    }
+
+    // Generate and display waveform in audio track
+    updateStatus('파형 생성 중...');
+
+    try {
+      const waveformBase64 = await window.electronAPI.generateWaveform(audioPath);
+      console.log('Waveform generated:', waveformBase64 ? 'Success' : 'Failed');
+
+      const waveformImg = document.getElementById('audio-waveform');
+      if (waveformImg) {
+        if (waveformBase64) {
+          waveformImg.src = waveformBase64;
+          waveformImg.style.display = 'block';
+          waveformImg.style.width = '100%';
+          waveformImg.style.height = '60px';
+          waveformImg.style.objectFit = 'fill';
+          console.log('Waveform image src set successfully');
+        } else {
+          console.error('Waveform generation returned empty result');
+          // Show placeholder waveform
+          waveformImg.style.display = 'none';
+        }
+      } else {
+        console.error('audio-waveform element not found');
+      }
+    } catch (waveformError) {
+      console.error('Waveform generation error:', waveformError);
+      // Continue without waveform - not critical
+    }
+
+    // Enable timeline controls
+    const timelineSlider = document.getElementById('timeline-slider');
+    const playBtn = document.getElementById('play-btn');
+    const pauseBtn = document.getElementById('pause-btn');
+    const playheadBar = document.getElementById('playhead-bar');
+    const audioElement = document.getElementById('preview-audio');
+
+    if (timelineSlider) {
+      timelineSlider.max = duration;
+      timelineSlider.disabled = false;
+    }
+
+    // Load audio file into audio element
+    if (audioElement) {
+      audioElement.src = `file:///${audioPath.replace(/\\/g, '/')}`;
+      audioElement.load();
+
+      // Enable play/pause buttons for audio playback
+      if (playBtn) playBtn.disabled = false;
+      if (pauseBtn) pauseBtn.disabled = false;
+
+      // Update slider and playhead as audio plays
+      audioElement.addEventListener('timeupdate', () => {
+        if (audioElement.duration && timelineSlider) {
+          timelineSlider.value = audioElement.currentTime;
+
+          // Update current time display
+          const currentTimeDisplay = document.getElementById('current-time');
+          if (currentTimeDisplay) {
+            currentTimeDisplay.textContent = formatTime(audioElement.currentTime);
+          }
+
+          // Update playhead bar
+          if (playheadBar) {
+            // Calculate percentage relative to full duration
+            const percentage = audioElement.currentTime / audioElement.duration;
+
+            // Check if current time is within zoomed range
+            if (percentage >= zoomStart && percentage <= zoomEnd) {
+              // Show playhead and position it relative to zoomed range
+              playheadBar.style.display = 'block';
+              const relativePosition = ((percentage - zoomStart) / (zoomEnd - zoomStart)) * 100;
+              playheadBar.style.left = `${relativePosition}%`;
+            } else {
+              // Hide playhead when outside zoomed range
+              playheadBar.style.display = 'none';
+            }
+          }
+
+          // 음성 자르기 모드에서는 선택 구간을 제외하고 재생 (구간 미리듣기 중이거나 사용자가 수동으로 슬라이더 조작 중에는 제외)
+          if (activeTool === 'trim-audio' && !isPreviewingRange && !isUserSeekingSlider) {
+            const startInput = document.getElementById('audio-trim-start');
+            const endInput = document.getElementById('audio-trim-end');
+
+            if (startInput && endInput) {
+              const startTime = parseFloat(startInput.value) || 0;
+              const endTime = parseFloat(endInput.value) || audioElement.duration;
+
+              // 현재 시간이 선택 구간 내에 있으면 끝 시간으로 스킵 (재생 중일 때만)
+              if (audioElement.currentTime >= startTime && audioElement.currentTime < endTime) {
+                console.log(`[Audio Trim] Skipping from ${audioElement.currentTime.toFixed(2)}s to ${endTime.toFixed(2)}s`);
+                audioElement.currentTime = endTime;
+              }
+            }
+          }
+        }
+      });
+
+      // Handle audio end
+      audioElement.addEventListener('ended', () => {
+        updateStatus('재생 완료');
+      });
+    }
+
+    // Show playhead bar for audio mode
+    if (playheadBar) {
+      playheadBar.style.display = 'block';
+      playheadBar.style.left = '0%';
+    }
+
+    // Setup zoom drag interaction (only once)
+    if (!playheadInteractionSetup) {
+      setupAudioTrackInteraction();
+      playheadInteractionSetup = true;
+    }
+
+    updateStatus(`음성 파일 로드 완료: ${duration.toFixed(2)}초, ${size}MB`);
   } catch (error) {
     handleError('음성 파일 로드', error, '음성 파일을 불러오는데 실패했습니다.');
   }
@@ -2611,11 +3114,35 @@ function updateAudioTrimDurationDisplay() {
   const endInput = document.getElementById('audio-trim-end');
   const displayElement = document.getElementById('audio-trim-duration-display');
 
-  if (startInput && endInput && displayElement) {
+  if (startInput && endInput && displayElement && audioFileInfo) {
     const start = parseFloat(startInput.value) || 0;
     const end = parseFloat(endInput.value) || 0;
     const duration = Math.max(0, end - start);
     displayElement.textContent = `${duration.toFixed(2)}초`;
+
+    // Update timeline overlay for audio trim
+    updateAudioTrimRangeOverlay(start, end, parseFloat(audioFileInfo.format.duration));
+  }
+}
+
+function updateAudioTrimRangeOverlay(startTime, endTime, maxDuration) {
+  const overlay = document.getElementById('trim-range-overlay');
+  if (!overlay || !audioFileInfo) return;
+
+  // Show overlay only in audio trim mode
+  if (activeTool === 'trim-audio') {
+    overlay.style.display = 'block';
+
+    // Calculate percentages
+    const startPercent = (startTime / maxDuration) * 100;
+    const endPercent = (endTime / maxDuration) * 100;
+    const widthPercent = endPercent - startPercent;
+
+    // Update overlay position and size
+    overlay.style.left = `${startPercent}%`;
+    overlay.style.width = `${widthPercent}%`;
+  } else {
+    overlay.style.display = 'none';
   }
 }
 
@@ -2646,7 +3173,7 @@ async function executeTrimAudioFile() {
   }
 
   if (startTime >= maxDuration) {
-    alert(`시작 시간은 음성 길이(${maxDuration.toFixed(2)}초)보다 작아야 합니다.');
+    alert(`시작 시간은 음성 길이(${maxDuration.toFixed(2)}초)보다 작아야 합니다.`);
     return;
   }
 
@@ -2694,8 +3221,57 @@ async function executeTrimAudioFile() {
     audioFileInfo = await window.electronAPI.getVideoInfo(result.outputPath);
 
     const newDuration = parseFloat(audioFileInfo.format.duration);
+    const newSize = (parseFloat(audioFileInfo.format.size || 0) / (1024 * 1024)).toFixed(2);
+
+    // Update status bar
     document.getElementById('current-file').textContent = result.outputPath.split('\\').pop();
     updateStatus(`음성 자르기 완료: ${newDuration.toFixed(2)}초`);
+
+    // Update preview area
+    const placeholder = document.getElementById('preview-placeholder');
+    const placeholderP = placeholder.querySelector('p');
+
+    if (placeholderP) {
+      placeholderP.innerHTML = `
+        <div style="text-align: center;">
+          <div style="font-size: 48px; margin-bottom: 15px;">🎵</div>
+          <div style="font-size: 18px; font-weight: 600; margin-bottom: 10px;">음성 파일 편집 중</div>
+          <div style="font-size: 14px; color: #aaa;">${result.outputPath.split('\\').pop()}</div>
+          <div style="font-size: 12px; color: #888; margin-top: 8px;">길이: ${formatTime(newDuration)} | 크기: ${newSize}MB</div>
+        </div>
+      `;
+    }
+
+    // Regenerate waveform
+    updateStatus('파형 생성 중...');
+    try {
+      const waveformBase64 = await window.electronAPI.generateWaveform(result.outputPath);
+      const waveformImg = document.getElementById('audio-waveform');
+      if (waveformImg && waveformBase64) {
+        waveformImg.src = waveformBase64;
+        waveformImg.style.display = 'block';
+      }
+    } catch (waveformError) {
+      console.error('Waveform regeneration error:', waveformError);
+    }
+
+    // Update timeline slider
+    const timelineSlider = document.getElementById('timeline-slider');
+    if (timelineSlider) {
+      timelineSlider.max = newDuration;
+      timelineSlider.value = 0;
+    }
+
+    // Reset trim inputs to new duration
+    const startInput = document.getElementById('audio-trim-start');
+    const endInput = document.getElementById('audio-trim-end');
+    if (startInput) startInput.value = '0';
+    if (endInput) {
+      endInput.max = newDuration;
+      endInput.value = newDuration.toFixed(2);
+    }
+
+    updateStatus(`음성 자르기 완료: ${newDuration.toFixed(2)}초, ${newSize}MB`);
   } catch (error) {
     hideProgress();
     handleError('음성 자르기', error, '음성 자르기에 실패했습니다.');
@@ -2747,15 +3323,336 @@ async function executeAudioVolume() {
   }
 }
 
+// Audio trim helper functions
+function setAudioStartFromSlider() {
+  if (!audioFileInfo) {
+    alert('먼저 음성 파일을 가져와주세요.');
+    return;
+  }
+
+  const slider = document.getElementById('timeline-slider');
+  const startInput = document.getElementById('audio-trim-start');
+
+  if (!slider || !startInput) return;
+
+  // Slider value is already in seconds (slider.max = duration)
+  const currentTime = parseFloat(slider.value);
+
+  startInput.value = currentTime.toFixed(2);
+  updateAudioTrimDurationDisplay();
+  updateStatus(`시작 시간 설정: ${formatTime(currentTime)}`);
+}
+
+function setAudioEndFromSlider() {
+  if (!audioFileInfo) {
+    alert('먼저 음성 파일을 가져와주세요.');
+    return;
+  }
+
+  const slider = document.getElementById('timeline-slider');
+  const endInput = document.getElementById('audio-trim-end');
+
+  if (!slider || !endInput) return;
+
+  // Slider value is already in seconds (slider.max = duration)
+  const currentTime = parseFloat(slider.value);
+
+  endInput.value = currentTime.toFixed(2);
+  updateAudioTrimDurationDisplay();
+  updateStatus(`끝 시간 설정: ${formatTime(currentTime)}`);
+}
+
+function moveSliderToAudioStart() {
+  if (!audioFileInfo) {
+    alert('먼저 음성 파일을 가져와주세요.');
+    return;
+  }
+
+  const startInput = document.getElementById('audio-trim-start');
+  const slider = document.getElementById('timeline-slider');
+  const currentTimeDisplay = document.getElementById('current-time');
+  const playheadBar = document.getElementById('playhead-bar');
+  const audioDuration = parseFloat(audioFileInfo.format.duration);
+
+  if (!startInput || !slider) return;
+
+  const startTime = parseFloat(startInput.value) || 0;
+  const targetTime = Math.min(startTime, audioDuration);
+
+  // Update slider
+  slider.value = targetTime;
+
+  // Update current time display
+  if (currentTimeDisplay) {
+    currentTimeDisplay.textContent = formatTime(targetTime);
+  }
+
+  // Update playhead bar position
+  if (playheadBar) {
+    // Calculate percentage relative to full duration
+    const percentage = targetTime / audioDuration;
+
+    // Check if current time is within zoomed range
+    if (percentage >= zoomStart && percentage <= zoomEnd) {
+      // Show playhead and position it relative to zoomed range
+      playheadBar.style.display = 'block';
+      const relativePosition = ((percentage - zoomStart) / (zoomEnd - zoomStart)) * 100;
+      playheadBar.style.left = `${relativePosition}%`;
+    } else {
+      // Hide playhead when outside zoomed range
+      playheadBar.style.display = 'none';
+    }
+  }
+
+  updateStatus(`시작 위치로 이동: ${formatTime(targetTime)}`);
+}
+
+function moveSliderToAudioEnd() {
+  if (!audioFileInfo) {
+    alert('먼저 음성 파일을 가져와주세요.');
+    return;
+  }
+
+  const endInput = document.getElementById('audio-trim-end');
+  const slider = document.getElementById('timeline-slider');
+  const currentTimeDisplay = document.getElementById('current-time');
+  const playheadBar = document.getElementById('playhead-bar');
+  const audioDuration = parseFloat(audioFileInfo.format.duration);
+
+  if (!endInput || !slider) return;
+
+  const endTime = parseFloat(endInput.value) || 0;
+  const targetTime = Math.min(endTime, audioDuration);
+
+  // Update slider
+  slider.value = targetTime;
+
+  // Update current time display
+  if (currentTimeDisplay) {
+    currentTimeDisplay.textContent = formatTime(targetTime);
+  }
+
+  // Update playhead bar position
+  if (playheadBar) {
+    // Calculate percentage relative to full duration
+    const percentage = targetTime / audioDuration;
+
+    // Check if current time is within zoomed range
+    if (percentage >= zoomStart && percentage <= zoomEnd) {
+      // Show playhead and position it relative to zoomed range
+      playheadBar.style.display = 'block';
+      const relativePosition = ((percentage - zoomStart) / (zoomEnd - zoomStart)) * 100;
+      playheadBar.style.left = `${relativePosition}%`;
+    } else {
+      // Hide playhead when outside zoomed range
+      playheadBar.style.display = 'none';
+    }
+  }
+
+  updateStatus(`끝 위치로 이동: ${formatTime(targetTime)}`);
+}
+
+async function previewAudioTrimRange() {
+  if (!currentAudioFile || !audioFileInfo) {
+    alert('먼저 음성 파일을 가져와주세요.');
+    return;
+  }
+
+  const startTime = parseFloat(document.getElementById('audio-trim-start').value) || 0;
+  const endTime = parseFloat(document.getElementById('audio-trim-end').value) || 0;
+
+  if (endTime <= startTime) {
+    alert('끝 시간은 시작 시간보다 커야 합니다.');
+    return;
+  }
+
+  const duration = endTime - startTime;
+  if (duration < 0.1) {
+    alert('구간 길이는 최소 0.1초 이상이어야 합니다.');
+    return;
+  }
+
+  // Play the selected range directly in the app using the audio element
+  const audioElement = document.getElementById('preview-audio');
+  if (!audioElement) {
+    alert('오디오 요소를 찾을 수 없습니다.');
+    return;
+  }
+
+  // Set flag to prevent auto-skip during preview
+  isPreviewingRange = true;
+
+  // Set the start position
+  audioElement.currentTime = startTime;
+
+  // Update UI
+  const timelineSlider = document.getElementById('timeline-slider');
+  if (timelineSlider) {
+    timelineSlider.value = startTime;
+  }
+
+  // Play the audio
+  audioElement.play();
+  updateStatus(`구간 미리듣기 중: ${formatTime(startTime)} ~ ${formatTime(endTime)} (${duration.toFixed(2)}초)`);
+
+  // Stop playback when reaching the end time
+  const checkTime = () => {
+    if (audioElement.currentTime >= endTime) {
+      audioElement.pause();
+      isPreviewingRange = false; // Reset flag
+
+      // Move to end position instead of start
+      audioElement.currentTime = endTime;
+
+      // Update UI to show end position
+      const playheadBar = document.getElementById('playhead-bar');
+      const audioDuration = parseFloat(audioFileInfo.format.duration);
+
+      if (timelineSlider) {
+        timelineSlider.value = endTime;
+      }
+
+      if (playheadBar) {
+        // Calculate percentage relative to full duration
+        const percentage = endTime / audioDuration;
+
+        // Check if end time is within zoomed range
+        if (percentage >= zoomStart && percentage <= zoomEnd) {
+          // Show playhead and position it relative to zoomed range
+          playheadBar.style.display = 'block';
+          const relativePosition = ((percentage - zoomStart) / (zoomEnd - zoomStart)) * 100;
+          playheadBar.style.left = `${relativePosition}%`;
+        } else {
+          // Hide playhead when outside zoomed range
+          playheadBar.style.display = 'none';
+        }
+      }
+
+      const currentTimeDisplay = document.getElementById('current-time');
+      if (currentTimeDisplay) {
+        currentTimeDisplay.textContent = formatTime(endTime);
+      }
+
+      updateStatus(`구간 미리듣기 완료: ${formatTime(startTime)} ~ ${formatTime(endTime)}`);
+      audioElement.removeEventListener('timeupdate', checkTime);
+    }
+  };
+
+  audioElement.addEventListener('timeupdate', checkTime);
+}
+
 // Mode switching functions
 function setupModeListener() {
   if (window.electronAPI && window.electronAPI.onModeSwitch) {
     window.electronAPI.onModeSwitch((mode) => {
+      // Check if there's work in progress
+      const hasVideoWork = currentMode === 'video' && currentVideo;
+      const hasAudioWork = currentMode === 'audio' && currentAudioFile;
+
+      if (hasVideoWork || hasAudioWork) {
+        const currentType = currentMode === 'video' ? '영상' : '음성';
+        const targetType = mode === 'video' ? '영상' : '음성';
+        const confirmed = confirm(
+          `현재 ${currentType} 편집 작업이 있습니다.\n` +
+          `${targetType} 편집 모드로 전환하면 작업 내용이 초기화됩니다.\n` +
+          `계속하시겠습니까?`
+        );
+
+        if (!confirmed) {
+          updateStatus('모드 전환 취소됨');
+          return;
+        }
+      }
+
+      // Switch mode
       currentMode = mode;
+      resetWorkspace();
       updateModeUI();
       updateStatus(`${mode === 'video' ? '영상' : '음성'} 편집 모드로 전환됨`);
     });
   }
+}
+
+function resetWorkspace() {
+  // Reset video mode state
+  if (currentMode === 'video' && currentVideo) {
+    currentVideo = null;
+    videoInfo = null;
+    const videoElement = document.getElementById('preview-video');
+    if (videoElement) {
+      videoElement.pause();
+      videoElement.src = '';
+    }
+  }
+
+  // Reset audio mode state
+  if (currentMode === 'audio' && currentAudioFile) {
+    currentAudioFile = null;
+    audioFileInfo = null;
+  }
+
+  // Reset timeline
+  const timelineSlider = document.getElementById('timeline-slider');
+  const playBtn = document.getElementById('play-btn');
+  const pauseBtn = document.getElementById('pause-btn');
+
+  if (timelineSlider) {
+    timelineSlider.value = 0;
+    timelineSlider.disabled = true;
+  }
+
+  if (playBtn) playBtn.disabled = true;
+  if (pauseBtn) pauseBtn.disabled = true;
+
+  // Reset overlays
+  const trimOverlay = document.getElementById('trim-range-overlay');
+  const audioOverlay = document.getElementById('audio-range-overlay');
+  const zoomOverlay = document.getElementById('zoom-range-overlay');
+  const dragSelection = document.getElementById('slider-drag-selection');
+
+  if (trimOverlay) trimOverlay.style.display = 'none';
+  if (audioOverlay) audioOverlay.style.display = 'none';
+  if (zoomOverlay) zoomOverlay.style.display = 'none';
+  if (dragSelection) dragSelection.style.display = 'none';
+
+  // Reset waveform
+  const waveform = document.getElementById('audio-waveform');
+  const playheadBar = document.getElementById('playhead-bar');
+  const zoomSelection = document.getElementById('zoom-selection');
+
+  if (waveform) waveform.style.display = 'none';
+  if (playheadBar) playheadBar.style.display = 'none';
+  if (zoomSelection) zoomSelection.style.display = 'none';
+
+  // Reset video info
+  const videoInfoDiv = document.getElementById('video-info');
+  if (videoInfoDiv) videoInfoDiv.style.display = 'none';
+
+  // Show placeholder
+  const placeholder = document.getElementById('preview-placeholder');
+  const videoPreview = document.getElementById('preview-video');
+
+  if (placeholder) placeholder.style.display = 'flex';
+  if (videoPreview) videoPreview.style.display = 'none';
+
+  // Reset current time display
+  const currentTimeDisplay = document.getElementById('current-time');
+  if (currentTimeDisplay) currentTimeDisplay.textContent = '00:00:00.00';
+
+  // Reset status bar
+  const currentFileDisplay = document.getElementById('current-file');
+  if (currentFileDisplay) currentFileDisplay.textContent = '파일 없음';
+
+  // Clear tool properties
+  activeTool = null;
+  document.getElementById('tool-properties').innerHTML = '<p class="placeholder-text">편집 도구를 선택하세요</p>';
+
+  // Reset merge videos list
+  mergeVideos = [];
+
+  // Reset zoom state
+  zoomStart = 0;
+  zoomEnd = 1;
 }
 
 function updateModeUI() {
@@ -2778,6 +3675,10 @@ function updateModeUI() {
         <button class="tool-btn" data-tool="trim-audio">
           <span class="icon">✂️</span>
           음성 자르기
+        </button>
+        <button class="tool-btn" data-tool="merge-audio">
+          <span class="icon">🔗</span>
+          음성 병합
         </button>
       </div>
       <div class="tool-section">

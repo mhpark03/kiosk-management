@@ -455,8 +455,24 @@ ipcMain.handle('generate-waveform', async (event, videoPath) => {
 
     ffmpeg.on('close', (code) => {
       if (code === 0) {
-        logInfo('WAVEFORM_SUCCESS', 'Waveform generated', { waveformPath });
-        resolve({ success: true, waveformPath });
+        try {
+          // Read the generated PNG and convert to base64
+          const imageBuffer = fs.readFileSync(waveformPath);
+          const base64Image = `data:image/png;base64,${imageBuffer.toString('base64')}`;
+
+          // Clean up temp file
+          try {
+            fs.unlinkSync(waveformPath);
+          } catch (cleanupErr) {
+            logError('WAVEFORM_CLEANUP', 'Failed to delete temp waveform file', { error: cleanupErr.message });
+          }
+
+          logInfo('WAVEFORM_SUCCESS', 'Waveform generated and converted to base64', { length: base64Image.length });
+          resolve(base64Image);
+        } catch (readErr) {
+          logError('WAVEFORM_READ_FAILED', 'Failed to read waveform file', { error: readErr.message });
+          reject(new Error(`Failed to read waveform: ${readErr.message}`));
+        }
       } else {
         logError('WAVEFORM_FAILED', 'Waveform generation failed', { error: errorOutput });
         reject(new Error(errorOutput || 'FFmpeg waveform generation failed'));
@@ -1279,6 +1295,65 @@ ipcMain.handle('merge-videos', async (event, options) => {
   });
 });
 
+// Merge audio files (simple concatenation only)
+ipcMain.handle('merge-audios', async (event, options) => {
+  const { audioPaths, outputPath } = options;
+
+  logInfo('MERGE_AUDIO_START', 'Starting audio merge (concat)', { audioCount: audioPaths.length });
+
+  return new Promise(async (resolve, reject) => {
+    try {
+      const actualOutputPath = outputPath.replace(/\\/g, '/');
+      let inputs = [];
+
+      // Add all input files
+      audioPaths.forEach(path => {
+        inputs.push('-i', path);
+      });
+
+      // Simple concatenation using concat filter
+      const filterComplex = audioPaths.map((_, i) => `[${i}:a]`).join('') + `concat=n=${audioPaths.length}:v=0:a=1[outa]`;
+
+      const args = [
+        ...inputs,
+        '-filter_complex', filterComplex,
+        '-map', '[outa]',
+        '-c:a', 'libmp3lame',
+        '-q:a', '2',
+        '-y',
+        actualOutputPath
+      ];
+
+      logInfo('MERGE_AUDIO_FFMPEG_CMD', 'FFmpeg audio merge command', { args });
+
+      const ffmpeg = spawn(ffmpegPath, args, {
+        stdio: ['pipe', 'pipe', 'pipe'],
+        windowsHide: true
+      });
+      let errorOutput = '';
+
+      ffmpeg.stderr.on('data', (data) => {
+        const message = data.toString('utf8');
+        errorOutput += message;
+        mainWindow.webContents.send('ffmpeg-progress', message);
+      });
+
+      ffmpeg.on('close', (code) => {
+        if (code === 0) {
+          logInfo('MERGE_AUDIO_SUCCESS', 'Audio merge completed', { outputPath });
+          resolve({ success: true, outputPath });
+        } else {
+          logError('MERGE_AUDIO_FAILED', 'Audio merge failed', { error: errorOutput });
+          reject(new Error(errorOutput || 'FFmpeg failed'));
+        }
+      });
+    } catch (error) {
+      logError('MERGE_AUDIO_ERROR', 'Error during audio merge setup', { error: error.message });
+      reject(error);
+    }
+  });
+});
+
 // Add text/subtitle overlay
 ipcMain.handle('add-text', async (event, options) => {
   const { inputPath, outputPath, text, fontSize, fontColor, position, startTime, duration } = options;
@@ -1460,6 +1535,25 @@ ipcMain.handle('trim-audio-file', async (event, options) => {
       reject(new Error(`FFmpeg error: ${err.message}`));
     });
   });
+});
+
+// Open file with system default application
+ipcMain.handle('open-path', async (event, filePath) => {
+  const { shell } = require('electron');
+  logInfo('OPEN_PATH', 'Opening file with system default application', { filePath });
+
+  try {
+    const result = await shell.openPath(filePath);
+    if (result) {
+      logError('OPEN_PATH_FAILED', 'Failed to open file', { error: result });
+      throw new Error(result);
+    }
+    logInfo('OPEN_PATH_SUCCESS', 'File opened successfully', { filePath });
+    return { success: true };
+  } catch (error) {
+    logError('OPEN_PATH_ERROR', 'Error opening file', { error: error.message });
+    throw error;
+  }
 });
 
 logInfo('SYSTEM', 'Kiosk Video Editor initialized');

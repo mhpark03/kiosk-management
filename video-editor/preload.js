@@ -18,6 +18,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   addAudio: (options) => ipcRenderer.invoke('add-audio', options),
   applyFilter: (options) => ipcRenderer.invoke('apply-filter', options),
   mergeVideos: (options) => ipcRenderer.invoke('merge-videos', options),
+  mergeAudios: (options) => ipcRenderer.invoke('merge-audios', options),
   addText: (options) => ipcRenderer.invoke('add-text', options),
   extractAudio: (options) => ipcRenderer.invoke('extract-audio', options),
 
@@ -34,5 +35,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Mode switch listener
   onModeSwitch: (callback) => {
     ipcRenderer.on('switch-mode', (event, mode) => callback(mode));
-  }
+  },
+
+  // Shell operations
+  openPath: (path) => ipcRenderer.invoke('open-path', path)
 });

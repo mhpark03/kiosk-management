@@ -43,6 +43,10 @@
             <span class="icon">✂️</span>
             오디오 자르기
           </button>
+          <button class="tool-btn" data-tool="merge-audio">
+            <span class="icon">🔗</span>
+            오디오 병합
+          </button>
           <button class="tool-btn" data-tool="add-audio">
             <span class="icon">🎵</span>
             오디오 삽입
@@ -94,6 +98,9 @@
             <video id="preview-video">
               <source src="" type="video/mp4">
             </video>
+            <audio id="preview-audio" style="display: none;">
+              <source src="" type="audio/mpeg">
+            </audio>
             <div id="preview-placeholder" class="preview-placeholder">
               <p>영상을 가져와주세요</p>
               <button class="import-btn-large" id="import-video-btn">📁 영상 선택</button>
@@ -120,7 +127,7 @@
               <div id="audio-range-overlay" class="audio-range-overlay" style="display: none;"></div>
               <div id="zoom-range-overlay" class="zoom-range-overlay" style="display: none;"></div>
               <div id="slider-drag-selection" class="slider-drag-selection" style="display: none;"></div>
-              <input type="range" id="timeline-slider" class="timeline-slider" min="0" max="100" value="0" disabled>
+              <input type="range" id="timeline-slider" class="timeline-slider" min="0" max="100" value="0" step="0.01" disabled>
             </div>
           </div>
 
