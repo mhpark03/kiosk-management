@@ -395,6 +395,57 @@ ipcMain.handle('get-video-info', async (event, videoPath) => {
   });
 });
 
+// Generate audio waveform image
+ipcMain.handle('generate-waveform', async (event, videoPath) => {
+  logInfo('WAVEFORM_START', 'Generating audio waveform', { videoPath });
+
+  const path = require('path');
+  const os = require('os');
+
+  // Create temp file path for waveform image
+  const tempDir = os.tmpdir();
+  const waveformPath = path.join(tempDir, `waveform_${Date.now()}.png`);
+
+  return new Promise((resolve, reject) => {
+    // Generate waveform using FFmpeg showwavespic filter
+    // draw=scale - draws a center line for silent parts
+    const args = [
+      '-i', videoPath,
+      '-filter_complex',
+      '[0:a]showwavespic=s=1200x100:colors=#667eea:draw=scale[wave]',
+      '-map', '[wave]',
+      '-frames:v', '1',
+      '-y',
+      waveformPath
+    ];
+
+    const ffmpeg = spawn(ffmpegPath, args, {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true
+    });
+    let errorOutput = '';
+
+    ffmpeg.stderr.on('data', (data) => {
+      errorOutput += data.toString('utf8');
+    });
+
+    ffmpeg.on('close', (code) => {
+      if (code === 0) {
+        logInfo('WAVEFORM_SUCCESS', 'Waveform generated', { waveformPath });
+        resolve({ success: true, waveformPath });
+      } else {
+        logError('WAVEFORM_FAILED', 'Waveform generation failed', { error: errorOutput });
+        reject(new Error(errorOutput || 'FFmpeg waveform generation failed'));
+      }
+    });
+
+    ffmpeg.on('error', (err) => {
+      logError('WAVEFORM_FAILED', 'FFmpeg spawn error', { error: err.message });
+      reject(new Error(`FFmpeg error: ${err.message}`));
+    });
+  });
+});
+
 // Trim video
 ipcMain.handle('trim-video', async (event, options) => {
   const { inputPath, outputPath, startTime, duration } = options;
@@ -437,11 +488,127 @@ ipcMain.handle('trim-video', async (event, options) => {
   });
 });
 
+// Trim video only (keep audio intact)
+ipcMain.handle('trim-video-only', async (event, options) => {
+  const { inputPath, outputPath, startTime, duration } = options;
+
+  logInfo('TRIM_VIDEO_ONLY_START', 'Starting video-only trim', { inputPath, startTime, duration });
+
+  return new Promise((resolve, reject) => {
+    // Trim video stream, and also trim audio to match video duration
+    const args = [
+      '-i', inputPath,
+      '-ss', startTime.toString(),
+      '-t', duration.toString(),
+      '-map', '0:v',    // Map video stream
+      '-map', '0:a',    // Map audio stream
+      '-c:v', 'libx264', // Re-encode video
+      '-c:a', 'aac',    // Re-encode audio (trim applies to both streams)
+      '-y',
+      outputPath
+    ];
+
+    const ffmpeg = spawn(ffmpegPath, args, {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true
+    });
+    let errorOutput = '';
+
+    ffmpeg.stderr.on('data', (data) => {
+      const message = data.toString('utf8');
+      errorOutput += message;
+      mainWindow.webContents.send('ffmpeg-progress', message);
+    });
+
+    ffmpeg.on('close', (code) => {
+      if (code === 0) {
+        logInfo('TRIM_VIDEO_ONLY_SUCCESS', 'Video-only trim completed', { outputPath });
+        resolve({ success: true, outputPath });
+      } else {
+        logError('TRIM_VIDEO_ONLY_FAILED', 'Video-only trim failed', { error: errorOutput });
+        reject(new Error(errorOutput || 'FFmpeg failed'));
+      }
+    });
+
+    ffmpeg.on('error', (err) => {
+      logError('TRIM_VIDEO_ONLY_FAILED', 'FFmpeg spawn error', { error: err.message });
+      reject(new Error(`FFmpeg error: ${err.message}`));
+    });
+  });
+});
+
+// Trim audio only (keep video intact)
+ipcMain.handle('trim-audio-only', async (event, options) => {
+  const { inputPath, outputPath, startTime, endTime } = options;
+
+  logInfo('TRIM_AUDIO_ONLY_START', 'Starting audio-only trim', { inputPath, startTime, endTime });
+
+  // Get video duration using ffprobe
+  const getVideoDuration = () => {
+    return new Promise((resolve) => {
+      const ffprobe = spawn(ffprobePath, [
+        '-v', 'error',
+        '-show_entries', 'format=duration',
+        '-of', 'default=noprint_wrappers=1:nokey=1',
+        inputPath
+      ], { stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true });
+
+      let output = '';
+      ffprobe.stdout.on('data', (data) => { output += data.toString('utf8'); });
+      ffprobe.on('close', () => { resolve(parseFloat(output.trim()) || 0); });
+    });
+  };
+
+  return new Promise(async (resolve, reject) => {
+    const videoDuration = await getVideoDuration();
+
+    // Use aselect filter to trim audio, then pad with silence to match video duration
+    const args = [
+      '-i', inputPath,
+      '-filter_complex',
+      `[0:a]aselect='between(t,${startTime},${endTime})',asetpts=N/SR/TB,apad=whole_dur=${videoDuration}[aout]`,
+      '-map', '0:v',    // Map video stream (copy completely)
+      '-map', '[aout]', // Map filtered and padded audio
+      '-c:v', 'copy',   // Copy video without modification
+      '-c:a', 'aac',    // Encode filtered audio
+      '-y',
+      outputPath
+    ];
+
+    const ffmpeg = spawn(ffmpegPath, args, {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true
+    });
+    let errorOutput = '';
+
+    ffmpeg.stderr.on('data', (data) => {
+      const message = data.toString('utf8');
+      errorOutput += message;
+      mainWindow.webContents.send('ffmpeg-progress', message);
+    });
+
+    ffmpeg.on('close', (code) => {
+      if (code === 0) {
+        logInfo('TRIM_AUDIO_ONLY_SUCCESS', 'Audio-only trim completed (padded to video duration)', { outputPath, videoDuration });
+        resolve({ success: true, outputPath });
+      } else {
+        logError('TRIM_AUDIO_ONLY_FAILED', 'Audio-only trim failed', { error: errorOutput });
+        reject(new Error(errorOutput || 'FFmpeg failed'));
+      }
+    });
+
+    ffmpeg.on('error', (err) => {
+      logError('TRIM_AUDIO_ONLY_FAILED', 'FFmpeg spawn error', { error: err.message });
+      reject(new Error(`FFmpeg error: ${err.message}`));
+    });
+  });
+});
+
 // Add audio to video
 ipcMain.handle('add-audio', async (event, options) => {
-  const { videoPath, audioPath, outputPath, volumeLevel, audioStartTime } = options;
+  const { videoPath, audioPath, outputPath, volumeLevel, audioStartTime, isSilence, silenceDuration, insertMode } = options;
 
-  logInfo('ADD_AUDIO_START', 'Starting audio addition', { videoPath, audioPath, volumeLevel, audioStartTime });
+  logInfo('ADD_AUDIO_START', 'Starting audio addition', { videoPath, audioPath, volumeLevel, audioStartTime, isSilence, silenceDuration, insertMode });
 
   // First, check if video has audio stream
   const checkAudio = () => {
@@ -483,36 +650,289 @@ ipcMain.handle('add-audio', async (event, options) => {
 
   return new Promise(async (resolve, reject) => {
     try {
+      // Check if input and output are the same file
+      const isSameFile = path.resolve(videoPath) === path.resolve(outputPath);
+
+      // If same file, create temp file with proper extension
+      let actualOutputPath = outputPath;
+      if (isSameFile) {
+        const ext = path.extname(outputPath);
+        const base = outputPath.slice(0, -ext.length);
+        actualOutputPath = `${base}_temp_${Date.now()}${ext}`;
+      }
+
       const hasAudio = await checkAudio();
-      logInfo('ADD_AUDIO_CHECK', 'Video audio check', { hasAudio });
+      logInfo('ADD_AUDIO_CHECK', 'Video audio check', { hasAudio, isSameFile, actualOutputPath });
 
       let args;
       const startTimeMs = (audioStartTime || 0) * 1000; // Convert to milliseconds
 
-      if (hasAudio) {
-        // Video has audio - mix with new audio
-        args = [
-          '-i', videoPath,
-          '-i', audioPath,
-          '-filter_complex', `[1:a]volume=${volumeLevel},adelay=${startTimeMs}|${startTimeMs}[a1];[0:a][a1]amix=inputs=2:duration=first:dropout_transition=2`,
-          '-c:v', 'copy',
-          '-c:a', 'aac',
-          '-y',
-          outputPath
-        ];
+      // Handle silence insertion
+      if (isSilence) {
+        const mode = insertMode || 'mix';
+
+        if (hasAudio) {
+          if (mode === 'overwrite') {
+            // Overwrite mode: Replace audio segment with silence
+            const endTime = audioStartTime + silenceDuration;
+
+            // Get video duration to ensure audio matches video length
+            const getVideoDuration = () => {
+              return new Promise((resolve) => {
+                const ffprobe = spawn(ffprobePath, [
+                  '-v', 'error',
+                  '-show_entries', 'format=duration',
+                  '-of', 'default=noprint_wrappers=1:nokey=1',
+                  videoPath
+                ], { stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true });
+
+                let output = '';
+                ffprobe.stdout.on('data', (data) => { output += data.toString('utf8'); });
+                ffprobe.on('close', () => { resolve(parseFloat(output.trim()) || 0); });
+              });
+            };
+
+            const videoDuration = await getVideoDuration();
+
+            args = [
+              '-i', videoPath,
+              '-f', 'lavfi',
+              '-i', `anullsrc=r=44100:cl=stereo:d=${silenceDuration}`,
+              '-filter_complex',
+              `[0:a]aselect='lt(t,${audioStartTime})',asetpts=N/SR/TB[before];` +
+              `[0:a]aselect='gte(t,${endTime})',asetpts=N/SR/TB[after];` +
+              `[before][1:a][after]concat=n=3:v=0:a=1,apad=whole_dur=${videoDuration}[aout]`,
+              '-map', '0:v',
+              '-map', '[aout]',
+              '-c:v', 'copy',
+              '-c:a', 'aac',
+              '-y',
+              actualOutputPath
+            ];
+          } else if (mode === 'push') {
+            // Push mode: Insert silence and push existing audio backward
+            args = [
+              '-i', videoPath,
+              '-f', 'lavfi',
+              '-i', `anullsrc=r=44100:cl=stereo:d=${silenceDuration}`,
+              '-filter_complex',
+              `[0:a]aselect='lt(t,${audioStartTime})',asetpts=N/SR/TB[before];` +
+              `[0:a]aselect='gte(t,${audioStartTime})',asetpts=N/SR/TB[after];` +
+              `[before][1:a][after]concat=n=3:v=0:a=1[aout]`,
+              '-map', '0:v',
+              '-map', '[aout]',
+              '-c:v', 'copy',
+              '-c:a', 'aac',
+              '-y',
+              actualOutputPath
+            ];
+          } else {
+            // Mix mode (default): Mix silence with existing audio (effectively mutes that section)
+            // Get video duration to ensure output matches video length
+            const getVideoDuration = () => {
+              return new Promise((resolve) => {
+                const ffprobe = spawn(ffprobePath, [
+                  '-v', 'error',
+                  '-show_entries', 'format=duration',
+                  '-of', 'default=noprint_wrappers=1:nokey=1',
+                  videoPath
+                ], { stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true });
+
+                let output = '';
+                ffprobe.stdout.on('data', (data) => { output += data.toString('utf8'); });
+                ffprobe.on('close', () => { resolve(parseFloat(output.trim()) || 0); });
+              });
+            };
+
+            const videoDuration = await getVideoDuration();
+
+            args = [
+              '-i', videoPath,
+              '-f', 'lavfi',
+              '-i', `anullsrc=r=44100:cl=stereo:d=${silenceDuration}`,
+              '-filter_complex', `[1:a]adelay=${startTimeMs}|${startTimeMs}[a1];[0:a][a1]amix=inputs=2:duration=first:dropout_transition=0,volume=1,apad=whole_dur=${videoDuration}[aout]`,
+              '-map', '0:v',
+              '-map', '[aout]',
+              '-c:v', 'copy',
+              '-c:a', 'aac',
+              '-y',
+              actualOutputPath
+            ];
+          }
+        } else {
+          // Video has no audio - add silence as new track
+          // Get video duration and pad audio to match
+          const getVideoDuration = () => {
+            return new Promise((resolve) => {
+              const ffprobe = spawn(ffprobePath, [
+                '-v', 'error',
+                '-show_entries', 'format=duration',
+                '-of', 'default=noprint_wrappers=1:nokey=1',
+                videoPath
+              ], { stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true });
+
+              let output = '';
+              ffprobe.stdout.on('data', (data) => { output += data.toString('utf8'); });
+              ffprobe.on('close', () => { resolve(parseFloat(output.trim()) || 0); });
+            });
+          };
+
+          const videoDuration = await getVideoDuration();
+
+          args = [
+            '-f', 'lavfi',
+            '-i', `anullsrc=r=44100:cl=stereo:d=${silenceDuration}`,
+            '-i', videoPath,
+            '-filter_complex', `[0:a]adelay=${startTimeMs}|${startTimeMs},apad=whole_dur=${videoDuration}[a1]`,
+            '-map', '1:v',
+            '-map', '[a1]',
+            '-c:v', 'copy',
+            '-c:a', 'aac',
+            '-y',
+            actualOutputPath
+          ];
+        }
+      } else if (hasAudio) {
+        // Video has audio - handle based on insert mode
+        const mode = insertMode || 'mix'; // Default to mix if not specified
+
+        if (mode === 'mix') {
+          // Mix: Combine existing audio with new audio
+          // Get video duration to ensure output matches video length
+          const getVideoDuration = () => {
+            return new Promise((resolve) => {
+              const ffprobe = spawn(ffprobePath, [
+                '-v', 'error',
+                '-show_entries', 'format=duration',
+                '-of', 'default=noprint_wrappers=1:nokey=1',
+                videoPath
+              ], { stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true });
+
+              let output = '';
+              ffprobe.stdout.on('data', (data) => { output += data.toString('utf8'); });
+              ffprobe.on('close', () => { resolve(parseFloat(output.trim()) || 0); });
+            });
+          };
+
+          const videoDuration = await getVideoDuration();
+
+          args = [
+            '-i', videoPath,
+            '-i', audioPath,
+            '-filter_complex', `[1:a]volume=${volumeLevel},adelay=${startTimeMs}|${startTimeMs}[a1];[0:a][a1]amix=inputs=2:duration=first:dropout_transition=2,apad=whole_dur=${videoDuration}[aout]`,
+            '-map', '0:v',
+            '-map', '[aout]',
+            '-c:v', 'copy',
+            '-c:a', 'aac',
+            '-y',
+            actualOutputPath
+          ];
+        } else if (mode === 'overwrite') {
+          // Overwrite: Replace audio in specified range with new audio
+          // Get audio duration and video duration
+          const getDuration = (path) => {
+            return new Promise((resolve) => {
+              const ffprobe = spawn(ffprobePath, [
+                '-v', 'error',
+                '-show_entries', 'format=duration',
+                '-of', 'default=noprint_wrappers=1:nokey=1',
+                path
+              ], { stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true });
+
+              let output = '';
+              ffprobe.stdout.on('data', (data) => { output += data.toString('utf8'); });
+              ffprobe.on('close', () => { resolve(parseFloat(output.trim()) || 0); });
+            });
+          };
+
+          const audioDuration = await getDuration(audioPath);
+          const videoDuration = await getDuration(videoPath);
+          const endTime = audioStartTime + audioDuration;
+
+          // Complex filter: extract before/after segments and insert new audio, then pad to video duration
+          args = [
+            '-i', videoPath,
+            '-i', audioPath,
+            '-filter_complex',
+            `[0:a]aselect='lt(t,${audioStartTime})',asetpts=N/SR/TB[before];` +
+            `[1:a]volume=${volumeLevel}[new];` +
+            `[0:a]aselect='gte(t,${endTime})',asetpts=N/SR/TB[after];` +
+            `[before][new][after]concat=n=3:v=0:a=1,apad=whole_dur=${videoDuration}[aout]`,
+            '-map', '0:v',
+            '-map', '[aout]',
+            '-c:v', 'copy',
+            '-c:a', 'aac',
+            '-y',
+            actualOutputPath
+          ];
+        } else if (mode === 'push') {
+          // Push: Insert new audio and push existing audio backward
+          // Get audio duration from audioPath
+          const getAudioDuration = () => {
+            return new Promise((resolve) => {
+              const ffprobe = spawn(ffprobePath, [
+                '-v', 'error',
+                '-show_entries', 'format=duration',
+                '-of', 'default=noprint_wrappers=1:nokey=1',
+                audioPath
+              ], { stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true });
+
+              let output = '';
+              ffprobe.stdout.on('data', (data) => { output += data.toString('utf8'); });
+              ffprobe.on('close', () => { resolve(parseFloat(output.trim()) || 0); });
+            });
+          };
+
+          const audioDuration = await getAudioDuration();
+
+          // Split original audio: before insertion point and after
+          // Then concatenate: before + new audio + after (with delay)
+          args = [
+            '-i', videoPath,
+            '-i', audioPath,
+            '-filter_complex',
+            `[0:a]aselect='lt(t,${audioStartTime})',asetpts=N/SR/TB[before];` +
+            `[1:a]volume=${volumeLevel}[new];` +
+            `[0:a]aselect='gte(t,${audioStartTime})',asetpts=N/SR/TB[after];` +
+            `[before][new][after]concat=n=3:v=0:a=1[aout]`,
+            '-map', '0:v',
+            '-map', '[aout]',
+            '-c:v', 'copy',
+            '-c:a', 'aac',
+            '-y',
+            actualOutputPath
+          ];
+        }
       } else {
         // Video has no audio - add audio as new track
+        // Get video duration and pad audio to match
+        const getVideoDuration = () => {
+          return new Promise((resolve) => {
+            const ffprobe = spawn(ffprobePath, [
+              '-v', 'error',
+              '-show_entries', 'format=duration',
+              '-of', 'default=noprint_wrappers=1:nokey=1',
+              videoPath
+            ], { stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true });
+
+            let output = '';
+            ffprobe.stdout.on('data', (data) => { output += data.toString('utf8'); });
+            ffprobe.on('close', () => { resolve(parseFloat(output.trim()) || 0); });
+          });
+        };
+
+        const videoDuration = await getVideoDuration();
+
         args = [
           '-i', videoPath,
           '-i', audioPath,
-          '-filter_complex', `[1:a]volume=${volumeLevel},adelay=${startTimeMs}|${startTimeMs}[a1]`,
+          '-filter_complex', `[1:a]volume=${volumeLevel},adelay=${startTimeMs}|${startTimeMs},apad=whole_dur=${videoDuration}[a1]`,
           '-map', '0:v',
           '-map', '[a1]',
           '-c:v', 'copy',
           '-c:a', 'aac',
-          '-shortest',
           '-y',
-          outputPath
+          actualOutputPath
         ];
       }
 
@@ -532,9 +952,30 @@ ipcMain.handle('add-audio', async (event, options) => {
 
       ffmpeg.on('close', (code) => {
         if (code === 0) {
-          logInfo('ADD_AUDIO_SUCCESS', 'Audio addition completed', { outputPath });
-          resolve({ success: true, outputPath });
+          // If we used a temporary file, replace the original
+          if (isSameFile) {
+            try {
+              fs.unlinkSync(videoPath); // Delete original
+              fs.renameSync(actualOutputPath, outputPath); // Rename temp to original
+              logInfo('ADD_AUDIO_SUCCESS', 'Audio addition completed (replaced original)', { outputPath });
+              resolve({ success: true, outputPath });
+            } catch (err) {
+              logError('ADD_AUDIO_REPLACE_FAILED', 'Failed to replace original file', { error: err.message });
+              reject(new Error(`파일 교체 실패: ${err.message}`));
+            }
+          } else {
+            logInfo('ADD_AUDIO_SUCCESS', 'Audio addition completed', { outputPath });
+            resolve({ success: true, outputPath });
+          }
         } else {
+          // Clean up temp file if it exists
+          if (isSameFile && fs.existsSync(actualOutputPath)) {
+            try {
+              fs.unlinkSync(actualOutputPath);
+            } catch (err) {
+              // Ignore cleanup errors
+            }
+          }
           logError('ADD_AUDIO_FAILED', 'Audio addition failed', { error: errorOutput });
           reject(new Error(errorOutput || 'FFmpeg failed'));
         }
@@ -586,7 +1027,7 @@ ipcMain.handle('apply-filter', async (event, options) => {
       '-vf', filterString,
       '-c:a', 'copy',
       '-y',
-      outputPath
+      actualOutputPath
     ];
 
     const ffmpeg = spawn(ffmpegPath, args, {
@@ -695,7 +1136,7 @@ ipcMain.handle('merge-videos', async (event, options) => {
         '-preset', 'medium',
         '-crf', '23',
         '-y',
-        outputPath
+        actualOutputPath
       ];
 
       logInfo('MERGE_FFMPEG_CMD', 'FFmpeg merge command', { filterComplex });
@@ -749,7 +1190,7 @@ ipcMain.handle('add-text', async (event, options) => {
       '-vf', filterString,
       '-c:a', 'copy',
       '-y',
-      outputPath
+      actualOutputPath
     ];
 
     const ffmpeg = spawn(ffmpegPath, args, {
@@ -789,7 +1230,7 @@ ipcMain.handle('extract-audio', async (event, options) => {
       '-acodec', 'mp3',
       '-ab', '192k',
       '-y',
-      outputPath
+      actualOutputPath
     ];
 
     const ffmpeg = spawn(ffmpegPath, args, {

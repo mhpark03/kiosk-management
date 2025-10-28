@@ -3,6 +3,11 @@ let currentVideo = null;
 let videoInfo = null;
 let activeTool = null;
 let videoLayers = [];
+
+// Zoom state for audio waveform
+let zoomStart = 0;  // 0-1 (percentage of video)
+let zoomEnd = 1;    // 0-1 (percentage of video)
+let playheadInteractionSetup = false;  // Flag to prevent duplicate event listeners
 let audioLayers = [];
 
 // 공통 오류 처리 함수
@@ -127,6 +132,86 @@ function showToolProperties(tool) {
       }, 0);
       break;
 
+    case 'trim-video-only':
+      const maxDuration2 = videoInfo ? parseFloat(videoInfo.format.duration) : 100;
+      propertiesPanel.innerHTML = `
+        <div class="property-group">
+          <label>시작 시간 (초)</label>
+          <div style="display: flex; gap: 5px; align-items: center;">
+            <input type="number" id="trim-video-start" min="0" max="${maxDuration2}" step="0.1" value="0" oninput="updateTrimVideoEndMax()" style="flex: 1;">
+            <button class="property-btn secondary" onclick="setVideoStartFromCurrentTime()" style="width: auto; padding: 8px 12px; margin: 0;" title="현재 재생 위치를 시작 시간으로">🔄</button>
+            <button class="property-btn secondary" onclick="previewVideoStartTime()" style="width: auto; padding: 8px 12px; margin: 0;" title="시작 위치로 이동">▶️</button>
+          </div>
+          <small style="color: #888; font-size: 11px;">최대: ${maxDuration2.toFixed(2)}초</small>
+        </div>
+        <div class="property-group">
+          <label>끝 시간 (초)</label>
+          <div style="display: flex; gap: 5px; align-items: center;">
+            <input type="number" id="trim-video-end" min="0" max="${maxDuration2}" step="0.1" value="${maxDuration2.toFixed(2)}" style="flex: 1;">
+            <button class="property-btn secondary" onclick="setVideoEndFromCurrentTime()" style="width: auto; padding: 8px 12px; margin: 0;" title="현재 재생 위치를 끝 시간으로">🔄</button>
+            <button class="property-btn secondary" onclick="previewVideoEndTime()" style="width: auto; padding: 8px 12px; margin: 0;" title="끝 위치로 이동">▶️</button>
+          </div>
+          <small style="color: #888; font-size: 11px;">최대: ${maxDuration2.toFixed(2)}초</small>
+        </div>
+        <div class="property-group" style="background: #2d2d2d; padding: 10px; border-radius: 5px; margin-top: 10px;">
+          <label style="color: #667eea;">자르기 구간 길이</label>
+          <div id="trim-video-duration-display" style="font-size: 16px; font-weight: 600; color: #e0e0e0; margin-top: 5px;">0.00초</div>
+        </div>
+        <div style="background: #3a3a3a; padding: 10px; border-radius: 5px; margin-top: 10px;">
+          <small style="color: #aaa;">💡 영상만 자르고 오디오는 원본 그대로 유지됩니다</small>
+        </div>
+        <div style="display: flex; gap: 10px; margin-top: 10px;">
+          <button class="property-btn secondary" onclick="previewVideoTrimRange()" style="flex: 1;">🎬 구간 미리보기</button>
+        </div>
+        <button class="property-btn" onclick="executeTrimVideoOnly()">영상만 자르기</button>
+      `;
+      setTimeout(() => {
+        document.getElementById('trim-video-start').addEventListener('input', updateTrimVideoDurationDisplay);
+        document.getElementById('trim-video-end').addEventListener('input', updateTrimVideoDurationDisplay);
+        updateTrimVideoDurationDisplay();
+      }, 0);
+      break;
+
+    case 'trim-audio-only':
+      const maxDuration3 = videoInfo ? parseFloat(videoInfo.format.duration) : 100;
+      propertiesPanel.innerHTML = `
+        <div class="property-group">
+          <label>시작 시간 (초)</label>
+          <div style="display: flex; gap: 5px; align-items: center;">
+            <input type="number" id="trim-audio-start" min="0" max="${maxDuration3}" step="0.1" value="0" oninput="updateTrimAudioEndMax()" style="flex: 1;">
+            <button class="property-btn secondary" onclick="setAudioStartFromCurrentTime()" style="width: auto; padding: 8px 12px; margin: 0;" title="현재 재생 위치를 시작 시간으로">🔄</button>
+            <button class="property-btn secondary" onclick="previewAudioStartTime()" style="width: auto; padding: 8px 12px; margin: 0;" title="시작 위치로 이동">▶️</button>
+          </div>
+          <small style="color: #888; font-size: 11px;">최대: ${maxDuration3.toFixed(2)}초</small>
+        </div>
+        <div class="property-group">
+          <label>끝 시간 (초)</label>
+          <div style="display: flex; gap: 5px; align-items: center;">
+            <input type="number" id="trim-audio-end" min="0" max="${maxDuration3}" step="0.1" value="${maxDuration3.toFixed(2)}" style="flex: 1;">
+            <button class="property-btn secondary" onclick="setAudioEndFromCurrentTime()" style="width: auto; padding: 8px 12px; margin: 0;" title="현재 재생 위치를 끝 시간으로">🔄</button>
+            <button class="property-btn secondary" onclick="previewAudioEndTime()" style="width: auto; padding: 8px 12px; margin: 0;" title="끝 위치로 이동">▶️</button>
+          </div>
+          <small style="color: #888; font-size: 11px;">최대: ${maxDuration3.toFixed(2)}초</small>
+        </div>
+        <div class="property-group" style="background: #2d2d2d; padding: 10px; border-radius: 5px; margin-top: 10px;">
+          <label style="color: #667eea;">자르기 구간 길이</label>
+          <div id="trim-audio-duration-display" style="font-size: 16px; font-weight: 600; color: #e0e0e0; margin-top: 5px;">0.00초</div>
+        </div>
+        <div style="background: #3a3a3a; padding: 10px; border-radius: 5px; margin-top: 10px;">
+          <small style="color: #aaa;">💡 오디오만 자르고 영상은 원본 그대로 유지됩니다</small>
+        </div>
+        <div style="display: flex; gap: 10px; margin-top: 10px;">
+          <button class="property-btn secondary" onclick="previewAudioTrimRange()" style="flex: 1;">🎬 구간 미리보기</button>
+        </div>
+        <button class="property-btn" onclick="executeTrimAudioOnly()">오디오만 자르기</button>
+      `;
+      setTimeout(() => {
+        document.getElementById('trim-audio-start').addEventListener('input', updateTrimAudioDurationDisplay);
+        document.getElementById('trim-audio-end').addEventListener('input', updateTrimAudioDurationDisplay);
+        updateTrimAudioDurationDisplay();
+      }, 0);
+      break;
+
     case 'merge':
       // 현재 로드된 영상이 있으면 병합 리스트에 자동 추가
       if (currentVideo && !mergeVideos.includes(currentVideo)) {
@@ -161,9 +246,21 @@ function showToolProperties(tool) {
       const videoDuration = videoInfo ? parseFloat(videoInfo.format.duration) : 100;
       propertiesPanel.innerHTML = `
         <div class="property-group">
+          <label>오디오 소스</label>
+          <select id="audio-source-type" onchange="toggleAudioSourceUI()" style="width: 100%; padding: 10px; background: #2d2d2d; border: 1px solid #444; border-radius: 5px; color: #e0e0e0; font-size: 14px; margin-bottom: 10px;">
+            <option value="file">파일에서 선택</option>
+            <option value="silence">무음</option>
+          </select>
+        </div>
+        <div id="audio-file-section" class="property-group">
           <label>오디오 파일</label>
           <button class="property-btn secondary" onclick="selectAudioFile()">오디오 선택</button>
           <div id="selected-audio" style="margin-top: 10px; color: #aaa; font-size: 13px;"></div>
+        </div>
+        <div id="audio-silence-section" class="property-group" style="display: none;">
+          <label>무음 길이 (초)</label>
+          <input type="number" id="silence-duration" min="0.1" max="${videoDuration}" step="0.1" value="1" oninput="updateAudioRangeOverlay()" style="width: 100%; padding: 10px; background: #2d2d2d; border: 1px solid #444; border-radius: 5px; color: #e0e0e0; font-size: 14px;">
+          <small style="color: #888; font-size: 11px;">무음으로 추가할 길이 (최대: ${videoDuration.toFixed(2)}초)</small>
         </div>
         <div class="property-group">
           <label>시작 시간 (초)</label>
@@ -175,6 +272,19 @@ function showToolProperties(tool) {
           <small style="color: #888; font-size: 11px;">오디오가 삽입될 영상의 시작 위치 (최대: ${videoDuration.toFixed(2)}초)</small>
         </div>
         <div class="property-group">
+          <label>삽입 모드</label>
+          <select id="audio-insert-mode" style="width: 100%; padding: 10px; background: #2d2d2d; border: 1px solid #444; border-radius: 5px; color: #e0e0e0; font-size: 14px;">
+            <option value="mix">믹스 (기존 오디오와 합성)</option>
+            <option value="overwrite">덮어쓰기 (기존 오디오 대체)</option>
+            <option value="push">뒤로 밀기 (기존 오디오를 뒤로 이동)</option>
+          </select>
+          <small style="color: #888; font-size: 11px; display: block; margin-top: 5px;">
+            • 믹스: 기존 오디오와 새 오디오를 함께 재생<br>
+            • 덮어쓰기: 삽입 구간의 기존 오디오를 제거하고 새 오디오로 대체<br>
+            • 뒤로 밀기: 삽입 지점부터 기존 오디오를 뒤로 이동
+          </small>
+        </div>
+        <div id="audio-volume-section" class="property-group">
           <label>볼륨 <span class="property-value" id="volume-value">1.0</span></label>
           <input type="range" id="audio-volume" min="0" max="2" step="0.1" value="1" oninput="updateVolumeDisplay()">
         </div>
@@ -299,17 +409,33 @@ function setupVideoControls() {
     // 오디오 삽입 모드에서는 오디오 시작 시간부터 재생
     if (activeTool === 'add-audio') {
       const audioStartInput = document.getElementById('audio-start-time');
-      if (audioStartInput && selectedAudioFile && selectedAudioDuration > 0) {
-        const audioStartTime = parseFloat(audioStartInput.value) || 0;
-        const endTime = Math.min(audioStartTime + selectedAudioDuration, video.duration);
+      const sourceType = document.getElementById('audio-source-type');
 
-        // 현재 시간이 오디오 범위 밖이면 시작 시간으로 이동
-        if (video.currentTime < audioStartTime || video.currentTime >= endTime) {
-          video.currentTime = audioStartTime;
+      if (audioStartInput) {
+        let audioDuration = 0;
+
+        // Determine duration based on source type
+        if (sourceType && sourceType.value === 'silence') {
+          const silenceDurationInput = document.getElementById('silence-duration');
+          audioDuration = silenceDurationInput ? parseFloat(silenceDurationInput.value) || 0 : 0;
+        } else if (selectedAudioFile && selectedAudioDuration > 0) {
+          audioDuration = selectedAudioDuration;
         }
 
-        // Play audio synchronized with video
-        playAudioPreview(audioStartTime);
+        if (audioDuration > 0) {
+          const audioStartTime = parseFloat(audioStartInput.value) || 0;
+          const endTime = Math.min(audioStartTime + audioDuration, video.duration);
+
+          // 현재 시간이 오디오 범위 밖이면 시작 시간으로 이동
+          if (video.currentTime < audioStartTime || video.currentTime >= endTime) {
+            video.currentTime = audioStartTime;
+          }
+
+          // Play audio synchronized with video (only for file mode, not silence)
+          if (sourceType && sourceType.value !== 'silence' && selectedAudioFile) {
+            playAudioPreview(audioStartTime);
+          }
+        }
       }
     }
 
@@ -329,6 +455,9 @@ function setupVideoControls() {
       const progress = (video.currentTime / video.duration) * 100;
       slider.value = progress;
       currentTimeDisplay.textContent = formatTime(video.currentTime);
+
+      // Update playhead bar position
+      updatePlayheadPosition(video.currentTime, video.duration);
 
       // 영상 자르기 모드에서는 설정된 범위 내에서만 재생
       if (activeTool === 'trim') {
@@ -350,17 +479,31 @@ function setupVideoControls() {
       // 오디오 삽입 모드에서는 오디오 구간만 재생
       if (activeTool === 'add-audio') {
         const audioStartInput = document.getElementById('audio-start-time');
-        if (audioStartInput && selectedAudioFile && selectedAudioDuration > 0) {
-          const startTime = parseFloat(audioStartInput.value) || 0;
-          const endTime = Math.min(startTime + selectedAudioDuration, video.duration);
+        const sourceType = document.getElementById('audio-source-type');
 
-          // 오디오 구간 끝을 초과하면 일시정지
-          if (video.currentTime >= endTime) {
-            video.pause();
-            video.currentTime = endTime;
-            // Stop audio preview
-            if (audioPreviewElement) {
-              audioPreviewElement.pause();
+        if (audioStartInput) {
+          let audioDuration = 0;
+
+          // Determine duration based on source type
+          if (sourceType && sourceType.value === 'silence') {
+            const silenceDurationInput = document.getElementById('silence-duration');
+            audioDuration = silenceDurationInput ? parseFloat(silenceDurationInput.value) || 0 : 0;
+          } else if (selectedAudioFile && selectedAudioDuration > 0) {
+            audioDuration = selectedAudioDuration;
+          }
+
+          if (audioDuration > 0) {
+            const startTime = parseFloat(audioStartInput.value) || 0;
+            const endTime = Math.min(startTime + audioDuration, video.duration);
+
+            // 오디오 구간 끝을 초과하면 일시정지
+            if (video.currentTime >= endTime) {
+              video.pause();
+              video.currentTime = endTime;
+              // Stop audio preview
+              if (audioPreviewElement) {
+                audioPreviewElement.pause();
+              }
             }
           }
         }
@@ -408,6 +551,25 @@ async function loadVideo(path) {
     displayVideoInfo(videoInfo);
     displayTimelineTracks(videoInfo);
 
+    // Generate and display audio waveform
+    await generateAndDisplayWaveform(path);
+
+    // Initialize playhead bar
+    const playheadBar = document.getElementById('playhead-bar');
+    if (playheadBar) {
+      playheadBar.style.display = 'block';
+      playheadBar.style.left = '0%';
+      console.log('Playhead bar initialized');
+
+      // Add click/drag functionality to audio track (only once)
+      if (!playheadInteractionSetup) {
+        setupPlayheadInteraction();
+        playheadInteractionSetup = true;
+      }
+    } else {
+      console.error('Playhead bar element not found!');
+    }
+
     document.getElementById('current-file').textContent = path.split('\\').pop();
 
     // 도구 선택 초기화 (영상 자르기 설정 제거)
@@ -416,6 +578,20 @@ async function loadVideo(path) {
       btn.classList.remove('active');
     });
     document.getElementById('tool-properties').innerHTML = '<p class="placeholder-text">편집 도구를 선택하세요</p>';
+
+    // 오디오 관련 상태 초기화
+    selectedAudioFile = null;
+    selectedAudioDuration = 0;
+    if (audioPreviewElement) {
+      audioPreviewElement.pause();
+      audioPreviewElement = null;
+    }
+
+    // 타임라인 오버레이 숨기기
+    const trimOverlay = document.getElementById('trim-range-overlay');
+    const audioOverlay = document.getElementById('audio-range-overlay');
+    if (trimOverlay) trimOverlay.style.display = 'none';
+    if (audioOverlay) audioOverlay.style.display = 'none';
   } catch (error) {
     handleError('영상 로드', error, '영상을 불러오는데 실패했습니다.');
   }
@@ -440,9 +616,16 @@ function displayTimelineTracks(info) {
   const videoStream = info.streams.find(s => s.codec_type === 'video');
   const audioStream = info.streams.find(s => s.codec_type === 'audio');
 
-  // Clear existing tracks
+  // Clear existing tracks (but keep waveform img)
   document.getElementById('video-track').innerHTML = '';
-  document.getElementById('audio-track').innerHTML = '';
+
+  const audioTrackDiv = document.getElementById('audio-track');
+  // Remove all children except the waveform img, playhead bar, and zoom selection
+  Array.from(audioTrackDiv.children).forEach(child => {
+    if (child.id !== 'audio-waveform' && child.id !== 'playhead-bar' && child.id !== 'zoom-selection') {
+      child.remove();
+    }
+  });
 
   // Add video track
   if (videoStream) {
@@ -463,12 +646,220 @@ function displayTimelineTracks(info) {
     const audioClip = document.createElement('div');
     audioClip.className = 'timeline-clip audio-clip';
     audioClip.style.width = '100%';
-    audioClip.innerHTML = `
-      <div class="clip-label">Audio</div>
-      <div class="clip-duration">${formatTime(duration)}</div>
-    `;
+    // No text - just background for waveform
     audioTrack.appendChild(audioClip);
   }
+}
+
+// Generate and display audio waveform
+async function generateAndDisplayWaveform(videoPath) {
+  try {
+    const waveformImg = document.getElementById('audio-waveform');
+
+    // Check if video has audio stream
+    const audioStream = videoInfo.streams.find(s => s.codec_type === 'audio');
+    if (!audioStream) {
+      console.log('No audio stream found, skipping waveform generation');
+      waveformImg.style.display = 'none';
+      return;
+    }
+
+    console.log('Generating waveform...');
+    updateStatus('오디오 파형 생성 중...');
+
+    const result = await window.electronAPI.generateWaveform(videoPath);
+
+    if (result.success && result.waveformPath) {
+      // Display the waveform image
+      const imgSrc = `file:///${result.waveformPath.replace(/\\/g, '/')}`;
+      console.log('Setting waveform src to:', imgSrc);
+      console.log('Waveform img element:', waveformImg);
+
+      waveformImg.onload = () => {
+        console.log('Waveform image loaded successfully');
+        console.log('Image dimensions:', waveformImg.naturalWidth, 'x', waveformImg.naturalHeight);
+        console.log('Image display:', waveformImg.style.display);
+        console.log('Image computed style:', window.getComputedStyle(waveformImg).display);
+      };
+
+      waveformImg.onerror = (e) => {
+        console.error('Failed to load waveform image:', e);
+        console.error('Image src was:', waveformImg.src);
+      };
+
+      waveformImg.src = imgSrc;
+      waveformImg.style.display = 'block';
+      console.log('Waveform displayed:', result.waveformPath);
+      updateStatus('오디오 파형 생성 완료');
+    }
+  } catch (error) {
+    console.error('Failed to generate waveform:', error);
+    updateStatus('오디오 파형 생성 실패 (계속 진행...)');
+    // Don't throw error - continue loading video even if waveform fails
+  }
+}
+
+// Update playhead bar position
+function updatePlayheadPosition(currentTime, duration) {
+  const playheadBar = document.getElementById('playhead-bar');
+  if (!playheadBar || !videoInfo) return;
+
+  const audioTrack = document.getElementById('audio-track');
+  if (!audioTrack) return;
+
+  // Show playhead bar
+  playheadBar.style.display = 'block';
+
+  // Calculate position as percentage of total duration
+  const totalPercentage = currentTime / duration;
+
+  // Check if playhead is within zoomed range
+  if (totalPercentage < zoomStart || totalPercentage > zoomEnd) {
+    // Playhead is outside visible range
+    playheadBar.style.display = 'none';
+    return;
+  }
+
+  // Map to visible range
+  const zoomRange = zoomEnd - zoomStart;
+  const percentageInZoom = (totalPercentage - zoomStart) / zoomRange;
+  const displayPercentage = percentageInZoom * 100;
+
+  // Update playhead position
+  playheadBar.style.left = `${displayPercentage}%`;
+}
+
+// Setup playhead interaction (click and drag)
+function setupPlayheadInteraction() {
+  const audioTrack = document.getElementById('audio-track');
+  const playheadBar = document.getElementById('playhead-bar');
+  const video = document.getElementById('preview-video');
+  const zoomSelection = document.getElementById('zoom-selection');
+
+  if (!audioTrack || !playheadBar || !video || !zoomSelection) return;
+
+  let isDraggingPlayhead = false;
+  let isDraggingZoom = false;
+  let zoomStartX = 0;
+
+  // Function to update video time based on click position (considering zoom)
+  const updateVideoTimeFromClick = (e) => {
+    const rect = audioTrack.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const percentage = (clickX / rect.width);
+    const clampedPercentage = Math.max(0, Math.min(1, percentage));
+
+    if (video.duration) {
+      // Map percentage to zoomed time range
+      const zoomRange = zoomEnd - zoomStart;
+      const timeInZoom = zoomStart + (clampedPercentage * zoomRange);
+      const newTime = timeInZoom * video.duration;
+      video.currentTime = newTime;
+    }
+  };
+
+  // Mouse down on audio track
+  audioTrack.addEventListener('mousedown', (e) => {
+    // Check if clicking on playhead
+    if (e.target === playheadBar || e.target.closest('.playhead-bar')) {
+      isDraggingPlayhead = true;
+      e.preventDefault();
+      return;
+    }
+
+    // Start zoom selection
+    isDraggingZoom = true;
+    const rect = audioTrack.getBoundingClientRect();
+    zoomStartX = e.clientX - rect.left;
+    zoomSelection.style.left = zoomStartX + 'px';
+    zoomSelection.style.width = '0px';
+    zoomSelection.style.display = 'block';
+    e.preventDefault();
+  });
+
+  // Mouse move
+  document.addEventListener('mousemove', (e) => {
+    if (isDraggingPlayhead) {
+      updateVideoTimeFromClick(e);
+    } else if (isDraggingZoom) {
+      const rect = audioTrack.getBoundingClientRect();
+      const currentX = e.clientX - rect.left;
+      const width = Math.abs(currentX - zoomStartX);
+      const left = Math.min(zoomStartX, currentX);
+
+      zoomSelection.style.left = left + 'px';
+      zoomSelection.style.width = width + 'px';
+    }
+  });
+
+  // Mouse up
+  document.addEventListener('mouseup', (e) => {
+    if (isDraggingZoom) {
+      const rect = audioTrack.getBoundingClientRect();
+      const currentX = e.clientX - rect.left;
+      const startPercent = Math.min(zoomStartX, currentX) / rect.width;
+      const endPercent = Math.max(zoomStartX, currentX) / rect.width;
+
+      // Only zoom if selection is big enough (at least 5% of track)
+      if (endPercent - startPercent > 0.05) {
+        // Map percentages to zoom range
+        const zoomRange = zoomEnd - zoomStart;
+        const newZoomStart = zoomStart + (startPercent * zoomRange);
+        const newZoomEnd = zoomStart + (endPercent * zoomRange);
+
+        zoomStart = newZoomStart;
+        zoomEnd = newZoomEnd;
+
+        console.log(`Zoomed to: ${(zoomStart * 100).toFixed(1)}% - ${(zoomEnd * 100).toFixed(1)}%`);
+
+        // Apply zoom to waveform
+        applyWaveformZoom();
+      }
+
+      zoomSelection.style.display = 'none';
+    }
+
+    isDraggingPlayhead = false;
+    isDraggingZoom = false;
+  });
+
+  // Double-click to reset zoom
+  audioTrack.addEventListener('dblclick', () => {
+    zoomStart = 0;
+    zoomEnd = 1;
+    console.log('Zoom reset');
+    applyWaveformZoom();
+  });
+}
+
+// Apply zoom transform to waveform image
+function applyWaveformZoom() {
+  const waveformImg = document.getElementById('audio-waveform');
+  const audioTrack = document.getElementById('audio-track');
+
+  if (!waveformImg || !audioTrack) {
+    console.error('Waveform image or audio track element not found!');
+    return;
+  }
+
+  const zoomRange = zoomEnd - zoomStart;
+  const scale = 1 / zoomRange;  // Scale factor
+
+  // Using a different approach: margin-left and width scaling
+  // This is more predictable than transform
+  const containerWidth = audioTrack.offsetWidth;
+
+  // Set the width to scaled size
+  waveformImg.style.width = `${scale * 100}%`;
+
+  // Shift left by the start position (as percentage of scaled width)
+  // When width is 500% (scale=5), moving left by 46% means: -46% of 500% width
+  const marginLeftPercent = -(zoomStart / zoomRange) * 100;
+  waveformImg.style.marginLeft = `${marginLeftPercent}%`;
+
+  console.log(`Waveform zoom: zoomStart=${(zoomStart*100).toFixed(1)}%, zoomEnd=${(zoomEnd*100).toFixed(1)}%`);
+  console.log(`Applied: width=${(scale*100).toFixed(1)}%, marginLeft=${marginLeftPercent.toFixed(1)}%`);
+  console.log(`Container width: ${containerWidth}px`);
 }
 
 // Update trim duration display
@@ -880,6 +1271,510 @@ async function executeTrim() {
   }
 }
 
+// ==================== Video-Only Trim Functions ====================
+
+// Update trim video duration display
+function updateTrimVideoDurationDisplay() {
+  const startInput = document.getElementById('trim-video-start');
+  const endInput = document.getElementById('trim-video-end');
+  const display = document.getElementById('trim-video-duration-display');
+
+  if (!startInput || !endInput || !display) return;
+
+  const maxDuration = videoInfo ? parseFloat(videoInfo.format.duration) : 100;
+  let startTime = parseFloat(startInput.value) || 0;
+  let endTime = parseFloat(endInput.value) || 0;
+
+  startTime = Math.max(0, Math.min(startTime, maxDuration));
+  endTime = Math.max(0, Math.min(endTime, maxDuration));
+
+  if (parseFloat(startInput.value) !== startTime) {
+    startInput.value = startTime.toFixed(2);
+  }
+  if (parseFloat(endInput.value) !== endTime) {
+    endInput.value = endTime.toFixed(2);
+  }
+
+  const duration = Math.max(0, endTime - startTime);
+  display.textContent = `${duration.toFixed(2)}초`;
+
+  if (endTime <= startTime) {
+    display.style.color = '#dc3545';
+    display.textContent += ' (끝 시간이 시작 시간보다 커야 함)';
+  } else if (duration < 0.1) {
+    display.style.color = '#ffc107';
+    display.textContent += ' (최소 0.1초 이상)';
+  } else if (startTime >= maxDuration) {
+    display.style.color = '#dc3545';
+    display.textContent += ' (시작 시간이 영상 길이 초과)';
+  } else if (endTime > maxDuration) {
+    display.style.color = '#dc3545';
+    display.textContent += ' (끝 시간이 영상 길이 초과)';
+  } else {
+    display.style.color = '#28a745';
+    display.textContent += ' ✓';
+  }
+
+  updateTrimVideoRangeOverlay(startTime, endTime, maxDuration);
+}
+
+function updateTrimVideoRangeOverlay(startTime, endTime, maxDuration) {
+  const overlay = document.getElementById('trim-range-overlay');
+  if (!overlay || !videoInfo) return;
+
+  if (activeTool === 'trim-video-only') {
+    overlay.style.display = 'block';
+    const startPercent = (startTime / maxDuration) * 100;
+    const endPercent = (endTime / maxDuration) * 100;
+    const widthPercent = endPercent - startPercent;
+    overlay.style.left = `${startPercent}%`;
+    overlay.style.width = `${widthPercent}%`;
+  } else {
+    overlay.style.display = 'none';
+  }
+}
+
+function updateTrimVideoEndMax() {
+  const startInput = document.getElementById('trim-video-start');
+  const endInput = document.getElementById('trim-video-end');
+
+  if (!startInput || !endInput || !videoInfo) return;
+
+  const maxDuration = parseFloat(videoInfo.format.duration);
+  let startTime = parseFloat(startInput.value) || 0;
+  let endTime = parseFloat(endInput.value) || 0;
+
+  startTime = Math.max(0, Math.min(startTime, maxDuration - 0.1));
+  startInput.value = startTime.toFixed(2);
+
+  if (endTime <= startTime) {
+    endTime = Math.min(startTime + 1, maxDuration);
+    endInput.value = endTime.toFixed(2);
+  }
+
+  if (endTime > maxDuration) {
+    endTime = maxDuration;
+    endInput.value = endTime.toFixed(2);
+  }
+
+  updateTrimVideoDurationDisplay();
+}
+
+function setVideoStartFromCurrentTime() {
+  const video = document.getElementById('preview-video');
+  const startInput = document.getElementById('trim-video-start');
+
+  if (!video || !video.src) {
+    alert('먼저 영상을 가져와주세요.');
+    return;
+  }
+
+  const currentTime = video.currentTime;
+  startInput.value = currentTime.toFixed(2);
+  updateTrimVideoEndMax();
+  updateTrimVideoDurationDisplay();
+  updateStatus(`시작 시간 설정: ${formatTime(currentTime)}`);
+}
+
+function setVideoEndFromCurrentTime() {
+  const video = document.getElementById('preview-video');
+  const endInput = document.getElementById('trim-video-end');
+
+  if (!video || !video.src) {
+    alert('먼저 영상을 가져와주세요.');
+    return;
+  }
+
+  const currentTime = video.currentTime;
+  endInput.value = currentTime.toFixed(2);
+  updateTrimVideoDurationDisplay();
+  updateStatus(`끝 시간 설정: ${formatTime(currentTime)}`);
+}
+
+function previewVideoStartTime() {
+  const video = document.getElementById('preview-video');
+  const startInput = document.getElementById('trim-video-start');
+
+  if (!video || !video.src) {
+    alert('먼저 영상을 가져와주세요.');
+    return;
+  }
+
+  const startTime = parseFloat(startInput.value) || 0;
+  video.currentTime = startTime;
+  updateStatus(`시작 위치로 이동: ${formatTime(startTime)}`);
+}
+
+function previewVideoEndTime() {
+  const video = document.getElementById('preview-video');
+  const endInput = document.getElementById('trim-video-end');
+
+  if (!video || !video.src) {
+    alert('먼저 영상을 가져와주세요.');
+    return;
+  }
+
+  const endTime = parseFloat(endInput.value) || 0;
+  video.currentTime = endTime;
+  updateStatus(`끝 위치로 이동: ${formatTime(endTime)}`);
+}
+
+function previewVideoTrimRange() {
+  const video = document.getElementById('preview-video');
+  const startInput = document.getElementById('trim-video-start');
+  const endInput = document.getElementById('trim-video-end');
+
+  if (!video || !video.src) {
+    alert('먼저 영상을 가져와주세요.');
+    return;
+  }
+
+  const startTime = parseFloat(startInput.value) || 0;
+  const endTime = parseFloat(endInput.value) || 0;
+
+  if (endTime <= startTime) {
+    alert('끝 시간은 시작 시간보다 커야 합니다.');
+    return;
+  }
+
+  video.currentTime = startTime;
+  video.play();
+
+  const stopAtEnd = () => {
+    if (video.currentTime >= endTime) {
+      video.pause();
+      video.removeEventListener('timeupdate', stopAtEnd);
+    }
+  };
+
+  video.addEventListener('timeupdate', stopAtEnd);
+  updateStatus(`구간 미리보기 재생: ${formatTime(startTime)} ~ ${formatTime(endTime)}`);
+}
+
+async function executeTrimVideoOnly() {
+  if (!currentVideo) {
+    alert('먼저 영상을 가져와주세요.');
+    return;
+  }
+
+  if (!videoInfo) {
+    alert('영상 정보를 불러오는 중입니다. 잠시 후 다시 시도해주세요.');
+    return;
+  }
+
+  const maxDuration = parseFloat(videoInfo.format.duration);
+  const startTime = parseFloat(document.getElementById('trim-video-start').value);
+  const endTime = parseFloat(document.getElementById('trim-video-end').value);
+
+  if (isNaN(startTime) || isNaN(endTime)) {
+    alert('유효한 숫자를 입력해주세요.');
+    return;
+  }
+
+  if (startTime < 0) {
+    alert('시작 시간은 0보다 작을 수 없습니다.');
+    return;
+  }
+
+  if (startTime >= maxDuration) {
+    alert(`시작 시간은 영상 길이(${maxDuration.toFixed(2)}초)보다 작아야 합니다.`);
+    return;
+  }
+
+  if (endTime > maxDuration) {
+    alert(`끝 시간은 영상 길이(${maxDuration.toFixed(2)}초)를 초과할 수 없습니다.`);
+    return;
+  }
+
+  if (endTime <= startTime) {
+    alert('끝 시간은 시작 시간보다 커야 합니다.');
+    return;
+  }
+
+  const duration = endTime - startTime;
+
+  if (duration < 0.1) {
+    alert('구간 길이는 최소 0.1초 이상이어야 합니다.');
+    return;
+  }
+
+  const outputPath = await window.electronAPI.selectOutput('trimmed_video_only.mp4');
+
+  if (!outputPath) return;
+
+  showProgress();
+  updateProgress(0, '영상만 자르는 중 (오디오 유지)...');
+
+  try {
+    const result = await window.electronAPI.trimVideoOnly({
+      inputPath: currentVideo,
+      outputPath,
+      startTime,
+      duration
+    });
+
+    hideProgress();
+    alert('영상만 자르기 완료! (오디오는 원본 유지)');
+    loadVideo(result.outputPath);
+    currentVideo = result.outputPath;
+  } catch (error) {
+    hideProgress();
+    handleError('영상만 자르기', error, '영상만 자르기에 실패했습니다.');
+  }
+}
+
+// ==================== Audio-Only Trim Functions ====================
+
+// Update trim audio duration display
+function updateTrimAudioDurationDisplay() {
+  const startInput = document.getElementById('trim-audio-start');
+  const endInput = document.getElementById('trim-audio-end');
+  const display = document.getElementById('trim-audio-duration-display');
+
+  if (!startInput || !endInput || !display) return;
+
+  const maxDuration = videoInfo ? parseFloat(videoInfo.format.duration) : 100;
+  let startTime = parseFloat(startInput.value) || 0;
+  let endTime = parseFloat(endInput.value) || 0;
+
+  startTime = Math.max(0, Math.min(startTime, maxDuration));
+  endTime = Math.max(0, Math.min(endTime, maxDuration));
+
+  if (parseFloat(startInput.value) !== startTime) {
+    startInput.value = startTime.toFixed(2);
+  }
+  if (parseFloat(endInput.value) !== endTime) {
+    endInput.value = endTime.toFixed(2);
+  }
+
+  const duration = Math.max(0, endTime - startTime);
+  display.textContent = `${duration.toFixed(2)}초`;
+
+  if (endTime <= startTime) {
+    display.style.color = '#dc3545';
+    display.textContent += ' (끝 시간이 시작 시간보다 커야 함)';
+  } else if (duration < 0.1) {
+    display.style.color = '#ffc107';
+    display.textContent += ' (최소 0.1초 이상)';
+  } else if (startTime >= maxDuration) {
+    display.style.color = '#dc3545';
+    display.textContent += ' (시작 시간이 영상 길이 초과)';
+  } else if (endTime > maxDuration) {
+    display.style.color = '#dc3545';
+    display.textContent += ' (끝 시간이 영상 길이 초과)';
+  } else {
+    display.style.color = '#28a745';
+    display.textContent += ' ✓';
+  }
+
+  updateTrimAudioRangeOverlay(startTime, endTime, maxDuration);
+}
+
+function updateTrimAudioRangeOverlay(startTime, endTime, maxDuration) {
+  const overlay = document.getElementById('audio-range-overlay');
+  if (!overlay || !videoInfo) return;
+
+  if (activeTool === 'trim-audio-only') {
+    overlay.style.display = 'block';
+    const startPercent = (startTime / maxDuration) * 100;
+    const endPercent = (endTime / maxDuration) * 100;
+    const widthPercent = endPercent - startPercent;
+    overlay.style.left = `${startPercent}%`;
+    overlay.style.width = `${widthPercent}%`;
+  } else {
+    overlay.style.display = 'none';
+  }
+}
+
+function updateTrimAudioEndMax() {
+  const startInput = document.getElementById('trim-audio-start');
+  const endInput = document.getElementById('trim-audio-end');
+
+  if (!startInput || !endInput || !videoInfo) return;
+
+  const maxDuration = parseFloat(videoInfo.format.duration);
+  let startTime = parseFloat(startInput.value) || 0;
+  let endTime = parseFloat(endInput.value) || 0;
+
+  startTime = Math.max(0, Math.min(startTime, maxDuration - 0.1));
+  startInput.value = startTime.toFixed(2);
+
+  if (endTime <= startTime) {
+    endTime = Math.min(startTime + 1, maxDuration);
+    endInput.value = endTime.toFixed(2);
+  }
+
+  if (endTime > maxDuration) {
+    endTime = maxDuration;
+    endInput.value = endTime.toFixed(2);
+  }
+
+  updateTrimAudioDurationDisplay();
+}
+
+function setAudioStartFromCurrentTime() {
+  const video = document.getElementById('preview-video');
+  const startInput = document.getElementById('trim-audio-start');
+
+  if (!video || !video.src) {
+    alert('먼저 영상을 가져와주세요.');
+    return;
+  }
+
+  const currentTime = video.currentTime;
+  startInput.value = currentTime.toFixed(2);
+  updateTrimAudioEndMax();
+  updateTrimAudioDurationDisplay();
+  updateStatus(`시작 시간 설정: ${formatTime(currentTime)}`);
+}
+
+function setAudioEndFromCurrentTime() {
+  const video = document.getElementById('preview-video');
+  const endInput = document.getElementById('trim-audio-end');
+
+  if (!video || !video.src) {
+    alert('먼저 영상을 가져와주세요.');
+    return;
+  }
+
+  const currentTime = video.currentTime;
+  endInput.value = currentTime.toFixed(2);
+  updateTrimAudioDurationDisplay();
+  updateStatus(`끝 시간 설정: ${formatTime(currentTime)}`);
+}
+
+function previewAudioStartTime() {
+  const video = document.getElementById('preview-video');
+  const startInput = document.getElementById('trim-audio-start');
+
+  if (!video || !video.src) {
+    alert('먼저 영상을 가져와주세요.');
+    return;
+  }
+
+  const startTime = parseFloat(startInput.value) || 0;
+  video.currentTime = startTime;
+  updateStatus(`시작 위치로 이동: ${formatTime(startTime)}`);
+}
+
+function previewAudioEndTime() {
+  const video = document.getElementById('preview-video');
+  const endInput = document.getElementById('trim-audio-end');
+
+  if (!video || !video.src) {
+    alert('먼저 영상을 가져와주세요.');
+    return;
+  }
+
+  const endTime = parseFloat(endInput.value) || 0;
+  video.currentTime = endTime;
+  updateStatus(`끝 위치로 이동: ${formatTime(endTime)}`);
+}
+
+function previewAudioTrimRange() {
+  const video = document.getElementById('preview-video');
+  const startInput = document.getElementById('trim-audio-start');
+  const endInput = document.getElementById('trim-audio-end');
+
+  if (!video || !video.src) {
+    alert('먼저 영상을 가져와주세요.');
+    return;
+  }
+
+  const startTime = parseFloat(startInput.value) || 0;
+  const endTime = parseFloat(endInput.value) || 0;
+
+  if (endTime <= startTime) {
+    alert('끝 시간은 시작 시간보다 커야 합니다.');
+    return;
+  }
+
+  video.currentTime = startTime;
+  video.play();
+
+  const stopAtEnd = () => {
+    if (video.currentTime >= endTime) {
+      video.pause();
+      video.removeEventListener('timeupdate', stopAtEnd);
+    }
+  };
+
+  video.addEventListener('timeupdate', stopAtEnd);
+  updateStatus(`구간 미리보기 재생: ${formatTime(startTime)} ~ ${formatTime(endTime)}`);
+}
+
+async function executeTrimAudioOnly() {
+  if (!currentVideo) {
+    alert('먼저 영상을 가져와주세요.');
+    return;
+  }
+
+  if (!videoInfo) {
+    alert('영상 정보를 불러오는 중입니다. 잠시 후 다시 시도해주세요.');
+    return;
+  }
+
+  const maxDuration = parseFloat(videoInfo.format.duration);
+  const startTime = parseFloat(document.getElementById('trim-audio-start').value);
+  const endTime = parseFloat(document.getElementById('trim-audio-end').value);
+
+  if (isNaN(startTime) || isNaN(endTime)) {
+    alert('유효한 숫자를 입력해주세요.');
+    return;
+  }
+
+  if (startTime < 0) {
+    alert('시작 시간은 0보다 작을 수 없습니다.');
+    return;
+  }
+
+  if (startTime >= maxDuration) {
+    alert(`시작 시간은 영상 길이(${maxDuration.toFixed(2)}초)보다 작아야 합니다.`);
+    return;
+  }
+
+  if (endTime > maxDuration) {
+    alert(`끝 시간은 영상 길이(${maxDuration.toFixed(2)}초)를 초과할 수 없습니다.`);
+    return;
+  }
+
+  if (endTime <= startTime) {
+    alert('끝 시간은 시작 시간보다 커야 합니다.');
+    return;
+  }
+
+  const duration = endTime - startTime;
+
+  if (duration < 0.1) {
+    alert('구간 길이는 최소 0.1초 이상이어야 합니다.');
+    return;
+  }
+
+  const outputPath = await window.electronAPI.selectOutput('trimmed_audio_only.mp4');
+
+  if (!outputPath) return;
+
+  showProgress();
+  updateProgress(0, '오디오만 자르는 중 (영상 유지)...');
+
+  try {
+    const result = await window.electronAPI.trimAudioOnly({
+      inputPath: currentVideo,
+      outputPath,
+      startTime,
+      endTime
+    });
+
+    hideProgress();
+    alert('오디오만 자르기 완료! (영상은 원본 유지)');
+    loadVideo(result.outputPath);
+    currentVideo = result.outputPath;
+  } catch (error) {
+    hideProgress();
+    handleError('오디오만 자르기', error, '오디오만 자르기에 실패했습니다.');
+  }
+}
+
 // Merge videos
 let mergeVideos = [];
 
@@ -949,6 +1844,29 @@ let selectedAudioDuration = 0;
 // Audio preview element for playback
 let audioPreviewElement = null;
 
+// Toggle audio source UI between file and silence
+function toggleAudioSourceUI() {
+  const sourceType = document.getElementById('audio-source-type').value;
+  const fileSection = document.getElementById('audio-file-section');
+  const silenceSection = document.getElementById('audio-silence-section');
+  const volumeSection = document.getElementById('audio-volume-section');
+
+  if (sourceType === 'file') {
+    fileSection.style.display = 'block';
+    silenceSection.style.display = 'none';
+    volumeSection.style.display = 'block';
+  } else {
+    fileSection.style.display = 'none';
+    silenceSection.style.display = 'block';
+    volumeSection.style.display = 'none';
+    // Reset selected audio file
+    selectedAudioFile = null;
+    selectedAudioDuration = 0;
+  }
+
+  updateAudioRangeOverlay();
+}
+
 async function selectAudioFile() {
   selectedAudioFile = await window.electronAPI.selectAudio();
   if (selectedAudioFile) {
@@ -987,11 +1905,30 @@ async function getAudioDuration(audioPath) {
 function updateAudioRangeOverlay() {
   const overlay = document.getElementById('audio-range-overlay');
   const startTimeInput = document.getElementById('audio-start-time');
+  const sourceType = document.getElementById('audio-source-type');
 
-  if (!overlay || !videoInfo || !selectedAudioFile || selectedAudioDuration === 0) {
+  if (!overlay || !videoInfo) {
     if (overlay) {
       overlay.style.display = 'none';
     }
+    return;
+  }
+
+  // Determine audio duration based on source type
+  let audioDuration = 0;
+  if (sourceType && sourceType.value === 'silence') {
+    const silenceDurationInput = document.getElementById('silence-duration');
+    audioDuration = silenceDurationInput ? parseFloat(silenceDurationInput.value) || 0 : 0;
+  } else {
+    audioDuration = selectedAudioDuration;
+    if (!selectedAudioFile || audioDuration === 0) {
+      overlay.style.display = 'none';
+      return;
+    }
+  }
+
+  if (audioDuration === 0) {
+    overlay.style.display = 'none';
     return;
   }
 
@@ -1001,7 +1938,7 @@ function updateAudioRangeOverlay() {
 
     const videoDuration = parseFloat(videoInfo.format.duration);
     const startTime = parseFloat(startTimeInput.value) || 0;
-    const endTime = Math.min(startTime + selectedAudioDuration, videoDuration);
+    const endTime = Math.min(startTime + audioDuration, videoDuration);
 
     // Calculate percentages
     const startPercent = (startTime / videoDuration) * 100;
@@ -1060,21 +1997,37 @@ async function executeAddAudio() {
     return;
   }
 
-  if (!selectedAudioFile) {
-    alert('오디오 파일을 선택해주세요.');
-    return;
-  }
-
-  const volumeLevel = parseFloat(document.getElementById('audio-volume').value);
+  const sourceType = document.getElementById('audio-source-type').value;
   const audioStartTimeInput = document.getElementById('audio-start-time');
   const audioStartTime = audioStartTimeInput ? parseFloat(audioStartTimeInput.value) || 0 : 0;
+
+  let audioDuration = 0;
+  let isSilence = false;
+
+  if (sourceType === 'silence') {
+    const silenceDurationInput = document.getElementById('silence-duration');
+    audioDuration = silenceDurationInput ? parseFloat(silenceDurationInput.value) || 0 : 0;
+    if (audioDuration === 0) {
+      alert('무음 길이를 입력해주세요.');
+      return;
+    }
+    isSilence = true;
+  } else {
+    if (!selectedAudioFile) {
+      alert('오디오 파일을 선택해주세요.');
+      return;
+    }
+  }
+
+  const volumeLevel = isSilence ? 0 : parseFloat(document.getElementById('audio-volume').value);
+  const insertMode = document.getElementById('audio-insert-mode').value;
 
   const outputPath = await window.electronAPI.selectOutput('video_with_audio.mp4');
 
   if (!outputPath) return;
 
   showProgress();
-  updateProgress(0, '오디오 추가 중...');
+  updateProgress(0, isSilence ? '무음 추가 중...' : '오디오 추가 중...');
 
   try {
     const result = await window.electronAPI.addAudio({
@@ -1082,11 +2035,14 @@ async function executeAddAudio() {
       audioPath: selectedAudioFile,
       outputPath,
       volumeLevel,
-      audioStartTime
+      audioStartTime,
+      isSilence,
+      silenceDuration: audioDuration,
+      insertMode
     });
 
     hideProgress();
-    alert('오디오 추가 완료!');
+    alert(isSilence ? '무음 추가 완료!' : '오디오 추가 완료!');
     loadVideo(result.outputPath);
     currentVideo = result.outputPath;
   } catch (error) {

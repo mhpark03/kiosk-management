@@ -31,6 +31,14 @@
             <span class="icon">✂️</span>
             영상 자르기
           </button>
+          <button class="tool-btn" data-tool="trim-video-only">
+            <span class="icon">🎬</span>
+            영상만 자르기
+          </button>
+          <button class="tool-btn" data-tool="trim-audio-only">
+            <span class="icon">🔉</span>
+            오디오만 자르기
+          </button>
           <button class="tool-btn" data-tool="merge">
             <span class="icon">🔗</span>
             영상 병합
@@ -126,7 +134,11 @@
             </div>
             <div class="track audio-track">
               <div class="track-label">Audio</div>
-              <div class="track-content" id="audio-track"></div>
+              <div class="track-content" id="audio-track">
+                <img id="audio-waveform" class="audio-waveform" style="display: none;" />
+                <div id="playhead-bar" class="playhead-bar" style="display: none;"></div>
+                <div id="zoom-selection" class="zoom-selection" style="display: none;"></div>
+              </div>
             </div>
           </div>
         </div>
