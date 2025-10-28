@@ -1338,8 +1338,30 @@ function setupAudioTrackInteraction() {
       const startPercent = Math.min(zoomStartX, currentX) / rect.width;
       const endPercent = Math.max(zoomStartX, currentX) / rect.width;
 
-      // Only zoom if selection is big enough (at least 5% of track)
+      // Only zoom if selection is big enough (at least 5% of visible track)
       if (endPercent - startPercent > 0.05) {
+        // Get duration for detailed logging
+        const duration = audioFileInfo?.format?.duration;
+
+        if (duration) {
+          // Current visible time range
+          const currentStartTime = zoomStart * duration;
+          const currentEndTime = zoomEnd * duration;
+          const currentRangeDuration = (zoomEnd - zoomStart) * duration;
+
+          // Calculate dragged selection in seconds
+          const draggedStartTime = currentStartTime + (startPercent * currentRangeDuration);
+          const draggedEndTime = currentStartTime + (endPercent * currentRangeDuration);
+          const draggedDuration = draggedEndTime - draggedStartTime;
+
+          console.log(`═══ Audio Zoom ═══`);
+          console.log(`  Current view: ${currentStartTime.toFixed(2)}s - ${currentEndTime.toFixed(2)}s (${currentRangeDuration.toFixed(2)}s range)`);
+          console.log(`  Dragged selection: ${(startPercent*100).toFixed(1)}% - ${(endPercent*100).toFixed(1)}% of visible area`);
+          console.log(`  → Time range: ${draggedStartTime.toFixed(3)}s - ${draggedEndTime.toFixed(3)}s`);
+          console.log(`  → Duration: ${draggedDuration.toFixed(3)}s`);
+          console.log(`  Zoom factor: ${(currentRangeDuration / draggedDuration).toFixed(1)}x`);
+        }
+
         // Map percentages to zoom range
         const zoomRange = zoomEnd - zoomStart;
         const newZoomStart = zoomStart + (startPercent * zoomRange);
@@ -1347,16 +1369,6 @@ function setupAudioTrackInteraction() {
 
         zoomStart = newZoomStart;
         zoomEnd = newZoomEnd;
-
-        // Get duration for time display
-        const duration = audioFileInfo?.format?.duration;
-        if (duration) {
-          const startTime = zoomStart * duration;
-          const endTime = zoomEnd * duration;
-          console.log(`Audio zoom: ${startTime.toFixed(2)}s - ${endTime.toFixed(2)}s (${(zoomStart * 100).toFixed(1)}% - ${(zoomEnd * 100).toFixed(1)}%)`);
-        } else {
-          console.log(`Audio zoom: ${(zoomStart * 100).toFixed(1)}% - ${(zoomEnd * 100).toFixed(1)}%`);
-        }
 
         // Apply zoom to waveform
         applyWaveformZoom();
@@ -1425,6 +1437,9 @@ function applyWaveformZoom() {
 
   console.log(`Waveform zoom: zoomStart=${(zoomStart*100).toFixed(1)}%, zoomEnd=${(zoomEnd*100).toFixed(1)}%, range=${(zoomRange*100).toFixed(1)}%`);
 
+  // Update zoom info display
+  updateZoomInfoDisplay();
+
   // Update playhead position after zoom
   const video = document.getElementById('preview-video');
   if (video && video.duration) {
@@ -1437,6 +1452,36 @@ function applyWaveformZoom() {
   // Directly regenerate waveform for zoomed range (no CSS scaling)
   // Use shorter delay for better responsiveness
   applyWaveformZoomDebounced();
+}
+
+// Update zoom info display
+function updateZoomInfoDisplay() {
+  const zoomInfo = document.getElementById('zoom-info');
+  const zoomRangeDisplay = document.getElementById('zoom-range-display');
+  const zoomLevelDisplay = document.getElementById('zoom-level-display');
+
+  if (!zoomInfo || !zoomRangeDisplay || !zoomLevelDisplay) return;
+
+  const duration = videoInfo?.format?.duration || audioFileInfo?.format?.duration;
+  if (!duration) {
+    zoomInfo.style.display = 'none';
+    return;
+  }
+
+  const zoomRange = zoomEnd - zoomStart;
+  const startTime = zoomStart * duration;
+  const endTime = zoomEnd * duration;
+  const rangeDuration = zoomRange * duration;
+  const zoomLevel = 1 / zoomRange; // Zoom level relative to full range
+
+  // Show zoom info if zoomed in
+  if (zoomRange < 0.99) {
+    zoomInfo.style.display = 'flex';
+    zoomRangeDisplay.textContent = `${startTime.toFixed(2)}s - ${endTime.toFixed(2)}s (${rangeDuration.toFixed(2)}s)`;
+    zoomLevelDisplay.textContent = `${zoomLevel.toFixed(1)}x`;
+  } else {
+    zoomInfo.style.display = 'none';
+  }
 }
 
 // Regenerate waveform for zoomed range (debounced)
@@ -1477,6 +1522,10 @@ async function applyWaveformZoomDebounced() {
     try {
       isRegeneratingWaveform = true;
 
+      // Save the zoom range we're generating for
+      const savedZoomStart = zoomStart;
+      const savedZoomEnd = zoomEnd;
+
       const startTime = zoomStart * duration;
       const endTime = zoomEnd * duration;
       const rangeDuration = zoomRange * duration;
@@ -1490,6 +1539,12 @@ async function applyWaveformZoomDebounced() {
         startTime: startTime,
         duration: rangeDuration
       });
+
+      // Check if zoom range has changed during generation
+      if (savedZoomStart !== zoomStart || savedZoomEnd !== zoomEnd) {
+        console.log(`Zoom range changed during generation (${(savedZoomStart*100).toFixed(1)}%-${(savedZoomEnd*100).toFixed(1)}% -> ${(zoomStart*100).toFixed(1)}%-${(zoomEnd*100).toFixed(1)}%), discarding result`);
+        return; // Discard this result, newer generation will take over
+      }
 
       if (base64Image) {
         const waveformImg = document.getElementById('audio-waveform');
@@ -1517,12 +1572,21 @@ async function applyWaveformZoomDebounced() {
         }
       }
     } catch (error) {
-      console.error('Failed to regenerate zoomed waveform:', error);
-      // Keep the scaled original waveform on error
+      if (error.message && error.message.includes('No audio stream')) {
+        console.warn('Video has no audio stream, skipping waveform regeneration');
+        // Hide zoom info for videos without audio
+        const zoomInfo = document.getElementById('zoom-info');
+        if (zoomInfo) {
+          zoomInfo.style.display = 'none';
+        }
+      } else {
+        console.error('Failed to regenerate zoomed waveform:', error);
+      }
+      // Keep the current waveform on error
     } finally {
       isRegeneratingWaveform = false;
     }
-  }, 800);
+  }, 300);
 }
 
 // Update zoom range overlay on timeline slider

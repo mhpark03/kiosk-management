@@ -500,6 +500,40 @@ ipcMain.handle('generate-waveform-range', async (event, options) => {
   const path = require('path');
   const os = require('os');
 
+  // First, check if the file has an audio stream
+  const hasAudio = await new Promise((resolve) => {
+    const ffprobe = spawn(ffprobePath, [
+      '-v', 'error',
+      '-select_streams', 'a:0',
+      '-show_entries', 'stream=codec_type',
+      '-of', 'default=noprint_wrappers=1:nokey=1',
+      videoPath
+    ], {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true
+    });
+
+    let output = '';
+    ffprobe.stdout.on('data', (data) => {
+      output += data.toString('utf8');
+    });
+
+    ffprobe.on('close', (code) => {
+      const hasAudioStream = output.trim() === 'audio';
+      logInfo('AUDIO_STREAM_CHECK', 'Audio stream detection for waveform range', {
+        videoPath,
+        hasAudioStream,
+        output: output.trim()
+      });
+      resolve(hasAudioStream);
+    });
+  });
+
+  if (!hasAudio) {
+    logError('WAVEFORM_RANGE_NO_AUDIO', 'No audio stream found in video', { videoPath });
+    return Promise.reject(new Error('No audio stream found in video file'));
+  }
+
   // Create temp file path for waveform image
   const tempDir = os.tmpdir();
   const waveformPath = path.join(tempDir, `waveform_range_${Date.now()}.png`);
