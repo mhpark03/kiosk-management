@@ -11,8 +11,20 @@
   <div class="app-container">
     <!-- Header -->
     <header class="header">
-      <h1>Kiosk Video Editor</h1>
-      <p class="subtitle">고급 영상/음성 편집 도구</p>
+      <div class="header-left">
+        <h1>Kiosk Video Editor</h1>
+        <p class="subtitle">고급 영상/음성 편집 도구</p>
+      </div>
+      <div class="header-right">
+        <div class="mode-switch">
+          <button class="mode-btn active" id="video-mode-btn" data-mode="video">
+            🎬 영상 편집
+          </button>
+          <button class="mode-btn" id="audio-mode-btn" data-mode="audio">
+            🎵 음성 편집
+          </button>
+        </div>
+      </div>
     </header>
 
     <!-- Main Content -->
@@ -167,15 +179,6 @@
             <div id="progress-fill" class="progress-fill"></div>
           </div>
           <p id="progress-text" class="progress-text">대기 중...</p>
-        </div>
-
-        <!-- Console Log Section -->
-        <div class="console-section">
-          <div class="console-header">
-            <h3>콘솔 로그</h3>
-            <button id="clear-logs-btn" class="console-btn">지우기</button>
-          </div>
-          <div id="console-logs" class="console-logs"></div>
         </div>
       </aside>
     </div>

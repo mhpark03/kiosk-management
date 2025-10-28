@@ -34,7 +34,7 @@ function handleError(operation, error, userMessage) {
   console.error('=====================');
 
   // 사용자에게는 간단한 한글 메시지 표시
-  alert(`${userMessage}\n\n상세한 오류 내용은 콘솔 로그를 확인해주세요.\n(우측 속성 패널의 콘솔 로그 또는 F12 개발자 도구)`);
+  alert(`${userMessage}\n\n상세한 오류 내용은 개발자 도구(F12)의 콘솔에서 확인해주세요.`);
   updateStatus(`${operation} 실패`);
 }
 
@@ -43,9 +43,8 @@ document.addEventListener('DOMContentLoaded', () => {
   setupToolButtons();
   setupVideoControls();
   setupFFmpegProgressListener();
-  setupLogListener();
-  setupClearLogsButton();
   setupModeListener();
+  setupModeButtons();
   setupImportButton();
   updateModeUI();
   updateStatus('준비 완료');
@@ -243,9 +242,10 @@ function showToolProperties(tool) {
             <span id="audio-volume-display">1.0</span>x
           </div>
         </div>
-        <button class="property-btn" onclick="executeAudioVolume()">🔊 볼륨 조절 적용</button>
+        <button class="property-btn secondary" onclick="previewAudioVolume()" id="preview-volume-btn">🎧 미리듣기</button>
+        <button class="property-btn" onclick="executeAudioVolume()">💾 볼륨 조절하여 저장</button>
         <div style="background: #3a3a3a; padding: 10px; border-radius: 5px; margin-top: 10px;">
-          <small style="color: #aaa;">💡 1.0 = 원본, 0.5 = 절반, 2.0 = 2배</small>
+          <small style="color: #aaa;">💡 1.0 = 원본, 0.5 = 절반, 2.0 = 2배<br>저장 위치를 선택하면 새 파일로 저장됩니다.</small>
         </div>
       `;
       setTimeout(() => {
@@ -1057,20 +1057,40 @@ function updatePlayheadPosition(currentTime, duration) {
   // Always show playhead bar
   playheadBar.style.display = 'block';
 
-  // For scaled original waveform, apply the zoom transformation
-  const zoomRange = zoomEnd - zoomStart;
-  const scale = 1 / zoomRange;
+  let finalLeft;
 
-  // The playhead's left position relative to the SCALED waveform
-  const playheadPositionOnScaledWaveform = totalPercentage * scale * 100;
+  // Check if waveform has been regenerated for zoom range
+  if (isWaveformRegenerated) {
+    // Regenerated waveform: 0% = zoomStart, 100% = zoomEnd
+    // Calculate relative position within zoom range
+    if (totalPercentage < zoomStart || totalPercentage > zoomEnd) {
+      // Playhead is outside zoom range - hide it
+      playheadBar.style.display = 'none';
+      return;
+    }
 
-  // Apply the same margin-left shift as the waveform
-  const marginLeftPercent = -(zoomStart / zoomRange) * 100;
+    // Position relative to zoom range
+    const zoomRange = zoomEnd - zoomStart;
+    const relativePosition = (totalPercentage - zoomStart) / zoomRange;
+    finalLeft = relativePosition * 100;
 
-  // Final position: position on scaled waveform + margin shift
-  const finalLeft = playheadPositionOnScaledWaveform + marginLeftPercent;
+    console.log(`Playhead (regenerated): time=${currentTime.toFixed(2)}s, totalPct=${(totalPercentage*100).toFixed(1)}%, zoom=${(zoomStart*100).toFixed(1)}-${(zoomEnd*100).toFixed(1)}%, finalLeft=${finalLeft.toFixed(1)}%`);
+  } else {
+    // Original waveform with CSS scaling (fallback)
+    const zoomRange = zoomEnd - zoomStart;
+    const scale = 1 / zoomRange;
 
-  console.log(`Playhead update: time=${currentTime.toFixed(2)}s, totalPct=${(totalPercentage*100).toFixed(1)}%, zoom=${(zoomStart*100).toFixed(1)}-${(zoomEnd*100).toFixed(1)}%, finalLeft=${finalLeft.toFixed(1)}%`);
+    // The playhead's left position relative to the SCALED waveform
+    const playheadPositionOnScaledWaveform = totalPercentage * scale * 100;
+
+    // Apply the same margin-left shift as the waveform
+    const marginLeftPercent = -(zoomStart / zoomRange) * 100;
+
+    // Final position: position on scaled waveform + margin shift
+    finalLeft = playheadPositionOnScaledWaveform + marginLeftPercent;
+
+    console.log(`Playhead (scaled): time=${currentTime.toFixed(2)}s, totalPct=${(totalPercentage*100).toFixed(1)}%, zoom=${(zoomStart*100).toFixed(1)}-${(zoomEnd*100).toFixed(1)}%, finalLeft=${finalLeft.toFixed(1)}%`);
+  }
 
   // Update playhead position
   playheadBar.style.left = `${finalLeft}%`;
@@ -1113,6 +1133,7 @@ function setupPlayheadInteraction() {
     // Check if clicking on playhead
     if (e.target === playheadBar || e.target.closest('.playhead-bar')) {
       isDraggingPlayhead = true;
+      isUserSeekingSlider = true; // Prevent auto-skip during playhead drag
       e.preventDefault();
       return;
     }
@@ -1175,6 +1196,10 @@ function setupPlayheadInteraction() {
       }
 
       zoomSelection.style.display = 'none';
+    }
+
+    if (isDraggingPlayhead) {
+      isUserSeekingSlider = false; // Reset flag after playhead drag
     }
 
     isDraggingPlayhead = false;
@@ -1275,6 +1300,7 @@ function setupAudioTrackInteraction() {
     // Check if clicking on playhead
     if (e.target === playheadBar || e.target.closest('.playhead-bar')) {
       isDraggingPlayhead = true;
+      isUserSeekingSlider = true; // Prevent auto-skip during playhead drag
       e.preventDefault();
       return;
     }
@@ -1339,6 +1365,10 @@ function setupAudioTrackInteraction() {
       zoomSelection.style.display = 'none';
     }
 
+    if (isDraggingPlayhead) {
+      isUserSeekingSlider = false; // Reset flag after playhead drag
+    }
+
     isDraggingZoom = false;
     isDraggingPlayhead = false;
   });
@@ -1392,23 +1422,8 @@ function applyWaveformZoom() {
   }
 
   const zoomRange = zoomEnd - zoomStart;
-  const scale = 1 / zoomRange;  // Scale factor
 
-  // Using a different approach: margin-left and width scaling
-  // This is more predictable than transform
-  const containerWidth = audioTrack.offsetWidth;
-
-  // Set the width to scaled size
-  waveformImg.style.width = `${scale * 100}%`;
-
-  // Shift left by the start position (as percentage of scaled width)
-  // When width is 500% (scale=5), moving left by 46% means: -46% of 500% width
-  const marginLeftPercent = -(zoomStart / zoomRange) * 100;
-  waveformImg.style.marginLeft = `${marginLeftPercent}%`;
-
-  console.log(`Waveform zoom: zoomStart=${(zoomStart*100).toFixed(1)}%, zoomEnd=${(zoomEnd*100).toFixed(1)}%`);
-  console.log(`Applied: width=${(scale*100).toFixed(1)}%, marginLeft=${marginLeftPercent.toFixed(1)}%`);
-  console.log(`Container width: ${containerWidth}px`);
+  console.log(`Waveform zoom: zoomStart=${(zoomStart*100).toFixed(1)}%, zoomEnd=${(zoomEnd*100).toFixed(1)}%, range=${(zoomRange*100).toFixed(1)}%`);
 
   // Update playhead position after zoom
   const video = document.getElementById('preview-video');
@@ -1419,9 +1434,9 @@ function applyWaveformZoom() {
   // Update zoom range overlay on timeline slider
   updateZoomRangeOverlay();
 
-  // Note: Debounced waveform regeneration is disabled
-  // The scaled original waveform will be used instead
-  // applyWaveformZoomDebounced();
+  // Directly regenerate waveform for zoomed range (no CSS scaling)
+  // Use shorter delay for better responsiveness
+  applyWaveformZoomDebounced();
 }
 
 // Regenerate waveform for zoomed range (debounced)
@@ -1431,7 +1446,7 @@ async function applyWaveformZoomDebounced() {
     clearTimeout(waveformRegenerateTimer);
   }
 
-  // Set new timer for 800ms delay
+  // Set new timer for 300ms delay (faster response)
   waveformRegenerateTimer = setTimeout(async () => {
     // Don't regenerate if already in progress
     if (isRegeneratingWaveform) {
@@ -3066,46 +3081,7 @@ function setupFFmpegProgressListener() {
   });
 }
 
-// Log management
-function setupLogListener() {
-  window.electronAPI.onLogEntry((logData) => {
-    addLogEntry(logData);
-  });
-}
-
-function setupClearLogsButton() {
-  document.getElementById('clear-logs-btn').addEventListener('click', () => {
-    document.getElementById('console-logs').innerHTML = '';
-  });
-}
-
-function addLogEntry(logData) {
-  const logsContainer = document.getElementById('console-logs');
-  const logEntry = document.createElement('div');
-  logEntry.className = 'log-entry';
-
-  let logHTML = `
-    <span class="log-timestamp">${logData.timestamp}</span>
-    <span class="log-level ${logData.level}">${logData.level}</span>
-    <span class="log-event-type">[${logData.eventType}]</span>
-    <span class="log-message">${logData.message}</span>
-  `;
-
-  if (logData.data) {
-    logHTML += `<div class="log-data">${JSON.stringify(logData.data)}</div>`;
-  }
-
-  logEntry.innerHTML = logHTML;
-  logsContainer.appendChild(logEntry);
-
-  // Auto-scroll to bottom
-  logsContainer.scrollTop = logsContainer.scrollHeight;
-
-  // Limit log entries to 100
-  while (logsContainer.children.length > 100) {
-    logsContainer.removeChild(logsContainer.firstChild);
-  }
-}
+// Log management - Removed (console log UI was removed)
 
 function showProgress() {
   document.getElementById('progress-section').style.display = 'block';
@@ -3460,35 +3436,163 @@ async function executeTrimAudioFile() {
   }
 }
 
-async function executeAudioVolume() {
+// Preview audio with volume adjustment
+let volumePreviewAudio = null;
+
+function previewAudioVolume() {
   if (!currentAudioFile) {
     alert('먼저 음성 파일을 가져와주세요.');
     return;
   }
 
   const volumeLevel = parseFloat(document.getElementById('audio-volume-level').value);
-  const ext = currentAudioFile.split('.').pop();
-  const outputPath = await window.electronAPI.selectOutput(`volume_adjusted.${ext}`);
+  const previewBtn = document.getElementById('preview-volume-btn');
 
-  if (!outputPath) return;
+  // Stop existing preview if playing
+  if (volumePreviewAudio && !volumePreviewAudio.paused) {
+    volumePreviewAudio.pause();
+    volumePreviewAudio.currentTime = 0;
+    volumePreviewAudio = null;
+    previewBtn.textContent = '🎧 미리듣기';
+    previewBtn.classList.remove('active');
+    return;
+  }
+
+  // Create audio element with file path
+  volumePreviewAudio = new Audio(`file:///${currentAudioFile.replace(/\\/g, '/')}`);
+
+  // Set volume (capped at 1.0 for preview to prevent distortion)
+  volumePreviewAudio.volume = Math.min(1.0, volumeLevel);
+
+  // Get current playback position from timeline slider
+  const timelineSlider = document.getElementById('timeline-slider');
+  if (timelineSlider && audioFileInfo) {
+    const audioDuration = parseFloat(audioFileInfo.format.duration);
+    const currentTime = parseFloat(timelineSlider.value);
+
+    // If at the end (within 1 second), start from beginning
+    if (audioDuration - currentTime < 1.0) {
+      volumePreviewAudio.currentTime = 0;
+      timelineSlider.value = 0;
+
+      // Update time display
+      const currentTimeDisplay = document.getElementById('current-time');
+      if (currentTimeDisplay) {
+        currentTimeDisplay.textContent = formatTime(0);
+      }
+
+      // Update playhead bar
+      const playheadBar = document.getElementById('playhead-bar');
+      if (playheadBar) {
+        playheadBar.style.left = '0%';
+      }
+    } else {
+      volumePreviewAudio.currentTime = currentTime;
+    }
+  }
+
+  // Update button state
+  previewBtn.textContent = '⏸️ 정지';
+  previewBtn.classList.add('active');
+
+  // Update timeline during playback
+  volumePreviewAudio.addEventListener('timeupdate', () => {
+    if (!volumePreviewAudio || !audioFileInfo) return;
+
+    const currentTime = volumePreviewAudio.currentTime;
+    const audioDuration = parseFloat(audioFileInfo.format.duration);
+
+    // Update timeline slider
+    const timelineSlider = document.getElementById('timeline-slider');
+    if (timelineSlider) {
+      timelineSlider.value = currentTime;
+    }
+
+    // Update time display
+    const currentTimeDisplay = document.getElementById('current-time');
+    if (currentTimeDisplay) {
+      currentTimeDisplay.textContent = formatTime(currentTime);
+    }
+
+    // Update playhead bar position
+    const playheadBar = document.getElementById('playhead-bar');
+    if (playheadBar) {
+      // Calculate percentage relative to full duration
+      const percentage = currentTime / audioDuration;
+      // Map percentage to zoomed range
+      const zoomRange = zoomEnd - zoomStart;
+      const relativePercentage = (percentage - zoomStart) / zoomRange;
+      const clampedPercentage = Math.max(0, Math.min(1, relativePercentage));
+      playheadBar.style.left = (clampedPercentage * 100) + '%';
+    }
+  });
+
+  // Play audio
+  volumePreviewAudio.play().catch(error => {
+    console.error('Audio playback error:', error);
+    alert('오디오 재생에 실패했습니다.');
+    previewBtn.textContent = '🎧 미리듣기';
+    previewBtn.classList.remove('active');
+  });
+
+  // Reset button when playback ends
+  volumePreviewAudio.addEventListener('ended', () => {
+    previewBtn.textContent = '🎧 미리듣기';
+    previewBtn.classList.remove('active');
+    volumePreviewAudio = null;
+  });
+
+  updateStatus(`볼륨 미리듣기: ${volumeLevel}x`);
+}
+
+async function executeAudioVolume() {
+  // Stop preview if playing
+  if (volumePreviewAudio && !volumePreviewAudio.paused) {
+    volumePreviewAudio.pause();
+    volumePreviewAudio.currentTime = 0;
+    volumePreviewAudio = null;
+    const previewBtn = document.getElementById('preview-volume-btn');
+    if (previewBtn) {
+      previewBtn.textContent = '🎧 미리듣기';
+      previewBtn.classList.remove('active');
+    }
+  }
+
+  if (!currentAudioFile) {
+    alert('먼저 음성 파일을 가져와주세요.');
+    return;
+  }
+
+  const volumeLevel = parseFloat(document.getElementById('audio-volume-level').value);
+
+  // Generate default filename based on original file
+  const fileName = currentAudioFile.split('\\').pop().split('/').pop();
+  const fileNameWithoutExt = fileName.substring(0, fileName.lastIndexOf('.'));
+  const ext = currentAudioFile.split('.').pop();
+  const defaultName = `${fileNameWithoutExt}_volume_${volumeLevel}x.${ext}`;
+
+  const outputPath = await window.electronAPI.selectOutput(defaultName);
+
+  if (!outputPath) {
+    updateStatus('볼륨 조절 취소됨');
+    return;
+  }
 
   showProgress();
   updateProgress(0, '볼륨 조절 중...');
 
   try {
-    // Use add-audio handler with volume adjustment on audio-only file
-    const result = await window.electronAPI.addAudio({
-      videoPath: currentAudioFile,
-      audioPath: null,
+    // Use dedicated audio volume adjustment handler
+    const result = await window.electronAPI.adjustAudioVolume({
+      inputPath: currentAudioFile,
       outputPath,
-      volumeLevel,
-      audioStartTime: 0,
-      isSilence: false,
-      insertMode: 'overwrite'
+      volumeLevel
     });
 
     hideProgress();
-    alert(`볼륨 조절 완료! (${volumeLevel}x)`);
+
+    const savedFileName = result.outputPath.split('\\').pop();
+    alert(`볼륨 조절 완료!\n\n저장된 파일: ${savedFileName}\n볼륨 레벨: ${volumeLevel}x`);
 
     // Wait a bit for file to be fully written
     await new Promise(resolve => setTimeout(resolve, 500));
@@ -3497,8 +3601,8 @@ async function executeAudioVolume() {
     currentAudioFile = result.outputPath;
     audioFileInfo = await window.electronAPI.getVideoInfo(result.outputPath);
 
-    document.getElementById('current-file').textContent = result.outputPath.split('\\').pop();
-    updateStatus(`볼륨 조절 완료: ${volumeLevel}x`);
+    document.getElementById('current-file').textContent = savedFileName;
+    updateStatus(`볼륨 조절 완료: ${volumeLevel}x - ${savedFileName}`);
   } catch (error) {
     hideProgress();
     handleError('볼륨 조절', error, '볼륨 조절에 실패했습니다.');
@@ -3724,33 +3828,58 @@ async function previewAudioTrimRange() {
 }
 
 // Mode switching functions
+function setupModeButtons() {
+  const videoModeBtn = document.getElementById('video-mode-btn');
+  const audioModeBtn = document.getElementById('audio-mode-btn');
+
+  if (videoModeBtn) {
+    videoModeBtn.addEventListener('click', () => {
+      switchMode('video');
+    });
+  }
+
+  if (audioModeBtn) {
+    audioModeBtn.addEventListener('click', () => {
+      switchMode('audio');
+    });
+  }
+}
+
+function switchMode(mode) {
+  if (currentMode === mode) {
+    return; // Already in this mode
+  }
+
+  // Check if there's work in progress
+  const hasVideoWork = currentMode === 'video' && currentVideo;
+  const hasAudioWork = currentMode === 'audio' && currentAudioFile;
+
+  if (hasVideoWork || hasAudioWork) {
+    const currentType = currentMode === 'video' ? '영상' : '음성';
+    const targetType = mode === 'video' ? '영상' : '음성';
+    const confirmed = confirm(
+      `현재 ${currentType} 편집 작업이 있습니다.\n` +
+      `${targetType} 편집 모드로 전환하면 작업 내용이 초기화됩니다.\n` +
+      `계속하시겠습니까?`
+    );
+
+    if (!confirmed) {
+      updateStatus('모드 전환 취소됨');
+      return;
+    }
+  }
+
+  // Switch mode
+  currentMode = mode;
+  resetWorkspace();
+  updateModeUI();
+  updateStatus(`${mode === 'video' ? '영상' : '음성'} 편집 모드로 전환됨`);
+}
+
 function setupModeListener() {
   if (window.electronAPI && window.electronAPI.onModeSwitch) {
     window.electronAPI.onModeSwitch((mode) => {
-      // Check if there's work in progress
-      const hasVideoWork = currentMode === 'video' && currentVideo;
-      const hasAudioWork = currentMode === 'audio' && currentAudioFile;
-
-      if (hasVideoWork || hasAudioWork) {
-        const currentType = currentMode === 'video' ? '영상' : '음성';
-        const targetType = mode === 'video' ? '영상' : '음성';
-        const confirmed = confirm(
-          `현재 ${currentType} 편집 작업이 있습니다.\n` +
-          `${targetType} 편집 모드로 전환하면 작업 내용이 초기화됩니다.\n` +
-          `계속하시겠습니까?`
-        );
-
-        if (!confirmed) {
-          updateStatus('모드 전환 취소됨');
-          return;
-        }
-      }
-
-      // Switch mode
-      currentMode = mode;
-      resetWorkspace();
-      updateModeUI();
-      updateStatus(`${mode === 'video' ? '영상' : '음성'} 편집 모드로 전환됨`);
+      switchMode(mode);
     });
   }
 }
@@ -3835,6 +3964,7 @@ function resetWorkspace() {
   // Reset zoom state
   zoomStart = 0;
   zoomEnd = 1;
+  isWaveformRegenerated = false;
 }
 
 function updateModeUI() {
@@ -3962,6 +4092,20 @@ function updateModeUI() {
   // Clear current tool selection
   activeTool = null;
   document.getElementById('tool-properties').innerHTML = '<p class="placeholder-text">편집 도구를 선택하세요</p>';
+
+  // Update header mode buttons
+  const videoModeBtn = document.getElementById('video-mode-btn');
+  const audioModeBtn = document.getElementById('audio-mode-btn');
+
+  if (videoModeBtn && audioModeBtn) {
+    if (currentMode === 'video') {
+      videoModeBtn.classList.add('active');
+      audioModeBtn.classList.remove('active');
+    } else {
+      videoModeBtn.classList.remove('active');
+      audioModeBtn.classList.add('active');
+    }
+  }
 }
 
 // Utility functions
