@@ -409,10 +409,11 @@ ipcMain.handle('generate-waveform', async (event, videoPath) => {
   return new Promise((resolve, reject) => {
     // Generate waveform using FFmpeg showwavespic filter
     // draw=scale - draws a center line for silent parts
+    // scale=lin - linear scale for better visibility
     const args = [
       '-i', videoPath,
       '-filter_complex',
-      '[0:a]showwavespic=s=1200x100:colors=#667eea:draw=scale[wave]',
+      '[0:a]showwavespic=s=1200x100:colors=#667eea:draw=scale:scale=lin:split_channels=1[wave]',
       '-map', '[wave]',
       '-frames:v', '1',
       '-y',
