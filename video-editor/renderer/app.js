@@ -3,6 +3,9 @@ let currentVideo = null;
 let videoInfo = null;
 let activeTool = null;
 let videoLayers = [];
+let currentMode = 'video';  // 'video' or 'audio'
+let currentAudioFile = null;  // For audio editing mode
+let audioFileInfo = null;  // Audio file metadata
 
 // Zoom state for audio waveform
 let zoomStart = 0;  // 0-1 (percentage of video)
@@ -37,6 +40,8 @@ document.addEventListener('DOMContentLoaded', () => {
   setupFFmpegProgressListener();
   setupLogListener();
   setupClearLogsButton();
+  setupModeListener();
+  updateModeUI();
   updateStatus('준비 완료');
 });
 
@@ -141,6 +146,77 @@ function showToolProperties(tool) {
         document.getElementById('trim-end').addEventListener('input', updateTrimDurationDisplay);
         updateTrimDurationDisplay();
       }, 0);
+      break;
+
+    case 'import-audio':
+      importAudioFile();
+      break;
+
+    case 'trim-audio':
+      if (!currentAudioFile) {
+        alert('먼저 음성 파일을 가져와주세요.');
+        return;
+      }
+      const audioDuration = audioFileInfo ? parseFloat(audioFileInfo.format.duration) : 100;
+      propertiesPanel.innerHTML = `
+        <div class="property-group">
+          <label>시작 시간 (초)</label>
+          <input type="number" id="audio-trim-start" min="0" max="${audioDuration}" step="0.1" value="0" style="width: 100%; padding: 10px;">
+          <small style="color: #888; font-size: 11px; display: block; margin-top: 5px;">최대: ${audioDuration.toFixed(2)}초</small>
+        </div>
+        <div class="property-group">
+          <label>끝 시간 (초)</label>
+          <input type="number" id="audio-trim-end" min="0" max="${audioDuration}" step="0.1" value="${audioDuration.toFixed(2)}" style="width: 100%; padding: 10px;">
+          <small style="color: #888; font-size: 11px; display: block; margin-top: 5px;">최대: ${audioDuration.toFixed(2)}초</small>
+        </div>
+        <div class="property-group" style="background: #2d2d2d; padding: 10px; border-radius: 5px;">
+          <label style="color: #667eea;">자르기 구간 길이</label>
+          <div id="audio-trim-duration-display" style="font-size: 16px; font-weight: 600; color: #e0e0e0; margin-top: 5px;">0.00초</div>
+        </div>
+        <button class="property-btn" onclick="executeTrimAudioFile()">✂️ 음성 자르기</button>
+        <div style="background: #3a3a3a; padding: 10px; border-radius: 5px; margin-top: 10px;">
+          <small style="color: #aaa;">💡 MP3, WAV 등 음성 파일을 자를 수 있습니다</small>
+        </div>
+      `;
+      // Add event listeners for real-time duration calculation
+      setTimeout(() => {
+        document.getElementById('audio-trim-start').addEventListener('input', updateAudioTrimDurationDisplay);
+        document.getElementById('audio-trim-end').addEventListener('input', updateAudioTrimDurationDisplay);
+        updateAudioTrimDurationDisplay();
+      }, 0);
+      break;
+
+    case 'audio-volume':
+      if (!currentAudioFile) {
+        alert('먼저 음성 파일을 가져와주세요.');
+        return;
+      }
+      propertiesPanel.innerHTML = `
+        <div class="property-group">
+          <label>볼륨 레벨</label>
+          <input type="range" id="audio-volume-level" min="0" max="2" step="0.1" value="1" style="width: 100%;">
+          <div style="text-align: center; margin-top: 10px; font-size: 18px; font-weight: 600; color: #667eea;">
+            <span id="audio-volume-display">1.0</span>x
+          </div>
+        </div>
+        <button class="property-btn" onclick="executeAudioVolume()">🔊 볼륨 조절 적용</button>
+        <div style="background: #3a3a3a; padding: 10px; border-radius: 5px; margin-top: 10px;">
+          <small style="color: #aaa;">💡 1.0 = 원본, 0.5 = 절반, 2.0 = 2배</small>
+        </div>
+      `;
+      setTimeout(() => {
+        document.getElementById('audio-volume-level').addEventListener('input', (e) => {
+          document.getElementById('audio-volume-display').textContent = parseFloat(e.target.value).toFixed(1);
+        });
+      }, 0);
+      break;
+
+    case 'export-audio':
+      if (!currentAudioFile) {
+        alert('먼저 음성 파일을 가져와주세요.');
+        return;
+      }
+      alert('현재 음성 파일이 로드되어 있습니다. 편집 후 자동으로 저장됩니다.');
       break;
 
     case 'merge':
@@ -2492,6 +2568,289 @@ function updateProgress(percent, text) {
 
 function updateStatus(text) {
   document.getElementById('status-text').textContent = text;
+}
+
+// Audio file editing functions
+async function importAudioFile() {
+  const audioPath = await window.electronAPI.selectAudio();
+  if (!audioPath) return;
+
+  try {
+    currentAudioFile = audioPath;
+    audioFileInfo = await window.electronAPI.getVideoInfo(audioPath);
+
+    const duration = parseFloat(audioFileInfo.format.duration);
+    const size = (parseFloat(audioFileInfo.format.size || 0) / (1024 * 1024)).toFixed(2);
+
+    document.getElementById('current-file').textContent = audioPath.split('\\').pop();
+    updateStatus(`음성 파일 로드됨: ${duration.toFixed(2)}초, ${size}MB`);
+
+    alert(`음성 파일이 로드되었습니다.\n길이: ${formatTime(duration)}\n크기: ${size}MB`);
+  } catch (error) {
+    handleError('음성 파일 로드', error, '음성 파일을 불러오는데 실패했습니다.');
+  }
+}
+
+function updateAudioTrimDurationDisplay() {
+  const startInput = document.getElementById('audio-trim-start');
+  const endInput = document.getElementById('audio-trim-end');
+  const displayElement = document.getElementById('audio-trim-duration-display');
+
+  if (startInput && endInput && displayElement) {
+    const start = parseFloat(startInput.value) || 0;
+    const end = parseFloat(endInput.value) || 0;
+    const duration = Math.max(0, end - start);
+    displayElement.textContent = `${duration.toFixed(2)}초`;
+  }
+}
+
+async function executeTrimAudioFile() {
+  if (!currentAudioFile) {
+    alert('먼저 음성 파일을 가져와주세요.');
+    return;
+  }
+
+  if (!audioFileInfo) {
+    alert('음성 파일 정보를 불러오는 중입니다. 잠시 후 다시 시도해주세요.');
+    return;
+  }
+
+  const maxDuration = parseFloat(audioFileInfo.format.duration);
+  const startTime = parseFloat(document.getElementById('audio-trim-start').value);
+  const endTime = parseFloat(document.getElementById('audio-trim-end').value);
+
+  // Validation
+  if (isNaN(startTime) || isNaN(endTime)) {
+    alert('유효한 숫자를 입력해주세요.');
+    return;
+  }
+
+  if (startTime < 0) {
+    alert('시작 시간은 0보다 작을 수 없습니다.');
+    return;
+  }
+
+  if (startTime >= maxDuration) {
+    alert(`시작 시간은 음성 길이(${maxDuration.toFixed(2)}초)보다 작아야 합니다.');
+    return;
+  }
+
+  if (endTime > maxDuration) {
+    alert(`끝 시간은 음성 길이(${maxDuration.toFixed(2)}초)를 초과할 수 없습니다.`);
+    return;
+  }
+
+  if (endTime <= startTime) {
+    alert('끝 시간은 시작 시간보다 커야 합니다.');
+    return;
+  }
+
+  const duration = endTime - startTime;
+
+  if (duration < 0.1) {
+    alert('구간 길이는 최소 0.1초 이상이어야 합니다.');
+    return;
+  }
+
+  const ext = currentAudioFile.split('.').pop();
+  const outputPath = await window.electronAPI.selectOutput(`trimmed_audio.${ext}`);
+
+  if (!outputPath) return;
+
+  showProgress();
+  updateProgress(0, '음성 자르는 중...');
+
+  try {
+    const result = await window.electronAPI.trimAudioFile({
+      inputPath: currentAudioFile,
+      outputPath,
+      startTime,
+      endTime
+    });
+
+    hideProgress();
+    alert('음성 자르기 완료!');
+
+    // Wait a bit for file to be fully written
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    // Reload the trimmed audio file
+    currentAudioFile = result.outputPath;
+    audioFileInfo = await window.electronAPI.getVideoInfo(result.outputPath);
+
+    const newDuration = parseFloat(audioFileInfo.format.duration);
+    document.getElementById('current-file').textContent = result.outputPath.split('\\').pop();
+    updateStatus(`음성 자르기 완료: ${newDuration.toFixed(2)}초`);
+  } catch (error) {
+    hideProgress();
+    handleError('음성 자르기', error, '음성 자르기에 실패했습니다.');
+  }
+}
+
+async function executeAudioVolume() {
+  if (!currentAudioFile) {
+    alert('먼저 음성 파일을 가져와주세요.');
+    return;
+  }
+
+  const volumeLevel = parseFloat(document.getElementById('audio-volume-level').value);
+  const ext = currentAudioFile.split('.').pop();
+  const outputPath = await window.electronAPI.selectOutput(`volume_adjusted.${ext}`);
+
+  if (!outputPath) return;
+
+  showProgress();
+  updateProgress(0, '볼륨 조절 중...');
+
+  try {
+    // Use add-audio handler with volume adjustment on audio-only file
+    const result = await window.electronAPI.addAudio({
+      videoPath: currentAudioFile,
+      audioPath: null,
+      outputPath,
+      volumeLevel,
+      audioStartTime: 0,
+      isSilence: false,
+      insertMode: 'overwrite'
+    });
+
+    hideProgress();
+    alert(`볼륨 조절 완료! (${volumeLevel}x)`);
+
+    // Wait a bit for file to be fully written
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    // Reload the adjusted audio file
+    currentAudioFile = result.outputPath;
+    audioFileInfo = await window.electronAPI.getVideoInfo(result.outputPath);
+
+    document.getElementById('current-file').textContent = result.outputPath.split('\\').pop();
+    updateStatus(`볼륨 조절 완료: ${volumeLevel}x`);
+  } catch (error) {
+    hideProgress();
+    handleError('볼륨 조절', error, '볼륨 조절에 실패했습니다.');
+  }
+}
+
+// Mode switching functions
+function setupModeListener() {
+  if (window.electronAPI && window.electronAPI.onModeSwitch) {
+    window.electronAPI.onModeSwitch((mode) => {
+      currentMode = mode;
+      updateModeUI();
+      updateStatus(`${mode === 'video' ? '영상' : '음성'} 편집 모드로 전환됨`);
+    });
+  }
+}
+
+function updateModeUI() {
+  const sidebar = document.querySelector('.sidebar');
+  const header = document.querySelector('.header h1');
+  const subtitle = document.querySelector('.header .subtitle');
+
+  if (currentMode === 'audio') {
+    // Audio mode
+    header.textContent = 'Kiosk Audio Editor';
+    subtitle.textContent = '음성 파일 편집 도구';
+    sidebar.innerHTML = `
+      <h2>편집 도구</h2>
+      <div class="tool-section">
+        <h3>기본 작업</h3>
+        <button class="tool-btn" data-tool="import-audio">
+          <span class="icon">📁</span>
+          음성 가져오기
+        </button>
+        <button class="tool-btn" data-tool="trim-audio">
+          <span class="icon">✂️</span>
+          음성 자르기
+        </button>
+      </div>
+      <div class="tool-section">
+        <h3>효과</h3>
+        <button class="tool-btn" data-tool="audio-volume">
+          <span class="icon">🔊</span>
+          볼륨 조절
+        </button>
+      </div>
+      <div class="tool-section">
+        <h3>내보내기</h3>
+        <button class="tool-btn export-btn" data-tool="export-audio">
+          <span class="icon">💾</span>
+          음성 내보내기
+        </button>
+      </div>
+    `;
+  } else {
+    // Video mode
+    header.textContent = 'Kiosk Video Editor';
+    subtitle.textContent = '고급 영상/음성 편집 도구';
+    sidebar.innerHTML = `
+      <h2>편집 도구</h2>
+      <div class="tool-section">
+        <h3>기본 작업</h3>
+        <button class="tool-btn" data-tool="import">
+          <span class="icon">📁</span>
+          영상 가져오기
+        </button>
+        <button class="tool-btn" data-tool="trim">
+          <span class="icon">✂️</span>
+          영상 자르기
+        </button>
+        <button class="tool-btn" data-tool="merge">
+          <span class="icon">🔗</span>
+          영상 병합
+        </button>
+      </div>
+      <div class="tool-section">
+        <h3>오디오</h3>
+        <button class="tool-btn" data-tool="add-audio">
+          <span class="icon">🎵</span>
+          오디오 삽입
+        </button>
+        <button class="tool-btn" data-tool="extract-audio">
+          <span class="icon">🎤</span>
+          오디오 추출
+        </button>
+        <button class="tool-btn" data-tool="volume">
+          <span class="icon">🔊</span>
+          볼륨 조절
+        </button>
+      </div>
+      <div class="tool-section">
+        <h3>효과</h3>
+        <button class="tool-btn" data-tool="filter">
+          <span class="icon">🎨</span>
+          필터/색상 조정
+        </button>
+        <button class="tool-btn" data-tool="text">
+          <span class="icon">📝</span>
+          텍스트/자막
+        </button>
+        <button class="tool-btn" data-tool="transition">
+          <span class="icon">✨</span>
+          트랜지션
+        </button>
+        <button class="tool-btn" data-tool="speed">
+          <span class="icon">⚡</span>
+          속도 조절
+        </button>
+      </div>
+      <div class="tool-section">
+        <h3>내보내기</h3>
+        <button class="tool-btn export-btn" data-tool="export">
+          <span class="icon">💾</span>
+          비디오 내보내기
+        </button>
+      </div>
+    `;
+  }
+
+  // Re-setup tool buttons after updating sidebar
+  setupToolButtons();
+
+  // Clear current tool selection
+  activeTool = null;
+  document.getElementById('tool-properties').innerHTML = '<p class="placeholder-text">편집 도구를 선택하세요</p>';
 }
 
 // Utility functions

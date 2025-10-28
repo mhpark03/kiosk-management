@@ -14,6 +14,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   trimVideo: (options) => ipcRenderer.invoke('trim-video', options),
   trimVideoOnly: (options) => ipcRenderer.invoke('trim-video-only', options),
   trimAudioOnly: (options) => ipcRenderer.invoke('trim-audio-only', options),
+  trimAudioFile: (options) => ipcRenderer.invoke('trim-audio-file', options),
   addAudio: (options) => ipcRenderer.invoke('add-audio', options),
   applyFilter: (options) => ipcRenderer.invoke('apply-filter', options),
   mergeVideos: (options) => ipcRenderer.invoke('merge-videos', options),
@@ -28,5 +29,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Log listener
   onLogEntry: (callback) => {
     ipcRenderer.on('log-entry', (event, logData) => callback(logData));
+  },
+
+  // Mode switch listener
+  onModeSwitch: (callback) => {
+    ipcRenderer.on('switch-mode', (event, mode) => callback(mode));
   }
 });

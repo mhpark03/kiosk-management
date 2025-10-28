@@ -150,6 +150,29 @@ function createMenu() {
       ]
     },
     {
+      label: '편집',
+      submenu: [
+        {
+          label: '영상 편집 모드',
+          accelerator: 'Ctrl+1',
+          click: () => {
+            if (mainWindow) {
+              mainWindow.webContents.send('switch-mode', 'video');
+            }
+          }
+        },
+        {
+          label: '음성 편집 모드',
+          accelerator: 'Ctrl+2',
+          click: () => {
+            if (mainWindow) {
+              mainWindow.webContents.send('switch-mode', 'audio');
+            }
+          }
+        }
+      ]
+    },
+    {
       label: '보기',
       submenu: [
         {
@@ -1317,7 +1340,7 @@ ipcMain.handle('extract-audio', async (event, options) => {
       '-acodec', 'mp3',
       '-ab', '192k',
       '-y',
-      actualOutputPath
+      outputPath
     ];
 
     const ffmpeg = spawn(ffmpegPath, args, {
@@ -1340,6 +1363,101 @@ ipcMain.handle('extract-audio', async (event, options) => {
         logError('EXTRACT_AUDIO_FAILED', 'Audio extraction failed', { error: errorOutput });
         reject(new Error(errorOutput || 'FFmpeg failed'));
       }
+    });
+
+    ffmpeg.on('error', (err) => {
+      logError('EXTRACT_AUDIO_FAILED', 'FFmpeg spawn error', { error: err.message });
+      reject(new Error(`FFmpeg error: ${err.message}`));
+    });
+  });
+});
+
+// Trim audio file (for MP3, WAV, etc.)
+ipcMain.handle('trim-audio-file', async (event, options) => {
+  const { inputPath, outputPath, startTime, endTime } = options;
+
+  logInfo('TRIM_AUDIO_FILE_START', 'Starting audio file trim', { inputPath, startTime, endTime });
+
+  // Check if input and output are the same file
+  const isSameFile = path.resolve(inputPath) === path.resolve(outputPath);
+
+  // If same file, create temp file with proper extension
+  let actualOutputPath = outputPath;
+  if (isSameFile) {
+    const ext = path.extname(outputPath);
+    const base = outputPath.slice(0, -ext.length);
+    actualOutputPath = `${base}_temp_${Date.now()}${ext}`;
+    logInfo('TRIM_AUDIO_FILE_SAME_FILE', 'Same file detected, using temp file', { actualOutputPath });
+  }
+
+  const duration = endTime - startTime;
+
+  return new Promise((resolve, reject) => {
+    const args = [
+      '-i', inputPath,
+      '-ss', startTime.toString(),
+      '-t', duration.toString(),
+      '-acodec', 'copy',  // Copy codec for lossless trim
+      '-y',
+      actualOutputPath
+    ];
+
+    const ffmpeg = spawn(ffmpegPath, args, {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true
+    });
+    let errorOutput = '';
+
+    ffmpeg.stderr.on('data', (data) => {
+      const message = data.toString('utf8');
+      errorOutput += message;
+      mainWindow.webContents.send('ffmpeg-progress', message);
+    });
+
+    ffmpeg.on('close', (code) => {
+      if (code === 0) {
+        // If we used a temp file, replace the original
+        if (isSameFile) {
+          try {
+            if (fs.existsSync(outputPath)) {
+              fs.unlinkSync(outputPath);
+            }
+            fs.renameSync(actualOutputPath, outputPath);
+            logInfo('TRIM_AUDIO_FILE_SUCCESS', 'Audio file trim completed, temp file replaced', { outputPath });
+          } catch (err) {
+            logError('TRIM_AUDIO_FILE_REPLACE_FAILED', 'Failed to replace original file', { error: err.message });
+            reject(new Error(`Failed to replace file: ${err.message}`));
+            return;
+          }
+        } else {
+          logInfo('TRIM_AUDIO_FILE_SUCCESS', 'Audio file trim completed', { outputPath });
+        }
+        resolve({ success: true, outputPath });
+      } else {
+        // Clean up temp file if it exists
+        if (isSameFile && fs.existsSync(actualOutputPath)) {
+          try {
+            fs.unlinkSync(actualOutputPath);
+          } catch (err) {
+            logError('TRIM_AUDIO_FILE_CLEANUP_FAILED', 'Failed to clean up temp file', { error: err.message });
+          }
+        }
+        logError('TRIM_AUDIO_FILE_FAILED', 'Audio file trim failed', { error: errorOutput });
+        reject(new Error(errorOutput || 'FFmpeg failed'));
+      }
+    });
+
+    ffmpeg.on('error', (err) => {
+      // Clean up temp file if it exists
+      if (isSameFile && fs.existsSync(actualOutputPath)) {
+        try {
+          fs.unlinkSync(actualOutputPath);
+        } catch (cleanupErr) {
+          logError('TRIM_AUDIO_FILE_CLEANUP_FAILED', 'Failed to clean up temp file', { error: cleanupErr.message });
+        }
+      }
+      logError('TRIM_AUDIO_FILE_FAILED', 'FFmpeg spawn error', { error: err.message });
+      reject(new Error(`FFmpeg error: ${err.message}`));
     });
   });
 });
