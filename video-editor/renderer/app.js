@@ -184,7 +184,7 @@ function showToolProperties(tool) {
           <button class="property-btn secondary" onclick="executeTrimAudioOnly()" style="margin: 0;">🔉 오디오만 자르기</button>
         </div>
         <div style="background: #3a3a3a; padding: 10px; border-radius: 5px; margin-top: 10px;">
-          <small style="color: #aaa;">💡 영상만: 오디오 원본 유지 | 오디오만: 영상 원본 유지</small>
+          <small style="color: #aaa;">💡 영상만: 영상에서 선택 구간 삭제, 오디오는 뒤에서 자름 | 오디오만: 영상 원본 유지, 오디오에서 선택 구간만 남김</small>
         </div>
       `;
       // Add event listeners for real-time duration calculation
@@ -2469,7 +2469,7 @@ async function executeTrimVideoOnly() {
   }
 
   showProgress();
-  updateProgress(0, '영상만 자르는 중 (오디오 유지)...');
+  updateProgress(0, '영상만 자르는 중 (선택 구간 삭제)...');
 
   // Save previous video file path for cleanup
   const previousVideo = currentVideo;
@@ -2483,7 +2483,7 @@ async function executeTrimVideoOnly() {
     });
 
     hideProgress();
-    alert('영상만 자르기 완료! (오디오는 원본 유지)\n\n편집된 내용은 임시 저장되었습니다.\n최종 저장하려면 "비디오 내보내기"를 사용하세요.');
+    alert('영상만 자르기 완료!\n• 영상: 선택 구간 삭제됨\n• 오디오: 뒤에서 자름\n\n편집된 내용은 임시 저장되었습니다.\n최종 저장하려면 "비디오 내보내기"를 사용하세요.');
 
     // Wait a bit for file to be fully written
     await new Promise(resolve => setTimeout(resolve, 500));
@@ -2744,7 +2744,7 @@ async function executeTrimAudioOnly() {
     });
 
     hideProgress();
-    alert('오디오만 자르기 완료! (영상은 원본 유지)\n\n편집된 내용은 임시 저장되었습니다.\n최종 저장하려면 "비디오 내보내기"를 사용하세요.');
+    alert('오디오만 자르기 완료!\n• 영상: 원본 유지\n• 오디오: 선택 구간만 남고 나머지 무음\n\n편집된 내용은 임시 저장되었습니다.\n최종 저장하려면 "비디오 내보내기"를 사용하세요.');
 
     // Wait a bit for file to be fully written
     await new Promise(resolve => setTimeout(resolve, 500));

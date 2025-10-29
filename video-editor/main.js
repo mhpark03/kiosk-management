@@ -743,7 +743,7 @@ ipcMain.handle('trim-video', async (event, options) => {
   });
 });
 
-// Trim video only (keep audio intact)
+// Trim video only (delete selected range from video, trim audio from end)
 ipcMain.handle('trim-video-only', async (event, options) => {
   let { inputPath, outputPath, startTime, duration } = options;
 
@@ -756,7 +756,7 @@ ipcMain.handle('trim-video-only', async (event, options) => {
     outputPath = path.join(tempDir, `${fileName}_trimmed_video_only_${timestamp}.mp4`);
   }
 
-  logInfo('TRIM_VIDEO_ONLY_START', 'Starting video-only trim', { inputPath, outputPath, startTime, duration });
+  logInfo('TRIM_VIDEO_ONLY_START', 'Starting video-only trim (delete range)', { inputPath, outputPath, startTime, duration });
 
   // Check if input and output are the same file
   const isSameFile = path.resolve(inputPath) === path.resolve(outputPath);
@@ -770,19 +770,59 @@ ipcMain.handle('trim-video-only', async (event, options) => {
     logInfo('TRIM_VIDEO_ONLY_SAME_FILE', 'Same file detected, using temp file', { actualOutputPath });
   }
 
-  return new Promise((resolve, reject) => {
-    // Trim video stream, and also trim audio to match video duration
+  // Get video duration using ffprobe
+  const getVideoDuration = () => {
+    return new Promise((resolve) => {
+      const ffprobe = spawn(ffprobePath, [
+        '-v', 'error',
+        '-show_entries', 'format=duration',
+        '-of', 'default=noprint_wrappers=1:nokey=1',
+        inputPath
+      ], { stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true });
+
+      let output = '';
+      ffprobe.stdout.on('data', (data) => { output += data.toString('utf8'); });
+      ffprobe.on('close', () => { resolve(parseFloat(output.trim()) || 0); });
+    });
+  };
+
+  return new Promise(async (resolve, reject) => {
+    const videoDuration = await getVideoDuration();
+    const endTime = startTime + duration;
+    const finalDuration = videoDuration - duration;
+
+    logInfo('TRIM_VIDEO_ONLY_DURATION', 'Video duration calculated', {
+      videoDuration,
+      deleteStart: startTime,
+      deleteEnd: endTime,
+      finalDuration
+    });
+
+    // Delete selected range from video, trim audio from end
+    // Video: concat 0~startTime and endTime~videoDuration
+    // Audio: trim to 0~finalDuration
+    const filterComplex = [
+      `[0:v]trim=start=0:end=${startTime},setpts=PTS-STARTPTS[v1]`,
+      `[0:v]trim=start=${endTime},setpts=PTS-STARTPTS[v2]`,
+      `[v1][v2]concat=n=2:v=1:a=0[vout]`,
+      `[0:a]atrim=0:${finalDuration},asetpts=PTS-STARTPTS[aout]`
+    ].join(';');
+
     const args = [
       '-i', inputPath,
-      '-ss', startTime.toString(),
-      '-t', duration.toString(),
-      '-map', '0:v',    // Map video stream
-      '-map', '0:a',    // Map audio stream
-      '-c:v', 'libx264', // Re-encode video
-      '-c:a', 'aac',    // Re-encode audio (trim applies to both streams)
+      '-filter_complex', filterComplex,
+      '-map', '[vout]',
+      '-map', '[aout]',
+      '-c:v', 'libx264',
+      '-c:a', 'aac',
+      '-b:a', '192k',
+      '-ar', '48000',
+      '-ac', '2',
       '-y',
       actualOutputPath
     ];
+
+    logInfo('TRIM_VIDEO_ONLY_FFMPEG_CMD', 'FFmpeg command for video-only trim', { filterComplex });
 
     const ffmpeg = spawn(ffmpegPath, args, {
       stdio: ['pipe', 'pipe', 'pipe'],
@@ -805,14 +845,14 @@ ipcMain.handle('trim-video-only', async (event, options) => {
               fs.unlinkSync(outputPath);
             }
             fs.renameSync(actualOutputPath, outputPath);
-            logInfo('TRIM_VIDEO_ONLY_SUCCESS', 'Video-only trim completed, temp file replaced', { outputPath });
+            logInfo('TRIM_VIDEO_ONLY_SUCCESS', 'Video-only trim completed, temp file replaced', { outputPath, finalDuration });
           } catch (err) {
             logError('TRIM_VIDEO_ONLY_REPLACE_FAILED', 'Failed to replace original file', { error: err.message });
             reject(new Error(`Failed to replace file: ${err.message}`));
             return;
           }
         } else {
-          logInfo('TRIM_VIDEO_ONLY_SUCCESS', 'Video-only trim completed', { outputPath });
+          logInfo('TRIM_VIDEO_ONLY_SUCCESS', 'Video-only trim completed', { outputPath, finalDuration });
         }
         resolve({ success: true, outputPath });
       } else {
