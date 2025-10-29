@@ -486,13 +486,23 @@ function showToolProperties(tool) {
             </select>
           </div>
         </div>
-        <div class="property-group">
-          <label>위치 X (픽셀, 비워두면 중앙)</label>
-          <input type="text" id="text-x" placeholder="(w-text_w)/2">
-        </div>
-        <div class="property-group">
-          <label>위치 Y (픽셀, 비워두면 중앙)</label>
-          <input type="text" id="text-y" placeholder="(h-text_h)/2">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+          <div class="property-group" style="margin: 0;">
+            <label>가로 위치</label>
+            <select id="text-x" onchange="updateTextOverlayPreview()">
+              <option value="(w-text_w)/2">중앙</option>
+              <option value="10">왼쪽</option>
+              <option value="(w-text_w-10)">오른쪽</option>
+            </select>
+          </div>
+          <div class="property-group" style="margin: 0;">
+            <label>세로 위치</label>
+            <select id="text-y" onchange="updateTextOverlayPreview()">
+              <option value="(h-text_h)/2">중앙</option>
+              <option value="10">상단</option>
+              <option value="(h-text_h-10)">하단</option>
+            </select>
+          </div>
         </div>
         <div class="property-group">
           <label>시작 시간 (초, 비워두면 전체)</label>
@@ -2067,6 +2077,14 @@ function updateTextAlignPreview() {
   }
 }
 
+// Update text overlay position preview
+function updateTextOverlayPreview() {
+  const video = document.getElementById('preview-video');
+  if (video && video.currentTime !== undefined) {
+    updateTextOverlay(video.currentTime);
+  }
+}
+
 // Update text overlay preview on video
 function updateTextOverlay(currentTime) {
   const textOverlay = document.getElementById('text-overlay');
@@ -2153,21 +2171,37 @@ function updateTextOverlay(currentTime) {
   textOverlay.style.top = offsetY + 'px';
   textOverlay.style.height = displayHeight + 'px';
 
-  // Apply text alignment
+  // Apply text alignment and position
   textOverlay.style.display = 'flex';
-  textOverlay.style.alignItems = 'center';
   textOverlay.style.padding = '20px';
 
   const alignValue = textAlign && textAlign.value ? textAlign.value : 'left';
   textOverlay.style.textAlign = alignValue;
 
-  // Map text-align to justify-content for flex layout
-  if (alignValue === 'left') {
+  // Map text-align to justify-content for flex layout (horizontal)
+  const xValue = textX && textX.value ? textX.value : '(w-text_w)/2';
+  if (xValue === '10') {
+    // Left
     textOverlay.style.justifyContent = 'flex-start';
-  } else if (alignValue === 'center') {
-    textOverlay.style.justifyContent = 'center';
-  } else if (alignValue === 'right') {
+  } else if (xValue === '(w-text_w-10)') {
+    // Right
     textOverlay.style.justifyContent = 'flex-end';
+  } else {
+    // Center
+    textOverlay.style.justifyContent = 'center';
+  }
+
+  // Map Y position to align-items (vertical)
+  const yValue = textY && textY.value ? textY.value : '(h-text_h)/2';
+  if (yValue === '10') {
+    // Top
+    textOverlay.style.alignItems = 'flex-start';
+  } else if (yValue === '(h-text_h-10)') {
+    // Bottom
+    textOverlay.style.alignItems = 'flex-end';
+  } else {
+    // Center
+    textOverlay.style.alignItems = 'center';
   }
 }
 
