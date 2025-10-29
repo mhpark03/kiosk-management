@@ -1884,45 +1884,195 @@ ipcMain.handle('add-text', async (event, options) => {
 
   logInfo('ADD_TEXT_START', 'Adding text overlay', { text, fontSize, outputPath });
 
-  return new Promise((resolve, reject) => {
-    const x = position.x || '(w-text_w)/2';
-    const y = position.y || '(h-text_h)/2';
+  return new Promise(async (resolve, reject) => {
+    try {
+      const x = position.x || '(w-text_w)/2';
+      const y = position.y || '(h-text_h)/2';
 
-    let filterString = `drawtext=text='${text}':fontsize=${fontSize}:fontcolor=${fontColor}:x=${x}:y=${y}`;
+      // If startTime and duration are specified, use optimized 3-segment approach
+      if (startTime !== undefined && duration !== undefined && startTime > 0) {
+        const endTime = startTime + duration;
+        const os = require('os');
+        const tempDir = os.tmpdir();
+        const timestamp = Date.now();
 
-    if (startTime !== undefined && duration !== undefined) {
-      filterString += `:enable='between(t,${startTime},${startTime + duration})'`;
-    }
+        // Get video duration
+        const videoInfo = await getVideoInfo(inputPath);
+        const totalDuration = parseFloat(videoInfo.format.duration);
 
-    const args = [
-      '-i', inputPath,
-      '-vf', filterString,
-      '-c:a', 'copy',
-      '-y',
-      outputPath
-    ];
+        // Only optimize if text is not covering the entire video
+        if (endTime < totalDuration - 0.1) {
+          logInfo('ADD_TEXT_OPTIMIZED', 'Using optimized 3-segment approach', { startTime, endTime, totalDuration });
 
-    const ffmpeg = spawn(ffmpegPath, args, {
-      stdio: ['pipe', 'pipe', 'pipe'],
-      windowsHide: true
-    });
-    let errorOutput = '';
+          // Temp file paths
+          const segment1Path = path.join(tempDir, `segment1_${timestamp}.mp4`);
+          const segment2Path = path.join(tempDir, `segment2_${timestamp}.mp4`);
+          const segment3Path = path.join(tempDir, `segment3_${timestamp}.mp4`);
+          const concatListPath = path.join(tempDir, `concat_${timestamp}.txt`);
 
-    ffmpeg.stderr.on('data', (data) => {
-      const message = data.toString('utf8');
-      errorOutput += message;
-      mainWindow.webContents.send('ffmpeg-progress', message);
-    });
+          // Step 1: Extract segment before text (copy, no re-encode)
+          await new Promise((res, rej) => {
+            const args1 = [
+              '-i', inputPath,
+              '-t', startTime.toString(),
+              '-c', 'copy',
+              '-y',
+              segment1Path
+            ];
 
-    ffmpeg.on('close', (code) => {
-      if (code === 0) {
-        logInfo('ADD_TEXT_SUCCESS', 'Text overlay added', { outputPath });
-        resolve({ success: true, outputPath });
-      } else {
-        logError('ADD_TEXT_FAILED', 'Text overlay failed', { error: errorOutput });
-        reject(new Error(errorOutput || 'FFmpeg failed'));
+            const ffmpeg1 = spawn(ffmpegPath, args1, { stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true });
+            let errorOutput = '';
+
+            ffmpeg1.stderr.on('data', (data) => {
+              errorOutput += data.toString('utf8');
+            });
+
+            ffmpeg1.on('close', (code) => {
+              if (code === 0) res();
+              else rej(new Error('Segment 1 failed: ' + errorOutput));
+            });
+          });
+
+          // Step 2: Extract segment with text and apply text overlay (encode)
+          await new Promise((res, rej) => {
+            const filterString = `drawtext=text='${text}':fontsize=${fontSize}:fontcolor=${fontColor}:x=${x}:y=${y}`;
+            const args2 = [
+              '-i', inputPath,
+              '-ss', startTime.toString(),
+              '-t', duration.toString(),
+              '-vf', filterString,
+              '-c:a', 'copy',
+              '-y',
+              segment2Path
+            ];
+
+            const ffmpeg2 = spawn(ffmpegPath, args2, { stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true });
+            let errorOutput = '';
+
+            ffmpeg2.stderr.on('data', (data) => {
+              const message = data.toString('utf8');
+              errorOutput += message;
+              mainWindow.webContents.send('ffmpeg-progress', message);
+            });
+
+            ffmpeg2.on('close', (code) => {
+              if (code === 0) res();
+              else rej(new Error('Segment 2 failed: ' + errorOutput));
+            });
+          });
+
+          // Step 3: Extract segment after text (copy, no re-encode)
+          await new Promise((res, rej) => {
+            const args3 = [
+              '-i', inputPath,
+              '-ss', endTime.toString(),
+              '-c', 'copy',
+              '-y',
+              segment3Path
+            ];
+
+            const ffmpeg3 = spawn(ffmpegPath, args3, { stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true });
+            let errorOutput = '';
+
+            ffmpeg3.stderr.on('data', (data) => {
+              errorOutput += data.toString('utf8');
+            });
+
+            ffmpeg3.on('close', (code) => {
+              if (code === 0) res();
+              else rej(new Error('Segment 3 failed: ' + errorOutput));
+            });
+          });
+
+          // Step 4: Concatenate segments
+          const fs = require('fs');
+          const concatContent = `file '${segment1Path.replace(/\\/g, '/')}'\nfile '${segment2Path.replace(/\\/g, '/')}'\nfile '${segment3Path.replace(/\\/g, '/')}'`;
+          fs.writeFileSync(concatListPath, concatContent);
+
+          await new Promise((res, rej) => {
+            const args4 = [
+              '-f', 'concat',
+              '-safe', '0',
+              '-i', concatListPath,
+              '-c', 'copy',
+              '-y',
+              outputPath
+            ];
+
+            const ffmpeg4 = spawn(ffmpegPath, args4, { stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true });
+            let errorOutput = '';
+
+            ffmpeg4.stderr.on('data', (data) => {
+              errorOutput += data.toString('utf8');
+            });
+
+            ffmpeg4.on('close', (code) => {
+              // Cleanup temp files
+              try {
+                fs.unlinkSync(segment1Path);
+                fs.unlinkSync(segment2Path);
+                fs.unlinkSync(segment3Path);
+                fs.unlinkSync(concatListPath);
+              } catch (e) {
+                logError('CLEANUP_FAILED', 'Failed to cleanup temp files', { error: e.message });
+              }
+
+              if (code === 0) {
+                logInfo('ADD_TEXT_SUCCESS', 'Text overlay added (optimized)', { outputPath });
+                res();
+              } else {
+                rej(new Error('Concatenation failed: ' + errorOutput));
+              }
+            });
+          });
+
+          resolve({ success: true, outputPath });
+          return;
+        }
       }
-    });
+
+      // Fallback to standard approach (process entire video)
+      logInfo('ADD_TEXT_STANDARD', 'Using standard full-video approach');
+
+      let filterString = `drawtext=text='${text}':fontsize=${fontSize}:fontcolor=${fontColor}:x=${x}:y=${y}`;
+
+      if (startTime !== undefined && duration !== undefined) {
+        filterString += `:enable='between(t,${startTime},${startTime + duration})'`;
+      }
+
+      const args = [
+        '-i', inputPath,
+        '-vf', filterString,
+        '-c:a', 'copy',
+        '-y',
+        outputPath
+      ];
+
+      const ffmpeg = spawn(ffmpegPath, args, {
+        stdio: ['pipe', 'pipe', 'pipe'],
+        windowsHide: true
+      });
+      let errorOutput = '';
+
+      ffmpeg.stderr.on('data', (data) => {
+        const message = data.toString('utf8');
+        errorOutput += message;
+        mainWindow.webContents.send('ffmpeg-progress', message);
+      });
+
+      ffmpeg.on('close', (code) => {
+        if (code === 0) {
+          logInfo('ADD_TEXT_SUCCESS', 'Text overlay added', { outputPath });
+          resolve({ success: true, outputPath });
+        } else {
+          logError('ADD_TEXT_FAILED', 'Text overlay failed', { error: errorOutput });
+          reject(new Error(errorOutput || 'FFmpeg failed'));
+        }
+      });
+    } catch (error) {
+      logError('ADD_TEXT_ERROR', 'Unexpected error in add-text', { error: error.message });
+      reject(error);
+    }
   });
 });
 
