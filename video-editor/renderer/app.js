@@ -156,7 +156,6 @@ function showToolProperties(tool) {
           <div style="display: flex; gap: 5px; align-items: center;">
             <input type="number" id="trim-start" min="0" max="${maxDuration}" step="0.1" value="${maxDuration.toFixed(2)}" oninput="updateTrimEndMax()" style="flex: 1;">
             <button class="property-btn secondary" onclick="setStartFromCurrentTime()" style="width: auto; padding: 8px 12px; margin: 0;" title="현재 재생 위치를 시작 시간으로">🔄</button>
-            <button class="property-btn secondary" onclick="previewStartTime()" style="width: auto; padding: 8px 12px; margin: 0;" title="시작 위치로 이동">▶️</button>
           </div>
           <small style="color: #888; font-size: 11px;">최대: ${maxDuration.toFixed(2)}초</small>
         </div>
@@ -165,7 +164,6 @@ function showToolProperties(tool) {
           <div style="display: flex; gap: 5px; align-items: center;">
             <input type="number" id="trim-end" min="0" max="${maxDuration}" step="0.1" value="${maxDuration.toFixed(2)}" style="flex: 1;">
             <button class="property-btn secondary" onclick="setEndFromCurrentTime()" style="width: auto; padding: 8px 12px; margin: 0;" title="현재 재생 위치를 끝 시간으로">🔄</button>
-            <button class="property-btn secondary" onclick="previewEndTime()" style="width: auto; padding: 8px 12px; margin: 0;" title="끝 위치로 이동">▶️</button>
           </div>
           <small style="color: #888; font-size: 11px;">최대: ${maxDuration.toFixed(2)}초</small>
         </div>
@@ -219,7 +217,6 @@ function showToolProperties(tool) {
           <div style="display: flex; gap: 5px; align-items: center;">
             <input type="number" id="audio-trim-start" min="0" max="${audioDuration}" step="0.1" value="${audioDuration.toFixed(2)}" style="flex: 1; padding: 8px;">
             <button class="property-btn secondary" onclick="setAudioStartFromSlider()" style="width: auto; padding: 8px 12px; margin: 0;" title="타임라인 위치를 시작 시간으로">🔄</button>
-            <button class="property-btn secondary" onclick="moveSliderToAudioStart()" style="width: auto; padding: 8px 12px; margin: 0;" title="시작 위치로 이동">▶️</button>
           </div>
           <small style="color: #888; font-size: 11px;">최대: ${audioDuration.toFixed(2)}초</small>
         </div>
@@ -228,7 +225,6 @@ function showToolProperties(tool) {
           <div style="display: flex; gap: 5px; align-items: center;">
             <input type="number" id="audio-trim-end" min="0" max="${audioDuration}" step="0.1" value="${audioDuration.toFixed(2)}" style="flex: 1; padding: 8px;">
             <button class="property-btn secondary" onclick="setAudioEndFromSlider()" style="width: auto; padding: 8px 12px; margin: 0;" title="타임라인 위치를 끝 시간으로">🔄</button>
-            <button class="property-btn secondary" onclick="moveSliderToAudioEnd()" style="width: auto; padding: 8px 12px; margin: 0;" title="끝 위치로 이동">▶️</button>
           </div>
           <small style="color: #888; font-size: 11px;">최대: ${audioDuration.toFixed(2)}초</small>
         </div>
@@ -483,11 +479,17 @@ function showToolProperties(tool) {
         </div>
         <div class="property-group">
           <label>시작 시간 (초, 비워두면 전체)</label>
-          <input type="number" id="text-start" min="0" step="0.1" placeholder="선택사항">
+          <div style="display: flex; gap: 5px; align-items: center;">
+            <input type="number" id="text-start" min="0" step="0.1" placeholder="선택사항" oninput="updateTextRangeDisplay()" style="flex: 1;">
+            <button class="property-btn secondary" onclick="setTextStartFromCurrentTime()" style="width: auto; padding: 8px 12px; margin: 0;" title="현재 재생 위치를 시작 시간으로">🔄</button>
+          </div>
         </div>
         <div class="property-group">
           <label>끝시간 (초, 비워두면 끝까지)</label>
-          <input type="number" id="text-end" min="0.1" step="0.1" placeholder="선택사항">
+          <div style="display: flex; gap: 5px; align-items: center;">
+            <input type="number" id="text-end" min="0.1" step="0.1" placeholder="선택사항" oninput="updateTextRangeDisplay()" style="flex: 1;">
+            <button class="property-btn secondary" onclick="setTextEndFromCurrentTime()" style="width: auto; padding: 8px 12px; margin: 0;" title="현재 재생 위치를 끝 시간으로">🔄</button>
+          </div>
         </div>
         <button class="property-btn" onclick="executeAddText()">텍스트 추가</button>
       `;
@@ -909,9 +911,47 @@ function setupVideoControls() {
         }
       }
     }
-    // Handle click (not drag) - allow normal seeking even in trim range
-    else if (isUserSeekingSlider && !sliderIsDragging && (isVideoTrim || isAudioTrim || isTextMode)) {
-      // Click without drag - the slider's input event already handled the position update
+    // Handle click (not drag) - seek to clicked position
+    else if (isUserSeekingSlider && !sliderIsDragging && sliderDragStartX !== null && slider) {
+      const rect = slider.getBoundingClientRect();
+      const clickX = e.clientX - rect.left;
+      const clickPercent = clickX / rect.width;
+
+      if (isVideoTrim || isTextMode) {
+        // Video mode: seek to clicked position
+        if (video && video.duration) {
+          const targetTime = clickPercent * video.duration;
+          video.currentTime = Math.max(0, Math.min(targetTime, video.duration));
+
+          // Update slider
+          slider.value = clickPercent * 100;
+
+          // Update time display
+          const currentTimeDisplay = document.getElementById('current-time');
+          if (currentTimeDisplay) {
+            currentTimeDisplay.textContent = formatTime(video.currentTime);
+          }
+        }
+      } else if (isAudioTrim) {
+        // Audio mode: seek to clicked position
+        const audioDuration = parseFloat(audioFileInfo.format.duration);
+        const targetTime = clickPercent * audioDuration;
+
+        // Update slider
+        slider.value = Math.max(0, Math.min(targetTime, audioDuration));
+
+        // Update time display
+        const currentTimeDisplay = document.getElementById('current-time');
+        if (currentTimeDisplay) {
+          currentTimeDisplay.textContent = formatTime(targetTime);
+        }
+
+        // Seek audio element
+        const audioElement = document.getElementById('preview-audio');
+        if (audioElement && !isNaN(audioElement.duration)) {
+          audioElement.currentTime = targetTime;
+        }
+      }
     }
 
     // Reset drag state
@@ -1371,6 +1411,10 @@ function setupPlayheadInteraction() {
 
         // Apply zoom to waveform
         applyWaveformZoom();
+      } else {
+        // Click (not drag) - seek to clicked position
+        const clickPercent = (zoomStartX / rect.width);
+        updateVideoTimeFromClick(e);
       }
 
       zoomSelection.style.display = 'none';
@@ -1528,6 +1572,10 @@ function setupAudioTrackInteraction() {
 
         // Apply zoom to waveform
         applyWaveformZoom();
+      } else {
+        // Click (not drag) - seek to clicked position
+        const clickPercent = (zoomStartX / rect.width);
+        updateAudioTimeFromClick(e);
       }
 
       zoomSelection.style.display = 'none';
@@ -1819,6 +1867,34 @@ function updateTextRangeOverlay(startTime, endTime, maxDuration) {
   }
 }
 
+// Update text range display when inputs change
+function updateTextRangeDisplay() {
+  const startInput = document.getElementById('text-start');
+  const endInput = document.getElementById('text-end');
+
+  if (!startInput || !endInput || !videoInfo) return;
+
+  const maxDuration = parseFloat(videoInfo.format.duration);
+  let startTime = parseFloat(startInput.value);
+  let endTime = parseFloat(endInput.value);
+
+  // Only update overlay if both values are set
+  if (!isNaN(startTime) && !isNaN(endTime)) {
+    // Clamp values to valid range
+    startTime = Math.max(0, Math.min(startTime, maxDuration));
+    endTime = Math.max(0, Math.min(endTime, maxDuration));
+
+    // Update overlay
+    updateTextRangeOverlay(startTime, endTime, maxDuration);
+  } else {
+    // Hide overlay if values are not set
+    const overlay = document.getElementById('text-range-overlay');
+    if (overlay) {
+      overlay.style.display = 'none';
+    }
+  }
+}
+
 // Update trim end max value based on start time
 function updateTrimEndMax() {
   const startInput = document.getElementById('trim-start');
@@ -1928,6 +2004,130 @@ function previewStartTime() {
 
 function previewEndTime() {
   const endInput = document.getElementById('trim-end');
+  const video = document.getElementById('preview-video');
+  const currentTimeDisplay = document.getElementById('current-time');
+  const slider = document.getElementById('timeline-slider');
+
+  if (!video || !video.src) {
+    alert('먼저 영상을 가져와주세요.');
+    return;
+  }
+
+  const endTime = parseFloat(endInput.value) || 0;
+
+  // Clamp to valid range
+  const maxDuration = video.duration;
+  const targetTime = Math.min(endTime, maxDuration);
+
+  // Move video to end time
+  video.currentTime = targetTime;
+  video.pause();
+
+  // Wait for video to update, then sync UI
+  setTimeout(() => {
+    // Update timeline slider
+    if (video.duration && slider) {
+      const progress = (video.currentTime / video.duration) * 100;
+      slider.value = progress;
+    }
+
+    // Update current time display
+    if (currentTimeDisplay) {
+      currentTimeDisplay.textContent = formatTime(video.currentTime);
+    }
+
+    updateStatus(`끝 위치로 이동: ${formatTime(video.currentTime)}`);
+  }, 50);
+}
+
+// Text mode: Set start time from current video position
+function setTextStartFromCurrentTime() {
+  const video = document.getElementById('preview-video');
+  const startInput = document.getElementById('text-start');
+
+  if (!video || !video.src) {
+    alert('먼저 영상을 가져와주세요.');
+    return;
+  }
+
+  const currentTime = video.currentTime;
+  startInput.value = currentTime.toFixed(2);
+
+  // Update overlay if end time is also set
+  const endInput = document.getElementById('text-end');
+  if (endInput && endInput.value) {
+    const endTime = parseFloat(endInput.value);
+    updateTextRangeOverlay(currentTime, endTime, video.duration);
+  }
+
+  updateStatus(`시작 시간 설정: ${formatTime(currentTime)}`);
+}
+
+// Text mode: Set end time from current video position
+function setTextEndFromCurrentTime() {
+  const video = document.getElementById('preview-video');
+  const endInput = document.getElementById('text-end');
+
+  if (!video || !video.src) {
+    alert('먼저 영상을 가져와주세요.');
+    return;
+  }
+
+  const currentTime = video.currentTime;
+  endInput.value = currentTime.toFixed(2);
+
+  // Update overlay if start time is also set
+  const startInput = document.getElementById('text-start');
+  if (startInput && startInput.value) {
+    const startTime = parseFloat(startInput.value);
+    updateTextRangeOverlay(startTime, currentTime, video.duration);
+  }
+
+  updateStatus(`끝 시간 설정: ${formatTime(currentTime)}`);
+}
+
+// Text mode: Preview start time
+function previewTextStartTime() {
+  const startInput = document.getElementById('text-start');
+  const video = document.getElementById('preview-video');
+  const currentTimeDisplay = document.getElementById('current-time');
+  const slider = document.getElementById('timeline-slider');
+
+  if (!video || !video.src) {
+    alert('먼저 영상을 가져와주세요.');
+    return;
+  }
+
+  const startTime = parseFloat(startInput.value) || 0;
+
+  // Clamp to valid range
+  const maxDuration = video.duration;
+  const targetTime = Math.min(startTime, maxDuration);
+
+  // Move video to start time
+  video.currentTime = targetTime;
+  video.pause();
+
+  // Wait for video to update, then sync UI
+  setTimeout(() => {
+    // Update timeline slider
+    if (video.duration && slider) {
+      const progress = (video.currentTime / video.duration) * 100;
+      slider.value = progress;
+    }
+
+    // Update current time display
+    if (currentTimeDisplay) {
+      currentTimeDisplay.textContent = formatTime(video.currentTime);
+    }
+
+    updateStatus(`시작 위치로 이동: ${formatTime(video.currentTime)}`);
+  }, 50);
+}
+
+// Text mode: Preview end time
+function previewTextEndTime() {
+  const endInput = document.getElementById('text-end');
   const video = document.getElementById('preview-video');
   const currentTimeDisplay = document.getElementById('current-time');
   const slider = document.getElementById('timeline-slider');
