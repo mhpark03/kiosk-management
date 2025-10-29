@@ -6,6 +6,7 @@ let videoLayers = [];
 let currentMode = 'video';  // 'video' or 'audio'
 let currentAudioFile = null;  // For audio editing mode
 let audioFileInfo = null;  // Audio file metadata
+let textColorHistory = [];  // Color history for text mode
 
 // Zoom state for audio waveform
 let zoomStart = 0;  // 0-1 (percentage of video)
@@ -459,15 +460,26 @@ function showToolProperties(tool) {
       propertiesPanel.innerHTML = `
         <div class="property-group">
           <label>텍스트</label>
-          <textarea id="text-content" placeholder="입력할 텍스트"></textarea>
+          <textarea id="text-content" placeholder="입력할 텍스트" oninput="updateTextContentPreview()"></textarea>
         </div>
-        <div class="property-group">
-          <label>폰트 크기</label>
-          <input type="number" id="text-size" min="10" max="200" value="48">
-        </div>
-        <div class="property-group">
-          <label>색상</label>
-          <input type="color" id="text-color" value="#ffffff">
+        <div style="display: grid; grid-template-columns: 1fr 0.7fr 1.5fr; gap: 10px;">
+          <div class="property-group" style="margin: 0;">
+            <label>폰트 크기</label>
+            <input type="number" id="text-size" min="10" max="200" value="48" oninput="updateTextSizePreview()">
+          </div>
+          <div class="property-group" style="margin: 0;">
+            <label>색상</label>
+            <input type="color" id="text-color" value="#ffffff" oninput="updateTextColorPreview()" onchange="saveColorToHistory()">
+            <div id="color-history" style="display: flex; gap: 3px; margin-top: 5px; flex-wrap: wrap;"></div>
+          </div>
+          <div class="property-group" style="margin: 0;">
+            <label>정렬</label>
+            <select id="text-align" onchange="updateTextAlignPreview()">
+              <option value="left">← 왼쪽</option>
+              <option value="center">↔ 가운데</option>
+              <option value="right">→ 오른쪽</option>
+            </select>
+          </div>
         </div>
         <div class="property-group">
           <label>위치 X (픽셀, 비워두면 중앙)</label>
@@ -491,8 +503,14 @@ function showToolProperties(tool) {
             <button class="property-btn secondary" onclick="setTextEndFromCurrentTime()" style="width: auto; padding: 8px 12px; margin: 0;" title="현재 재생 위치를 끝 시간으로">🔄</button>
           </div>
         </div>
+        <div style="display: flex; gap: 10px; margin-top: 10px;">
+          <button class="property-btn secondary" onclick="previewTextRange()" style="flex: 1;">🎬 구간 미리보기</button>
+        </div>
         <button class="property-btn" onclick="executeAddText()">텍스트 추가</button>
       `;
+      // Load and display color history
+      loadColorHistory();
+      renderColorHistory();
       break;
 
     case 'speed':
@@ -655,6 +673,9 @@ function setupVideoControls() {
 
       // Update playhead bar position
       updatePlayheadPosition(video.currentTime, video.duration);
+
+      // Update text overlay preview
+      updateTextOverlay(video.currentTime);
 
       // 영상 자르기 모드에서는 선택 구간을 제외하고 재생
       if (activeTool === 'trim' && !isUserSeekingSlider && !isPreviewingRange) {
@@ -1895,6 +1916,221 @@ function updateTextRangeDisplay() {
   }
 }
 
+// Update text content preview
+function updateTextContentPreview() {
+  const video = document.getElementById('preview-video');
+  if (video && video.currentTime !== undefined) {
+    updateTextOverlay(video.currentTime);
+  }
+}
+
+// Update text size preview
+function updateTextSizePreview() {
+  const video = document.getElementById('preview-video');
+  if (video && video.currentTime !== undefined) {
+    updateTextOverlay(video.currentTime);
+  }
+}
+
+// Update text color preview
+function updateTextColorPreview() {
+  const video = document.getElementById('preview-video');
+  if (video && video.currentTime !== undefined) {
+    updateTextOverlay(video.currentTime);
+  }
+}
+
+// Load color history from localStorage
+function loadColorHistory() {
+  const saved = localStorage.getItem('textColorHistory');
+  if (saved) {
+    try {
+      textColorHistory = JSON.parse(saved);
+    } catch (e) {
+      textColorHistory = [];
+    }
+  }
+}
+
+// Save color to history
+function saveColorToHistory() {
+  const colorInput = document.getElementById('text-color');
+  if (!colorInput) return;
+
+  const color = colorInput.value.toLowerCase();
+
+  // Remove if already exists (to move to front)
+  textColorHistory = textColorHistory.filter(c => c !== color);
+
+  // Add to front
+  textColorHistory.unshift(color);
+
+  // Keep only last 10 colors
+  if (textColorHistory.length > 10) {
+    textColorHistory = textColorHistory.slice(0, 10);
+  }
+
+  // Save to localStorage
+  localStorage.setItem('textColorHistory', JSON.stringify(textColorHistory));
+
+  // Update display
+  renderColorHistory();
+
+  // Close color picker
+  colorInput.blur();
+
+  // Update preview
+  const video = document.getElementById('preview-video');
+  if (video && video.currentTime !== undefined) {
+    updateTextOverlay(video.currentTime);
+  }
+}
+
+// Render color history buttons
+function renderColorHistory() {
+  const container = document.getElementById('color-history');
+  if (!container) return;
+
+  container.innerHTML = '';
+
+  textColorHistory.forEach(color => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.style.width = '24px';
+    btn.style.height = '24px';
+    btn.style.backgroundColor = color;
+    btn.style.border = '2px solid #555';
+    btn.style.borderRadius = '4px';
+    btn.style.cursor = 'pointer';
+    btn.style.padding = '0';
+    btn.style.margin = '0';
+    btn.title = color;
+    btn.onclick = () => selectColorFromHistory(color);
+    container.appendChild(btn);
+  });
+}
+
+// Select color from history
+function selectColorFromHistory(color) {
+  const colorInput = document.getElementById('text-color');
+  if (colorInput) {
+    colorInput.value = color;
+    updateTextColorPreview();
+  }
+}
+
+// Update text alignment preview
+function updateTextAlignPreview() {
+  const video = document.getElementById('preview-video');
+  if (video && video.currentTime !== undefined) {
+    updateTextOverlay(video.currentTime);
+  }
+}
+
+// Update text overlay preview on video
+function updateTextOverlay(currentTime) {
+  const textOverlay = document.getElementById('text-overlay');
+  if (!textOverlay) return;
+
+  // Only show overlay in text mode
+  if (activeTool !== 'text') {
+    textOverlay.style.display = 'none';
+    return;
+  }
+
+  const textContent = document.getElementById('text-content');
+  const textSize = document.getElementById('text-size');
+  const textColor = document.getElementById('text-color');
+  const textAlign = document.getElementById('text-align');
+  const textX = document.getElementById('text-x');
+  const textY = document.getElementById('text-y');
+  const textStart = document.getElementById('text-start');
+  const textEnd = document.getElementById('text-end');
+
+  // Check if text is entered
+  if (!textContent || !textContent.value) {
+    textOverlay.style.display = 'none';
+    return;
+  }
+
+  // Get time range
+  const startTime = textStart && textStart.value ? parseFloat(textStart.value) : 0;
+  const endTime = textEnd && textEnd.value ? parseFloat(textEnd.value) : Infinity;
+
+  // Check if current time is within range
+  if (currentTime < startTime || currentTime > endTime) {
+    textOverlay.style.display = 'none';
+    return;
+  }
+
+  // Get video element to calculate actual display area
+  const video = document.getElementById('preview-video');
+  if (!video || !video.videoWidth || !video.videoHeight) return;
+
+  // Calculate video's actual display position and size (object-fit: contain)
+  const videoContainer = video.parentElement;
+  const containerRect = videoContainer.getBoundingClientRect();
+  const videoAspect = video.videoWidth / video.videoHeight;
+  const containerAspect = containerRect.width / containerRect.height;
+
+  let displayWidth, displayHeight, offsetX, offsetY;
+
+  if (containerAspect > videoAspect) {
+    // Container is wider - video limited by height
+    displayHeight = containerRect.height;
+    displayWidth = displayHeight * videoAspect;
+    offsetX = (containerRect.width - displayWidth) / 2;
+    offsetY = 0;
+  } else {
+    // Container is taller - video limited by width
+    displayWidth = containerRect.width;
+    displayHeight = displayWidth / videoAspect;
+    offsetX = 0;
+    offsetY = (containerRect.height - displayHeight) / 2;
+  }
+
+  // Calculate scale factor (display size vs original video resolution)
+  const scaleFactor = displayWidth / video.videoWidth;
+
+  // Show and update overlay
+  textOverlay.style.display = 'block';
+  textOverlay.textContent = textContent.value;
+
+  // Apply styles with scaling
+  if (textSize && textSize.value) {
+    const scaledFontSize = parseFloat(textSize.value) * scaleFactor;
+    textOverlay.style.fontSize = scaledFontSize + 'px';
+  }
+
+  if (textColor && textColor.value) {
+    textOverlay.style.color = textColor.value;
+  }
+
+  // Position overlay to match video display area
+  textOverlay.style.width = displayWidth + 'px';
+  textOverlay.style.maxWidth = displayWidth + 'px';
+  textOverlay.style.left = offsetX + 'px';
+  textOverlay.style.top = offsetY + 'px';
+  textOverlay.style.height = displayHeight + 'px';
+
+  // Apply text alignment
+  textOverlay.style.display = 'flex';
+  textOverlay.style.alignItems = 'center';
+  textOverlay.style.padding = '20px';
+
+  const alignValue = textAlign && textAlign.value ? textAlign.value : 'left';
+  textOverlay.style.textAlign = alignValue;
+
+  // Map text-align to justify-content for flex layout
+  if (alignValue === 'left') {
+    textOverlay.style.justifyContent = 'flex-start';
+  } else if (alignValue === 'center') {
+    textOverlay.style.justifyContent = 'center';
+  } else if (alignValue === 'right') {
+    textOverlay.style.justifyContent = 'flex-end';
+  }
+}
+
 // Update trim end max value based on start time
 function updateTrimEndMax() {
   const startInput = document.getElementById('trim-start');
@@ -2281,6 +2517,72 @@ function previewTrimRange() {
   }, 100);
 
   updateStatus(`구간 재생 중: ${formatTime(startTime)} ~ ${formatTime(endTime)}`);
+}
+
+// Text mode: Preview text time range
+function previewTextRange() {
+  const startInput = document.getElementById('text-start');
+  const endInput = document.getElementById('text-end');
+  const video = document.getElementById('preview-video');
+  const currentTimeDisplay = document.getElementById('current-time');
+  const slider = document.getElementById('timeline-slider');
+
+  if (!video || !video.src) {
+    alert('먼저 영상을 가져와주세요.');
+    return;
+  }
+
+  const startTime = startInput && startInput.value ? parseFloat(startInput.value) : 0;
+  const endTime = endInput && endInput.value ? parseFloat(endInput.value) : video.duration;
+
+  if (endTime <= startTime) {
+    alert('끝시간은 시작 시간보다 커야 합니다.');
+    return;
+  }
+
+  // Set preview flag to prevent auto-skip
+  isPreviewingRange = true;
+
+  // Move to start position and play
+  video.currentTime = startTime;
+  video.play();
+
+  // Update timeline slider
+  if (video.duration && slider) {
+    const progress = (startTime / video.duration) * 100;
+    slider.value = progress;
+  }
+
+  // Update current time display
+  if (currentTimeDisplay) {
+    currentTimeDisplay.textContent = formatTime(startTime);
+  }
+
+  // Stop at end position
+  const checkTime = setInterval(() => {
+    if (video.currentTime >= endTime) {
+      video.pause();
+      clearInterval(checkTime);
+
+      // Reset preview flag
+      isPreviewingRange = false;
+
+      // Update timeline to end position
+      if (video.duration && slider) {
+        const progress = (endTime / video.duration) * 100;
+        slider.value = progress;
+      }
+
+      // Update current time display
+      if (currentTimeDisplay) {
+        currentTimeDisplay.textContent = formatTime(endTime);
+      }
+
+      updateStatus(`구간 재생 완료 (${formatTime(startTime)} ~ ${formatTime(endTime)})`);
+    }
+  }, 100);
+
+  updateStatus(`텍스트 구간 재생 중: ${formatTime(startTime)} ~ ${formatTime(endTime)}`);
 }
 
 // Execute trim

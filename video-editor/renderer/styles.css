@@ -190,6 +190,16 @@ body {
   display: none;
 }
 
+.text-overlay {
+  position: absolute;
+  pointer-events: none;
+  z-index: 10;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+  box-sizing: border-box;
+}
+
 .preview-placeholder {
   text-align: center;
   color: #666;
