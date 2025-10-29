@@ -1548,12 +1548,12 @@ ipcMain.handle('merge-videos', async (event, options) => {
     return new Promise((resolve, reject) => {
       const args = [
         '-f', 'lavfi',
-        '-i', `aevalsrc=random(0)*0.001|random(1)*0.001:d=${duration}:c=stereo:s=44100`,  // Very low noise (-60dB, inaudible) for waveform with log scale
+        '-i', `aevalsrc=random(0)*0.001|random(1)*0.001:d=${duration}:c=stereo:s=48000`,  // Very low noise (-60dB, inaudible) for waveform with log scale
         '-i', videoPath,
         '-c:v', 'copy',
         '-c:a', 'aac',
         '-b:a', '192k',   // HIGH BITRATE for silent audio (important!)
-        '-ar', '44100',   // Sample rate
+        '-ar', '48000',   // Sample rate (48000Hz for higher quality)
         '-ac', '2',       // Stereo channels
         '-map', '1:v',
         '-map', '0:a',
@@ -1696,7 +1696,7 @@ ipcMain.handle('merge-videos', async (event, options) => {
         // Normalize all videos first (all videos guaranteed to have audio at this point)
         for (let i = 0; i < videoPaths.length; i++) {
           filterComplex += `[${i}:v]scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1[v${i}];`;
-          filterComplex += `[${i}:a]aresample=44100,aformat=sample_rates=44100:channel_layouts=stereo[a${i}];`; // Resample to 44100Hz stereo
+          filterComplex += `[${i}:a]aresample=48000,aformat=sample_rates=48000:channel_layouts=stereo[a${i}];`; // Resample to 48000Hz stereo (higher quality)
         }
 
         // Apply xfade transitions with correct offsets
@@ -1717,7 +1717,7 @@ ipcMain.handle('merge-videos', async (event, options) => {
         // Simple concatenation - normalize videos and concat with audio (all videos guaranteed to have audio)
         for (let i = 0; i < videoPaths.length; i++) {
           filterComplex += `[${i}:v]scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1[v${i}];`;
-          filterComplex += `[${i}:a]aresample=44100,aformat=sample_rates=44100:channel_layouts=stereo[a${i}];`; // Resample to 44100Hz stereo
+          filterComplex += `[${i}:a]aresample=48000,aformat=sample_rates=48000:channel_layouts=stereo[a${i}];`; // Resample to 48000Hz stereo (higher quality)
         }
         // Concat both video and audio
         filterComplex += videoPaths.map((_, i) => `[v${i}][a${i}]`).join('') + `concat=n=${videoPaths.length}:v=1:a=1[outv][outa]`;
@@ -1731,7 +1731,7 @@ ipcMain.handle('merge-videos', async (event, options) => {
         '-c:v', 'libx264',
         '-c:a', 'aac',      // Encode audio as AAC
         '-b:a', '192k',     // Audio bitrate (important for quality)
-        '-ar', '44100',     // Sample rate
+        '-ar', '48000',     // Sample rate (48000Hz for higher quality)
         '-ac', '2',         // Stereo channels
         '-preset', 'medium',
         '-crf', '23',
@@ -2274,12 +2274,12 @@ ipcMain.handle('ensure-video-has-audio', async (event, videoPath) => {
   return new Promise((resolve, reject) => {
     const args = [
       '-f', 'lavfi',
-      '-i', `aevalsrc=random(0)*0.001|random(1)*0.001:d=${duration}:c=stereo:s=44100`,  // Very low noise (-60dB, inaudible) for waveform with log scale
+      '-i', `aevalsrc=random(0)*0.001|random(1)*0.001:d=${duration}:c=stereo:s=48000`,  // Very low noise (-60dB, inaudible) for waveform with log scale
       '-i', videoPath,
       '-c:v', 'copy',
       '-c:a', 'aac',
       '-b:a', '192k',   // HIGH BITRATE for silent audio (important!)
-      '-ar', '44100',   // Sample rate
+      '-ar', '48000',   // Sample rate (48000Hz for higher quality)
       '-ac', '2',       // Stereo channels
       '-map', '1:v',  // Map video from second input (videoPath)
       '-map', '0:a',  // Map audio from first input (low noise)
