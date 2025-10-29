@@ -168,7 +168,17 @@ function showToolProperties(tool) {
         <div style="display: flex; gap: 10px; margin-top: 10px;">
           <button class="property-btn secondary" onclick="previewTrimRange()" style="flex: 1;">🎬 구간 미리보기</button>
         </div>
-        <button class="property-btn" onclick="executeTrim()">✂️ 영상+오디오 자르기</button>
+        <div style="background: #2a2a3e; padding: 12px; border-radius: 8px; margin-top: 10px; border-left: 4px solid #667eea;">
+          <div style="font-weight: 600; color: #667eea; margin-bottom: 8px;">✂️ 자르기 옵션</div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <button class="property-btn" onclick="executeTrim()" style="margin: 0; background: #667eea;">✅ 선택 구간 유지</button>
+            <button class="property-btn" onclick="executeDeleteRange()" style="margin: 0; background: #e74c3c;">🗑️ 선택 구간 삭제</button>
+          </div>
+          <small style="color: #aaa; display: block; margin-top: 8px;">
+            • 유지: 선택 구간만 남김<br>
+            • 삭제: 선택 구간 제외한 앞뒤 병합
+          </small>
+        </div>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px;">
           <button class="property-btn secondary" onclick="executeTrimVideoOnly()" style="margin: 0;">🎬 영상만 자르기</button>
           <button class="property-btn secondary" onclick="executeTrimAudioOnly()" style="margin: 0;">🔉 오디오만 자르기</button>
@@ -2098,6 +2108,136 @@ async function executeTrim() {
   } catch (error) {
     hideProgress();
     handleError('영상 자르기', error, '영상 자르기에 실패했습니다.');
+  }
+}
+
+// Execute delete range (keep beginning and end, remove middle)
+async function executeDeleteRange() {
+  if (!currentVideo) {
+    alert('먼저 영상을 가져와주세요.');
+    return;
+  }
+
+  if (!videoInfo) {
+    alert('영상 정보를 불러오는 중입니다. 잠시 후 다시 시도해주세요.');
+    return;
+  }
+
+  const maxDuration = parseFloat(videoInfo.format.duration);
+  const startTime = parseFloat(document.getElementById('trim-start').value);
+  const endTime = parseFloat(document.getElementById('trim-end').value);
+
+  // Validation
+  if (isNaN(startTime) || isNaN(endTime)) {
+    alert('유효한 숫자를 입력해주세요.');
+    return;
+  }
+
+  if (startTime < 0) {
+    alert('시작 시간은 0보다 작을 수 없습니다.');
+    return;
+  }
+
+  if (startTime >= maxDuration) {
+    alert(`시작 시간은 영상 길이(${maxDuration.toFixed(2)}초)보다 작아야 합니다.`);
+    return;
+  }
+
+  if (endTime > maxDuration) {
+    alert(`끝 시간은 영상 길이(${maxDuration.toFixed(2)}초)를 초과할 수 없습니다.`);
+    return;
+  }
+
+  if (endTime <= startTime) {
+    alert('끝 시간은 시작 시간보다 커야 합니다.');
+    return;
+  }
+
+  const deleteLength = endTime - startTime;
+  const firstPartLength = startTime;
+  const secondPartLength = maxDuration - endTime;
+
+  // Check if there's anything to keep
+  if (firstPartLength < 0.1 && secondPartLength < 0.1) {
+    alert('삭제 후 남는 구간이 너무 짧습니다. 최소 0.1초 이상이어야 합니다.');
+    return;
+  }
+
+  const confirmMsg = `선택 구간 삭제:\n\n` +
+    `• 삭제 구간: ${formatTime(startTime)} ~ ${formatTime(endTime)} (${deleteLength.toFixed(2)}초)\n` +
+    `• 유지 구간: 0~${formatTime(startTime)} + ${formatTime(endTime)}~${formatTime(maxDuration)}\n` +
+    `• 최종 길이: ${(firstPartLength + secondPartLength).toFixed(2)}초\n\n` +
+    `계속하시겠습니까?`;
+
+  if (!confirm(confirmMsg)) {
+    return;
+  }
+
+  showProgress();
+  updateProgress(0, '선택 구간 삭제 중...');
+
+  const previousVideo = currentVideo;
+
+  try {
+    // Step 1: Trim first part (0 ~ startTime)
+    if (firstPartLength >= 0.1) {
+      updateProgress(20, '앞부분 자르는 중...');
+      var firstPart = await window.electronAPI.trimVideo({
+        inputPath: currentVideo,
+        outputPath: null,
+        startTime: 0,
+        duration: startTime
+      });
+    }
+
+    // Step 2: Trim second part (endTime ~ maxDuration)
+    if (secondPartLength >= 0.1) {
+      updateProgress(40, '뒷부분 자르는 중...');
+      var secondPart = await window.electronAPI.trimVideo({
+        inputPath: currentVideo,
+        outputPath: null,
+        startTime: endTime,
+        duration: secondPartLength
+      });
+    }
+
+    // Step 3: Merge if both parts exist
+    let finalResult;
+    if (firstPartLength >= 0.1 && secondPartLength >= 0.1) {
+      updateProgress(60, '앞뒤 병합 중...');
+      finalResult = await window.electronAPI.mergeVideos({
+        videoPaths: [firstPart.outputPath, secondPart.outputPath],
+        transition: 'concat',
+        outputPath: null
+      });
+
+      // Clean up intermediate files
+      await window.electronAPI.deleteTempFile(firstPart.outputPath);
+      await window.electronAPI.deleteTempFile(secondPart.outputPath);
+    } else if (firstPartLength >= 0.1) {
+      finalResult = firstPart;
+    } else {
+      finalResult = secondPart;
+    }
+
+    updateProgress(90, '결과 로딩 중...');
+
+    hideProgress();
+    alert('선택 구간 삭제 완료!\n\n편집된 내용은 임시 저장되었습니다.\n최종 저장하려면 "비디오 내보내기"를 사용하세요.');
+
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    await loadVideo(finalResult.outputPath);
+    currentVideo = finalResult.outputPath;
+    hasSilentAudio = false;
+
+    // Delete previous temp file
+    if (previousVideo && previousVideo !== finalResult.outputPath) {
+      await window.electronAPI.deleteTempFile(previousVideo);
+    }
+  } catch (error) {
+    hideProgress();
+    handleError('선택 구간 삭제', error, '선택 구간 삭제에 실패했습니다.');
   }
 }
 
