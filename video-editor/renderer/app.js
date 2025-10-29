@@ -113,6 +113,14 @@ function selectTool(tool) {
     }
   }
 
+  // Hide text range overlay when switching tools
+  if (tool !== 'text') {
+    const textOverlay = document.getElementById('text-range-overlay');
+    if (textOverlay) {
+      textOverlay.style.display = 'none';
+    }
+  }
+
   // Hide audio range overlay when switching tools
   if (tool !== 'add-audio') {
     const audioOverlay = document.getElementById('audio-range-overlay');
@@ -478,8 +486,8 @@ function showToolProperties(tool) {
           <input type="number" id="text-start" min="0" step="0.1" placeholder="선택사항">
         </div>
         <div class="property-group">
-          <label>지속 시간 (초, 비워두면 끝까지)</label>
-          <input type="number" id="text-duration" min="0.1" step="0.1" placeholder="선택사항">
+          <label>끝시간 (초, 비워두면 끝까지)</label>
+          <input type="number" id="text-end" min="0.1" step="0.1" placeholder="선택사항">
         </div>
         <button class="property-btn" onclick="executeAddText()">텍스트 추가</button>
       `;
@@ -724,8 +732,9 @@ function setupVideoControls() {
   slider.addEventListener('mousedown', (e) => {
     const isVideoTrim = activeTool === 'trim' && currentMode === 'video' && video.duration;
     const isAudioTrim = activeTool === 'trim-audio' && currentMode === 'audio' && audioFileInfo;
+    const isTextMode = activeTool === 'text' && currentMode === 'video' && video.duration;
 
-    if (isVideoTrim || isAudioTrim) {
+    if (isVideoTrim || isAudioTrim || isTextMode) {
       const rect = slider.getBoundingClientRect();
       const clickX = e.clientX - rect.left;
       const sliderWidth = rect.width;
@@ -749,6 +758,8 @@ function setupVideoControls() {
           sliderDragStartTime = video.currentTime;
         } else if (isAudioTrim) {
           sliderDragStartTime = 0;
+        } else if (isTextMode) {
+          sliderDragStartTime = video.currentTime;
         }
         e.preventDefault(); // Prevent slider from seeking
       }
@@ -757,9 +768,9 @@ function setupVideoControls() {
 
   // Track mouse movement using global document listener (like audio zoom)
   document.addEventListener('mousemove', (e) => {
-    const isTrimMode = activeTool === 'trim' || activeTool === 'trim-audio';
+    const isDragMode = activeTool === 'trim' || activeTool === 'trim-audio' || activeTool === 'text';
 
-    if (isUserSeekingSlider && sliderDragStartX !== null && isTrimMode && slider) {
+    if (isUserSeekingSlider && sliderDragStartX !== null && isDragMode && slider) {
       const rect = slider.getBoundingClientRect();
       const currentX = e.clientX - rect.left;
       const moveDistance = Math.abs(currentX - sliderDragStartX);
@@ -827,6 +838,7 @@ function setupVideoControls() {
   document.addEventListener('mouseup', (e) => {
     const isVideoTrim = activeTool === 'trim' && currentMode === 'video' && video.duration;
     const isAudioTrim = activeTool === 'trim-audio' && currentMode === 'audio' && audioFileInfo;
+    const isTextMode = activeTool === 'text' && currentMode === 'video' && video.duration;
 
     // Handle drag to set trim range
     if (isUserSeekingSlider && sliderIsDragging && sliderDragStartX !== null && slider) {
@@ -877,10 +889,28 @@ function setupVideoControls() {
             updateStatus(`구간 선택: ${formatTime(startTime)} ~ ${formatTime(endTime)}`);
           }
         }
+      } else if (isTextMode) {
+        // Text mode - set start and end time
+        const startTime = startPercent * video.duration;
+        const endTime = endPercent * video.duration;
+
+        // Only set if drag distance is significant (at least 0.5 seconds)
+        if (Math.abs(endTime - startTime) > 0.5) {
+          const startInput = document.getElementById('text-start');
+          const endInput = document.getElementById('text-end');
+
+          if (startInput && endInput) {
+            startInput.value = startTime.toFixed(2);
+            endInput.value = endTime.toFixed(2);
+
+            updateTextRangeOverlay(startTime, endTime, video.duration);
+            updateStatus(`텍스트 표시 시간: ${formatTime(startTime)} ~ ${formatTime(endTime)}`);
+          }
+        }
       }
     }
     // Handle click (not drag) - allow normal seeking even in trim range
-    else if (isUserSeekingSlider && !sliderIsDragging && (isVideoTrim || isAudioTrim)) {
+    else if (isUserSeekingSlider && !sliderIsDragging && (isVideoTrim || isAudioTrim || isTextMode)) {
       // Click without drag - the slider's input event already handled the position update
     }
 
@@ -1211,8 +1241,6 @@ function updatePlayheadPosition(currentTime, duration) {
 
     // Final position: position on scaled waveform + margin shift
     finalLeft = playheadPositionOnScaledWaveform + marginLeftPercent;
-
-    console.log(`Playhead (scaled): time=${currentTime.toFixed(2)}s, totalPct=${(totalPercentage*100).toFixed(1)}%, zoom=${(zoomStart*100).toFixed(1)}-${(zoomEnd*100).toFixed(1)}%, finalLeft=${finalLeft.toFixed(1)}%`);
   }
 
   // Update playhead position
@@ -1754,6 +1782,28 @@ function updateTrimRangeOverlay(startTime, endTime, maxDuration) {
 
   // Show overlay only in trim mode
   if (activeTool === 'trim') {
+    overlay.style.display = 'block';
+
+    // Calculate percentages
+    const startPercent = (startTime / maxDuration) * 100;
+    const endPercent = (endTime / maxDuration) * 100;
+    const widthPercent = endPercent - startPercent;
+
+    // Update overlay position and size
+    overlay.style.left = `${startPercent}%`;
+    overlay.style.width = `${widthPercent}%`;
+  } else {
+    overlay.style.display = 'none';
+  }
+}
+
+// Update text range overlay on timeline
+function updateTextRangeOverlay(startTime, endTime, maxDuration) {
+  const overlay = document.getElementById('text-range-overlay');
+  if (!overlay || !videoInfo) return;
+
+  // Show overlay only in text mode
+  if (activeTool === 'text') {
     overlay.style.display = 'block';
 
     // Calculate percentages
@@ -3527,7 +3577,22 @@ async function executeAddText() {
   const x = document.getElementById('text-x').value || '(w-text_w)/2';
   const y = document.getElementById('text-y').value || '(h-text_h)/2';
   const startTime = document.getElementById('text-start').value ? parseFloat(document.getElementById('text-start').value) : undefined;
-  const duration = document.getElementById('text-duration').value ? parseFloat(document.getElementById('text-duration').value) : undefined;
+  const endTime = document.getElementById('text-end').value ? parseFloat(document.getElementById('text-end').value) : undefined;
+
+  // Calculate duration from start and end time
+  let duration = undefined;
+  if (endTime !== undefined) {
+    if (startTime !== undefined) {
+      duration = endTime - startTime;
+      if (duration <= 0) {
+        alert('끝시간은 시작 시간보다 커야 합니다.');
+        return;
+      }
+    } else {
+      // If no start time, assume start from 0
+      duration = endTime;
+    }
+  }
 
   showProgress();
   updateProgress(0, '텍스트 추가 중...');
@@ -3615,7 +3680,6 @@ function showExportDialog() {
 // Progress management
 function setupFFmpegProgressListener() {
   window.electronAPI.onFFmpegProgress((message) => {
-    console.log('FFmpeg:', message);
     // Parse FFmpeg output for progress updates
     // This is simplified - real implementation would parse time codes
   });

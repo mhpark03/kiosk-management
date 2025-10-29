@@ -1502,7 +1502,7 @@ ipcMain.handle('apply-filter', async (event, options) => {
       '-vf', filterString,
       '-c:a', 'copy',
       '-y',
-      actualOutputPath
+      outputPath
     ];
 
     const ffmpeg = spawn(ffmpegPath, args, {
