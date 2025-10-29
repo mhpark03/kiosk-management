@@ -525,7 +525,7 @@ function showToolProperties(tool) {
             <select id="text-y" onchange="updateTextOverlayPreview()">
               <option value="(h-text_h)/2">중앙</option>
               <option value="30">상단</option>
-              <option value="(h-text_h-30)">하단</option>
+              <option value="(h-text_h-30)" selected>하단</option>
             </select>
           </div>
         </div>
