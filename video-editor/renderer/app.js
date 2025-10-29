@@ -2023,6 +2023,9 @@ async function executeTrim() {
   showProgress();
   updateProgress(0, '영상 자르는 중...');
 
+  // Save previous video file path for cleanup
+  const previousVideo = currentVideo;
+
   try {
     const result = await window.electronAPI.trimVideo({
       inputPath: currentVideo,
@@ -2039,6 +2042,11 @@ async function executeTrim() {
 
     await loadVideo(result.outputPath);
     currentVideo = result.outputPath;
+
+    // Delete previous temp file if it exists
+    if (previousVideo && previousVideo !== result.outputPath) {
+      await window.electronAPI.deleteTempFile(previousVideo);
+    }
   } catch (error) {
     hideProgress();
     handleError('영상 자르기', error, '영상 자르기에 실패했습니다.');
@@ -2275,6 +2283,9 @@ async function executeTrimVideoOnly() {
   showProgress();
   updateProgress(0, '영상만 자르는 중 (오디오 유지)...');
 
+  // Save previous video file path for cleanup
+  const previousVideo = currentVideo;
+
   try {
     const result = await window.electronAPI.trimVideoOnly({
       inputPath: currentVideo,
@@ -2291,6 +2302,11 @@ async function executeTrimVideoOnly() {
 
     await loadVideo(result.outputPath);
     currentVideo = result.outputPath;
+
+    // Delete previous temp file if it exists
+    if (previousVideo && previousVideo !== result.outputPath) {
+      await window.electronAPI.deleteTempFile(previousVideo);
+    }
   } catch (error) {
     hideProgress();
     handleError('영상만 자르기', error, '영상만 자르기에 실패했습니다.');
@@ -2761,6 +2777,9 @@ async function executeMergeAudio() {
   showProgress();
   updateProgress(0, '오디오 병합 중...');
 
+  // Save previous audio file path for cleanup
+  const previousAudioFile = currentAudioFile;
+
   try {
     // Convert to array of paths (support both old string format and new object format)
     const audioPaths = mergeAudios.map(item => {
@@ -2779,6 +2798,12 @@ async function executeMergeAudio() {
     hideProgress();
     alert('오디오 병합 완료!\n\n편집된 내용은 임시 저장되었습니다.\n최종 저장하려면 "음성 내보내기"를 사용하세요.');
     await loadAudioFile(result.outputPath);
+
+    // Delete previous temp file if it exists
+    if (previousAudioFile && previousAudioFile !== result.outputPath) {
+      await window.electronAPI.deleteTempFile(previousAudioFile);
+    }
+
     mergeAudios = [];
   } catch (error) {
     hideProgress();
@@ -3611,6 +3636,9 @@ async function executeTrimAudioFile() {
   showProgress();
   updateProgress(0, '음성 자르는 중...');
 
+  // Save previous audio file path for cleanup
+  const previousAudioFile = currentAudioFile;
+
   try {
     // Generate temporary file path
     const result = await window.electronAPI.trimAudioFile({
@@ -3628,6 +3656,11 @@ async function executeTrimAudioFile() {
 
     // Reload the trimmed audio file
     await loadAudioFile(result.outputPath);
+
+    // Delete previous temp file if it exists
+    if (previousAudioFile && previousAudioFile !== result.outputPath) {
+      await window.electronAPI.deleteTempFile(previousAudioFile);
+    }
 
     // Clear the active tool to disable trim mode
     activeTool = null;
@@ -3789,6 +3822,9 @@ async function executeAudioVolume() {
   showProgress();
   updateProgress(0, '볼륨 조절 중...');
 
+  // Save previous audio file path for cleanup
+  const previousAudioFile = currentAudioFile;
+
   try {
     // Use dedicated audio volume adjustment handler
     const result = await window.electronAPI.adjustAudioVolume({
@@ -3805,6 +3841,11 @@ async function executeAudioVolume() {
 
     // Reload the adjusted audio file
     await loadAudioFile(result.outputPath);
+
+    // Delete previous temp file if it exists
+    if (previousAudioFile && previousAudioFile !== result.outputPath) {
+      await window.electronAPI.deleteTempFile(previousAudioFile);
+    }
 
     updateStatus(`볼륨 조절 완료 (임시 저장): ${volumeLevel}x`);
   } catch (error) {
@@ -3851,6 +3892,12 @@ async function executeExportAudio() {
     const savedFileName = result.outputPath.split('\\').pop();
     alert(`음성 내보내기 완료!\n\n저장된 파일: ${savedFileName}`);
     updateStatus(`내보내기 완료: ${savedFileName}`);
+
+    // Update current audio file to exported file (temp file was deleted)
+    currentAudioFile = result.outputPath;
+
+    // Reload audio from new location
+    await loadAudioFile(result.outputPath);
   } catch (error) {
     hideProgress();
     handleError('음성 내보내기', error, '음성 내보내기에 실패했습니다.');
@@ -3895,6 +3942,12 @@ async function executeExportVideo() {
     const savedFileName = result.outputPath.split('\\').pop();
     alert(`비디오 내보내기 완료!\n\n저장된 파일: ${savedFileName}`);
     updateStatus(`내보내기 완료: ${savedFileName}`);
+
+    // Update current video to exported file (temp file was deleted)
+    currentVideo = result.outputPath;
+
+    // Reload video from new location
+    await loadVideo(result.outputPath);
   } catch (error) {
     hideProgress();
     handleError('비디오 내보내기', error, '비디오 내보내기에 실패했습니다.');

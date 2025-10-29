@@ -1927,6 +1927,24 @@ ipcMain.handle('copy-audio-file', async (event, options) => {
       // Copy file
       fs.copyFileSync(inputPath, outputPath);
 
+      // Check if input file is in temp directory and delete it
+      const os = require('os');
+      const tempDir = os.tmpdir();
+      const inputDir = path.dirname(inputPath);
+
+      if (inputDir === tempDir) {
+        try {
+          fs.unlinkSync(inputPath);
+          logInfo('COPY_AUDIO_FILE_CLEANUP', 'Temp file deleted after export', { inputPath });
+        } catch (cleanupError) {
+          logError('COPY_AUDIO_FILE_CLEANUP_FAILED', 'Failed to delete temp file', {
+            inputPath,
+            error: cleanupError.message
+          });
+          // Don't fail the operation if cleanup fails
+        }
+      }
+
       logInfo('COPY_AUDIO_FILE_SUCCESS', 'Audio file copied successfully', { outputPath });
       resolve({ success: true, outputPath });
     } catch (error) {
@@ -1953,6 +1971,42 @@ ipcMain.handle('open-path', async (event, filePath) => {
     logError('OPEN_PATH_ERROR', 'Error opening file', { error: error.message });
     throw error;
   }
+});
+
+// Delete temp file
+ipcMain.handle('delete-temp-file', async (event, filePath) => {
+  logInfo('DELETE_TEMP_FILE_START', 'Deleting temp file', { filePath });
+
+  return new Promise((resolve, reject) => {
+    try {
+      // Check if file is in temp directory
+      const os = require('os');
+      const tempDir = os.tmpdir();
+      const fileDir = path.dirname(filePath);
+
+      if (fileDir !== tempDir) {
+        logInfo('DELETE_TEMP_FILE_SKIP', 'File is not in temp directory, skipping', { filePath, fileDir, tempDir });
+        resolve({ success: true, skipped: true });
+        return;
+      }
+
+      // Check if file exists
+      if (!fs.existsSync(filePath)) {
+        logInfo('DELETE_TEMP_FILE_NOT_FOUND', 'File does not exist', { filePath });
+        resolve({ success: true, notFound: true });
+        return;
+      }
+
+      // Delete file
+      fs.unlinkSync(filePath);
+      logInfo('DELETE_TEMP_FILE_SUCCESS', 'Temp file deleted successfully', { filePath });
+      resolve({ success: true });
+    } catch (error) {
+      logError('DELETE_TEMP_FILE_ERROR', 'Error deleting temp file', { filePath, error: error.message });
+      // Don't reject - temp file cleanup failures shouldn't break the app
+      resolve({ success: false, error: error.message });
+    }
+  });
 });
 
 logInfo('SYSTEM', 'Kiosk Video Editor initialized');
