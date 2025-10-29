@@ -565,11 +565,6 @@ ipcMain.handle('generate-waveform-range', async (event, options) => {
 
     ffprobe.on('close', (code) => {
       const hasAudioStream = output.trim() === 'audio';
-      logInfo('AUDIO_STREAM_CHECK', 'Audio stream detection for waveform range', {
-        videoPath,
-        hasAudioStream,
-        output: output.trim()
-      });
       resolve(hasAudioStream);
     });
   });
@@ -685,7 +680,6 @@ ipcMain.handle('trim-video', async (event, options) => {
 
     ffprobe.on('close', (code) => {
       const audioExists = output.trim() === 'audio';
-      logInfo('TRIM_AUDIO_CHECK', 'Input audio stream check', { inputPath, hasAudio: audioExists });
       resolve(audioExists);
     });
   });
@@ -790,13 +784,6 @@ ipcMain.handle('trim-video-only', async (event, options) => {
     const videoDuration = await getVideoDuration();
     const endTime = startTime + duration;
     const finalDuration = videoDuration - duration;
-
-    logInfo('TRIM_VIDEO_ONLY_DURATION', 'Video duration calculated', {
-      videoDuration,
-      deleteStart: startTime,
-      deleteEnd: endTime,
-      finalDuration
-    });
 
     // Delete selected range from video, trim audio from end
     // Video: concat 0~startTime and endTime~videoDuration
@@ -930,13 +917,6 @@ ipcMain.handle('trim-audio-only', async (event, options) => {
   return new Promise(async (resolve, reject) => {
     const videoDuration = await getVideoDuration();
     const deleteDuration = endTime - startTime;
-
-    logInfo('TRIM_AUDIO_ONLY_DURATION', 'Audio duration calculated', {
-      videoDuration,
-      deleteStart: startTime,
-      deleteEnd: endTime,
-      deleteDuration
-    });
 
     // Delete selected range from audio: concat 0~startTime and endTime~end, then pad with silence
     // Audio: concat before and after, then pad to video duration
@@ -1130,12 +1110,6 @@ ipcMain.handle('add-audio', async (event, options) => {
 
       ffprobe.on('close', (code) => {
         const hasAudio = output.trim() === 'audio';
-        logInfo('AUDIO_CHECK', 'Audio stream detection', {
-          code,
-          output: output.trim(),
-          errorOutput: errorOutput.trim(),
-          hasAudio
-        });
         resolve(hasAudio);
       });
     });
@@ -1155,7 +1129,6 @@ ipcMain.handle('add-audio', async (event, options) => {
       }
 
       const hasAudio = await checkAudio();
-      logInfo('ADD_AUDIO_CHECK', 'Video audio check', { hasAudio, isSameFile, actualOutputPath });
 
       let args;
       const startTimeMs = (audioStartTime || 0) * 1000; // Convert to milliseconds
@@ -1750,7 +1723,6 @@ ipcMain.handle('merge-videos', async (event, options) => {
       if (transition === 'xfade') {
         // Get durations of all videos
         const durations = await Promise.all(videoPaths.map(path => getVideoDuration(path)));
-        logInfo('MERGE_DURATIONS', 'Video durations', { durations });
 
         // Normalize all videos first (all videos guaranteed to have audio at this point)
         for (let i = 0; i < videoPaths.length; i++) {
@@ -2284,7 +2256,6 @@ ipcMain.handle('ensure-video-has-audio', async (event, videoPath) => {
 
     ffprobe.on('close', (code) => {
       const hasAudio = output.trim() === 'audio';
-      logInfo('ENSURE_AUDIO_CHECK', 'Audio stream check result', { hasAudio });
       resolve(hasAudio);
     });
   });
@@ -2320,8 +2291,6 @@ ipcMain.handle('ensure-video-has-audio', async (event, videoPath) => {
       }
     });
   });
-
-  logInfo('ENSURE_AUDIO_DURATION', 'Video duration for silent audio', { duration });
 
   // Create temp file with silent audio
   const os = require('os');
