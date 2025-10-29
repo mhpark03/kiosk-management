@@ -1696,7 +1696,7 @@ ipcMain.handle('merge-videos', async (event, options) => {
         // Normalize all videos first (all videos guaranteed to have audio at this point)
         for (let i = 0; i < videoPaths.length; i++) {
           filterComplex += `[${i}:v]scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1[v${i}];`;
-          filterComplex += `[${i}:a]anull[a${i}];`; // Pass through audio stream
+          filterComplex += `[${i}:a]aresample=44100,aformat=sample_rates=44100:channel_layouts=stereo[a${i}];`; // Resample to 44100Hz stereo
         }
 
         // Apply xfade transitions with correct offsets
@@ -1717,7 +1717,7 @@ ipcMain.handle('merge-videos', async (event, options) => {
         // Simple concatenation - normalize videos and concat with audio (all videos guaranteed to have audio)
         for (let i = 0; i < videoPaths.length; i++) {
           filterComplex += `[${i}:v]scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1[v${i}];`;
-          filterComplex += `[${i}:a]anull[a${i}];`; // Pass through audio stream
+          filterComplex += `[${i}:a]aresample=44100,aformat=sample_rates=44100:channel_layouts=stereo[a${i}];`; // Resample to 44100Hz stereo
         }
         // Concat both video and audio
         filterComplex += videoPaths.map((_, i) => `[v${i}][a${i}]`).join('') + `concat=n=${videoPaths.length}:v=1:a=1[outv][outa]`;
