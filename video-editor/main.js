@@ -482,7 +482,7 @@ ipcMain.handle('generate-waveform', async (event, videoPath) => {
     const args = [
       '-i', videoPath,
       '-filter_complex',
-      '[0:a]showwavespic=s=1200x300:colors=#667eea:draw=scale:scale=lin:split_channels=1[wave]',
+      '[0:a]showwavespic=s=1200x300:colors=#667eea:draw=scale:scale=log:split_channels=1[wave]',
       '-map', '[wave]',
       '-frames:v', '1',
       '-y',
@@ -590,7 +590,7 @@ ipcMain.handle('generate-waveform-range', async (event, options) => {
     const args = [
       '-i', videoPath,
       '-filter_complex',
-      `[0:a]atrim=start=${startTime}:end=${endTime},asetpts=PTS-STARTPTS[trimmed];[trimmed]showwavespic=s=1200x300:colors=#667eea:draw=scale:scale=lin:split_channels=1[wave]`,
+      `[0:a]atrim=start=${startTime}:end=${endTime},asetpts=PTS-STARTPTS[trimmed];[trimmed]showwavespic=s=1200x300:colors=#667eea:draw=scale:scale=log:split_channels=1[wave]`,
       '-map', '[wave]',
       '-frames:v', '1',
       '-y',
@@ -1548,8 +1548,7 @@ ipcMain.handle('merge-videos', async (event, options) => {
     return new Promise((resolve, reject) => {
       const args = [
         '-f', 'lavfi',
-        '-t', duration.toString(),  // Limit lavfi input duration
-        '-i', `aevalsrc='random(0)/10000000:random(1)/10000000':s=44100:c=stereo`,  // Inaudible noise for proper AAC encoding
+        '-i', `aevalsrc=random(0)*0.1|random(1)*0.1:d=${duration}:c=stereo:s=44100`,  // Low noise (-20dB) for visible waveform
         '-i', videoPath,
         '-c:v', 'copy',
         '-c:a', 'aac',
@@ -1663,14 +1662,12 @@ ipcMain.handle('merge-videos', async (event, options) => {
               videoHasAudio.push(true);
               logInfo('MERGE_AUDIO_ADDED', 'Silent audio added successfully', { index: i, newPath: videoWithAudio });
             } else {
-              logWarn('MERGE_AUDIO_ADD_FAILED', 'Audio addition failed, will use anullsrc in filter', { videoPath, index: i });
-              processedVideoPaths.push(videoPath);
-              videoHasAudio.push(false);
+              logError('MERGE_AUDIO_VERIFY_FAILED', 'Audio stream not found after addition', { videoPath, index: i });
+              throw new Error(`Failed to add audio to video ${i + 1}. Please try again.`);
             }
           } catch (err) {
             logError('MERGE_AUDIO_ADD_ERROR', 'Failed to add silent audio', { error: err.message, index: i });
-            processedVideoPaths.push(videoPath);
-            videoHasAudio.push(false);
+            throw new Error(`Failed to add audio to video ${i + 1}: ${err.message}`);
           }
         } else {
           logInfo('MERGE_HAS_AUDIO', 'Video already has audio', { videoPath, index: i });
@@ -1696,16 +1693,10 @@ ipcMain.handle('merge-videos', async (event, options) => {
         const durations = await Promise.all(videoPaths.map(path => getVideoDuration(path)));
         logInfo('MERGE_DURATIONS', 'Video durations', { durations });
 
-        // Normalize all videos first
+        // Normalize all videos first (all videos guaranteed to have audio at this point)
         for (let i = 0; i < videoPaths.length; i++) {
           filterComplex += `[${i}:v]scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1[v${i}];`;
-
-          // Generate audio - use input stream if available, otherwise generate silence
-          if (videoHasAudio[i]) {
-            filterComplex += `[${i}:a]anull[a${i}];`; // Pass through audio stream
-          } else {
-            filterComplex += `anullsrc=channel_layout=stereo:sample_rate=44100[a${i}];`; // Generate silent audio
-          }
+          filterComplex += `[${i}:a]anull[a${i}];`; // Pass through audio stream
         }
 
         // Apply xfade transitions with correct offsets
@@ -1723,16 +1714,10 @@ ipcMain.handle('merge-videos', async (event, options) => {
         // Concatenate audio separately (simple concat, no crossfade for audio)
         filterComplex += videoPaths.map((_, i) => `[a${i}]`).join('') + `concat=n=${videoPaths.length}:v=0:a=1[outa]`;
       } else {
-        // Simple concatenation - normalize videos and concat with audio
+        // Simple concatenation - normalize videos and concat with audio (all videos guaranteed to have audio)
         for (let i = 0; i < videoPaths.length; i++) {
           filterComplex += `[${i}:v]scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1[v${i}];`;
-
-          // Generate audio - use input stream if available, otherwise generate silence
-          if (videoHasAudio[i]) {
-            filterComplex += `[${i}:a]anull[a${i}];`; // Pass through audio stream
-          } else {
-            filterComplex += `anullsrc=channel_layout=stereo:sample_rate=44100[a${i}];`; // Generate silent audio
-          }
+          filterComplex += `[${i}:a]anull[a${i}];`; // Pass through audio stream
         }
         // Concat both video and audio
         filterComplex += videoPaths.map((_, i) => `[v${i}][a${i}]`).join('') + `concat=n=${videoPaths.length}:v=1:a=1[outv][outa]`;
@@ -2289,8 +2274,7 @@ ipcMain.handle('ensure-video-has-audio', async (event, videoPath) => {
   return new Promise((resolve, reject) => {
     const args = [
       '-f', 'lavfi',
-      '-t', duration.toString(),  // Limit lavfi input duration
-      '-i', `aevalsrc='random(0)/10000000:random(1)/10000000':s=44100:c=stereo`,  // Inaudible noise for proper AAC encoding
+      '-i', `aevalsrc=random(0)*0.1|random(1)*0.1:d=${duration}:c=stereo:s=44100`,  // Low noise (-20dB) for visible waveform
       '-i', videoPath,
       '-c:v', 'copy',
       '-c:a', 'aac',
