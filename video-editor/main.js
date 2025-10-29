@@ -1548,7 +1548,7 @@ ipcMain.handle('merge-videos', async (event, options) => {
     return new Promise((resolve, reject) => {
       const args = [
         '-f', 'lavfi',
-        '-i', `anullsrc=channel_layout=stereo:sample_rate=44100`,
+        '-i', `aevalsrc='random(0)/10000000:random(1)/10000000':s=44100:c=stereo`,  // Inaudible noise for proper AAC encoding
         '-i', videoPath,
         '-t', duration.toString(),
         '-c:v', 'copy',
@@ -1558,6 +1558,7 @@ ipcMain.handle('merge-videos', async (event, options) => {
         '-ac', '2',       // Stereo channels
         '-map', '1:v',
         '-map', '0:a',
+        '-movflags', '+faststart',  // Write moov atom at start for better compatibility
         '-shortest',
         '-y',
         outputPathWithAudio
@@ -1699,6 +1700,7 @@ ipcMain.handle('merge-videos', async (event, options) => {
         '-ac', '2',         // Stereo channels
         '-preset', 'medium',
         '-crf', '23',
+        '-movflags', '+faststart',  // Write moov atom at start
         '-y',
         outputPath
       ];
@@ -2237,7 +2239,7 @@ ipcMain.handle('ensure-video-has-audio', async (event, videoPath) => {
   return new Promise((resolve, reject) => {
     const args = [
       '-f', 'lavfi',
-      '-i', `anullsrc=channel_layout=stereo:sample_rate=44100`,
+      '-i', `aevalsrc='random(0)/10000000:random(1)/10000000':s=44100:c=stereo`,  // Inaudible noise for proper AAC encoding
       '-i', videoPath,
       '-t', duration.toString(),
       '-c:v', 'copy',
@@ -2246,7 +2248,8 @@ ipcMain.handle('ensure-video-has-audio', async (event, videoPath) => {
       '-ar', '44100',   // Sample rate
       '-ac', '2',       // Stereo channels
       '-map', '1:v',  // Map video from second input (videoPath)
-      '-map', '0:a',  // Map audio from first input (anullsrc)
+      '-map', '0:a',  // Map audio from first input (low noise)
+      '-movflags', '+faststart',  // Write moov atom at start for better compatibility
       '-shortest',
       '-y',
       outputPath
