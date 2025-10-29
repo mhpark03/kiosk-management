@@ -2543,6 +2543,9 @@ async function executeTrimAudioOnly() {
   showProgress();
   updateProgress(0, '오디오만 자르는 중 (영상 유지)...');
 
+  // Save previous video file path for cleanup
+  const previousVideo = currentVideo;
+
   try {
     const result = await window.electronAPI.trimAudioOnly({
       inputPath: currentVideo,
@@ -2559,6 +2562,11 @@ async function executeTrimAudioOnly() {
 
     await loadVideo(result.outputPath);
     currentVideo = result.outputPath;
+
+    // Delete previous temp file if it exists
+    if (previousVideo && previousVideo !== result.outputPath) {
+      await window.electronAPI.deleteTempFile(previousVideo);
+    }
   } catch (error) {
     hideProgress();
     handleError('오디오만 자르기', error, '오디오만 자르기에 실패했습니다.');
@@ -2604,6 +2612,9 @@ async function executeMerge() {
   showProgress();
   updateProgress(0, '영상 병합 중...');
 
+  // Save previous video file path for cleanup
+  const previousVideo = currentVideo;
+
   try {
     const result = await window.electronAPI.mergeVideos({
       videoPaths: mergeVideos,
@@ -2616,6 +2627,12 @@ async function executeMerge() {
     alert('영상 병합 완료!\n\n편집된 내용은 임시 저장되었습니다.\n최종 저장하려면 "비디오 내보내기"를 사용하세요.');
     loadVideo(result.outputPath);
     currentVideo = result.outputPath;
+
+    // Delete previous temp file if it exists
+    if (previousVideo && previousVideo !== result.outputPath) {
+      await window.electronAPI.deleteTempFile(previousVideo);
+    }
+
     mergeVideos = [];
   } catch (error) {
     hideProgress();
@@ -3001,6 +3018,9 @@ async function executeAddAudio() {
   showProgress();
   updateProgress(0, isSilence ? '무음 추가 중...' : '오디오 추가 중...');
 
+  // Save previous video file path for cleanup
+  const previousVideo = currentVideo;
+
   try {
     const result = await window.electronAPI.addAudio({
       videoPath: currentVideo,
@@ -3018,6 +3038,11 @@ async function executeAddAudio() {
     alert(`${message}\n\n편집된 내용은 임시 저장되었습니다.\n최종 저장하려면 "비디오 내보내기"를 사용하세요.`);
     loadVideo(result.outputPath);
     currentVideo = result.outputPath;
+
+    // Delete previous temp file if it exists
+    if (previousVideo && previousVideo !== result.outputPath) {
+      await window.electronAPI.deleteTempFile(previousVideo);
+    }
   } catch (error) {
     hideProgress();
     handleError('오디오 추가', error, '오디오 추가에 실패했습니다.');
@@ -3141,6 +3166,9 @@ async function executeVolumeAdjust() {
   showProgress();
   updateProgress(0, '볼륨 조절 중...');
 
+  // Save previous video file path for cleanup
+  const previousVideo = currentVideo;
+
   try {
     const result = await window.electronAPI.applyFilter({
       inputPath: currentVideo,
@@ -3153,6 +3181,11 @@ async function executeVolumeAdjust() {
     alert('볼륨 조절 완료!\n\n편집된 내용은 임시 저장되었습니다.\n최종 저장하려면 "비디오 내보내기"를 사용하세요.');
     loadVideo(result.outputPath);
     currentVideo = result.outputPath;
+
+    // Delete previous temp file if it exists
+    if (previousVideo && previousVideo !== result.outputPath) {
+      await window.electronAPI.deleteTempFile(previousVideo);
+    }
   } catch (error) {
     hideProgress();
     handleError('볼륨 조절', error, '볼륨 조절에 실패했습니다.');
@@ -3246,6 +3279,9 @@ async function executeFilter() {
   showProgress();
   updateProgress(0, `${filterType} 필터 적용 중...`);
 
+  // Save previous video file path for cleanup
+  const previousVideo = currentVideo;
+
   try {
     const result = await window.electronAPI.applyFilter({
       inputPath: currentVideo,
@@ -3258,6 +3294,11 @@ async function executeFilter() {
     alert('필터 적용 완료!\n\n편집된 내용은 임시 저장되었습니다.\n최종 저장하려면 "비디오 내보내기"를 사용하세요.');
     loadVideo(result.outputPath);
     currentVideo = result.outputPath;
+
+    // Delete previous temp file if it exists
+    if (previousVideo && previousVideo !== result.outputPath) {
+      await window.electronAPI.deleteTempFile(previousVideo);
+    }
   } catch (error) {
     hideProgress();
     handleError('필터 적용', error, '필터 적용에 실패했습니다.');
@@ -3287,6 +3328,9 @@ async function executeAddText() {
   showProgress();
   updateProgress(0, '텍스트 추가 중...');
 
+  // Save previous video file path for cleanup
+  const previousVideo = currentVideo;
+
   try {
     const result = await window.electronAPI.addText({
       inputPath: currentVideo,
@@ -3303,6 +3347,11 @@ async function executeAddText() {
     alert('텍스트 추가 완료!\n\n편집된 내용은 임시 저장되었습니다.\n최종 저장하려면 "비디오 내보내기"를 사용하세요.');
     loadVideo(result.outputPath);
     currentVideo = result.outputPath;
+
+    // Delete previous temp file if it exists
+    if (previousVideo && previousVideo !== result.outputPath) {
+      await window.electronAPI.deleteTempFile(previousVideo);
+    }
   } catch (error) {
     hideProgress();
     handleError('텍스트 추가', error, '텍스트 추가에 실패했습니다.');
@@ -3326,6 +3375,9 @@ async function executeSpeed() {
   showProgress();
   updateProgress(0, '속도 조절 중...');
 
+  // Save previous video file path for cleanup
+  const previousVideo = currentVideo;
+
   try {
     const result = await window.electronAPI.applyFilter({
       inputPath: currentVideo,
@@ -3338,6 +3390,11 @@ async function executeSpeed() {
     alert('속도 조절 완료!\n\n편집된 내용은 임시 저장되었습니다.\n최종 저장하려면 "비디오 내보내기"를 사용하세요.');
     loadVideo(result.outputPath);
     currentVideo = result.outputPath;
+
+    // Delete previous temp file if it exists
+    if (previousVideo && previousVideo !== result.outputPath) {
+      await window.electronAPI.deleteTempFile(previousVideo);
+    }
   } catch (error) {
     hideProgress();
     handleError('속도 조절', error, '속도 조절에 실패했습니다.');
