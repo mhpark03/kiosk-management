@@ -1691,6 +1691,9 @@ ipcMain.handle('merge-videos', async (event, options) => {
         '-map', '[outa]',  // Map audio output
         '-c:v', 'libx264',
         '-c:a', 'aac',      // Encode audio as AAC
+        '-b:a', '192k',     // Audio bitrate (important for quality)
+        '-ar', '44100',     // Sample rate
+        '-ac', '2',         // Stereo channels
         '-preset', 'medium',
         '-crf', '23',
         '-y',
