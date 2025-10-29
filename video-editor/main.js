@@ -1644,23 +1644,42 @@ ipcMain.handle('merge-videos', async (event, options) => {
     try {
       // Check all videos for audio and add silent audio if missing
       const processedVideoPaths = [];
+      const videoHasAudio = [];  // Track which videos have audio after processing
+
       for (let i = 0; i < videoPaths.length; i++) {
         const videoPath = videoPaths[i];
         const hasAudio = await hasAudioStream(videoPath);
 
         if (!hasAudio) {
           logInfo('MERGE_NO_AUDIO', 'Video has no audio, adding silent track', { videoPath, index: i });
-          const duration = await getVideoDuration(videoPath);
-          const videoWithAudio = await addSilentAudio(videoPath, duration);
-          processedVideoPaths.push(videoWithAudio);
-          logInfo('MERGE_AUDIO_ADDED', 'Silent audio added to video', { index: i, newPath: videoWithAudio });
+          try {
+            const duration = await getVideoDuration(videoPath);
+            const videoWithAudio = await addSilentAudio(videoPath, duration);
+
+            // Verify audio was actually added
+            const hasAudioAfter = await hasAudioStream(videoWithAudio);
+            if (hasAudioAfter) {
+              processedVideoPaths.push(videoWithAudio);
+              videoHasAudio.push(true);
+              logInfo('MERGE_AUDIO_ADDED', 'Silent audio added successfully', { index: i, newPath: videoWithAudio });
+            } else {
+              logWarn('MERGE_AUDIO_ADD_FAILED', 'Audio addition failed, will use anullsrc in filter', { videoPath, index: i });
+              processedVideoPaths.push(videoPath);
+              videoHasAudio.push(false);
+            }
+          } catch (err) {
+            logError('MERGE_AUDIO_ADD_ERROR', 'Failed to add silent audio', { error: err.message, index: i });
+            processedVideoPaths.push(videoPath);
+            videoHasAudio.push(false);
+          }
         } else {
           logInfo('MERGE_HAS_AUDIO', 'Video already has audio', { videoPath, index: i });
           processedVideoPaths.push(videoPath);
+          videoHasAudio.push(true);
         }
       }
 
-      // Use processed video paths (with audio) for merge
+      // Use processed video paths for merge
       videoPaths = processedVideoPaths;
 
       let filterComplex = '';
@@ -1680,7 +1699,13 @@ ipcMain.handle('merge-videos', async (event, options) => {
         // Normalize all videos first
         for (let i = 0; i < videoPaths.length; i++) {
           filterComplex += `[${i}:v]scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1[v${i}];`;
-          filterComplex += `[${i}:a]anull[a${i}];`; // Pass through audio streams
+
+          // Generate audio - use input stream if available, otherwise generate silence
+          if (videoHasAudio[i]) {
+            filterComplex += `[${i}:a]anull[a${i}];`; // Pass through audio stream
+          } else {
+            filterComplex += `anullsrc=channel_layout=stereo:sample_rate=44100[a${i}];`; // Generate silent audio
+          }
         }
 
         // Apply xfade transitions with correct offsets
@@ -1701,7 +1726,13 @@ ipcMain.handle('merge-videos', async (event, options) => {
         // Simple concatenation - normalize videos and concat with audio
         for (let i = 0; i < videoPaths.length; i++) {
           filterComplex += `[${i}:v]scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1[v${i}];`;
-          filterComplex += `[${i}:a]anull[a${i}];`; // Pass through audio streams
+
+          // Generate audio - use input stream if available, otherwise generate silence
+          if (videoHasAudio[i]) {
+            filterComplex += `[${i}:a]anull[a${i}];`; // Pass through audio stream
+          } else {
+            filterComplex += `anullsrc=channel_layout=stereo:sample_rate=44100[a${i}];`; // Generate silent audio
+          }
         }
         // Concat both video and audio
         filterComplex += videoPaths.map((_, i) => `[v${i}][a${i}]`).join('') + `concat=n=${videoPaths.length}:v=1:a=1[outv][outa]`;
