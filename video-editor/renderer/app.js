@@ -24,6 +24,9 @@ let isWaveformRegenerated = false;  // Flag to track if current waveform is rege
 let isUserSeekingSlider = false;  // Flag to prevent auto-skip during manual seek
 let isPreviewingRange = false;    // Flag to prevent auto-skip during range preview
 
+// Silent audio tracking
+let hasSilentAudio = false;  // Flag to track if current video has auto-generated silent audio
+
 // 공통 오류 처리 함수
 function handleError(operation, error, userMessage) {
   // 콘솔에 상세한 오류 정보 기록
@@ -891,22 +894,31 @@ async function importVideo() {
 
   try {
     // Check if video has audio track, add silent audio if missing
+    console.log('[Import Video] Checking audio for:', videoPath);
     updateStatus('영상 오디오 확인 중...');
     const result = await window.electronAPI.ensureVideoHasAudio(videoPath);
 
+    console.log('[Import Video] Result:', result);
+
     if (result.addedAudio) {
-      console.log('[Import Video] Silent audio track added to video');
+      console.log('[Import Video] Silent audio track added, new path:', result.videoPath);
+      alert('영상에 오디오가 없어 무음 스테레오 트랙이 자동으로 추가되었습니다.');
       updateStatus('무음 오디오 트랙이 추가되었습니다');
+      hasSilentAudio = true;  // Mark as having silent audio
       currentVideo = result.videoPath;
       loadVideo(result.videoPath);
     } else {
+      console.log('[Import Video] Video already has audio:', result.videoPath);
+      hasSilentAudio = false;  // Has real audio
       currentVideo = result.videoPath;
       loadVideo(result.videoPath);
       updateStatus(`영상 로드: ${videoPath}`);
     }
   } catch (error) {
     console.error('[Import Video] Error ensuring audio:', error);
+    alert('오디오 트랙 추가 중 오류가 발생했습니다. 원본 파일을 로드합니다.');
     // Fallback to original path if audio adding fails
+    hasSilentAudio = false;  // Assume original file, not silent
     currentVideo = videoPath;
     loadVideo(videoPath);
     updateStatus(`영상 로드: ${videoPath} (오디오 확인 실패)`);
@@ -1069,6 +1081,11 @@ async function generateAndDisplayWaveform(videoPath) {
     if (!audioStream) {
       console.log('No audio stream found, skipping waveform generation');
       waveformImg.style.display = 'none';
+      // Also hide silent audio indicator
+      const silentIndicator = document.getElementById('silent-audio-indicator');
+      if (silentIndicator) {
+        silentIndicator.style.display = 'none';
+      }
       return;
     }
 
@@ -1108,6 +1125,17 @@ async function generateAndDisplayWaveform(videoPath) {
         channelLabels.style.display = 'flex';
       } else if (channelLabels) {
         channelLabels.style.display = 'none';
+      }
+
+      // Show/hide silent audio indicator
+      const silentIndicator = document.getElementById('silent-audio-indicator');
+      if (silentIndicator) {
+        if (hasSilentAudio) {
+          silentIndicator.style.display = 'block';
+          console.log('Showing silent audio indicator');
+        } else {
+          silentIndicator.style.display = 'none';
+        }
       }
     }
   } catch (error) {
@@ -2061,6 +2089,7 @@ async function executeTrim() {
 
     await loadVideo(result.outputPath);
     currentVideo = result.outputPath;
+    hasSilentAudio = false;  // Video has been edited, no longer original silent track
 
     // Delete previous temp file if it exists
     if (previousVideo && previousVideo !== result.outputPath) {
@@ -2321,6 +2350,7 @@ async function executeTrimVideoOnly() {
 
     await loadVideo(result.outputPath);
     currentVideo = result.outputPath;
+    hasSilentAudio = false;  // Video has been edited, no longer original silent track
 
     // Delete previous temp file if it exists
     if (previousVideo && previousVideo !== result.outputPath) {
@@ -2581,6 +2611,7 @@ async function executeTrimAudioOnly() {
 
     await loadVideo(result.outputPath);
     currentVideo = result.outputPath;
+    hasSilentAudio = false;  // Video has been edited, no longer original silent track
 
     // Delete previous temp file if it exists
     if (previousVideo && previousVideo !== result.outputPath) {
@@ -2646,6 +2677,7 @@ async function executeMerge() {
     alert('영상 병합 완료!\n\n편집된 내용은 임시 저장되었습니다.\n최종 저장하려면 "비디오 내보내기"를 사용하세요.');
     loadVideo(result.outputPath);
     currentVideo = result.outputPath;
+    hasSilentAudio = false;  // Reset silent audio flag after merge
 
     // Delete previous temp file if it exists
     if (previousVideo && previousVideo !== result.outputPath) {
@@ -3057,6 +3089,7 @@ async function executeAddAudio() {
     alert(`${message}\n\n편집된 내용은 임시 저장되었습니다.\n최종 저장하려면 "비디오 내보내기"를 사용하세요.`);
     loadVideo(result.outputPath);
     currentVideo = result.outputPath;
+    hasSilentAudio = false;  // Video has been edited, no longer original silent track
 
     // Delete previous temp file if it exists
     if (previousVideo && previousVideo !== result.outputPath) {
@@ -3200,6 +3233,7 @@ async function executeVolumeAdjust() {
     alert('볼륨 조절 완료!\n\n편집된 내용은 임시 저장되었습니다.\n최종 저장하려면 "비디오 내보내기"를 사용하세요.');
     loadVideo(result.outputPath);
     currentVideo = result.outputPath;
+    hasSilentAudio = false;  // Video has been edited, no longer original silent track
 
     // Delete previous temp file if it exists
     if (previousVideo && previousVideo !== result.outputPath) {
@@ -3313,6 +3347,7 @@ async function executeFilter() {
     alert('필터 적용 완료!\n\n편집된 내용은 임시 저장되었습니다.\n최종 저장하려면 "비디오 내보내기"를 사용하세요.');
     loadVideo(result.outputPath);
     currentVideo = result.outputPath;
+    hasSilentAudio = false;  // Video has been edited, no longer original silent track
 
     // Delete previous temp file if it exists
     if (previousVideo && previousVideo !== result.outputPath) {
@@ -3366,6 +3401,7 @@ async function executeAddText() {
     alert('텍스트 추가 완료!\n\n편집된 내용은 임시 저장되었습니다.\n최종 저장하려면 "비디오 내보내기"를 사용하세요.');
     loadVideo(result.outputPath);
     currentVideo = result.outputPath;
+    hasSilentAudio = false;  // Video has been edited, no longer original silent track
 
     // Delete previous temp file if it exists
     if (previousVideo && previousVideo !== result.outputPath) {
@@ -3409,6 +3445,7 @@ async function executeSpeed() {
     alert('속도 조절 완료!\n\n편집된 내용은 임시 저장되었습니다.\n최종 저장하려면 "비디오 내보내기"를 사용하세요.');
     loadVideo(result.outputPath);
     currentVideo = result.outputPath;
+    hasSilentAudio = false;  // Video has been edited, no longer original silent track
 
     // Delete previous temp file if it exists
     if (previousVideo && previousVideo !== result.outputPath) {
