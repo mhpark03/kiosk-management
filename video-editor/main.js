@@ -1548,9 +1548,9 @@ ipcMain.handle('merge-videos', async (event, options) => {
     return new Promise((resolve, reject) => {
       const args = [
         '-f', 'lavfi',
+        '-t', duration.toString(),  // Limit lavfi input duration
         '-i', `aevalsrc='random(0)/10000000:random(1)/10000000':s=44100:c=stereo`,  // Inaudible noise for proper AAC encoding
         '-i', videoPath,
-        '-t', duration.toString(),
         '-c:v', 'copy',
         '-c:a', 'aac',
         '-b:a', '192k',   // HIGH BITRATE for silent audio (important!)
@@ -1559,7 +1559,6 @@ ipcMain.handle('merge-videos', async (event, options) => {
         '-map', '1:v',
         '-map', '0:a',
         '-movflags', '+faststart',  // Write moov atom at start for better compatibility
-        '-shortest',
         '-y',
         outputPathWithAudio
       ];
@@ -1597,9 +1596,10 @@ ipcMain.handle('merge-videos', async (event, options) => {
   const getVideoDuration = (videoPath) => {
     return new Promise((resolve, reject) => {
       const ffprobe = spawn(ffprobePath, [
-        '-v', 'error',
-        '-show_entries', 'format=duration',
-        '-of', 'default=noprint_wrappers=1:nokey=1',
+        '-v', 'quiet',
+        '-print_format', 'json',
+        '-show_format',
+        '-show_streams',
         videoPath
       ], {
         stdio: ['pipe', 'pipe', 'pipe'],
@@ -1607,14 +1607,33 @@ ipcMain.handle('merge-videos', async (event, options) => {
       });
 
       let output = '';
+      let errorOutput = '';
+
       ffprobe.stdout.on('data', (data) => {
         output += data.toString('utf8');
       });
 
+      ffprobe.stderr.on('data', (data) => {
+        errorOutput += data.toString('utf8');
+      });
+
       ffprobe.on('close', (code) => {
-        if (code === 0) {
-          resolve(parseFloat(output.trim()));
+        if (code === 0 && output) {
+          try {
+            const info = JSON.parse(output);
+            const duration = parseFloat(info.format.duration);
+            if (isNaN(duration) || duration <= 0) {
+              logError('GET_DURATION_INVALID', 'Invalid duration value', { videoPath, duration, output });
+              reject(new Error(`Invalid duration: ${duration}`));
+            } else {
+              resolve(duration);
+            }
+          } catch (err) {
+            logError('GET_DURATION_PARSE_ERROR', 'Failed to parse ffprobe output', { error: err.message, output });
+            reject(new Error('Failed to parse duration'));
+          }
         } else {
+          logError('GET_DURATION_FAILED', 'FFprobe failed', { code, errorOutput });
           reject(new Error('Failed to get video duration'));
         }
       });
@@ -2239,9 +2258,9 @@ ipcMain.handle('ensure-video-has-audio', async (event, videoPath) => {
   return new Promise((resolve, reject) => {
     const args = [
       '-f', 'lavfi',
+      '-t', duration.toString(),  // Limit lavfi input duration
       '-i', `aevalsrc='random(0)/10000000:random(1)/10000000':s=44100:c=stereo`,  // Inaudible noise for proper AAC encoding
       '-i', videoPath,
-      '-t', duration.toString(),
       '-c:v', 'copy',
       '-c:a', 'aac',
       '-b:a', '192k',   // HIGH BITRATE for silent audio (important!)
@@ -2250,7 +2269,6 @@ ipcMain.handle('ensure-video-has-audio', async (event, videoPath) => {
       '-map', '1:v',  // Map video from second input (videoPath)
       '-map', '0:a',  // Map audio from first input (low noise)
       '-movflags', '+faststart',  // Write moov atom at start for better compatibility
-      '-shortest',
       '-y',
       outputPath
     ];
