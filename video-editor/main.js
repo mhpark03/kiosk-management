@@ -1553,6 +1553,9 @@ ipcMain.handle('merge-videos', async (event, options) => {
         '-t', duration.toString(),
         '-c:v', 'copy',
         '-c:a', 'aac',
+        '-b:a', '192k',   // HIGH BITRATE for silent audio (important!)
+        '-ar', '44100',   // Sample rate
+        '-ac', '2',       // Stereo channels
         '-map', '1:v',
         '-map', '0:a',
         '-shortest',
@@ -1560,7 +1563,7 @@ ipcMain.handle('merge-videos', async (event, options) => {
         outputPathWithAudio
       ];
 
-      logInfo('ADD_SILENT_AUDIO', 'Adding silent audio for merge', { videoPath, outputPathWithAudio });
+      logInfo('ADD_SILENT_AUDIO', 'Adding silent audio for merge with 192k bitrate', { videoPath, outputPathWithAudio, duration });
 
       const ffmpeg = spawn(ffmpegPath, args, {
         stdio: ['pipe', 'pipe', 'pipe'],
@@ -2239,6 +2242,9 @@ ipcMain.handle('ensure-video-has-audio', async (event, videoPath) => {
       '-t', duration.toString(),
       '-c:v', 'copy',
       '-c:a', 'aac',
+      '-b:a', '192k',   // HIGH BITRATE for silent audio (important!)
+      '-ar', '44100',   // Sample rate
+      '-ac', '2',       // Stereo channels
       '-map', '1:v',  // Map video from second input (videoPath)
       '-map', '0:a',  // Map audio from first input (anullsrc)
       '-shortest',
@@ -2246,7 +2252,7 @@ ipcMain.handle('ensure-video-has-audio', async (event, videoPath) => {
       outputPath
     ];
 
-    logInfo('ENSURE_AUDIO_FFMPEG', 'Adding silent audio track', { args, duration, videoPath, outputPath });
+    logInfo('ENSURE_AUDIO_FFMPEG', 'Adding silent audio track with 192k bitrate', { duration, videoPath, outputPath });
 
     const ffmpeg = spawn(ffmpegPath, args, {
       stdio: ['pipe', 'pipe', 'pipe'],
