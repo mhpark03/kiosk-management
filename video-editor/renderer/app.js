@@ -889,9 +889,28 @@ async function importVideo() {
   const videoPath = await window.electronAPI.selectVideo();
   if (!videoPath) return;
 
-  currentVideo = videoPath;
-  loadVideo(videoPath);
-  updateStatus(`영상 로드: ${videoPath}`);
+  try {
+    // Check if video has audio track, add silent audio if missing
+    updateStatus('영상 오디오 확인 중...');
+    const result = await window.electronAPI.ensureVideoHasAudio(videoPath);
+
+    if (result.addedAudio) {
+      console.log('[Import Video] Silent audio track added to video');
+      updateStatus('무음 오디오 트랙이 추가되었습니다');
+      currentVideo = result.videoPath;
+      loadVideo(result.videoPath);
+    } else {
+      currentVideo = result.videoPath;
+      loadVideo(result.videoPath);
+      updateStatus(`영상 로드: ${videoPath}`);
+    }
+  } catch (error) {
+    console.error('[Import Video] Error ensuring audio:', error);
+    // Fallback to original path if audio adding fails
+    currentVideo = videoPath;
+    loadVideo(videoPath);
+    updateStatus(`영상 로드: ${videoPath} (오디오 확인 실패)`);
+  }
 }
 
 // Load video

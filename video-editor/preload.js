@@ -26,6 +26,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   generateSilenceFile: (options) => ipcRenderer.invoke('generate-silence-file', options),
   copyAudioFile: (options) => ipcRenderer.invoke('copy-audio-file', options),
   deleteTempFile: (filePath) => ipcRenderer.invoke('delete-temp-file', filePath),
+  ensureVideoHasAudio: (videoPath) => ipcRenderer.invoke('ensure-video-has-audio', videoPath),
 
   // Progress listener
   onFFmpegProgress: (callback) => {
