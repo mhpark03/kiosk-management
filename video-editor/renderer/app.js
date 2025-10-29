@@ -471,10 +471,10 @@ function showToolProperties(tool) {
             <label>색상</label>
             <div style="display: flex; gap: 5px; align-items: center;">
               <input type="color" id="text-color" value="#ffffff" oninput="updateTextColorPreview()" onchange="saveColorToHistory()" style="flex: 1;">
-              <button type="button" onclick="toggleColorHistory()" style="width: 30px; height: 30px; padding: 0; font-size: 16px; background: #3a3a3a; border: 1px solid #555; border-radius: 3px; cursor: pointer;" title="색상 히스토리">🎨</button>
+              <button type="button" onclick="toggleColorHistory()" style="width: 24px; height: 30px; padding: 0; font-size: 14px; background: #3a3a3a; border: 1px solid #555; border-radius: 3px; cursor: pointer;" title="색상 히스토리">🎨</button>
             </div>
-            <div id="color-history-popup" style="display: none; position: absolute; top: 100%; left: 0; background: #2d2d2d; border: 1px solid #555; border-radius: 5px; padding: 8px; z-index: 1000; box-shadow: 0 2px 10px rgba(0,0,0,0.5); margin-top: 5px;">
-              <div id="color-history" style="display: flex; gap: 3px; flex-wrap: wrap; max-width: 200px;"></div>
+            <div id="color-history-popup" style="display: none; position: absolute; top: 100%; left: 0; background: #2d2d2d; border: 1px solid #555; border-radius: 5px; padding: 10px; z-index: 1000; box-shadow: 0 2px 10px rgba(0,0,0,0.5); margin-top: 5px;">
+              <div id="color-history" style="display: flex; gap: 5px; flex-wrap: wrap; max-width: 220px;"></div>
             </div>
           </div>
           <div class="property-group" style="margin: 0;">
@@ -2001,8 +2001,8 @@ function renderColorHistory() {
   textColorHistory.forEach(color => {
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.style.width = '24px';
-    btn.style.height = '24px';
+    btn.style.width = '40px';
+    btn.style.height = '40px';
     btn.style.backgroundColor = color;
     btn.style.border = '2px solid #555';
     btn.style.borderRadius = '4px';
