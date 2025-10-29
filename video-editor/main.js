@@ -1871,7 +1871,7 @@ ipcMain.handle('merge-audios', async (event, options) => {
 
 // Add text/subtitle overlay
 ipcMain.handle('add-text', async (event, options) => {
-  let { inputPath, outputPath, text, fontSize, fontColor, position, startTime, duration } = options;
+  let { inputPath, outputPath, text, fontSize, fontColor, fontFamily, fontStyle, position, startTime, duration } = options;
 
   // If outputPath is null, create temp file
   if (!outputPath) {
@@ -1888,6 +1888,18 @@ ipcMain.handle('add-text', async (event, options) => {
     try {
       const x = position.x || '(w-text_w)/2';
       const y = position.y || '(h-text_h)/2';
+
+      // Determine font name with style
+      let fontName = fontFamily || 'Malgun Gothic';
+      const style = fontStyle || 'regular';
+
+      if (style === 'bold') {
+        fontName += ' Bold';
+      } else if (style === 'italic') {
+        fontName += ' Italic';
+      } else if (style === 'bold-italic') {
+        fontName += ' Bold Italic';
+      }
 
       // If startTime and duration are specified, use optimized 3-segment approach
       if (startTime !== undefined && duration !== undefined && startTime > 0) {
@@ -1935,7 +1947,7 @@ ipcMain.handle('add-text', async (event, options) => {
 
           // Step 2: Extract segment with text and apply text overlay (encode)
           await new Promise((res, rej) => {
-            const filterString = `drawtext=text='${text}':fontsize=${fontSize}:fontcolor=${fontColor}:x=${x}:y=${y}`;
+            const filterString = `drawtext=text='${text}':font='${fontName}':fontsize=${fontSize}:fontcolor=${fontColor}:x=${x}:y=${y}`;
             const args2 = [
               '-i', inputPath,
               '-ss', startTime.toString(),
@@ -2034,7 +2046,7 @@ ipcMain.handle('add-text', async (event, options) => {
       // Fallback to standard approach (process entire video)
       logInfo('ADD_TEXT_STANDARD', 'Using standard full-video approach');
 
-      let filterString = `drawtext=text='${text}':fontsize=${fontSize}:fontcolor=${fontColor}:x=${x}:y=${y}`;
+      let filterString = `drawtext=text='${text}':font='${fontName}':fontsize=${fontSize}:fontcolor=${fontColor}:x=${x}:y=${y}`;
 
       if (startTime !== undefined && duration !== undefined) {
         filterString += `:enable='between(t,${startTime},${startTime + duration})'`;
