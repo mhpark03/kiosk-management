@@ -196,7 +196,7 @@ function showToolProperties(tool) {
         <div class="property-group">
           <label>시작 시간 (초)</label>
           <div style="display: flex; gap: 5px; align-items: center;">
-            <input type="number" id="audio-trim-start" min="0" max="${audioDuration}" step="0.1" value="0" style="flex: 1; padding: 8px;">
+            <input type="number" id="audio-trim-start" min="0" max="${audioDuration}" step="0.1" value="${audioDuration.toFixed(2)}" style="flex: 1; padding: 8px;">
             <button class="property-btn secondary" onclick="setAudioStartFromSlider()" style="width: auto; padding: 8px 12px; margin: 0;" title="타임라인 위치를 시작 시간으로">🔄</button>
             <button class="property-btn secondary" onclick="moveSliderToAudioStart()" style="width: auto; padding: 8px 12px; margin: 0;" title="시작 위치로 이동">▶️</button>
           </div>
@@ -262,7 +262,21 @@ function showToolProperties(tool) {
         alert('먼저 음성 파일을 가져와주세요.');
         return;
       }
-      alert('현재 음성 파일이 로드되어 있습니다. 편집 후 자동으로 저장됩니다.');
+      propertiesPanel.innerHTML = `
+        <div class="property-group">
+          <label>현재 음성 파일</label>
+          <div style="background: #2d2d2d; padding: 15px; border-radius: 5px; margin-top: 10px;">
+            <div style="color: #e0e0e0; font-size: 14px; margin-bottom: 8px;">📄 ${currentAudioFile.split('\\').pop()}</div>
+            <div style="color: #888; font-size: 12px;">
+              ${audioFileInfo ? `길이: ${formatTime(parseFloat(audioFileInfo.format.duration))} | 크기: ${(parseFloat(audioFileInfo.format.size || 0) / (1024 * 1024)).toFixed(2)}MB` : ''}
+            </div>
+          </div>
+        </div>
+        <button class="property-btn" onclick="executeExportAudio()">💾 음성 내보내기</button>
+        <div style="background: #3a3a3a; padding: 10px; border-radius: 5px; margin-top: 10px;">
+          <small style="color: #aaa;">💡 편집된 음성 파일을 원하는 위치에 저장합니다</small>
+        </div>
+      `;
       break;
 
     case 'merge':
@@ -2741,10 +2755,6 @@ async function executeMergeAudio() {
     return;
   }
 
-  const outputPath = await window.electronAPI.selectOutput('merged_audio.mp3');
-
-  if (!outputPath) return;
-
   showProgress();
   updateProgress(0, '오디오 병합 중...');
 
@@ -2760,11 +2770,11 @@ async function executeMergeAudio() {
 
     const result = await window.electronAPI.mergeAudios({
       audioPaths: audioPaths,
-      outputPath
+      outputPath: null // null means create temp file
     });
 
     hideProgress();
-    alert('오디오 병합 완료!');
+    alert('오디오 병합 완료!\n\n편집된 내용은 임시 저장되었습니다.\n최종 저장하려면 "음성 내보내기"를 사용하세요.');
     await loadAudioFile(result.outputPath);
     mergeAudios = [];
   } catch (error) {
@@ -3610,23 +3620,20 @@ async function executeTrimAudioFile() {
     return;
   }
 
-  const outputPath = await window.electronAPI.selectOutput('trimmed_audio.mp3');
-
-  if (!outputPath) return;
-
   showProgress();
   updateProgress(0, '음성 자르는 중...');
 
   try {
+    // Generate temporary file path
     const result = await window.electronAPI.trimAudioFile({
       inputPath: currentAudioFile,
-      outputPath,
+      outputPath: null, // null means create temp file
       startTime,
       endTime
     });
 
     hideProgress();
-    alert('음성 자르기 완료!');
+    alert('음성 자르기 완료!\n\n편집된 내용은 임시 저장되었습니다.\n최종 저장하려면 "음성 내보내기"를 사용하세요.');
 
     // Wait a bit for file to be fully written
     await new Promise(resolve => setTimeout(resolve, 500));
@@ -3634,17 +3641,28 @@ async function executeTrimAudioFile() {
     // Reload the trimmed audio file
     await loadAudioFile(result.outputPath);
 
-    // Reset trim inputs to new duration
-    const newDuration = parseFloat(audioFileInfo.format.duration);
-    const startInput = document.getElementById('audio-trim-start');
-    const endInput = document.getElementById('audio-trim-end');
-    if (startInput) startInput.value = '0';
-    if (endInput) {
-      endInput.max = newDuration;
-      endInput.value = newDuration.toFixed(2);
+    // Clear the active tool to disable trim mode
+    activeTool = null;
+
+    // Hide trim range overlay
+    const trimOverlay = document.getElementById('trim-range-overlay');
+    if (trimOverlay) {
+      trimOverlay.style.display = 'none';
     }
 
-    updateStatus(`음성 자르기 완료: ${newDuration.toFixed(2)}초`);
+    // Clear properties panel
+    const propertiesPanel = document.getElementById('tool-properties');
+    if (propertiesPanel) {
+      propertiesPanel.innerHTML = '<p class="placeholder-text">음성 자르기가 완료되었습니다.<br><br>추가 편집을 원하시면 편집 도구를 선택하세요.</p>';
+    }
+
+    // Remove active state from all tool buttons
+    document.querySelectorAll('.tool-btn').forEach(btn => {
+      btn.classList.remove('active');
+    });
+
+    const newDuration = parseFloat(audioFileInfo.format.duration);
+    updateStatus(`음성 자르기 완료 (임시 저장): ${newDuration.toFixed(2)}초`);
   } catch (error) {
     hideProgress();
     handleError('음성 자르기', error, '음성 자르기에 실패했습니다.');
@@ -3780,18 +3798,6 @@ async function executeAudioVolume() {
 
   const volumeLevel = parseFloat(document.getElementById('audio-volume-level').value);
 
-  // Generate default filename based on original file
-  const fileName = currentAudioFile.split('\\').pop().split('/').pop();
-  const fileNameWithoutExt = fileName.substring(0, fileName.lastIndexOf('.'));
-  const defaultName = `${fileNameWithoutExt}_volume_${volumeLevel}x.mp3`;
-
-  const outputPath = await window.electronAPI.selectOutput(defaultName);
-
-  if (!outputPath) {
-    updateStatus('볼륨 조절 취소됨');
-    return;
-  }
-
   showProgress();
   updateProgress(0, '볼륨 조절 중...');
 
@@ -3799,14 +3805,12 @@ async function executeAudioVolume() {
     // Use dedicated audio volume adjustment handler
     const result = await window.electronAPI.adjustAudioVolume({
       inputPath: currentAudioFile,
-      outputPath,
+      outputPath: null, // null means create temp file
       volumeLevel
     });
 
     hideProgress();
-
-    const savedFileName = result.outputPath.split('\\').pop();
-    alert(`볼륨 조절 완료!\n\n저장된 파일: ${savedFileName}\n볼륨 레벨: ${volumeLevel}x`);
+    alert(`볼륨 조절 완료!\n\n볼륨 레벨: ${volumeLevel}x\n\n편집된 내용은 임시 저장되었습니다.\n최종 저장하려면 "음성 내보내기"를 사용하세요.`);
 
     // Wait a bit for file to be fully written
     await new Promise(resolve => setTimeout(resolve, 500));
@@ -3814,10 +3818,49 @@ async function executeAudioVolume() {
     // Reload the adjusted audio file
     await loadAudioFile(result.outputPath);
 
-    updateStatus(`볼륨 조절 완료: ${volumeLevel}x - ${savedFileName}`);
+    updateStatus(`볼륨 조절 완료 (임시 저장): ${volumeLevel}x`);
   } catch (error) {
     hideProgress();
     handleError('볼륨 조절', error, '볼륨 조절에 실패했습니다.');
+  }
+}
+
+// Export audio function
+async function executeExportAudio() {
+  if (!currentAudioFile) {
+    alert('먼저 음성 파일을 가져와주세요.');
+    return;
+  }
+
+  // Generate default filename
+  const fileName = currentAudioFile.split('\\').pop().split('/').pop();
+  const defaultName = fileName.endsWith('.mp3') ? fileName : fileName.replace(/\.[^/.]+$/, '.mp3');
+
+  const outputPath = await window.electronAPI.selectOutput(defaultName);
+
+  if (!outputPath) {
+    updateStatus('내보내기 취소됨');
+    return;
+  }
+
+  showProgress();
+  updateProgress(0, '음성 파일 내보내는 중...');
+
+  try {
+    // Copy current audio file to selected location
+    const result = await window.electronAPI.copyAudioFile({
+      inputPath: currentAudioFile,
+      outputPath
+    });
+
+    hideProgress();
+
+    const savedFileName = result.outputPath.split('\\').pop();
+    alert(`음성 내보내기 완료!\n\n저장된 파일: ${savedFileName}`);
+    updateStatus(`내보내기 완료: ${savedFileName}`);
+  } catch (error) {
+    hideProgress();
+    handleError('음성 내보내기', error, '음성 내보내기에 실패했습니다.');
   }
 }
 
