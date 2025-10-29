@@ -929,19 +929,38 @@ ipcMain.handle('trim-audio-only', async (event, options) => {
 
   return new Promise(async (resolve, reject) => {
     const videoDuration = await getVideoDuration();
+    const deleteDuration = endTime - startTime;
 
-    // Use aselect filter to trim audio, then pad with silence to match video duration
+    logInfo('TRIM_AUDIO_ONLY_DURATION', 'Audio duration calculated', {
+      videoDuration,
+      deleteStart: startTime,
+      deleteEnd: endTime,
+      deleteDuration
+    });
+
+    // Delete selected range from audio: concat 0~startTime and endTime~end, then pad with silence
+    // Audio: concat before and after, then pad to video duration
+    const filterComplex = [
+      `[0:a]atrim=0:${startTime},asetpts=PTS-STARTPTS[a1]`,
+      `[0:a]atrim=${endTime},asetpts=PTS-STARTPTS[a2]`,
+      `[a1][a2]concat=n=2:v=0:a=1,apad=whole_dur=${videoDuration}[aout]`
+    ].join(';');
+
     const args = [
       '-i', inputPath,
-      '-filter_complex',
-      `[0:a]aselect='between(t,${startTime},${endTime})',asetpts=N/SR/TB,apad=whole_dur=${videoDuration}[aout]`,
+      '-filter_complex', filterComplex,
       '-map', '0:v',    // Map video stream (copy completely)
       '-map', '[aout]', // Map filtered and padded audio
       '-c:v', 'copy',   // Copy video without modification
       '-c:a', 'aac',    // Encode filtered audio
+      '-b:a', '192k',
+      '-ar', '48000',
+      '-ac', '2',
       '-y',
       actualOutputPath
     ];
+
+    logInfo('TRIM_AUDIO_ONLY_FFMPEG_CMD', 'FFmpeg command for audio-only trim', { filterComplex });
 
     const ffmpeg = spawn(ffmpegPath, args, {
       stdio: ['pipe', 'pipe', 'pipe'],
@@ -964,14 +983,14 @@ ipcMain.handle('trim-audio-only', async (event, options) => {
               fs.unlinkSync(outputPath);
             }
             fs.renameSync(actualOutputPath, outputPath);
-            logInfo('TRIM_AUDIO_ONLY_SUCCESS', 'Audio-only trim completed, temp file replaced', { outputPath, videoDuration });
+            logInfo('TRIM_AUDIO_ONLY_SUCCESS', 'Audio-only trim completed (delete range), temp file replaced', { outputPath, videoDuration });
           } catch (err) {
             logError('TRIM_AUDIO_ONLY_REPLACE_FAILED', 'Failed to replace original file', { error: err.message });
             reject(new Error(`Failed to replace file: ${err.message}`));
             return;
           }
         } else {
-          logInfo('TRIM_AUDIO_ONLY_SUCCESS', 'Audio-only trim completed (padded to video duration)', { outputPath, videoDuration });
+          logInfo('TRIM_AUDIO_ONLY_SUCCESS', 'Audio-only trim completed (delete range, padded to video duration)', { outputPath, videoDuration });
         }
         resolve({ success: true, outputPath });
       } else {

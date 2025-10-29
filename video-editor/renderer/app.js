@@ -184,7 +184,7 @@ function showToolProperties(tool) {
           <button class="property-btn secondary" onclick="executeTrimAudioOnly()" style="margin: 0;">🔉 오디오만 자르기</button>
         </div>
         <div style="background: #3a3a3a; padding: 10px; border-radius: 5px; margin-top: 10px;">
-          <small style="color: #aaa;">💡 영상만: 영상에서 선택 구간 삭제, 오디오는 뒤에서 자름 | 오디오만: 영상 원본 유지, 오디오에서 선택 구간만 남김</small>
+          <small style="color: #aaa;">💡 영상만: 영상에서 선택 구간 삭제, 오디오는 뒤에서 자름 | 오디오만: 영상 원본 유지, 오디오에서 선택 구간 삭제 후 뒤 오디오 앞으로 이동</small>
         </div>
       `;
       // Add event listeners for real-time duration calculation
@@ -2730,7 +2730,7 @@ async function executeTrimAudioOnly() {
   }
 
   showProgress();
-  updateProgress(0, '오디오만 자르는 중 (영상 유지)...');
+  updateProgress(0, '오디오만 자르는 중 (선택 구간 삭제)...');
 
   // Save previous video file path for cleanup
   const previousVideo = currentVideo;
@@ -2744,7 +2744,7 @@ async function executeTrimAudioOnly() {
     });
 
     hideProgress();
-    alert('오디오만 자르기 완료!\n• 영상: 원본 유지\n• 오디오: 선택 구간만 남고 나머지 무음\n\n편집된 내용은 임시 저장되었습니다.\n최종 저장하려면 "비디오 내보내기"를 사용하세요.');
+    alert('오디오만 자르기 완료!\n• 영상: 원본 유지\n• 오디오: 선택 구간 삭제, 뒤 오디오 앞으로 이동, 끝 무음 처리\n\n편집된 내용은 임시 저장되었습니다.\n최종 저장하려면 "비디오 내보내기"를 사용하세요.');
 
     // Wait a bit for file to be fully written
     await new Promise(resolve => setTimeout(resolve, 500));
