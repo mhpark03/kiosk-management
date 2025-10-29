@@ -143,7 +143,7 @@ function showToolProperties(tool) {
         <div class="property-group">
           <label>시작 시간 (초)</label>
           <div style="display: flex; gap: 5px; align-items: center;">
-            <input type="number" id="trim-start" min="0" max="${maxDuration}" step="0.1" value="0" oninput="updateTrimEndMax()" style="flex: 1;">
+            <input type="number" id="trim-start" min="0" max="${maxDuration}" step="0.1" value="${maxDuration.toFixed(2)}" oninput="updateTrimEndMax()" style="flex: 1;">
             <button class="property-btn secondary" onclick="setStartFromCurrentTime()" style="width: auto; padding: 8px 12px; margin: 0;" title="현재 재생 위치를 시작 시간으로">🔄</button>
             <button class="property-btn secondary" onclick="previewStartTime()" style="width: auto; padding: 8px 12px; margin: 0;" title="시작 위치로 이동">▶️</button>
           </div>
