@@ -670,7 +670,11 @@ ipcMain.handle('trim-video', async (event, options) => {
       '-i', inputPath,
       '-ss', startTime.toString(),
       '-t', duration.toString(),
-      '-c', 'copy',
+      '-map', '0:v',      // Map video stream
+      '-map', '0:a?',     // Map audio stream if exists (? makes it optional)
+      '-c:v', 'copy',     // Copy video codec
+      '-c:a', 'aac',      // Re-encode audio to AAC for compatibility
+      '-b:a', '192k',     // Audio bitrate
       '-y',
       outputPath
     ];
