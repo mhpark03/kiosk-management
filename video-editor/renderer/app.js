@@ -467,10 +467,15 @@ function showToolProperties(tool) {
             <label>폰트 크기</label>
             <input type="number" id="text-size" min="10" max="200" value="48" oninput="updateTextSizePreview()">
           </div>
-          <div class="property-group" style="margin: 0;">
+          <div class="property-group" style="margin: 0; position: relative;">
             <label>색상</label>
-            <input type="color" id="text-color" value="#ffffff" oninput="updateTextColorPreview()" onchange="saveColorToHistory()">
-            <div id="color-history" style="display: flex; gap: 3px; margin-top: 5px; flex-wrap: wrap;"></div>
+            <div style="display: flex; gap: 5px; align-items: center;">
+              <input type="color" id="text-color" value="#ffffff" oninput="updateTextColorPreview()" onchange="saveColorToHistory()" style="flex: 1;">
+              <button type="button" onclick="toggleColorHistory()" style="width: 30px; height: 30px; padding: 0; font-size: 16px; background: #3a3a3a; border: 1px solid #555; border-radius: 3px; cursor: pointer;" title="색상 히스토리">🎨</button>
+            </div>
+            <div id="color-history-popup" style="display: none; position: absolute; top: 100%; left: 0; background: #2d2d2d; border: 1px solid #555; border-radius: 5px; padding: 8px; z-index: 1000; box-shadow: 0 2px 10px rgba(0,0,0,0.5); margin-top: 5px;">
+              <div id="color-history" style="display: flex; gap: 3px; flex-wrap: wrap; max-width: 200px;"></div>
+            </div>
           </div>
           <div class="property-group" style="margin: 0;">
             <label>정렬</label>
@@ -2010,12 +2015,47 @@ function renderColorHistory() {
   });
 }
 
+// Toggle color history popup
+function toggleColorHistory(event) {
+  event.stopPropagation(); // Prevent document click from immediately closing
+  const popup = document.getElementById('color-history-popup');
+  if (popup) {
+    if (popup.style.display === 'none') {
+      popup.style.display = 'block';
+      // Add document click listener to close popup when clicking outside
+      setTimeout(() => {
+        document.addEventListener('click', closeColorHistoryOnOutsideClick);
+      }, 0);
+    } else {
+      popup.style.display = 'none';
+      document.removeEventListener('click', closeColorHistoryOnOutsideClick);
+    }
+  }
+}
+
+// Close color history popup when clicking outside
+function closeColorHistoryOnOutsideClick(event) {
+  const popup = document.getElementById('color-history-popup');
+  const historyButton = event.target.closest('button[onclick*="toggleColorHistory"]');
+
+  if (popup && popup.style.display === 'block' && !popup.contains(event.target) && !historyButton) {
+    popup.style.display = 'none';
+    document.removeEventListener('click', closeColorHistoryOnOutsideClick);
+  }
+}
+
 // Select color from history
 function selectColorFromHistory(color) {
   const colorInput = document.getElementById('text-color');
   if (colorInput) {
     colorInput.value = color;
     updateTextColorPreview();
+  }
+  // Close the popup after selection
+  const popup = document.getElementById('color-history-popup');
+  if (popup) {
+    popup.style.display = 'none';
+    document.removeEventListener('click', closeColorHistoryOnOutsideClick);
   }
 }
 
