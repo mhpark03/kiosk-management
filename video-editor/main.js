@@ -1545,7 +1545,7 @@ ipcMain.handle('merge-videos', async (event, options) => {
         '-preset', 'medium',
         '-crf', '23',
         '-y',
-        actualOutputPath
+        outputPath
       ];
 
       logInfo('MERGE_FFMPEG_CMD', 'FFmpeg merge command', { filterComplex });
@@ -2006,6 +2006,119 @@ ipcMain.handle('delete-temp-file', async (event, filePath) => {
       // Don't reject - temp file cleanup failures shouldn't break the app
       resolve({ success: false, error: error.message });
     }
+  });
+});
+
+// Ensure video has audio track (add silent audio if missing)
+ipcMain.handle('ensure-video-has-audio', async (event, videoPath) => {
+  logInfo('ENSURE_AUDIO_START', 'Checking video for audio track', { videoPath });
+
+  // Check if video has audio stream
+  const hasAudio = await new Promise((resolve) => {
+    const ffprobe = spawn(ffprobePath, [
+      '-v', 'error',
+      '-select_streams', 'a:0',
+      '-show_entries', 'stream=codec_type',
+      '-of', 'default=noprint_wrappers=1:nokey=1',
+      videoPath
+    ], {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true
+    });
+
+    let output = '';
+    ffprobe.stdout.on('data', (data) => {
+      output += data.toString('utf8');
+    });
+
+    ffprobe.on('close', (code) => {
+      const hasAudio = output.trim() === 'audio';
+      logInfo('ENSURE_AUDIO_CHECK', 'Audio stream check result', { hasAudio });
+      resolve(hasAudio);
+    });
+  });
+
+  // If video has audio, return original path
+  if (hasAudio) {
+    logInfo('ENSURE_AUDIO_EXISTS', 'Video already has audio', { videoPath });
+    return { hasAudio: true, videoPath };
+  }
+
+  // Get video duration
+  const duration = await new Promise((resolve, reject) => {
+    const ffprobe = spawn(ffprobePath, [
+      '-v', 'error',
+      '-show_entries', 'format=duration',
+      '-of', 'default=noprint_wrappers=1:nokey=1',
+      videoPath
+    ], {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true
+    });
+
+    let output = '';
+    ffprobe.stdout.on('data', (data) => {
+      output += data.toString('utf8');
+    });
+
+    ffprobe.on('close', (code) => {
+      if (code === 0) {
+        resolve(parseFloat(output.trim()));
+      } else {
+        reject(new Error('Failed to get video duration'));
+      }
+    });
+  });
+
+  logInfo('ENSURE_AUDIO_DURATION', 'Video duration for silent audio', { duration });
+
+  // Create temp file with silent audio
+  const os = require('os');
+  const tempDir = os.tmpdir();
+  const timestamp = Date.now();
+  const fileName = path.basename(videoPath, path.extname(videoPath));
+  const outputPath = path.join(tempDir, `${fileName}_with_audio_${timestamp}.mp4`);
+
+  return new Promise((resolve, reject) => {
+    const args = [
+      '-f', 'lavfi',
+      '-i', `anullsrc=channel_layout=stereo:sample_rate=44100`,
+      '-i', videoPath,
+      '-t', duration.toString(),
+      '-c:v', 'copy',
+      '-c:a', 'aac',
+      '-shortest',
+      '-y',
+      outputPath
+    ];
+
+    logInfo('ENSURE_AUDIO_FFMPEG', 'Adding silent audio track', { args });
+
+    const ffmpeg = spawn(ffmpegPath, args, {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true
+    });
+
+    let errorOutput = '';
+
+    ffmpeg.stderr.on('data', (data) => {
+      errorOutput += data.toString('utf8');
+    });
+
+    ffmpeg.on('close', (code) => {
+      if (code === 0) {
+        logInfo('ENSURE_AUDIO_SUCCESS', 'Silent audio added successfully', { outputPath });
+        resolve({ hasAudio: false, videoPath: outputPath, addedAudio: true });
+      } else {
+        logError('ENSURE_AUDIO_FAILED', 'Failed to add silent audio', { error: errorOutput });
+        reject(new Error(errorOutput || 'FFmpeg failed'));
+      }
+    });
+
+    ffmpeg.on('error', (err) => {
+      logError('ENSURE_AUDIO_ERROR', 'FFmpeg spawn error', { error: err.message });
+      reject(new Error(`FFmpeg error: ${err.message}`));
+    });
   });
 });
 
