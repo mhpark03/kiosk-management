@@ -349,15 +349,55 @@ ipcMain.handle('select-audio', async () => {
 
 // Select output path
 ipcMain.handle('select-output', async (event, defaultName) => {
+  // Detect file type from default name
+  const ext = defaultName ? path.extname(defaultName).toLowerCase() : '.mp4';
+  let filters;
+
+  if (ext === '.mp3' || ext === '.wav' || ext === '.aac' || ext === '.ogg') {
+    // Audio file
+    filters = [
+      { name: 'Audio Files', extensions: ['mp3', 'wav', 'aac', 'ogg'] },
+      { name: 'All Files', extensions: ['*'] }
+    ];
+  } else {
+    // Video file
+    filters = [
+      { name: 'Video Files', extensions: ['mp4', 'avi', 'mov', 'mkv', 'webm'] },
+      { name: 'All Files', extensions: ['*'] }
+    ];
+  }
+
   const result = await dialog.showSaveDialog(mainWindow, {
     defaultPath: defaultName || 'output.mp4',
-    filters: [
-      { name: 'Videos', extensions: ['mp4'] }
-    ]
+    filters: filters
   });
 
   if (!result.canceled) {
-    return result.filePath;
+    let filePath = result.filePath;
+
+    // Check if file exists and add number suffix if needed
+    if (fs.existsSync(filePath)) {
+      const dir = path.dirname(filePath);
+      const ext = path.extname(filePath);
+      const baseName = path.basename(filePath, ext);
+
+      let counter = 1;
+      let newFilePath;
+
+      // Find an available filename
+      do {
+        newFilePath = path.join(dir, `${baseName} (${counter})${ext}`);
+        counter++;
+      } while (fs.existsSync(newFilePath));
+
+      filePath = newFilePath;
+      logInfo('FILE_RENAME', 'File exists, renamed with counter', {
+        original: result.filePath,
+        renamed: filePath
+      });
+    }
+
+    return filePath;
   }
   return null;
 });
@@ -1616,6 +1656,59 @@ ipcMain.handle('extract-audio', async (event, options) => {
 
     ffmpeg.on('error', (err) => {
       logError('EXTRACT_AUDIO_FAILED', 'FFmpeg spawn error', { error: err.message });
+      reject(new Error(`FFmpeg error: ${err.message}`));
+    });
+  });
+});
+
+// Generate silence file
+ipcMain.handle('generate-silence-file', async (event, options) => {
+  const { duration } = options;
+
+  logInfo('GENERATE_SILENCE_START', 'Generating silence file', { duration });
+
+  // Create temporary file path
+  const os = require('os');
+  const tempDir = os.tmpdir();
+  const timestamp = Date.now();
+  const outputPath = path.join(tempDir, `silence_${timestamp}_${duration}s.mp3`);
+
+  return new Promise((resolve, reject) => {
+    const args = [
+      '-f', 'lavfi',
+      '-i', `anullsrc=r=44100:cl=stereo:d=${duration}`,
+      '-acodec', 'libmp3lame',
+      '-ab', '192k',
+      '-y',
+      outputPath
+    ];
+
+    logInfo('GENERATE_SILENCE', 'Running FFmpeg', { ffmpegPath, args });
+
+    const ffmpeg = spawn(ffmpegPath, args, {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true
+    });
+    let errorOutput = '';
+
+    ffmpeg.stderr.on('data', (data) => {
+      const message = data.toString('utf8');
+      errorOutput += message;
+      mainWindow.webContents.send('ffmpeg-progress', message);
+    });
+
+    ffmpeg.on('close', (code) => {
+      if (code === 0) {
+        logInfo('GENERATE_SILENCE_SUCCESS', 'Silence file generated', { outputPath, duration });
+        resolve({ success: true, outputPath });
+      } else {
+        logError('GENERATE_SILENCE_FAILED', 'Silence generation failed', { error: errorOutput });
+        reject(new Error(errorOutput || 'FFmpeg failed'));
+      }
+    });
+
+    ffmpeg.on('error', (err) => {
+      logError('GENERATE_SILENCE_FAILED', 'FFmpeg spawn error', { error: err.message });
       reject(new Error(`FFmpeg error: ${err.message}`));
     });
   });

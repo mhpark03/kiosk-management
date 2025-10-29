@@ -23,6 +23,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   mergeAudios: (options) => ipcRenderer.invoke('merge-audios', options),
   addText: (options) => ipcRenderer.invoke('add-text', options),
   extractAudio: (options) => ipcRenderer.invoke('extract-audio', options),
+  generateSilenceFile: (options) => ipcRenderer.invoke('generate-silence-file', options),
 
   // Progress listener
   onFFmpegProgress: (callback) => {

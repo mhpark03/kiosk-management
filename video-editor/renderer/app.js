@@ -11,6 +11,8 @@ let audioFileInfo = null;  // Audio file metadata
 let zoomStart = 0;  // 0-1 (percentage of video)
 let zoomEnd = 1;    // 0-1 (percentage of video)
 let playheadInteractionSetup = false;  // Flag to prevent duplicate event listeners
+let videoPlayheadInteractionSetup = false;  // For video mode
+let audioPlayheadInteractionSetup = false;  // For audio mode
 let audioLayers = [];
 
 // Debounce state for waveform regeneration
@@ -295,17 +297,30 @@ function showToolProperties(tool) {
 
     case 'merge-audio':
       // 현재 로드된 오디오가 있으면 병합 리스트에 자동 추가
-      if (currentAudioFile && !mergeAudios.includes(currentAudioFile)) {
-        mergeAudios = [currentAudioFile]; // 현재 오디오를 첫 번째로 설정
+      if (currentAudioFile) {
+        const alreadyAdded = mergeAudios.some(item => {
+          const itemPath = typeof item === 'string' ? item : item.path;
+          return itemPath === currentAudioFile;
+        });
+
+        if (!alreadyAdded) {
+          mergeAudios = [{ type: 'file', path: currentAudioFile }]; // 현재 오디오를 첫 번째로 설정
+        }
       }
 
       propertiesPanel.innerHTML = `
         <div class="property-group">
           <label>병합할 오디오 파일들 (순서대로 이어붙이기)</label>
           <div id="merge-audio-files" class="file-list"></div>
-          <button class="property-btn secondary" onclick="addAudioToMerge()">+ 오디오 추가</button>
+          <div style="display: flex; gap: 10px; margin-top: 10px;">
+            <button class="property-btn secondary" onclick="addAudioToMerge()" style="flex: 1;">+ 오디오 추가</button>
+            <button class="property-btn secondary" onclick="addSilenceToMerge()" style="flex: 1;">🔇 무음 추가</button>
+          </div>
         </div>
         <button class="property-btn" onclick="executeMergeAudio()">오디오 병합</button>
+        <div style="background: #3a3a3a; padding: 10px; border-radius: 5px; margin-top: 10px;">
+          <small style="color: #aaa;">💡 오디오 파일과 무음을 순서대로 병합할 수 있습니다</small>
+        </div>
       `;
 
       // 파일 리스트 업데이트
@@ -376,6 +391,7 @@ function showToolProperties(tool) {
           <input type="range" id="volume-adjust" min="0" max="3" step="0.1" value="1" oninput="updateVolumeAdjustDisplay()">
           <small style="color: #888;">1.0 = 원본, 2.0 = 2배 증폭</small>
         </div>
+        <button class="property-btn secondary" onclick="previewVideoVolume()" id="preview-video-volume-btn">🎧 미리듣기</button>
         <button class="property-btn" onclick="executeVolumeAdjust()">볼륨 적용</button>
       `;
       break;
@@ -852,10 +868,18 @@ async function loadVideo(path) {
     const video = document.getElementById('preview-video');
     const placeholder = document.getElementById('preview-placeholder');
 
+    // Reset volume preview button if exists
+    const previewBtn = document.getElementById('preview-video-volume-btn');
+    if (previewBtn) {
+      previewBtn.textContent = '🎧 미리듣기';
+      previewBtn.classList.remove('active');
+    }
+
     // Load video
     video.src = `file:///${path.replace(/\\/g, '/')}`;
     video.style.display = 'block';
     placeholder.style.display = 'none';
+    video.volume = 1.0; // Reset volume to original
 
     // Get video info
     videoInfo = await window.electronAPI.getVideoInfo(path);
@@ -873,9 +897,9 @@ async function loadVideo(path) {
       console.log('Playhead bar initialized');
 
       // Add click/drag functionality to audio track (only once)
-      if (!playheadInteractionSetup) {
+      if (!videoPlayheadInteractionSetup) {
         setupPlayheadInteraction();
-        playheadInteractionSetup = true;
+        videoPlayheadInteractionSetup = true;
       }
     } else {
       console.error('Playhead bar element not found!');
@@ -1110,21 +1134,48 @@ function setupPlayheadInteraction() {
   let isDraggingZoom = false;
   let zoomStartX = 0;
 
-  // Function to update video time based on click position (considering zoom)
+  // Function to update time based on click position (considering zoom)
   const updateVideoTimeFromClick = (e) => {
-    if (currentMode !== 'video' || !video) return; // Only for video mode
-
     const rect = audioTrack.getBoundingClientRect();
     const clickX = e.clientX - rect.left;
     const percentage = (clickX / rect.width);
     const clampedPercentage = Math.max(0, Math.min(1, percentage));
 
-    if (video.duration) {
-      // Map percentage to zoomed time range
-      const zoomRange = zoomEnd - zoomStart;
-      const timeInZoom = zoomStart + (clampedPercentage * zoomRange);
-      const newTime = timeInZoom * video.duration;
-      video.currentTime = newTime;
+    if (currentMode === 'video' && video) {
+      // Video mode: update video element
+      if (video.duration) {
+        // Map percentage to zoomed time range
+        const zoomRange = zoomEnd - zoomStart;
+        const timeInZoom = zoomStart + (clampedPercentage * zoomRange);
+        const newTime = timeInZoom * video.duration;
+        video.currentTime = newTime;
+      }
+    } else if (currentMode === 'audio' && audioFileInfo) {
+      // Audio mode: update audio element and timeline slider
+      const audioElement = document.getElementById('preview-audio');
+      const timelineSlider = document.getElementById('timeline-slider');
+
+      if (audioElement && audioFileInfo.format && audioFileInfo.format.duration) {
+        const duration = parseFloat(audioFileInfo.format.duration);
+
+        // Map percentage to zoomed time range
+        const zoomRange = zoomEnd - zoomStart;
+        const timeInZoom = zoomStart + (clampedPercentage * zoomRange);
+        const newTime = timeInZoom * duration;
+
+        audioElement.currentTime = newTime;
+
+        // Update timeline slider
+        if (timelineSlider) {
+          timelineSlider.value = newTime;
+        }
+
+        // Update time display
+        const currentTimeDisplay = document.getElementById('current-time');
+        if (currentTimeDisplay) {
+          currentTimeDisplay.textContent = formatTime(newTime);
+        }
+      }
     }
   };
 
@@ -1415,9 +1466,6 @@ function applyWaveformZoom() {
 
   console.log(`Waveform zoom: zoomStart=${(zoomStart*100).toFixed(1)}%, zoomEnd=${(zoomEnd*100).toFixed(1)}%, range=${(zoomRange*100).toFixed(1)}%`);
 
-  // Update zoom info display
-  updateZoomInfoDisplay();
-
   // Update playhead position after zoom
   const video = document.getElementById('preview-video');
   if (video && video.duration) {
@@ -1432,35 +1480,6 @@ function applyWaveformZoom() {
   applyWaveformZoomDebounced();
 }
 
-// Update zoom info display
-function updateZoomInfoDisplay() {
-  const zoomInfo = document.getElementById('zoom-info');
-  const zoomRangeDisplay = document.getElementById('zoom-range-display');
-  const zoomLevelDisplay = document.getElementById('zoom-level-display');
-
-  if (!zoomInfo || !zoomRangeDisplay || !zoomLevelDisplay) return;
-
-  const duration = videoInfo?.format?.duration || audioFileInfo?.format?.duration;
-  if (!duration) {
-    zoomInfo.style.display = 'none';
-    return;
-  }
-
-  const zoomRange = zoomEnd - zoomStart;
-  const startTime = zoomStart * duration;
-  const endTime = zoomEnd * duration;
-  const rangeDuration = zoomRange * duration;
-  const zoomLevel = 1 / zoomRange; // Zoom level relative to full range
-
-  // Show zoom info if zoomed in
-  if (zoomRange < 0.99) {
-    zoomInfo.style.display = 'flex';
-    zoomRangeDisplay.textContent = `${startTime.toFixed(2)}s - ${endTime.toFixed(2)}s (${rangeDuration.toFixed(2)}s)`;
-    zoomLevelDisplay.textContent = `${zoomLevel.toFixed(1)}x`;
-  } else {
-    zoomInfo.style.display = 'none';
-  }
-}
 
 // Regenerate waveform for zoomed range (debounced)
 async function applyWaveformZoomDebounced() {
@@ -1548,11 +1567,6 @@ async function applyWaveformZoomDebounced() {
     } catch (error) {
       if (error.message && error.message.includes('No audio stream')) {
         console.warn('Video has no audio stream, skipping waveform regeneration');
-        // Hide zoom info for videos without audio
-        const zoomInfo = document.getElementById('zoom-info');
-        if (zoomInfo) {
-          zoomInfo.style.display = 'none';
-        }
       } else {
         console.error('Failed to regenerate zoomed waveform:', error);
       }
@@ -2581,18 +2595,139 @@ async function addAudioToMerge() {
   const audioPath = await window.electronAPI.selectAudio();
   if (!audioPath) return;
 
-  mergeAudios.push(audioPath);
+  mergeAudios.push({ type: 'file', path: audioPath });
   updateMergeAudioFileList();
+}
+
+function addSilenceToMerge() {
+  showSilenceInputModal();
+}
+
+function showSilenceInputModal() {
+  const modal = document.getElementById('modal-overlay');
+  const content = document.getElementById('modal-content');
+
+  content.innerHTML = `
+    <div style="background: #2d2d2d; padding: 30px; border-radius: 10px; min-width: 400px;">
+      <h2 style="margin: 0 0 20px 0; color: #e0e0e0;">무음 추가</h2>
+      <div style="margin-bottom: 20px;">
+        <label style="display: block; margin-bottom: 10px; color: #e0e0e0;">무음 길이 (초)</label>
+        <input type="number" id="silence-duration-input" min="0.1" max="300" step="0.1" value="1.0"
+               style="width: 100%; padding: 12px; background: #1a1a1a; border: 1px solid #444; border-radius: 5px; color: #e0e0e0; font-size: 16px;">
+        <small style="color: #888; display: block; margin-top: 5px;">0.1초 ~ 300초</small>
+      </div>
+      <div style="display: flex; gap: 10px; margin-top: 20px;">
+        <button onclick="createSilenceFile()" style="flex: 1; padding: 12px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; font-weight: 600;">추가</button>
+        <button onclick="closeSilenceInputModal()" style="flex: 1; padding: 12px; background: #444; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px;">취소</button>
+      </div>
+    </div>
+  `;
+
+  modal.style.display = 'flex';
+
+  // Close on background click
+  modal.onclick = (e) => {
+    if (e.target === modal) {
+      closeSilenceInputModal();
+    }
+  };
+
+  // Focus input and select all
+  setTimeout(() => {
+    const input = document.getElementById('silence-duration-input');
+    if (input) {
+      input.focus();
+      input.select();
+
+      // Allow Enter key to submit
+      input.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+          createSilenceFile();
+        }
+      });
+    }
+  }, 100);
+
+  // Allow Escape key to close
+  const handleEscape = (e) => {
+    if (e.key === 'Escape') {
+      closeSilenceInputModal();
+      document.removeEventListener('keydown', handleEscape);
+    }
+  };
+  document.addEventListener('keydown', handleEscape);
+}
+
+function closeSilenceInputModal() {
+  const modal = document.getElementById('modal-overlay');
+  modal.style.display = 'none';
+  modal.onclick = null; // Remove click handler
+}
+
+async function createSilenceFile() {
+  const input = document.getElementById('silence-duration-input');
+  const duration = input ? input.value : '1.0';
+
+  const durationNum = parseFloat(duration);
+  if (isNaN(durationNum) || durationNum <= 0) {
+    alert('유효한 숫자를 입력해주세요 (0보다 큰 값)');
+    return;
+  }
+
+  if (durationNum > 300) {
+    alert('무음 길이는 최대 300초까지 가능합니다.');
+    return;
+  }
+
+  // Close modal
+  closeSilenceInputModal();
+
+  showProgress();
+  updateProgress(0, `무음 파일 생성 중... (${durationNum}초)`);
+
+  try {
+    // Generate temporary silence file
+    const result = await window.electronAPI.generateSilenceFile({
+      duration: durationNum
+    });
+
+    hideProgress();
+
+    if (result && result.outputPath) {
+      mergeAudios.push({
+        type: 'silence',
+        path: result.outputPath,
+        duration: durationNum
+      });
+      updateMergeAudioFileList();
+      updateStatus(`무음 파일 추가됨: ${durationNum}초`);
+    }
+  } catch (error) {
+    hideProgress();
+    handleError('무음 파일 생성', error, '무음 파일 생성에 실패했습니다.');
+  }
 }
 
 function updateMergeAudioFileList() {
   const list = document.getElementById('merge-audio-files');
-  list.innerHTML = mergeAudios.map((path, index) => `
-    <div class="file-item">
-      <span>${path.split('\\').pop()}</span>
-      <button onclick="removeMergeAudio(${index})">제거</button>
-    </div>
-  `).join('');
+  list.innerHTML = mergeAudios.map((item, index) => {
+    let displayName;
+    if (typeof item === 'string') {
+      // Legacy format support
+      displayName = item.split('\\').pop();
+    } else if (item.type === 'silence') {
+      displayName = `🔇 무음 (${item.duration}초)`;
+    } else {
+      displayName = item.path.split('\\').pop();
+    }
+
+    return `
+      <div class="file-item">
+        <span>${displayName}</span>
+        <button onclick="removeMergeAudio(${index})">제거</button>
+      </div>
+    `;
+  }).join('');
 }
 
 function removeMergeAudio(index) {
@@ -2614,15 +2749,23 @@ async function executeMergeAudio() {
   updateProgress(0, '오디오 병합 중...');
 
   try {
+    // Convert to array of paths (support both old string format and new object format)
+    const audioPaths = mergeAudios.map(item => {
+      if (typeof item === 'string') {
+        return item; // Legacy format
+      } else {
+        return item.path; // New format (both file and silence have path)
+      }
+    });
+
     const result = await window.electronAPI.mergeAudios({
-      audioPaths: mergeAudios,
+      audioPaths: audioPaths,
       outputPath
     });
 
     hideProgress();
     alert('오디오 병합 완료!');
-    loadAudio(result.outputPath);
-    currentAudioFile = result.outputPath;
+    await loadAudioFile(result.outputPath);
     mergeAudios = [];
   } catch (error) {
     hideProgress();
@@ -2879,7 +3022,80 @@ function updateVolumeAdjustDisplay() {
   document.getElementById('volume-adjust-value').textContent = value;
 }
 
+// Preview video volume
+function previewVideoVolume() {
+  if (!currentVideo) {
+    alert('먼저 영상을 가져와주세요.');
+    return;
+  }
+
+  const volumeLevel = parseFloat(document.getElementById('volume-adjust').value);
+  const previewBtn = document.getElementById('preview-video-volume-btn');
+  const video = document.getElementById('preview-video');
+
+  if (!video) {
+    alert('영상을 먼저 로드해주세요.');
+    return;
+  }
+
+  // Toggle play/pause
+  if (!video.paused) {
+    video.pause();
+    previewBtn.textContent = '🎧 미리듣기';
+    previewBtn.classList.remove('active');
+    // Reset volume to original
+    video.volume = 1.0;
+    return;
+  }
+
+  // Set volume (capped at 1.0 for preview to prevent distortion)
+  video.volume = Math.min(1.0, volumeLevel);
+
+  // If at the end (within 1 second), start from beginning
+  if (videoInfo && videoInfo.format && videoInfo.format.duration) {
+    const duration = parseFloat(videoInfo.format.duration);
+    if (duration - video.currentTime < 1.0) {
+      video.currentTime = 0;
+    }
+  }
+
+  // Update button state
+  previewBtn.textContent = '⏸️ 정지';
+  previewBtn.classList.add('active');
+
+  // Play video
+  video.play().catch(error => {
+    console.error('Video playback error:', error);
+    alert('영상 재생에 실패했습니다.');
+    previewBtn.textContent = '🎧 미리듣기';
+    previewBtn.classList.remove('active');
+  });
+
+  // Reset button when playback ends
+  const handleEnded = () => {
+    previewBtn.textContent = '🎧 미리듣기';
+    previewBtn.classList.remove('active');
+    video.volume = 1.0;
+    video.removeEventListener('ended', handleEnded);
+  };
+  video.addEventListener('ended', handleEnded);
+
+  updateStatus(`볼륨 미리듣기: ${volumeLevel}x`);
+}
+
 async function executeVolumeAdjust() {
+  // Stop preview if playing
+  const video = document.getElementById('preview-video');
+  const previewBtn = document.getElementById('preview-video-volume-btn');
+  if (video && !video.paused) {
+    video.pause();
+    video.volume = 1.0;
+    if (previewBtn) {
+      previewBtn.textContent = '🎧 미리듣기';
+      previewBtn.classList.remove('active');
+    }
+  }
+
   if (!currentVideo) {
     alert('먼저 영상을 가져와주세요.');
     return;
@@ -3144,6 +3360,10 @@ async function importAudioFile() {
   const audioPath = await window.electronAPI.selectAudio();
   if (!audioPath) return;
 
+  await loadAudioFile(audioPath);
+}
+
+async function loadAudioFile(audioPath) {
   try {
     currentAudioFile = audioPath;
     audioFileInfo = await window.electronAPI.getVideoInfo(audioPath);
@@ -3294,9 +3514,9 @@ async function importAudioFile() {
     }
 
     // Setup zoom drag interaction (only once)
-    if (!playheadInteractionSetup) {
+    if (!audioPlayheadInteractionSetup) {
       setupAudioTrackInteraction();
-      playheadInteractionSetup = true;
+      audioPlayheadInteractionSetup = true;
     }
 
     updateStatus(`음성 파일 로드 완료: ${duration.toFixed(2)}초, ${size}MB`);
@@ -3390,8 +3610,7 @@ async function executeTrimAudioFile() {
     return;
   }
 
-  const ext = currentAudioFile.split('.').pop();
-  const outputPath = await window.electronAPI.selectOutput(`trimmed_audio.${ext}`);
+  const outputPath = await window.electronAPI.selectOutput('trimmed_audio.mp3');
 
   if (!outputPath) return;
 
@@ -3413,52 +3632,10 @@ async function executeTrimAudioFile() {
     await new Promise(resolve => setTimeout(resolve, 500));
 
     // Reload the trimmed audio file
-    currentAudioFile = result.outputPath;
-    audioFileInfo = await window.electronAPI.getVideoInfo(result.outputPath);
-
-    const newDuration = parseFloat(audioFileInfo.format.duration);
-    const newSize = (parseFloat(audioFileInfo.format.size || 0) / (1024 * 1024)).toFixed(2);
-
-    // Update status bar
-    document.getElementById('current-file').textContent = result.outputPath.split('\\').pop();
-    updateStatus(`음성 자르기 완료: ${newDuration.toFixed(2)}초`);
-
-    // Update preview area
-    const placeholder = document.getElementById('preview-placeholder');
-    const placeholderP = placeholder.querySelector('p');
-
-    if (placeholderP) {
-      placeholderP.innerHTML = `
-        <div style="text-align: center;">
-          <div style="font-size: 48px; margin-bottom: 15px;">🎵</div>
-          <div style="font-size: 18px; font-weight: 600; margin-bottom: 10px;">음성 파일 편집 중</div>
-          <div style="font-size: 14px; color: #aaa;">${result.outputPath.split('\\').pop()}</div>
-          <div style="font-size: 12px; color: #888; margin-top: 8px;">길이: ${formatTime(newDuration)} | 크기: ${newSize}MB</div>
-        </div>
-      `;
-    }
-
-    // Regenerate waveform
-    updateStatus('파형 생성 중...');
-    try {
-      const waveformBase64 = await window.electronAPI.generateWaveform(result.outputPath);
-      const waveformImg = document.getElementById('audio-waveform');
-      if (waveformImg && waveformBase64) {
-        waveformImg.src = waveformBase64;
-        waveformImg.style.display = 'block';
-      }
-    } catch (waveformError) {
-      console.error('Waveform regeneration error:', waveformError);
-    }
-
-    // Update timeline slider
-    const timelineSlider = document.getElementById('timeline-slider');
-    if (timelineSlider) {
-      timelineSlider.max = newDuration;
-      timelineSlider.value = 0;
-    }
+    await loadAudioFile(result.outputPath);
 
     // Reset trim inputs to new duration
+    const newDuration = parseFloat(audioFileInfo.format.duration);
     const startInput = document.getElementById('audio-trim-start');
     const endInput = document.getElementById('audio-trim-end');
     if (startInput) startInput.value = '0';
@@ -3467,7 +3644,7 @@ async function executeTrimAudioFile() {
       endInput.value = newDuration.toFixed(2);
     }
 
-    updateStatus(`음성 자르기 완료: ${newDuration.toFixed(2)}초, ${newSize}MB`);
+    updateStatus(`음성 자르기 완료: ${newDuration.toFixed(2)}초`);
   } catch (error) {
     hideProgress();
     handleError('음성 자르기', error, '음성 자르기에 실패했습니다.');
@@ -3606,8 +3783,7 @@ async function executeAudioVolume() {
   // Generate default filename based on original file
   const fileName = currentAudioFile.split('\\').pop().split('/').pop();
   const fileNameWithoutExt = fileName.substring(0, fileName.lastIndexOf('.'));
-  const ext = currentAudioFile.split('.').pop();
-  const defaultName = `${fileNameWithoutExt}_volume_${volumeLevel}x.${ext}`;
+  const defaultName = `${fileNameWithoutExt}_volume_${volumeLevel}x.mp3`;
 
   const outputPath = await window.electronAPI.selectOutput(defaultName);
 
@@ -3636,10 +3812,8 @@ async function executeAudioVolume() {
     await new Promise(resolve => setTimeout(resolve, 500));
 
     // Reload the adjusted audio file
-    currentAudioFile = result.outputPath;
-    audioFileInfo = await window.electronAPI.getVideoInfo(result.outputPath);
+    await loadAudioFile(result.outputPath);
 
-    document.getElementById('current-file').textContent = savedFileName;
     updateStatus(`볼륨 조절 완료: ${volumeLevel}x - ${savedFileName}`);
   } catch (error) {
     hideProgress();
@@ -4002,6 +4176,10 @@ function resetWorkspace() {
   // Reset zoom state
   zoomStart = 0;
   zoomEnd = 1;
+
+  // Reset playhead interaction flags to allow re-setup in new mode
+  videoPlayheadInteractionSetup = false;
+  audioPlayheadInteractionSetup = false;
   isWaveformRegenerated = false;
 }
 
