@@ -488,6 +488,31 @@ function showToolProperties(tool) {
         </div>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
           <div class="property-group" style="margin: 0;">
+            <label>폰트</label>
+            <select id="text-font" onchange="updateTextFontPreview()">
+              <option value="Arial">Arial</option>
+              <option value="Times New Roman">Times New Roman</option>
+              <option value="Courier New">Courier New</option>
+              <option value="Verdana">Verdana</option>
+              <option value="Georgia">Georgia</option>
+              <option value="Malgun Gothic" selected>맑은 고딕</option>
+              <option value="Gulim">굴림</option>
+              <option value="Dotum">돋움</option>
+              <option value="Batang">바탕</option>
+            </select>
+          </div>
+          <div class="property-group" style="margin: 0;">
+            <label>글꼴 스타일</label>
+            <select id="text-style" onchange="updateTextStylePreview()">
+              <option value="regular">기본</option>
+              <option value="bold">굵게</option>
+              <option value="italic">기울임</option>
+              <option value="bold-italic">굵게+기울임</option>
+            </select>
+          </div>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+          <div class="property-group" style="margin: 0;">
             <label>가로 위치</label>
             <select id="text-x" onchange="updateTextOverlayPreview()">
               <option value="(w-text_w)/2">중앙</option>
@@ -2077,6 +2102,22 @@ function updateTextAlignPreview() {
   }
 }
 
+// Update text font preview
+function updateTextFontPreview() {
+  const video = document.getElementById('preview-video');
+  if (video && video.currentTime !== undefined) {
+    updateTextOverlay(video.currentTime);
+  }
+}
+
+// Update text style preview
+function updateTextStylePreview() {
+  const video = document.getElementById('preview-video');
+  if (video && video.currentTime !== undefined) {
+    updateTextOverlay(video.currentTime);
+  }
+}
+
 // Update text overlay position preview
 function updateTextOverlayPreview() {
   const video = document.getElementById('preview-video');
@@ -2100,6 +2141,8 @@ function updateTextOverlay(currentTime) {
   const textSize = document.getElementById('text-size');
   const textColor = document.getElementById('text-color');
   const textAlign = document.getElementById('text-align');
+  const textFont = document.getElementById('text-font');
+  const textStyle = document.getElementById('text-style');
   const textX = document.getElementById('text-x');
   const textY = document.getElementById('text-y');
   const textStart = document.getElementById('text-start');
@@ -2162,6 +2205,29 @@ function updateTextOverlay(currentTime) {
 
   if (textColor && textColor.value) {
     textOverlay.style.color = textColor.value;
+  }
+
+  // Apply font family
+  if (textFont && textFont.value) {
+    textOverlay.style.fontFamily = `'${textFont.value}', sans-serif`;
+  }
+
+  // Apply font style
+  if (textStyle && textStyle.value) {
+    const styleValue = textStyle.value;
+    if (styleValue === 'bold') {
+      textOverlay.style.fontWeight = 'bold';
+      textOverlay.style.fontStyle = 'normal';
+    } else if (styleValue === 'italic') {
+      textOverlay.style.fontWeight = 'normal';
+      textOverlay.style.fontStyle = 'italic';
+    } else if (styleValue === 'bold-italic') {
+      textOverlay.style.fontWeight = 'bold';
+      textOverlay.style.fontStyle = 'italic';
+    } else {
+      textOverlay.style.fontWeight = 'normal';
+      textOverlay.style.fontStyle = 'normal';
+    }
   }
 
   // Position overlay to match video display area
@@ -4150,6 +4216,8 @@ async function executeAddText() {
 
   const fontSize = parseInt(document.getElementById('text-size').value);
   const fontColor = document.getElementById('text-color').value;
+  const fontFamily = document.getElementById('text-font').value || 'Malgun Gothic';
+  const fontStyle = document.getElementById('text-style').value || 'regular';
   const x = document.getElementById('text-x').value || '(w-text_w)/2';
   const y = document.getElementById('text-y').value || '(h-text_h)/2';
   const startTime = document.getElementById('text-start').value ? parseFloat(document.getElementById('text-start').value) : undefined;
@@ -4183,6 +4251,8 @@ async function executeAddText() {
       text,
       fontSize,
       fontColor,
+      fontFamily,
+      fontStyle,
       position: { x, y },
       startTime,
       duration
