@@ -491,16 +491,16 @@ function showToolProperties(tool) {
             <label>가로 위치</label>
             <select id="text-x" onchange="updateTextOverlayPreview()">
               <option value="(w-text_w)/2">중앙</option>
-              <option value="10">왼쪽</option>
-              <option value="(w-text_w-10)">오른쪽</option>
+              <option value="30">왼쪽</option>
+              <option value="(w-text_w-30)">오른쪽</option>
             </select>
           </div>
           <div class="property-group" style="margin: 0;">
             <label>세로 위치</label>
             <select id="text-y" onchange="updateTextOverlayPreview()">
               <option value="(h-text_h)/2">중앙</option>
-              <option value="10">상단</option>
-              <option value="(h-text_h-10)">하단</option>
+              <option value="30">상단</option>
+              <option value="(h-text_h-30)">하단</option>
             </select>
           </div>
         </div>
@@ -2173,17 +2173,17 @@ function updateTextOverlay(currentTime) {
 
   // Apply text alignment and position
   textOverlay.style.display = 'flex';
-  textOverlay.style.padding = '20px';
+  textOverlay.style.padding = '30px';
 
   const alignValue = textAlign && textAlign.value ? textAlign.value : 'left';
   textOverlay.style.textAlign = alignValue;
 
   // Map text-align to justify-content for flex layout (horizontal)
   const xValue = textX && textX.value ? textX.value : '(w-text_w)/2';
-  if (xValue === '10') {
+  if (xValue === '30') {
     // Left
     textOverlay.style.justifyContent = 'flex-start';
-  } else if (xValue === '(w-text_w-10)') {
+  } else if (xValue === '(w-text_w-30)') {
     // Right
     textOverlay.style.justifyContent = 'flex-end';
   } else {
@@ -2193,10 +2193,10 @@ function updateTextOverlay(currentTime) {
 
   // Map Y position to align-items (vertical)
   const yValue = textY && textY.value ? textY.value : '(h-text_h)/2';
-  if (yValue === '10') {
+  if (yValue === '30') {
     // Top
     textOverlay.style.alignItems = 'flex-start';
-  } else if (yValue === '(h-text_h-10)') {
+  } else if (yValue === '(h-text_h-30)') {
     // Bottom
     textOverlay.style.alignItems = 'flex-end';
   } else {
