@@ -1457,9 +1457,17 @@ ipcMain.handle('apply-filter', async (event, options) => {
 
 // Merge multiple videos with transitions
 ipcMain.handle('merge-videos', async (event, options) => {
-  const { videoPaths, outputPath, transition, transitionDuration } = options;
+  let { videoPaths, outputPath, transition, transitionDuration } = options;
 
-  logInfo('MERGE_START', 'Starting video merge', { videoCount: videoPaths.length, transition });
+  // If outputPath is null, create temp file
+  if (!outputPath) {
+    const os = require('os');
+    const tempDir = os.tmpdir();
+    const timestamp = Date.now();
+    outputPath = path.join(tempDir, `merged_video_${timestamp}.mp4`);
+  }
+
+  logInfo('MERGE_START', 'Starting video merge', { videoCount: videoPaths.length, transition, outputPath });
 
   // Helper function to get video duration
   const getVideoDuration = (videoPath) => {
