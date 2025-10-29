@@ -665,19 +665,57 @@ ipcMain.handle('trim-video', async (event, options) => {
 
   logInfo('TRIM_START', 'Starting video trim', { inputPath, outputPath, startTime, duration });
 
+  // Check if input has audio stream
+  const hasAudio = await new Promise((resolve) => {
+    const ffprobe = spawn(ffprobePath, [
+      '-v', 'error',
+      '-select_streams', 'a:0',
+      '-show_entries', 'stream=codec_type',
+      '-of', 'default=noprint_wrappers=1:nokey=1',
+      inputPath
+    ], {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true
+    });
+
+    let output = '';
+    ffprobe.stdout.on('data', (data) => {
+      output += data.toString('utf8');
+    });
+
+    ffprobe.on('close', (code) => {
+      const audioExists = output.trim() === 'audio';
+      logInfo('TRIM_AUDIO_CHECK', 'Input audio stream check', { inputPath, hasAudio: audioExists });
+      resolve(audioExists);
+    });
+  });
+
   return new Promise((resolve, reject) => {
+    // Build args based on audio presence
+    // IMPORTANT: Put -ss BEFORE -i for faster and more accurate seeking
     const args = [
+      '-ss', startTime.toString(),  // Seek before input (faster, more accurate)
       '-i', inputPath,
-      '-ss', startTime.toString(),
-      '-t', duration.toString(),
-      '-map', '0:v',      // Map video stream
-      '-map', '0:a?',     // Map audio stream if exists (? makes it optional)
-      '-c:v', 'copy',     // Copy video codec
-      '-c:a', 'aac',      // Re-encode audio to AAC for compatibility
-      '-b:a', '192k',     // Audio bitrate
-      '-y',
-      outputPath
+      '-t', duration.toString(),     // Duration after input
+      '-map', '0:v',                 // Map video stream
     ];
+
+    // Add audio mapping only if audio exists
+    if (hasAudio) {
+      args.push('-map', '0:a');      // Map audio stream
+      args.push('-c:v', 'copy');     // Copy video codec
+      args.push('-c:a', 'aac');      // Re-encode audio to AAC
+      args.push('-b:a', '192k');     // Audio bitrate
+      args.push('-ar', '44100');     // Sample rate
+      args.push('-ac', '2');         // Stereo channels
+    } else {
+      args.push('-c:v', 'copy');     // Copy video codec only
+      logInfo('TRIM_NO_AUDIO', 'Input has no audio, video only trim', { inputPath });
+    }
+
+    args.push('-y', outputPath);
+
+    logInfo('TRIM_FFMPEG_CMD', 'FFmpeg trim command', { hasAudio, args: args.join(' ') });
 
     const ffmpeg = spawn(ffmpegPath, args, {
       stdio: ['pipe', 'pipe', 'pipe'],
@@ -695,7 +733,7 @@ ipcMain.handle('trim-video', async (event, options) => {
 
     ffmpeg.on('close', (code) => {
       if (code === 0) {
-        logInfo('TRIM_SUCCESS', 'Video trim completed', { outputPath });
+        logInfo('TRIM_SUCCESS', 'Video trim completed', { outputPath, hasAudio });
         resolve({ success: true, outputPath });
       } else {
         logError('TRIM_FAILED', 'Video trim failed', { error: errorOutput });
