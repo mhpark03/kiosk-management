@@ -560,6 +560,10 @@ function showToolProperties(tool) {
           <input type="range" id="speed-factor" min="0.25" max="4" step="0.25" value="1" oninput="updateSpeedDisplay()">
           <small style="color: #888;">0.5x = 슬로우모션, 2.0x = 배속</small>
         </div>
+        <div style="display: flex; gap: 10px; margin-top: 10px;">
+          <button class="property-btn secondary" onclick="previewSpeed()" style="flex: 1;">🎬 미리보기</button>
+          <button class="property-btn secondary" onclick="stopSpeedPreview()" style="flex: 1;">⏹️ 중지</button>
+        </div>
         <button class="property-btn" onclick="executeSpeed()">속도 적용</button>
       `;
       break;
@@ -4278,6 +4282,37 @@ async function executeAddText() {
 function updateSpeedDisplay() {
   const value = document.getElementById('speed-factor').value;
   document.getElementById('speed-value').textContent = `${value}x`;
+}
+
+// Preview speed change
+function previewSpeed() {
+  if (!currentVideo) {
+    alert('먼저 영상을 가져와주세요.');
+    return;
+  }
+
+  const video = document.getElementById('preview-video');
+  const speedFactor = parseFloat(document.getElementById('speed-factor').value);
+
+  if (video) {
+    video.playbackRate = speedFactor;
+    // Start playing from current position
+    if (video.paused) {
+      video.play();
+    }
+    updateStatus(`미리보기 재생 중 (${speedFactor}x 속도)`);
+  }
+}
+
+// Stop speed preview and reset to normal
+function stopSpeedPreview() {
+  const video = document.getElementById('preview-video');
+
+  if (video) {
+    video.playbackRate = 1.0;
+    video.pause();
+    updateStatus('미리보기 중지됨 (속도 1.0x로 복원)');
+  }
 }
 
 async function executeSpeed() {
