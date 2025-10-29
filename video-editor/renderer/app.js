@@ -2584,9 +2584,6 @@ async function executeMerge() {
 
   const transition = document.getElementById('merge-transition').value;
   const transitionDuration = parseFloat(document.getElementById('merge-duration').value);
-  const outputPath = await window.electronAPI.selectOutput('merged_video.mp4');
-
-  if (!outputPath) return;
 
   showProgress();
   updateProgress(0, '영상 병합 중...');
@@ -2594,13 +2591,13 @@ async function executeMerge() {
   try {
     const result = await window.electronAPI.mergeVideos({
       videoPaths: mergeVideos,
-      outputPath,
+      outputPath: null, // null means create temp file
       transition,
       transitionDuration
     });
 
     hideProgress();
-    alert('영상 병합 완료!');
+    alert('영상 병합 완료!\n\n편집된 내용은 임시 저장되었습니다.\n최종 저장하려면 "비디오 내보내기"를 사용하세요.');
     loadVideo(result.outputPath);
     currentVideo = result.outputPath;
     mergeVideos = [];
