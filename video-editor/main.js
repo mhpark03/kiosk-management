@@ -1548,7 +1548,7 @@ ipcMain.handle('merge-videos', async (event, options) => {
     return new Promise((resolve, reject) => {
       const args = [
         '-f', 'lavfi',
-        '-i', `aevalsrc=random(0)*0.1|random(1)*0.1:d=${duration}:c=stereo:s=44100`,  // Low noise (-20dB) for visible waveform
+        '-i', `aevalsrc=random(0)*0.001|random(1)*0.001:d=${duration}:c=stereo:s=44100`,  // Very low noise (-60dB, inaudible) for waveform with log scale
         '-i', videoPath,
         '-c:v', 'copy',
         '-c:a', 'aac',
@@ -2274,7 +2274,7 @@ ipcMain.handle('ensure-video-has-audio', async (event, videoPath) => {
   return new Promise((resolve, reject) => {
     const args = [
       '-f', 'lavfi',
-      '-i', `aevalsrc=random(0)*0.1|random(1)*0.1:d=${duration}:c=stereo:s=44100`,  // Low noise (-20dB) for visible waveform
+      '-i', `aevalsrc=random(0)*0.001|random(1)*0.001:d=${duration}:c=stereo:s=44100`,  // Very low noise (-60dB, inaudible) for waveform with log scale
       '-i', videoPath,
       '-c:v', 'copy',
       '-c:a', 'aac',
