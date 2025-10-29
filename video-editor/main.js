@@ -1469,6 +1469,84 @@ ipcMain.handle('merge-videos', async (event, options) => {
 
   logInfo('MERGE_START', 'Starting video merge', { videoCount: videoPaths.length, transition, outputPath });
 
+  // Helper function to check if video has audio stream
+  const hasAudioStream = (videoPath) => {
+    return new Promise((resolve) => {
+      const ffprobe = spawn(ffprobePath, [
+        '-v', 'error',
+        '-select_streams', 'a:0',
+        '-show_entries', 'stream=codec_type',
+        '-of', 'default=noprint_wrappers=1:nokey=1',
+        videoPath
+      ], {
+        stdio: ['pipe', 'pipe', 'pipe'],
+        windowsHide: true
+      });
+
+      let output = '';
+      ffprobe.stdout.on('data', (data) => {
+        output += data.toString('utf8');
+      });
+
+      ffprobe.on('close', (code) => {
+        const hasAudio = output.trim() === 'audio';
+        resolve(hasAudio);
+      });
+    });
+  };
+
+  // Helper function to add silent audio to video
+  const addSilentAudio = async (videoPath, duration) => {
+    const os = require('os');
+    const tempDir = os.tmpdir();
+    const timestamp = Date.now();
+    const fileName = path.basename(videoPath, path.extname(videoPath));
+    const outputPathWithAudio = path.join(tempDir, `${fileName}_with_audio_${timestamp}.mp4`);
+
+    return new Promise((resolve, reject) => {
+      const args = [
+        '-f', 'lavfi',
+        '-i', `anullsrc=channel_layout=stereo:sample_rate=44100`,
+        '-i', videoPath,
+        '-t', duration.toString(),
+        '-c:v', 'copy',
+        '-c:a', 'aac',
+        '-map', '1:v',
+        '-map', '0:a',
+        '-shortest',
+        '-y',
+        outputPathWithAudio
+      ];
+
+      logInfo('ADD_SILENT_AUDIO', 'Adding silent audio for merge', { videoPath, outputPathWithAudio });
+
+      const ffmpeg = spawn(ffmpegPath, args, {
+        stdio: ['pipe', 'pipe', 'pipe'],
+        windowsHide: true
+      });
+
+      let errorOutput = '';
+      ffmpeg.stderr.on('data', (data) => {
+        errorOutput += data.toString('utf8');
+      });
+
+      ffmpeg.on('close', (code) => {
+        if (code === 0) {
+          logInfo('ADD_SILENT_AUDIO_SUCCESS', 'Silent audio added', { outputPathWithAudio });
+          resolve(outputPathWithAudio);
+        } else {
+          logError('ADD_SILENT_AUDIO_FAILED', 'Failed to add silent audio', { error: errorOutput });
+          reject(new Error(errorOutput || 'Failed to add silent audio'));
+        }
+      });
+
+      ffmpeg.on('error', (err) => {
+        logError('ADD_SILENT_AUDIO_ERROR', 'FFmpeg spawn error', { error: err.message });
+        reject(new Error(`FFmpeg error: ${err.message}`));
+      });
+    });
+  };
+
   // Helper function to get video duration
   const getVideoDuration = (videoPath) => {
     return new Promise((resolve, reject) => {
@@ -1499,6 +1577,27 @@ ipcMain.handle('merge-videos', async (event, options) => {
 
   return new Promise(async (resolve, reject) => {
     try {
+      // Check all videos for audio and add silent audio if missing
+      const processedVideoPaths = [];
+      for (let i = 0; i < videoPaths.length; i++) {
+        const videoPath = videoPaths[i];
+        const hasAudio = await hasAudioStream(videoPath);
+
+        if (!hasAudio) {
+          logInfo('MERGE_NO_AUDIO', 'Video has no audio, adding silent track', { videoPath, index: i });
+          const duration = await getVideoDuration(videoPath);
+          const videoWithAudio = await addSilentAudio(videoPath, duration);
+          processedVideoPaths.push(videoWithAudio);
+          logInfo('MERGE_AUDIO_ADDED', 'Silent audio added to video', { index: i, newPath: videoWithAudio });
+        } else {
+          logInfo('MERGE_HAS_AUDIO', 'Video already has audio', { videoPath, index: i });
+          processedVideoPaths.push(videoPath);
+        }
+      }
+
+      // Use processed video paths (with audio) for merge
+      videoPaths = processedVideoPaths;
+
       let filterComplex = '';
       let inputs = [];
 
@@ -1516,6 +1615,7 @@ ipcMain.handle('merge-videos', async (event, options) => {
         // Normalize all videos first
         for (let i = 0; i < videoPaths.length; i++) {
           filterComplex += `[${i}:v]scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1[v${i}];`;
+          filterComplex += `[${i}:a]anull[a${i}];`; // Pass through audio streams
         }
 
         // Apply xfade transitions with correct offsets
@@ -1529,19 +1629,26 @@ ipcMain.handle('merge-videos', async (event, options) => {
             offset += durations[i] - transitionDuration;
           }
         }
+
+        // Concatenate audio separately (simple concat, no crossfade for audio)
+        filterComplex += videoPaths.map((_, i) => `[a${i}]`).join('') + `concat=n=${videoPaths.length}:v=0:a=1[outa]`;
       } else {
-        // Simple concatenation
+        // Simple concatenation - normalize videos and concat with audio
         for (let i = 0; i < videoPaths.length; i++) {
           filterComplex += `[${i}:v]scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1[v${i}];`;
+          filterComplex += `[${i}:a]anull[a${i}];`; // Pass through audio streams
         }
-        filterComplex += videoPaths.map((_, i) => `[v${i}]`).join('') + `concat=n=${videoPaths.length}:v=1:a=0[outv]`;
+        // Concat both video and audio
+        filterComplex += videoPaths.map((_, i) => `[v${i}][a${i}]`).join('') + `concat=n=${videoPaths.length}:v=1:a=1[outv][outa]`;
       }
 
       const args = [
         ...inputs,
         '-filter_complex', filterComplex,
         '-map', '[outv]',
+        '-map', '[outa]',  // Map audio output
         '-c:v', 'libx264',
+        '-c:a', 'aac',      // Encode audio as AAC
         '-preset', 'medium',
         '-crf', '23',
         '-y',
@@ -2087,12 +2194,14 @@ ipcMain.handle('ensure-video-has-audio', async (event, videoPath) => {
       '-t', duration.toString(),
       '-c:v', 'copy',
       '-c:a', 'aac',
+      '-map', '1:v',  // Map video from second input (videoPath)
+      '-map', '0:a',  // Map audio from first input (anullsrc)
       '-shortest',
       '-y',
       outputPath
     ];
 
-    logInfo('ENSURE_AUDIO_FFMPEG', 'Adding silent audio track', { args });
+    logInfo('ENSURE_AUDIO_FFMPEG', 'Adding silent audio track', { args, duration, videoPath, outputPath });
 
     const ffmpeg = spawn(ffmpegPath, args, {
       stdio: ['pipe', 'pipe', 'pipe'],

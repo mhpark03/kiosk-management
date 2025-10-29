@@ -448,6 +448,24 @@ body {
   margin-bottom: 10px;
 }
 
+/* Silent Audio Indicator */
+.silent-audio-indicator {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(255, 152, 0, 0.9);
+  color: white;
+  font-size: 14px;
+  font-weight: bold;
+  padding: 8px 16px;
+  border-radius: 5px;
+  z-index: 2;
+  pointer-events: none;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
 /* Playhead Bar */
 .playhead-bar {
   position: absolute;
