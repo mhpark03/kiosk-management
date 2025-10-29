@@ -706,7 +706,7 @@ ipcMain.handle('trim-video', async (event, options) => {
       args.push('-c:v', 'copy');     // Copy video codec
       args.push('-c:a', 'aac');      // Re-encode audio to AAC
       args.push('-b:a', '192k');     // Audio bitrate
-      args.push('-ar', '44100');     // Sample rate
+      args.push('-ar', '48000');     // Sample rate (48000Hz for higher quality)
       args.push('-ac', '2');         // Stereo channels
     } else {
       args.push('-c:v', 'copy');     // Copy video codec only
