@@ -402,40 +402,6 @@ body {
   overflow: hidden;
 }
 
-/* Zoom Info Display */
-.zoom-info {
-  position: absolute;
-  top: 5px;
-  right: 10px;
-  background: rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(5px);
-  padding: 6px 12px;
-  border-radius: 6px;
-  font-size: 12px;
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  z-index: 10;
-  border: 1px solid rgba(102, 126, 234, 0.3);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-}
-
-#zoom-range-display {
-  color: #e0e0e0;
-  font-family: 'Courier New', monospace;
-  font-weight: 500;
-}
-
-.zoom-badge {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  padding: 3px 8px;
-  border-radius: 4px;
-  font-weight: 600;
-  font-size: 11px;
-  letter-spacing: 0.5px;
-}
-
 /* Audio Waveform - Increased height for stereo channel separation */
 .audio-waveform {
   width: 100%;
