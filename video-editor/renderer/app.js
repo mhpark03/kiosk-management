@@ -231,7 +231,17 @@ function showToolProperties(tool) {
         <div style="display: flex; gap: 10px; margin-top: 10px;">
           <button class="property-btn secondary" onclick="previewAudioTrimRange()" style="flex: 1;">🎵 구간 미리듣기</button>
         </div>
-        <button class="property-btn" onclick="executeTrimAudioFile()">✂️ 음성 자르기</button>
+        <div style="background: #2a2a3e; padding: 12px; border-radius: 8px; margin-top: 10px; border-left: 4px solid #667eea;">
+          <div style="font-weight: 600; color: #667eea; margin-bottom: 8px;">✂️ 자르기 옵션</div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <button class="property-btn" onclick="executeTrimAudioFile()" style="margin: 0; background: #667eea;">✅ 선택 구간 유지</button>
+            <button class="property-btn" onclick="executeDeleteAudioRange()" style="margin: 0; background: #e74c3c;">🗑️ 선택 구간 삭제</button>
+          </div>
+          <small style="display: block; color: #aaa; margin-top: 8px; font-size: 11px;">
+            • 유지: 선택 구간만 남김<br>
+            • 삭제: 선택 구간 제외한 앞뒤 연결
+          </small>
+        </div>
         <div style="background: #3a3a3a; padding: 10px; border-radius: 5px; margin-top: 10px;">
           <small style="color: #aaa;">💡 MP3, WAV 등 음성 파일을 자를 수 있습니다</small>
         </div>
@@ -3887,7 +3897,7 @@ async function executeTrimAudioFile() {
   }
 
   showProgress();
-  updateProgress(0, '음성 자르는 중...');
+  updateProgress(0, '음성 자르는 중 (선택 구간 유지)...');
 
   // Save previous audio file path for cleanup
   const previousAudioFile = currentAudioFile;
@@ -3902,7 +3912,7 @@ async function executeTrimAudioFile() {
     });
 
     hideProgress();
-    alert('음성 자르기 완료!\n\n편집된 내용은 임시 저장되었습니다.\n최종 저장하려면 "음성 내보내기"를 사용하세요.');
+    alert('음성 자르기 완료!\n• 선택 구간만 남김\n\n편집된 내용은 임시 저장되었습니다.\n최종 저장하려면 "음성 내보내기"를 사용하세요.');
 
     // Wait a bit for file to be fully written
     await new Promise(resolve => setTimeout(resolve, 500));
@@ -3940,6 +3950,165 @@ async function executeTrimAudioFile() {
   } catch (error) {
     hideProgress();
     handleError('음성 자르기', error, '음성 자르기에 실패했습니다.');
+  }
+}
+
+// Execute delete audio range (keep beginning and end, remove middle)
+async function executeDeleteAudioRange() {
+  if (!currentAudioFile) {
+    alert('먼저 음성 파일을 가져와주세요.');
+    return;
+  }
+
+  if (!audioFileInfo) {
+    alert('음성 파일 정보를 불러오는 중입니다. 잠시 후 다시 시도해주세요.');
+    return;
+  }
+
+  const maxDuration = parseFloat(audioFileInfo.format.duration);
+  const startTime = parseFloat(document.getElementById('audio-trim-start').value);
+  const endTime = parseFloat(document.getElementById('audio-trim-end').value);
+
+  // Validation
+  if (isNaN(startTime) || isNaN(endTime)) {
+    alert('유효한 숫자를 입력해주세요.');
+    return;
+  }
+
+  if (startTime < 0) {
+    alert('시작 시간은 0보다 작을 수 없습니다.');
+    return;
+  }
+
+  if (startTime >= maxDuration) {
+    alert(`시작 시간은 음성 길이(${maxDuration.toFixed(2)}초)보다 작아야 합니다.`);
+    return;
+  }
+
+  if (endTime > maxDuration) {
+    alert(`끝 시간은 음성 길이(${maxDuration.toFixed(2)}초)를 초과할 수 없습니다.`);
+    return;
+  }
+
+  if (endTime <= startTime) {
+    alert('끝 시간은 시작 시간보다 커야 합니다.');
+    return;
+  }
+
+  const deleteLength = endTime - startTime;
+  const firstPartLength = startTime;
+  const secondPartLength = maxDuration - endTime;
+  const finalDuration = maxDuration - deleteLength;
+
+  if (deleteLength < 0.1) {
+    alert('구간 길이는 최소 0.1초 이상이어야 합니다.');
+    return;
+  }
+
+  // Confirm with user
+  const confirmMsg = `선택 구간 삭제:\n\n` +
+    `• 삭제 구간: ${formatTime(startTime)} ~ ${formatTime(endTime)} (${deleteLength.toFixed(2)}초)\n` +
+    `• 유지 구간: 0~${formatTime(startTime)} + ${formatTime(endTime)}~${formatTime(maxDuration)}\n` +
+    `• 최종 길이: ${finalDuration.toFixed(2)}초\n\n` +
+    `계속하시겠습니까?`;
+
+  if (!confirm(confirmMsg)) {
+    return;
+  }
+
+  showProgress();
+  updateProgress(0, '음성 자르는 중 (선택 구간 삭제)...');
+
+  // Save previous audio file path for cleanup
+  const previousAudioFile = currentAudioFile;
+
+  try {
+    let firstPart = null;
+    let secondPart = null;
+    let finalResult = null;
+
+    // Trim first part (0 ~ startTime)
+    if (firstPartLength >= 0.1) {
+      updateProgress(25, '앞부분 추출 중...');
+      firstPart = await window.electronAPI.trimAudioFile({
+        inputPath: currentAudioFile,
+        outputPath: null,
+        startTime: 0,
+        endTime: startTime
+      });
+    }
+
+    // Trim second part (endTime ~ maxDuration)
+    if (secondPartLength >= 0.1) {
+      updateProgress(50, '뒷부분 추출 중...');
+      secondPart = await window.electronAPI.trimAudioFile({
+        inputPath: currentAudioFile,
+        outputPath: null,
+        startTime: endTime,
+        endTime: maxDuration
+      });
+    }
+
+    // Merge both parts
+    if (firstPart && secondPart) {
+      updateProgress(75, '앞뒤 부분 병합 중...');
+      finalResult = await window.electronAPI.mergeAudios({
+        audioPaths: [firstPart.outputPath, secondPart.outputPath],
+        outputPath: null
+      });
+    } else if (firstPart) {
+      finalResult = firstPart;
+    } else if (secondPart) {
+      finalResult = secondPart;
+    } else {
+      throw new Error('유효한 음성 구간이 없습니다.');
+    }
+
+    hideProgress();
+    alert('음성 자르기 완료!\n• 선택 구간 삭제됨\n• 앞뒤 부분 연결됨\n\n편집된 내용은 임시 저장되었습니다.\n최종 저장하려면 "음성 내보내기"를 사용하세요.');
+
+    // Wait a bit for file to be fully written
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    // Reload the trimmed audio file
+    await loadAudioFile(finalResult.outputPath);
+
+    // Delete previous temp files
+    if (previousAudioFile && previousAudioFile !== finalResult.outputPath) {
+      await window.electronAPI.deleteTempFile(previousAudioFile);
+    }
+    if (firstPart && firstPart.outputPath !== finalResult.outputPath) {
+      await window.electronAPI.deleteTempFile(firstPart.outputPath);
+    }
+    if (secondPart && secondPart.outputPath !== finalResult.outputPath) {
+      await window.electronAPI.deleteTempFile(secondPart.outputPath);
+    }
+
+    // Clear the active tool to disable trim mode
+    activeTool = null;
+
+    // Hide trim range overlay
+    const trimOverlay = document.getElementById('trim-range-overlay');
+    if (trimOverlay) {
+      trimOverlay.style.display = 'none';
+    }
+
+    // Clear properties panel
+    const propertiesPanel = document.getElementById('tool-properties');
+    if (propertiesPanel) {
+      propertiesPanel.innerHTML = '<p class="placeholder-text">음성 자르기가 완료되었습니다.<br><br>추가 편집을 원하시면 편집 도구를 선택하세요.</p>';
+    }
+
+    // Remove active state from all tool buttons
+    document.querySelectorAll('.tool-btn').forEach(btn => {
+      btn.classList.remove('active');
+    });
+
+    const newDuration = parseFloat(audioFileInfo.format.duration);
+    updateStatus(`음성 자르기 완료 (임시 저장): ${newDuration.toFixed(2)}초`);
+  } catch (error) {
+    hideProgress();
+    handleError('음성 구간 삭제', error, '음성 구간 삭제에 실패했습니다.');
   }
 }
 
