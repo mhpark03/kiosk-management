@@ -474,7 +474,25 @@ function showToolProperties(tool) {
       break;
 
     case 'export':
-      showExportDialog();
+      if (!currentVideo) {
+        alert('먼저 영상을 가져와주세요.');
+        return;
+      }
+      propertiesPanel.innerHTML = `
+        <div class="property-group">
+          <label>현재 영상 파일</label>
+          <div style="background: #2d2d2d; padding: 15px; border-radius: 5px; margin-top: 10px;">
+            <div style="color: #e0e0e0; font-size: 14px; margin-bottom: 8px;">📄 ${currentVideo.split('\\').pop()}</div>
+            <div style="color: #888; font-size: 12px;">
+              ${videoInfo ? `길이: ${formatTime(parseFloat(videoInfo.format.duration))} | 크기: ${(parseFloat(videoInfo.format.size || 0) / (1024 * 1024)).toFixed(2)}MB` : ''}
+            </div>
+          </div>
+        </div>
+        <button class="property-btn" onclick="executeExportVideo()">💾 비디오 내보내기</button>
+        <div style="background: #3a3a3a; padding: 10px; border-radius: 5px; margin-top: 10px;">
+          <small style="color: #aaa;">💡 편집된 영상 파일을 원하는 위치에 저장합니다</small>
+        </div>
+      `;
       break;
 
     default:
@@ -2002,23 +2020,19 @@ async function executeTrim() {
     return;
   }
 
-  const outputPath = await window.electronAPI.selectOutput('trimmed_video.mp4');
-
-  if (!outputPath) return;
-
   showProgress();
   updateProgress(0, '영상 자르는 중...');
 
   try {
     const result = await window.electronAPI.trimVideo({
       inputPath: currentVideo,
-      outputPath,
+      outputPath: null, // null means create temp file
       startTime,
       duration
     });
 
     hideProgress();
-    alert('영상 자르기 완료!');
+    alert('영상 자르기 완료!\n\n편집된 내용은 임시 저장되었습니다.\n최종 저장하려면 "비디오 내보내기"를 사용하세요.');
 
     // Wait a bit for file to be fully written
     await new Promise(resolve => setTimeout(resolve, 500));
@@ -2258,23 +2272,19 @@ async function executeTrimVideoOnly() {
     return;
   }
 
-  const outputPath = await window.electronAPI.selectOutput('trimmed_video_only.mp4');
-
-  if (!outputPath) return;
-
   showProgress();
   updateProgress(0, '영상만 자르는 중 (오디오 유지)...');
 
   try {
     const result = await window.electronAPI.trimVideoOnly({
       inputPath: currentVideo,
-      outputPath,
+      outputPath: null, // null means create temp file
       startTime,
       duration
     });
 
     hideProgress();
-    alert('영상만 자르기 완료! (오디오는 원본 유지)');
+    alert('영상만 자르기 완료! (오디오는 원본 유지)\n\n편집된 내용은 임시 저장되었습니다.\n최종 저장하려면 "비디오 내보내기"를 사용하세요.');
 
     // Wait a bit for file to be fully written
     await new Promise(resolve => setTimeout(resolve, 500));
@@ -2514,23 +2524,19 @@ async function executeTrimAudioOnly() {
     return;
   }
 
-  const outputPath = await window.electronAPI.selectOutput('trimmed_audio_only.mp4');
-
-  if (!outputPath) return;
-
   showProgress();
   updateProgress(0, '오디오만 자르는 중 (영상 유지)...');
 
   try {
     const result = await window.electronAPI.trimAudioOnly({
       inputPath: currentVideo,
-      outputPath,
+      outputPath: null, // null means create temp file
       startTime,
       endTime
     });
 
     hideProgress();
-    alert('오디오만 자르기 완료! (영상은 원본 유지)');
+    alert('오디오만 자르기 완료! (영상은 원본 유지)\n\n편집된 내용은 임시 저장되었습니다.\n최종 저장하려면 "비디오 내보내기"를 사용하세요.');
 
     // Wait a bit for file to be fully written
     await new Promise(resolve => setTimeout(resolve, 500));
@@ -2970,10 +2976,6 @@ async function executeAddAudio() {
   const volumeLevel = isSilence ? 0 : parseFloat(document.getElementById('audio-volume').value);
   const insertMode = document.getElementById('audio-insert-mode').value;
 
-  const outputPath = await window.electronAPI.selectOutput('video_with_audio.mp4');
-
-  if (!outputPath) return;
-
   showProgress();
   updateProgress(0, isSilence ? '무음 추가 중...' : '오디오 추가 중...');
 
@@ -2981,7 +2983,7 @@ async function executeAddAudio() {
     const result = await window.electronAPI.addAudio({
       videoPath: currentVideo,
       audioPath: selectedAudioFile,
-      outputPath,
+      outputPath: null, // null means create temp file
       volumeLevel,
       audioStartTime,
       isSilence,
@@ -2990,7 +2992,8 @@ async function executeAddAudio() {
     });
 
     hideProgress();
-    alert(isSilence ? '무음 추가 완료!' : '오디오 추가 완료!');
+    const message = isSilence ? '무음 추가 완료!' : '오디오 추가 완료!';
+    alert(`${message}\n\n편집된 내용은 임시 저장되었습니다.\n최종 저장하려면 "비디오 내보내기"를 사용하세요.`);
     loadVideo(result.outputPath);
     currentVideo = result.outputPath;
   } catch (error) {
@@ -3112,9 +3115,6 @@ async function executeVolumeAdjust() {
   }
 
   const volumeLevel = parseFloat(document.getElementById('volume-adjust').value);
-  const outputPath = await window.electronAPI.selectOutput('volume_adjusted.mp4');
-
-  if (!outputPath) return;
 
   showProgress();
   updateProgress(0, '볼륨 조절 중...');
@@ -3122,13 +3122,13 @@ async function executeVolumeAdjust() {
   try {
     const result = await window.electronAPI.applyFilter({
       inputPath: currentVideo,
-      outputPath,
+      outputPath: null, // null means create temp file
       filterName: 'volume',
       filterParams: { volume: volumeLevel }
     });
 
     hideProgress();
-    alert('볼륨 조절 완료!');
+    alert('볼륨 조절 완료!\n\n편집된 내용은 임시 저장되었습니다.\n최종 저장하려면 "비디오 내보내기"를 사용하세요.');
     loadVideo(result.outputPath);
     currentVideo = result.outputPath;
   } catch (error) {
@@ -3221,22 +3221,19 @@ async function executeFilter() {
       break;
   }
 
-  const outputPath = await window.electronAPI.selectOutput(`${filterType}_applied.mp4`);
-  if (!outputPath) return;
-
   showProgress();
   updateProgress(0, `${filterType} 필터 적용 중...`);
 
   try {
     const result = await window.electronAPI.applyFilter({
       inputPath: currentVideo,
-      outputPath,
+      outputPath: null, // null means create temp file
       filterName: filterType,
       filterParams
     });
 
     hideProgress();
-    alert('필터 적용 완료!');
+    alert('필터 적용 완료!\n\n편집된 내용은 임시 저장되었습니다.\n최종 저장하려면 "비디오 내보내기"를 사용하세요.');
     loadVideo(result.outputPath);
     currentVideo = result.outputPath;
   } catch (error) {
@@ -3265,16 +3262,13 @@ async function executeAddText() {
   const startTime = document.getElementById('text-start').value ? parseFloat(document.getElementById('text-start').value) : undefined;
   const duration = document.getElementById('text-duration').value ? parseFloat(document.getElementById('text-duration').value) : undefined;
 
-  const outputPath = await window.electronAPI.selectOutput('text_added.mp4');
-  if (!outputPath) return;
-
   showProgress();
   updateProgress(0, '텍스트 추가 중...');
 
   try {
     const result = await window.electronAPI.addText({
       inputPath: currentVideo,
-      outputPath,
+      outputPath: null, // null means create temp file
       text,
       fontSize,
       fontColor,
@@ -3284,7 +3278,7 @@ async function executeAddText() {
     });
 
     hideProgress();
-    alert('텍스트 추가 완료!');
+    alert('텍스트 추가 완료!\n\n편집된 내용은 임시 저장되었습니다.\n최종 저장하려면 "비디오 내보내기"를 사용하세요.');
     loadVideo(result.outputPath);
     currentVideo = result.outputPath;
   } catch (error) {
@@ -3306,9 +3300,6 @@ async function executeSpeed() {
   }
 
   const speed = parseFloat(document.getElementById('speed-factor').value);
-  const outputPath = await window.electronAPI.selectOutput('speed_adjusted.mp4');
-
-  if (!outputPath) return;
 
   showProgress();
   updateProgress(0, '속도 조절 중...');
@@ -3316,13 +3307,13 @@ async function executeSpeed() {
   try {
     const result = await window.electronAPI.applyFilter({
       inputPath: currentVideo,
-      outputPath,
+      outputPath: null, // null means create temp file
       filterName: 'speed',
       filterParams: { speed }
     });
 
     hideProgress();
-    alert('속도 조절 완료!');
+    alert('속도 조절 완료!\n\n편집된 내용은 임시 저장되었습니다.\n최종 저장하려면 "비디오 내보내기"를 사용하세요.');
     loadVideo(result.outputPath);
     currentVideo = result.outputPath;
   } catch (error) {
@@ -3827,6 +3818,8 @@ async function executeAudioVolume() {
 
 // Export audio function
 async function executeExportAudio() {
+  console.log('[Export Audio] Function called');
+
   if (!currentAudioFile) {
     alert('먼저 음성 파일을 가져와주세요.');
     return;
@@ -3836,9 +3829,12 @@ async function executeExportAudio() {
   const fileName = currentAudioFile.split('\\').pop().split('/').pop();
   const defaultName = fileName.endsWith('.mp3') ? fileName : fileName.replace(/\.[^/.]+$/, '.mp3');
 
+  console.log('[Export Audio] Requesting file save dialog', { currentFile: fileName, defaultName });
   const outputPath = await window.electronAPI.selectOutput(defaultName);
 
+  console.log('[Export Audio] Dialog returned', { outputPath });
   if (!outputPath) {
+    console.log('[Export Audio] Export canceled by user');
     updateStatus('내보내기 취소됨');
     return;
   }
@@ -3861,6 +3857,50 @@ async function executeExportAudio() {
   } catch (error) {
     hideProgress();
     handleError('음성 내보내기', error, '음성 내보내기에 실패했습니다.');
+  }
+}
+
+// Export video function
+async function executeExportVideo() {
+  console.log('[Export Video] Function called');
+
+  if (!currentVideo) {
+    alert('먼저 영상을 가져와주세요.');
+    return;
+  }
+
+  // Generate default filename
+  const fileName = currentVideo.split('\\').pop().split('/').pop();
+  const defaultName = fileName.endsWith('.mp4') ? fileName : fileName.replace(/\.[^/.]+$/, '.mp4');
+
+  console.log('[Export Video] Requesting file save dialog', { currentFile: fileName, defaultName });
+  const outputPath = await window.electronAPI.selectOutput(defaultName);
+
+  console.log('[Export Video] Dialog returned', { outputPath });
+  if (!outputPath) {
+    console.log('[Export Video] Export canceled by user');
+    updateStatus('내보내기 취소됨');
+    return;
+  }
+
+  showProgress();
+  updateProgress(0, '비디오 파일 내보내는 중...');
+
+  try {
+    // Copy current video file to selected location
+    const result = await window.electronAPI.copyAudioFile({
+      inputPath: currentVideo,
+      outputPath
+    });
+
+    hideProgress();
+
+    const savedFileName = result.outputPath.split('\\').pop();
+    alert(`비디오 내보내기 완료!\n\n저장된 파일: ${savedFileName}`);
+    updateStatus(`내보내기 완료: ${savedFileName}`);
+  } catch (error) {
+    hideProgress();
+    handleError('비디오 내보내기', error, '비디오 내보내기에 실패했습니다.');
   }
 }
 

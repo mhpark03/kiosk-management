@@ -349,6 +349,8 @@ ipcMain.handle('select-audio', async () => {
 
 // Select output path
 ipcMain.handle('select-output', async (event, defaultName) => {
+  logInfo('SELECT_OUTPUT', 'File save dialog requested', { defaultName });
+
   // Detect file type from default name
   const ext = defaultName ? path.extname(defaultName).toLowerCase() : '.mp4';
   let filters;
@@ -367,10 +369,13 @@ ipcMain.handle('select-output', async (event, defaultName) => {
     ];
   }
 
+  logInfo('SELECT_OUTPUT', 'Opening save dialog', { defaultPath: defaultName || 'output.mp4', fileType: ext });
   const result = await dialog.showSaveDialog(mainWindow, {
     defaultPath: defaultName || 'output.mp4',
     filters: filters
   });
+
+  logInfo('SELECT_OUTPUT', 'Save dialog result', { canceled: result.canceled, filePath: result.filePath });
 
   if (!result.canceled) {
     let filePath = result.filePath;
@@ -647,9 +652,18 @@ ipcMain.handle('generate-waveform-range', async (event, options) => {
 
 // Trim video
 ipcMain.handle('trim-video', async (event, options) => {
-  const { inputPath, outputPath, startTime, duration } = options;
+  let { inputPath, outputPath, startTime, duration } = options;
 
-  logInfo('TRIM_START', 'Starting video trim', { inputPath, startTime, duration });
+  // If outputPath is null, create temp file
+  if (!outputPath) {
+    const os = require('os');
+    const tempDir = os.tmpdir();
+    const timestamp = Date.now();
+    const fileName = path.basename(inputPath, path.extname(inputPath));
+    outputPath = path.join(tempDir, `${fileName}_trimmed_${timestamp}.mp4`);
+  }
+
+  logInfo('TRIM_START', 'Starting video trim', { inputPath, outputPath, startTime, duration });
 
   return new Promise((resolve, reject) => {
     const args = [
@@ -689,9 +703,18 @@ ipcMain.handle('trim-video', async (event, options) => {
 
 // Trim video only (keep audio intact)
 ipcMain.handle('trim-video-only', async (event, options) => {
-  const { inputPath, outputPath, startTime, duration } = options;
+  let { inputPath, outputPath, startTime, duration } = options;
 
-  logInfo('TRIM_VIDEO_ONLY_START', 'Starting video-only trim', { inputPath, startTime, duration });
+  // If outputPath is null, create temp file
+  if (!outputPath) {
+    const os = require('os');
+    const tempDir = os.tmpdir();
+    const timestamp = Date.now();
+    const fileName = path.basename(inputPath, path.extname(inputPath));
+    outputPath = path.join(tempDir, `${fileName}_trimmed_video_only_${timestamp}.mp4`);
+  }
+
+  logInfo('TRIM_VIDEO_ONLY_START', 'Starting video-only trim', { inputPath, outputPath, startTime, duration });
 
   // Check if input and output are the same file
   const isSameFile = path.resolve(inputPath) === path.resolve(outputPath);
@@ -781,9 +804,18 @@ ipcMain.handle('trim-video-only', async (event, options) => {
 
 // Trim audio only (keep video intact)
 ipcMain.handle('trim-audio-only', async (event, options) => {
-  const { inputPath, outputPath, startTime, endTime } = options;
+  let { inputPath, outputPath, startTime, endTime } = options;
 
-  logInfo('TRIM_AUDIO_ONLY_START', 'Starting audio-only trim', { inputPath, startTime, endTime });
+  // If outputPath is null, create temp file
+  if (!outputPath) {
+    const os = require('os');
+    const tempDir = os.tmpdir();
+    const timestamp = Date.now();
+    const fileName = path.basename(inputPath, path.extname(inputPath));
+    outputPath = path.join(tempDir, `${fileName}_trimmed_audio_only_${timestamp}.mp4`);
+  }
+
+  logInfo('TRIM_AUDIO_ONLY_START', 'Starting audio-only trim', { inputPath, outputPath, startTime, endTime });
 
   // Check if input and output are the same file
   const isSameFile = path.resolve(inputPath) === path.resolve(outputPath);
@@ -895,6 +927,17 @@ ipcMain.handle('adjust-audio-volume', async (event, options) => {
 
   logInfo('ADJUST_AUDIO_VOLUME_START', 'Starting audio volume adjustment', { inputPath, outputPath, volumeLevel });
 
+  // If outputPath is null, create temp file
+  let actualOutputPath = outputPath;
+  if (!actualOutputPath) {
+    const os = require('os');
+    const tempDir = os.tmpdir();
+    const timestamp = Date.now();
+    const fileName = path.basename(inputPath, path.extname(inputPath));
+    actualOutputPath = path.join(tempDir, `${fileName}_volume_${volumeLevel}x_${timestamp}.mp3`);
+    logInfo('ADJUST_AUDIO_VOLUME_TEMP', 'Creating temp file', { actualOutputPath });
+  }
+
   return new Promise((resolve, reject) => {
     const args = [
       '-i', inputPath,
@@ -902,7 +945,7 @@ ipcMain.handle('adjust-audio-volume', async (event, options) => {
       '-c:a', 'libmp3lame',  // Use MP3 encoder
       '-b:a', '192k',  // Bitrate
       '-y',  // Overwrite output file
-      outputPath
+      actualOutputPath
     ];
 
     logInfo('ADJUST_AUDIO_VOLUME_COMMAND', 'Executing FFmpeg command', { ffmpegPath, args });
@@ -929,8 +972,8 @@ ipcMain.handle('adjust-audio-volume', async (event, options) => {
 
     ffmpeg.on('close', (code) => {
       if (code === 0) {
-        logInfo('ADJUST_AUDIO_VOLUME_SUCCESS', 'Audio volume adjustment completed', { outputPath, code });
-        resolve({ outputPath, success: true });
+        logInfo('ADJUST_AUDIO_VOLUME_SUCCESS', 'Audio volume adjustment completed', { outputPath: actualOutputPath, code });
+        resolve({ outputPath: actualOutputPath, success: true });
       } else {
         logError('ADJUST_AUDIO_VOLUME_FAILED', 'FFmpeg exited with non-zero code', { code, stderr: stderrOutput });
         reject(new Error(stderrOutput || `FFmpeg exited with code ${code}`));
@@ -946,9 +989,18 @@ ipcMain.handle('adjust-audio-volume', async (event, options) => {
 
 // Add audio to video
 ipcMain.handle('add-audio', async (event, options) => {
-  const { videoPath, audioPath, outputPath, volumeLevel, audioStartTime, isSilence, silenceDuration, insertMode } = options;
+  let { videoPath, audioPath, outputPath, volumeLevel, audioStartTime, isSilence, silenceDuration, insertMode } = options;
 
-  logInfo('ADD_AUDIO_START', 'Starting audio addition', { videoPath, audioPath, volumeLevel, audioStartTime, isSilence, silenceDuration, insertMode });
+  // If outputPath is null, create temp file
+  if (!outputPath) {
+    const os = require('os');
+    const tempDir = os.tmpdir();
+    const timestamp = Date.now();
+    const fileName = path.basename(videoPath, path.extname(videoPath));
+    outputPath = path.join(tempDir, `${fileName}_with_audio_${timestamp}.mp4`);
+  }
+
+  logInfo('ADD_AUDIO_START', 'Starting audio addition', { videoPath, audioPath, outputPath, volumeLevel, audioStartTime, isSilence, silenceDuration, insertMode });
 
   // First, check if video has audio stream
   const checkAudio = () => {
@@ -1329,9 +1381,18 @@ ipcMain.handle('add-audio', async (event, options) => {
 
 // Apply video filter
 ipcMain.handle('apply-filter', async (event, options) => {
-  const { inputPath, outputPath, filterName, filterParams } = options;
+  let { inputPath, outputPath, filterName, filterParams } = options;
 
-  logInfo('FILTER_START', `Applying ${filterName} filter`, { inputPath, filterParams });
+  // If outputPath is null, create temp file
+  if (!outputPath) {
+    const os = require('os');
+    const tempDir = os.tmpdir();
+    const timestamp = Date.now();
+    const fileName = path.basename(inputPath, path.extname(inputPath));
+    outputPath = path.join(tempDir, `${fileName}_${filterName}_${timestamp}.mp4`);
+  }
+
+  logInfo('FILTER_START', `Applying ${filterName} filter`, { inputPath, outputPath, filterParams });
 
   let filterString = '';
   switch (filterName) {
@@ -1517,7 +1578,16 @@ ipcMain.handle('merge-audios', async (event, options) => {
 
   return new Promise(async (resolve, reject) => {
     try {
-      const actualOutputPath = outputPath.replace(/\\/g, '/');
+      // If outputPath is null, create temp file
+      let actualOutputPath = outputPath;
+      if (!actualOutputPath) {
+        const os = require('os');
+        const tempDir = os.tmpdir();
+        const timestamp = Date.now();
+        actualOutputPath = path.join(tempDir, `merged_audio_${timestamp}.mp3`);
+        logInfo('MERGE_AUDIO_TEMP', 'Creating temp file', { actualOutputPath });
+      }
+      actualOutputPath = actualOutputPath.replace(/\\/g, '/');
       let inputs = [];
 
       // Add all input files
@@ -1554,8 +1624,8 @@ ipcMain.handle('merge-audios', async (event, options) => {
 
       ffmpeg.on('close', (code) => {
         if (code === 0) {
-          logInfo('MERGE_AUDIO_SUCCESS', 'Audio merge completed', { outputPath });
-          resolve({ success: true, outputPath });
+          logInfo('MERGE_AUDIO_SUCCESS', 'Audio merge completed', { outputPath: actualOutputPath });
+          resolve({ success: true, outputPath: actualOutputPath });
         } else {
           logError('MERGE_AUDIO_FAILED', 'Audio merge failed', { error: errorOutput });
           reject(new Error(errorOutput || 'FFmpeg failed'));
@@ -1570,9 +1640,18 @@ ipcMain.handle('merge-audios', async (event, options) => {
 
 // Add text/subtitle overlay
 ipcMain.handle('add-text', async (event, options) => {
-  const { inputPath, outputPath, text, fontSize, fontColor, position, startTime, duration } = options;
+  let { inputPath, outputPath, text, fontSize, fontColor, position, startTime, duration } = options;
 
-  logInfo('ADD_TEXT_START', 'Adding text overlay', { text, fontSize });
+  // If outputPath is null, create temp file
+  if (!outputPath) {
+    const os = require('os');
+    const tempDir = os.tmpdir();
+    const timestamp = Date.now();
+    const fileName = path.basename(inputPath, path.extname(inputPath));
+    outputPath = path.join(tempDir, `${fileName}_text_${timestamp}.mp4`);
+  }
+
+  logInfo('ADD_TEXT_START', 'Adding text overlay', { text, fontSize, outputPath });
 
   return new Promise((resolve, reject) => {
     const x = position.x || '(w-text_w)/2';
@@ -1589,7 +1668,7 @@ ipcMain.handle('add-text', async (event, options) => {
       '-vf', filterString,
       '-c:a', 'copy',
       '-y',
-      actualOutputPath
+      outputPath
     ];
 
     const ffmpeg = spawn(ffmpegPath, args, {
@@ -1720,16 +1799,30 @@ ipcMain.handle('trim-audio-file', async (event, options) => {
 
   logInfo('TRIM_AUDIO_FILE_START', 'Starting audio file trim', { inputPath, startTime, endTime });
 
-  // Check if input and output are the same file
-  const isSameFile = path.resolve(inputPath) === path.resolve(outputPath);
+  // If outputPath is null, create temp file
+  let actualOutputPath;
+  let isSameFile = false;
 
-  // If same file, create temp file with proper extension
-  let actualOutputPath = outputPath;
-  if (isSameFile) {
-    const ext = path.extname(outputPath);
-    const base = outputPath.slice(0, -ext.length);
-    actualOutputPath = `${base}_temp_${Date.now()}${ext}`;
-    logInfo('TRIM_AUDIO_FILE_SAME_FILE', 'Same file detected, using temp file', { actualOutputPath });
+  if (!outputPath) {
+    const os = require('os');
+    const tempDir = os.tmpdir();
+    const timestamp = Date.now();
+    const fileName = path.basename(inputPath, path.extname(inputPath));
+    actualOutputPath = path.join(tempDir, `${fileName}_trimmed_${timestamp}.mp3`);
+    logInfo('TRIM_AUDIO_FILE_TEMP', 'Creating temp file', { actualOutputPath });
+  } else {
+    // Check if input and output are the same file
+    isSameFile = path.resolve(inputPath) === path.resolve(outputPath);
+
+    // If same file, create temp file with proper extension
+    if (isSameFile) {
+      const ext = path.extname(outputPath);
+      const base = outputPath.slice(0, -ext.length);
+      actualOutputPath = `${base}_temp_${Date.now()}${ext}`;
+      logInfo('TRIM_AUDIO_FILE_SAME_FILE', 'Same file detected, using temp file', { actualOutputPath });
+    } else {
+      actualOutputPath = outputPath;
+    }
   }
 
   const duration = endTime - startTime;
@@ -1758,13 +1851,16 @@ ipcMain.handle('trim-audio-file', async (event, options) => {
 
     ffmpeg.on('close', (code) => {
       if (code === 0) {
-        // If we used a temp file, replace the original
+        let finalOutputPath = actualOutputPath;
+
+        // If we used a temp file for same file replacement, replace the original
         if (isSameFile) {
           try {
             if (fs.existsSync(outputPath)) {
               fs.unlinkSync(outputPath);
             }
             fs.renameSync(actualOutputPath, outputPath);
+            finalOutputPath = outputPath;
             logInfo('TRIM_AUDIO_FILE_SUCCESS', 'Audio file trim completed, temp file replaced', { outputPath });
           } catch (err) {
             logError('TRIM_AUDIO_FILE_REPLACE_FAILED', 'Failed to replace original file', { error: err.message });
@@ -1772,9 +1868,9 @@ ipcMain.handle('trim-audio-file', async (event, options) => {
             return;
           }
         } else {
-          logInfo('TRIM_AUDIO_FILE_SUCCESS', 'Audio file trim completed', { outputPath });
+          logInfo('TRIM_AUDIO_FILE_SUCCESS', 'Audio file trim completed', { outputPath: actualOutputPath });
         }
-        resolve({ success: true, outputPath });
+        resolve({ success: true, outputPath: finalOutputPath });
       } else {
         // Clean up temp file if it exists
         if (isSameFile && fs.existsSync(actualOutputPath)) {
@@ -1801,6 +1897,34 @@ ipcMain.handle('trim-audio-file', async (event, options) => {
       logError('TRIM_AUDIO_FILE_FAILED', 'FFmpeg spawn error', { error: err.message });
       reject(new Error(`FFmpeg error: ${err.message}`));
     });
+  });
+});
+
+// Copy audio file
+ipcMain.handle('copy-audio-file', async (event, options) => {
+  const { inputPath, outputPath } = options;
+
+  logInfo('COPY_AUDIO_FILE_START', 'Starting audio file copy', { inputPath, outputPath });
+
+  return new Promise((resolve, reject) => {
+    try {
+      // Check if input file exists
+      if (!fs.existsSync(inputPath)) {
+        const error = 'Input file does not exist';
+        logError('COPY_AUDIO_FILE_FAILED', error, { inputPath });
+        reject(new Error(error));
+        return;
+      }
+
+      // Copy file
+      fs.copyFileSync(inputPath, outputPath);
+
+      logInfo('COPY_AUDIO_FILE_SUCCESS', 'Audio file copied successfully', { outputPath });
+      resolve({ success: true, outputPath });
+    } catch (error) {
+      logError('COPY_AUDIO_FILE_ERROR', 'Error copying audio file', { error: error.message });
+      reject(new Error(`Copy error: ${error.message}`));
+    }
   });
 });
 
