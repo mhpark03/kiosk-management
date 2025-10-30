@@ -68,3 +68,18 @@ tasks.named('test') {
 bootJar {
     archiveFileName = 'backend-0.0.1-SNAPSHOT.jar'
 }
+
+// Task to download Google TTS credentials from S3
+task downloadCredentials(type: JavaExec) {
+    group = 'utility'
+    description = 'Download Google TTS credentials from S3 to local file'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'com.kiosk.backend.util.DownloadCredentials'
+
+    // Pass environment variables
+    environment 'DB_PASSWORD', System.getenv('DB_PASSWORD') ?: 'aioztesting'
+    environment 'AWS_ACCESS_KEY_ID', System.getenv('AWS_ACCESS_KEY_ID')
+    environment 'AWS_SECRET_ACCESS_KEY', System.getenv('AWS_SECRET_ACCESS_KEY')
+    environment 'AWS_S3_BUCKET_NAME', System.getenv('AWS_S3_BUCKET_NAME')
+    environment 'AWS_REGION', System.getenv('AWS_REGION') ?: 'ap-northeast-2'
+}

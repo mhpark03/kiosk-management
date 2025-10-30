@@ -2635,4 +2635,126 @@ ipcMain.handle('ensure-video-has-audio', async (event, videoPath) => {
   });
 });
 
+// Generate TTS audio using Google Cloud Text-to-Speech API (direct call without backend)
+ipcMain.handle('generate-tts-direct', async (event, params) => {
+  const { text, title, languageCode, voiceName, gender, speakingRate, pitch } = params;
+
+  logInfo('TTS_DIRECT_START', 'Starting direct TTS generation', {
+    textLength: text.length,
+    languageCode,
+    voiceName,
+    gender
+  });
+
+  return new Promise((resolve, reject) => {
+    // Get API key from environment variable or config
+    const apiKey = process.env.GOOGLE_TTS_API_KEY || process.env.GOOGLE_AI_API_KEY;
+
+    if (!apiKey) {
+      logError('TTS_DIRECT_NO_KEY', 'Google TTS API key not found', {
+        envVars: 'GOOGLE_TTS_API_KEY or GOOGLE_AI_API_KEY required'
+      });
+      reject(new Error('Google TTS API key not configured. Please set GOOGLE_TTS_API_KEY or GOOGLE_AI_API_KEY environment variable.'));
+      return;
+    }
+
+    const https = require('https');
+
+    const requestBody = JSON.stringify({
+      input: { text },
+      voice: {
+        languageCode,
+        name: voiceName,
+        ssmlGender: gender // MALE, FEMALE, NEUTRAL
+      },
+      audioConfig: {
+        audioEncoding: 'MP3',
+        speakingRate: speakingRate || 1.0,
+        pitch: pitch || 0.0
+      }
+    });
+
+    const options = {
+      hostname: 'texttospeech.googleapis.com',
+      path: `/v1/text:synthesize?key=${apiKey}`,
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(requestBody)
+      }
+    };
+
+    logInfo('TTS_DIRECT_REQUEST', 'Sending request to Google TTS API', {
+      hostname: options.hostname,
+      textLength: text.length
+    });
+
+    const req = https.request(options, (res) => {
+      let data = '';
+
+      res.on('data', (chunk) => {
+        data += chunk.toString();
+      });
+
+      res.on('end', () => {
+        if (res.statusCode === 200) {
+          try {
+            const response = JSON.parse(data);
+
+            if (!response.audioContent) {
+              logError('TTS_DIRECT_NO_AUDIO', 'No audio content in response', { response });
+              reject(new Error('No audio content received from Google TTS API'));
+              return;
+            }
+
+            // Save audio to temp file
+            const os = require('os');
+            const tempDir = os.tmpdir();
+            const timestamp = Date.now();
+            const filename = `tts_${title.replace(/[^a-zA-Z0-9]/g, '_')}_${timestamp}.mp3`;
+            const audioPath = path.join(tempDir, filename);
+
+            // Decode base64 and write to file
+            const audioBuffer = Buffer.from(response.audioContent, 'base64');
+            fs.writeFileSync(audioPath, audioBuffer);
+
+            logInfo('TTS_DIRECT_SUCCESS', 'TTS audio generated and saved', {
+              audioPath,
+              fileSize: audioBuffer.length
+            });
+
+            resolve({
+              success: true,
+              audioPath,
+              filename,
+              fileSize: audioBuffer.length
+            });
+          } catch (error) {
+            logError('TTS_DIRECT_PARSE_ERROR', 'Failed to parse response', {
+              error: error.message,
+              statusCode: res.statusCode,
+              data: data.substring(0, 500)
+            });
+            reject(new Error(`Failed to parse API response: ${error.message}`));
+          }
+        } else {
+          logError('TTS_DIRECT_API_ERROR', 'Google TTS API error', {
+            statusCode: res.statusCode,
+            error: data
+          });
+          reject(new Error(`Google TTS API Error (${res.statusCode}): ${data}`));
+        }
+      });
+    });
+
+    req.on('error', (error) => {
+      logError('TTS_DIRECT_REQUEST_ERROR', 'Request error', { error: error.message });
+      reject(new Error(`Network error: ${error.message}`));
+    });
+
+    req.write(requestBody);
+    req.end();
+  });
+});
+
 logInfo('SYSTEM', 'Kiosk Video Editor initialized');
