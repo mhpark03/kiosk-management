@@ -1,0 +1,75 @@
+name: Release Kiosk Downloader
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g., v1.0.0)'
+        required: true
+        default: 'v1.0.0'
+  push:
+    tags:
+      - 'kiosk-downloader-v*'
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+
+    - name: Install dependencies
+      run: |
+        cd kiosk-downloader
+        npm install
+
+    - name: Build Windows installer
+      run: |
+        cd kiosk-downloader
+        npm run build:win
+
+    - name: Get version
+      id: get_version
+      shell: bash
+      run: |
+        if [[ "${{ github.event_name }}" == "push" ]]; then
+          echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+        else
+          echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: ${{ steps.get_version.outputs.version }}
+        name: Kiosk Downloader ${{ steps.get_version.outputs.version }}
+        body: |
+          ## Kiosk Video Downloader Release
+
+          ### Changes
+          - Set AWS development server as default
+          - Updated UI and functionality improvements
+
+          ### Installation
+          1. Download `Kiosk.Video.Downloader.Setup.${{ steps.get_version.outputs.version }}.exe`
+          2. Run the installer
+          3. Follow the installation wizard
+
+          ### System Requirements
+          - Windows 10 or later
+          - 100 MB free disk space
+
+          🤖 Generated with [Claude Code](https://claude.com/claude-code)
+        files: |
+          kiosk-downloader/dist/*.exe
+          kiosk-downloader/dist/*.exe.blockmap
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
