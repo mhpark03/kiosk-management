@@ -43,23 +43,35 @@ class _SettingsScreenState extends State<SettingsScreen> {
     // Set default download path if not already set
     if (_downloadPathController.text.isEmpty) {
       try {
+        // Try getDownloadsDirectory first
         final directory = await getDownloadsDirectory();
         if (directory != null) {
           setState(() {
             _downloadPathController.text = directory.path;
           });
-        } else {
-          // Fallback for Windows
-          final userProfile = Platform.environment['USERPROFILE'];
-          if (userProfile != null) {
-            setState(() {
-              _downloadPathController.text = '$userProfile\\Downloads';
-            });
-          }
+          return;
         }
       } catch (e) {
-        // Ignore errors, user can select manually
+        // Ignore and try fallback
       }
+
+      // Fallback for Windows
+      try {
+        final userProfile = Platform.environment['USERPROFILE'];
+        if (userProfile != null && userProfile.isNotEmpty) {
+          setState(() {
+            _downloadPathController.text = '$userProfile\\Downloads';
+          });
+          return;
+        }
+      } catch (e) {
+        // Ignore
+      }
+
+      // Final fallback - set a default value
+      setState(() {
+        _downloadPathController.text = 'C:\\Downloads';
+      });
     }
   }
 
@@ -105,6 +117,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
       // Use current API service base URL (set during login)
       final serverUrl = widget.apiService.baseUrl;
 
+      // Validate download path
+      final downloadPath = _downloadPathController.text.trim();
+      if (downloadPath.isEmpty) {
+        throw Exception('다운로드 경로가 설정되지 않았습니다');
+      }
+
       // Pad kiosk ID to 12 digits and POS ID to 8 digits
       final kioskId = _kioskIdController.text.trim().padLeft(12, '0');
       final posId = _posIdController.text.trim().padLeft(8, '0');
@@ -113,7 +131,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         serverUrl: serverUrl,
         kioskId: kioskId,
         posId: posId,
-        downloadPath: _downloadPathController.text.trim(),
+        downloadPath: downloadPath,
         autoSync: _autoSync,
         syncIntervalHours: _syncIntervalHours,
       );
@@ -140,6 +158,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         );
       }
     } catch (e) {
+      print('Settings save error: $e');
       setState(() {
         _errorMessage = e.toString().replaceFirst('Exception: ', '');
         _isLoading = false;
@@ -155,9 +174,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
         actions: [
           TextButton.icon(
             onPressed: () async {
-              await widget.storageService.clearAll();
+              // 사용자만 로그아웃 (설정은 유지하여 무인 동작 가능)
+              await widget.storageService.deleteUser();
+              await widget.storageService.deleteToken();
+              widget.apiService.setAuthToken(null);
               if (mounted) {
-                Navigator.of(context).pushReplacementNamed('/');
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('로그아웃되었습니다 (설정은 유지됨)')),
+                );
               }
             },
             icon: const Icon(Icons.logout, color: Colors.white),
@@ -337,6 +361,51 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         '설정 저장',
                         style: TextStyle(fontSize: 16),
                       ),
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton(
+                onPressed: _isLoading
+                    ? null
+                    : () async {
+                        // 확인 대화상자
+                        final confirm = await showDialog<bool>(
+                          context: context,
+                          builder: (context) => AlertDialog(
+                            title: const Text('초기화 확인'),
+                            content: const Text(
+                              '모든 설정과 데이터를 삭제하고 초기 상태로 돌아갑니다.\n계속하시겠습니까?',
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context, false),
+                                child: const Text('취소'),
+                              ),
+                              TextButton(
+                                onPressed: () => Navigator.pop(context, true),
+                                style: TextButton.styleFrom(
+                                  foregroundColor: Colors.red,
+                                ),
+                                child: const Text('초기화'),
+                              ),
+                            ],
+                          ),
+                        );
+
+                        if (confirm == true && mounted) {
+                          await widget.storageService.clearAll();
+                          if (mounted) {
+                            Navigator.of(context).pushReplacementNamed('/');
+                          }
+                        }
+                      },
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.all(16),
+                  foregroundColor: Colors.red,
+                ),
+                child: const Text(
+                  '앱 초기화',
+                  style: TextStyle(fontSize: 16),
+                ),
               ),
             ],
           ),

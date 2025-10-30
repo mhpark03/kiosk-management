@@ -62,6 +62,10 @@ dependencies:
   # Background tasks (auto-sync)
   workmanager: ^0.9.0
 
+  # WebSocket and STOMP for real-time sync
+  stomp_dart_client: ^2.0.0
+  web_socket_channel: ^3.0.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

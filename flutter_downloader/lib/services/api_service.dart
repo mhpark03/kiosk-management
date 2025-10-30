@@ -204,4 +204,32 @@ class ApiService {
       print('Failed to record event: $e');
     }
   }
+
+  // Get kiosk authentication token for WebSocket
+  Future<String> getKioskToken(String kioskId, String posId, int kioskNo) async {
+    try {
+      final response = await _dio.post(
+        '/kiosk-auth/token',
+        data: {
+          'kioskId': kioskId,
+          'posId': posId,
+          'kioskNo': kioskNo,
+        },
+      );
+
+      if (response.statusCode == 200 && response.data['accessToken'] != null) {
+        return response.data['accessToken'] as String;
+      } else {
+        throw Exception('No access token in response');
+      }
+    } on DioException catch (e) {
+      if (e.response?.data != null && e.response?.data['message'] != null) {
+        throw Exception(e.response?.data['message']);
+      } else {
+        throw Exception('키오스크 토큰 발급 실패: ${e.message}');
+      }
+    } catch (e) {
+      throw Exception('키오스크 토큰 발급 중 오류: $e');
+    }
+  }
 }
