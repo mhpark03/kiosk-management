@@ -99,6 +99,21 @@ class _LoginScreenState extends State<LoginScreen> {
         await widget.storageService.deleteConfig();
       }
 
+      // Record login event if config exists (kiosk is already configured)
+      final config = widget.storageService.getConfig();
+      if (config != null) {
+        try {
+          await widget.apiService.recordEvent(
+            config.kioskId,
+            'USER_LOGIN',
+            '사용자 로그인: ${user.email}',
+            metadata: '{"userEmail": "${user.email}", "userName": "${user.name}", "role": "${user.role}"}',
+          );
+        } catch (e) {
+          print('[LOGIN EVENT] Failed to record login event: $e');
+        }
+      }
+
       if (mounted) {
         // Navigate to settings screen
         Navigator.of(context).pushReplacement(
