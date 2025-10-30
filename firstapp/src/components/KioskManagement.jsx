@@ -250,7 +250,7 @@ function KioskManagement() {
   // Helper function to get store name by posid
   const getStoreName = (posid) => {
     const store = stores.find(s => s.posid === posid);
-    return store ? store.posname : posid; // Fallback to posid if store not found
+    return store ? `${store.posname} (${posid})` : posid; // Display store name with posid in parentheses
   };
 
   // Get unique makers - if store is selected, only show makers from that store
