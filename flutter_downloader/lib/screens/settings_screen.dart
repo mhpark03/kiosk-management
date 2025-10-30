@@ -59,35 +59,38 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _setDefaultDownloadPath() async {
     // Set default download path if not already set
     if (_downloadPathController.text.isEmpty) {
+      String basePath = '';
+
       try {
         // Try getDownloadsDirectory first
         final directory = await getDownloadsDirectory();
         if (directory != null) {
-          setState(() {
-            _downloadPathController.text = directory.path;
-          });
-          return;
+          basePath = directory.path;
         }
       } catch (e) {
         // Ignore and try fallback
       }
 
       // Fallback for Windows
-      try {
-        final userProfile = Platform.environment['USERPROFILE'];
-        if (userProfile != null && userProfile.isNotEmpty) {
-          setState(() {
-            _downloadPathController.text = '$userProfile\\Downloads';
-          });
-          return;
+      if (basePath.isEmpty) {
+        try {
+          final userProfile = Platform.environment['USERPROFILE'];
+          if (userProfile != null && userProfile.isNotEmpty) {
+            basePath = '$userProfile\\Downloads';
+          }
+        } catch (e) {
+          // Ignore
         }
-      } catch (e) {
-        // Ignore
       }
 
-      // Final fallback - set a default value
+      // Final fallback
+      if (basePath.isEmpty) {
+        basePath = 'C:\\Downloads';
+      }
+
+      // Add KioskVideos subdirectory
       setState(() {
-        _downloadPathController.text = 'C:\\Downloads';
+        _downloadPathController.text = '$basePath\\KioskVideos';
       });
     }
   }
