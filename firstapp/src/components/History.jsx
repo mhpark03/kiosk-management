@@ -136,10 +136,14 @@ function History() {
   const formatDate = (timestamp) => {
     if (!timestamp) return 'N/A';
     const date = new Date(timestamp);
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
+
+    // Convert to KST (Korea Standard Time, UTC+9)
+    const kstDate = new Date(date.toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
+
+    const month = String(kstDate.getMonth() + 1).padStart(2, '0');
+    const day = String(kstDate.getDate()).padStart(2, '0');
+    const hours = String(kstDate.getHours()).padStart(2, '0');
+    const minutes = String(kstDate.getMinutes()).padStart(2, '0');
     return `${month}/${day} ${hours}:${minutes}`;
   };
 

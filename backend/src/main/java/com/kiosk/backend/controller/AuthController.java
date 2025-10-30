@@ -8,12 +8,15 @@ import com.kiosk.backend.dto.ProfileUpdateRequest;
 import com.kiosk.backend.dto.SignupRequest;
 import com.kiosk.backend.entity.User;
 import com.kiosk.backend.service.UserService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -30,9 +33,41 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
-        AuthResponse response = userService.login(request);
+    public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request, HttpServletRequest httpRequest) {
+        // Extract kiosk information from headers
+        String kioskId = httpRequest.getHeader("X-Kiosk-Id");
+        String clientIp = extractClientIp(httpRequest);
+
+        AuthResponse response = userService.login(request, kioskId, clientIp);
         return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<Map<String, String>> logout(HttpServletRequest httpRequest) {
+        String kioskId = httpRequest.getHeader("X-Kiosk-Id");
+        String clientIp = extractClientIp(httpRequest);
+        String userEmail = httpRequest.getHeader("X-User-Email");
+
+        userService.logout(kioskId, userEmail, clientIp);
+
+        Map<String, String> response = new HashMap<>();
+        response.put("message", "Logged out successfully");
+        return ResponseEntity.ok(response);
+    }
+
+    private String extractClientIp(HttpServletRequest request) {
+        String clientIp = request.getHeader("X-Forwarded-For");
+        if (clientIp == null || clientIp.isEmpty()) {
+            clientIp = request.getHeader("X-Real-IP");
+        }
+        if (clientIp == null || clientIp.isEmpty()) {
+            clientIp = request.getRemoteAddr();
+        }
+        // If X-Forwarded-For contains multiple IPs, take the first one
+        if (clientIp != null && clientIp.contains(",")) {
+            clientIp = clientIp.split(",")[0].trim();
+        }
+        return clientIp;
     }
 
     @GetMapping("/me")
