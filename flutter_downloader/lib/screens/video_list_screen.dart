@@ -9,6 +9,7 @@ import '../models/video.dart';
 import '../models/kiosk.dart';
 import 'settings_screen.dart';
 import 'login_screen.dart';
+import 'video_player_screen.dart';
 
 class VideoListScreen extends StatefulWidget {
   final ApiService apiService;
@@ -725,33 +726,85 @@ class _VideoListScreenState extends State<VideoListScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 // 썸네일
-                                Container(
-                                  width: thumbnailSize,
-                                  height: thumbnailSize,
-                                  decoration: BoxDecoration(
-                                    color: Colors.grey.shade200,
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  child: video.thumbnailUrl != null && video.thumbnailUrl!.isNotEmpty
-                                      ? ClipRRect(
-                                          borderRadius: BorderRadius.circular(6),
-                                          child: Image.network(
-                                            video.thumbnailUrl!,
-                                            fit: BoxFit.cover,
-                                            errorBuilder: (context, error, stackTrace) {
-                                              return Icon(
+                                GestureDetector(
+                                  onTap: () {
+                                    // 다운로드 완료된 동영상만 재생 가능
+                                    if (video.downloadStatus == 'completed' && video.localPath != null) {
+                                      Navigator.of(context).push(
+                                        MaterialPageRoute(
+                                          builder: (_) => VideoPlayerScreen(
+                                            videoPath: video.localPath!,
+                                            videoTitle: video.title,
+                                          ),
+                                        ),
+                                      );
+                                    } else if (video.downloadStatus == 'pending' || video.downloadStatus == 'failed') {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(
+                                          content: Text('동영상을 먼저 다운로드해주세요'),
+                                          duration: Duration(seconds: 2),
+                                        ),
+                                      );
+                                    } else if (video.downloadStatus == 'downloading') {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(
+                                          content: Text('동영상 다운로드 중입니다'),
+                                          duration: Duration(seconds: 2),
+                                        ),
+                                      );
+                                    }
+                                  },
+                                  child: Container(
+                                    width: thumbnailSize,
+                                    height: thumbnailSize,
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey.shade200,
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Stack(
+                                      children: [
+                                        // 썸네일 이미지
+                                        video.thumbnailUrl != null && video.thumbnailUrl!.isNotEmpty
+                                            ? ClipRRect(
+                                                borderRadius: BorderRadius.circular(6),
+                                                child: Image.network(
+                                                  video.thumbnailUrl!,
+                                                  fit: BoxFit.cover,
+                                                  width: thumbnailSize,
+                                                  height: thumbnailSize,
+                                                  errorBuilder: (context, error, stackTrace) {
+                                                    return Icon(
+                                                      Icons.videocam,
+                                                      size: isLandscape ? 28 : 24,
+                                                      color: Colors.grey.shade600,
+                                                    );
+                                                  },
+                                                ),
+                                              )
+                                            : Icon(
                                                 Icons.videocam,
                                                 size: isLandscape ? 28 : 24,
                                                 color: Colors.grey.shade600,
-                                              );
-                                            },
+                                              ),
+                                        // 재생 아이콘 오버레이 (다운로드 완료된 경우만)
+                                        if (video.downloadStatus == 'completed')
+                                          Center(
+                                            child: Container(
+                                              decoration: BoxDecoration(
+                                                color: Colors.black54,
+                                                shape: BoxShape.circle,
+                                              ),
+                                              padding: const EdgeInsets.all(8),
+                                              child: Icon(
+                                                Icons.play_arrow,
+                                                color: Colors.white,
+                                                size: isLandscape ? 20 : 16,
+                                              ),
+                                            ),
                                           ),
-                                        )
-                                      : Icon(
-                                          Icons.videocam,
-                                          size: isLandscape ? 28 : 24,
-                                          color: Colors.grey.shade600,
-                                        ),
+                                      ],
+                                    ),
+                                  ),
                                 ),
                                 SizedBox(width: isLandscape ? 12 : 8),
 

@@ -66,6 +66,9 @@ dependencies:
   stomp_dart_client: ^2.0.0
   web_socket_channel: ^3.0.0
 
+  # Video player
+  video_player: ^2.8.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
