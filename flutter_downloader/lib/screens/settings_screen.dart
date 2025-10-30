@@ -105,10 +105,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
       // Use current API service base URL (set during login)
       final serverUrl = widget.apiService.baseUrl;
 
+      // Pad kiosk ID to 12 digits and POS ID to 8 digits
+      final kioskId = _kioskIdController.text.trim().padLeft(12, '0');
+      final posId = _posIdController.text.trim().padLeft(8, '0');
+
       final config = KioskConfig(
         serverUrl: serverUrl,
-        kioskId: _kioskIdController.text.trim(),
-        posId: _posIdController.text.trim(),
+        kioskId: kioskId,
+        posId: posId,
         downloadPath: _downloadPathController.text.trim(),
         autoSync: _autoSync,
         syncIntervalHours: _syncIntervalHours,
