@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:path_provider/path_provider.dart';
+import 'dart:io';
 import '../services/api_service.dart';
 import '../services/storage_service.dart';
 import '../models/kiosk_config.dart';
@@ -25,7 +27,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final _posIdController = TextEditingController();
   final _downloadPathController = TextEditingController();
 
-  bool _autoSync = false;
+  bool _autoSync = true;  // Default to ON
   int _syncIntervalHours = 12;
   bool _isLoading = false;
   String? _errorMessage;
@@ -34,6 +36,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void initState() {
     super.initState();
     _loadConfig();
+    _setDefaultDownloadPath();
+  }
+
+  Future<void> _setDefaultDownloadPath() async {
+    // Set default download path if not already set
+    if (_downloadPathController.text.isEmpty) {
+      try {
+        final directory = await getDownloadsDirectory();
+        if (directory != null) {
+          setState(() {
+            _downloadPathController.text = directory.path;
+          });
+        } else {
+          // Fallback for Windows
+          final userProfile = Platform.environment['USERPROFILE'];
+          if (userProfile != null) {
+            setState(() {
+              _downloadPathController.text = '$userProfile\\Downloads';
+            });
+          }
+        }
+      } catch (e) {
+        // Ignore errors, user can select manually
+      }
+    }
   }
 
   void _loadConfig() {
