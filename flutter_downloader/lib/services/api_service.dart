@@ -8,6 +8,11 @@ class ApiService {
   String? _authToken;
   String _baseUrl;
 
+  // Kiosk authentication headers (for unattended operation)
+  String? _kioskPosId;
+  String? _kioskId;
+  int? _kioskNo;
+
   ApiService({required String baseUrl}) : _baseUrl = baseUrl {
     _dio = Dio(BaseOptions(
       baseUrl: _baseUrl,
@@ -19,13 +24,23 @@ class ApiService {
       },
     ));
 
-    // Add interceptor for logging and token handling
+    // Add interceptor for logging, token, and kiosk headers
     _dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) {
+          // Add JWT token if available (for user authentication)
           if (_authToken != null) {
             options.headers['Authorization'] = 'Bearer $_authToken';
           }
+
+          // Add kiosk headers for kiosk authentication (always included)
+          // This allows the app to work without user login
+          if (_kioskPosId != null && _kioskId != null && _kioskNo != null) {
+            options.headers['X-Kiosk-PosId'] = _kioskPosId;
+            options.headers['X-Kiosk-Id'] = _kioskId;
+            options.headers['X-Kiosk-No'] = _kioskNo.toString();
+          }
+
           return handler.next(options);
         },
         onError: (error, handler) {
@@ -45,6 +60,13 @@ class ApiService {
 
   void setAuthToken(String? token) {
     _authToken = token;
+  }
+
+  void setKioskAuth(String? posId, String? kioskId, int? kioskNo) {
+    _kioskPosId = posId;
+    _kioskId = kioskId;
+    _kioskNo = kioskNo;
+    print('[ApiService] Kiosk auth set: posId=$posId, kioskId=$kioskId, kioskNo=$kioskNo');
   }
 
   // Login
