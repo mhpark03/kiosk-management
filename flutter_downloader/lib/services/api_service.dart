@@ -114,22 +114,27 @@ class ApiService {
   // Get videos assigned to kiosk
   Future<List<Video>> getKioskVideos(String kioskId) async {
     try {
-      final response = await _dio.get('/kiosks/kioskid/$kioskId');
+      print('[API] Fetching videos for kioskId: $kioskId');
+      final response = await _dio.get('/kiosks/by-kioskid/$kioskId/videos-with-status');
+
+      print('[API] Response status: ${response.statusCode}');
 
       if (response.statusCode == 200) {
-        final kiosk = response.data;
-        final List<dynamic> videosList = kiosk['videos'] ?? [];
+        final List<dynamic> videosList = response.data as List<dynamic>;
+        print('[API] Received ${videosList.length} videos');
         return videosList.map((json) => Video.fromJson(json)).toList();
       } else {
         throw Exception('Failed to get videos: ${response.statusCode}');
       }
     } on DioException catch (e) {
+      print('[API] DioException: ${e.message}');
       if (e.response?.data != null && e.response?.data['message'] != null) {
         throw Exception(e.response?.data['message']);
       } else {
         throw Exception('서버 연결에 실패했습니다: ${e.message}');
       }
     } catch (e) {
+      print('[API] Exception: $e');
       throw Exception('영상 목록 조회 중 오류가 발생했습니다: $e');
     }
   }
