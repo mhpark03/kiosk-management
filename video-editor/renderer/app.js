@@ -4430,7 +4430,7 @@ async function executeAudioSpeed() {
     alert('오디오 속도 조절 완료!\n\n편집된 내용은 임시 저장되었습니다.\n최종 저장하려면 "비디오 내보내기"를 사용하세요.');
 
     // Reload audio with new file
-    await loadAudio(result.outputPath);
+    await loadAudioFile(result.outputPath);
     currentAudioFile = result.outputPath;
 
     // Delete previous temp file if it exists
