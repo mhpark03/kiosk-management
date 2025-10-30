@@ -32,6 +32,7 @@ class _VideoListScreenState extends State<VideoListScreen> {
   bool _wsConnected = false;
   Timer? _autoLogoutTimer;
   bool _isLoggedIn = false;
+  Kiosk? _kiosk; // Store kiosk info for display
 
   @override
   void initState() {
@@ -132,6 +133,13 @@ class _VideoListScreenState extends State<VideoListScreen> {
       print('WebSocket: Fetching kiosk info for ${config.kioskId}...');
       final kiosk = await widget.apiService.getKiosk(config.kioskId);
 
+      // Store kiosk info for display
+      if (mounted) {
+        setState(() {
+          _kiosk = kiosk;
+        });
+      }
+
       // kioskNumber가 없으면 WebSocket 연결 안 함
       if (kiosk.kioskNumber == null) {
         print('WebSocket: kioskNumber가 설정되지 않아 연결하지 않습니다');
@@ -208,6 +216,20 @@ class _VideoListScreenState extends State<VideoListScreen> {
       final config = widget.storageService.getConfig();
       if (config == null || !config.isValid) {
         throw Exception('설정이 올바르지 않습니다');
+      }
+
+      // Fetch kiosk info if not already loaded
+      if (_kiosk == null) {
+        try {
+          final kiosk = await widget.apiService.getKiosk(config.kioskId);
+          if (mounted) {
+            setState(() {
+              _kiosk = kiosk;
+            });
+          }
+        } catch (e) {
+          print('Failed to fetch kiosk info: $e');
+        }
       }
 
       final videos = await widget.apiService.getKioskVideos(config.kioskId);
@@ -290,7 +312,7 @@ class _VideoListScreenState extends State<VideoListScreen> {
         automaticallyImplyLeading: false, // Remove back button from main screen
         title: Row(
           children: [
-            Text('영상 목록 - ${config?.kioskId ?? ""}'),
+            Text('영상 목록 - ${_kiosk?.posname ?? ""} ${_kiosk?.kioskNumber != null ? "#${_kiosk!.kioskNumber}" : ""}'),
             const SizedBox(width: 8),
             Icon(
               _wsConnected ? Icons.cloud_done : Icons.cloud_off,

@@ -31,12 +31,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
   int _syncIntervalHours = 12;
   bool _isLoading = false;
   String? _errorMessage;
+  bool _isLoggedIn = false;
+  bool _hasExistingConfig = false;
+
+  // Original values for change detection
+  String _originalKioskId = '';
+  String _originalPosId = '';
+  String _originalDownloadPath = '';
+  bool _originalAutoSync = true;
+  int _originalSyncInterval = 12;
 
   @override
   void initState() {
     super.initState();
+    _checkLoginStatus();
     _loadConfig();
     _setDefaultDownloadPath();
+  }
+
+  void _checkLoginStatus() {
+    setState(() {
+      _isLoggedIn = widget.storageService.isLoggedIn();
+    });
   }
 
   Future<void> _setDefaultDownloadPath() async {
@@ -79,11 +95,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final config = widget.storageService.getConfig();
     if (config != null) {
       setState(() {
+        _hasExistingConfig = true;
         _kioskIdController.text = config.kioskId;
         _posIdController.text = config.posId ?? '';
         _downloadPathController.text = config.downloadPath;
         _autoSync = config.autoSync;
         _syncIntervalHours = config.syncIntervalHours;
+
+        // Save original values for change detection
+        _originalKioskId = config.kioskId;
+        _originalPosId = config.posId ?? '';
+        _originalDownloadPath = config.downloadPath;
+        _originalAutoSync = config.autoSync;
+        _originalSyncInterval = config.syncIntervalHours;
       });
     }
   }
@@ -106,7 +130,34 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _saveSettings() async {
+    // Check login status
+    if (!_isLoggedIn) {
+      _showLoginRequiredDialog();
+      return;
+    }
+
     if (!_formKey.currentState!.validate()) return;
+
+    // Check if anything changed
+    if (_hasExistingConfig) {
+      final kioskId = _kioskIdController.text.trim().padLeft(12, '0');
+      final posId = _posIdController.text.trim().padLeft(8, '0');
+      final downloadPath = _downloadPathController.text.trim();
+
+      if (kioskId == _originalKioskId &&
+          posId == _originalPosId &&
+          downloadPath == _originalDownloadPath &&
+          _autoSync == _originalAutoSync &&
+          _syncIntervalHours == _originalSyncInterval) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('변경된 내용이 없습니다'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+        return;
+      }
+    }
 
     setState(() {
       _isLoading = true;
@@ -141,6 +192,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
       // Save config
       await widget.storageService.saveConfig(config);
+
+      // Update original values after successful save
+      setState(() {
+        _hasExistingConfig = true;
+        _originalKioskId = kioskId;
+        _originalPosId = posId;
+        _originalDownloadPath = downloadPath;
+        _originalAutoSync = _autoSync;
+        _originalSyncInterval = _syncIntervalHours;
+      });
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -340,33 +401,46 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               ),
               const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: _isLoading ? null : _saveSettings,
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.all(16),
-                  backgroundColor: Colors.blue,
-                  foregroundColor: Colors.white,
-                ),
-                child: _isLoading
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor:
-                              AlwaysStoppedAnimation<Color>(Colors.white),
-                        ),
-                      )
-                    : const Text(
-                        '설정 저장',
-                        style: TextStyle(fontSize: 16),
+              Row(
+                children: [
+                  Expanded(
+                    flex: 2,
+                    child: ElevatedButton(
+                      onPressed: _isLoading ? null : _saveSettings,
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.all(16),
+                        backgroundColor: Colors.blue,
+                        foregroundColor: Colors.white,
                       ),
-              ),
-              const SizedBox(height: 12),
-              OutlinedButton(
-                onPressed: _isLoading
-                    ? null
-                    : () async {
+                      child: _isLoading
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor:
+                                    AlwaysStoppedAnimation<Color>(Colors.white),
+                              ),
+                            )
+                          : Text(
+                              _hasExistingConfig ? '설정 수정' : '설정 저장',
+                              style: const TextStyle(fontSize: 16),
+                            ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    flex: 1,
+                    child: OutlinedButton(
+                      onPressed: _isLoading
+                          ? null
+                          : () async {
+                        // Check login status
+                        if (!_isLoggedIn) {
+                          _showLoginRequiredDialog();
+                          return;
+                        }
+
                         // 확인 대화상자
                         final confirm = await showDialog<bool>(
                           context: context,
@@ -395,22 +469,71 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           await widget.storageService.clearAll();
                           if (mounted) {
                             Navigator.of(context).pushReplacementNamed('/');
+                            }
                           }
-                        }
-                      },
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.all(16),
-                  foregroundColor: Colors.red,
-                ),
-                child: const Text(
-                  '앱 초기화',
-                  style: TextStyle(fontSize: 16),
-                ),
+                        },
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.all(16),
+                        foregroundColor: Colors.red,
+                      ),
+                      child: const Text(
+                        '설정 초기화',
+                        style: TextStyle(fontSize: 16),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
         ),
       ),
     );
+  }
+
+  void _showLoginRequiredDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.lock, color: Colors.orange),
+            SizedBox(width: 8),
+            Text('로그인 필요'),
+          ],
+        ),
+        content: const Text('설정을 변경하려면 로그인이 필요합니다.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _navigateToLogin();
+            },
+            child: const Text('로그인'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _navigateToLogin() async {
+    final result = await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => LoginScreen(
+          apiService: widget.apiService,
+          storageService: widget.storageService,
+        ),
+      ),
+    );
+
+    // 로그인 화면에서 돌아온 후 상태 업데이트
+    if (mounted) {
+      _checkLoginStatus();
+      setState(() {});
+    }
   }
 }
