@@ -11,6 +11,9 @@ on:
     tags:
       - 'kiosk-downloader-v*'
 
+permissions:
+  contents: write
+
 jobs:
   build-and-release:
     runs-on: windows-latest
