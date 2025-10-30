@@ -265,6 +265,15 @@ function Navbar() {
                 사용법
               </Link>
             </li>
+            <li>
+              <Link
+                to="/downloader-guide"
+                className={location.pathname === '/downloader-guide' ? 'active' : ''}
+                onClick={closeMenu}
+              >
+                다운로더 앱
+              </Link>
+            </li>
           </ul>
 
           <div className="navbar-user">
