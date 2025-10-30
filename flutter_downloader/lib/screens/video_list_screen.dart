@@ -115,18 +115,34 @@ class _VideoListScreenState extends State<VideoListScreen> {
   Future<void> _initWebSocket() async {
     final config = widget.storageService.getConfig();
 
+    // 설정이 없거나 유효하지 않으면 WebSocket 연결 안 함
     if (config == null || !config.isValid) {
-      print('WebSocket: Cannot initialize - invalid config');
+      print('WebSocket: 설정이 없어 연결하지 않습니다');
+      return;
+    }
+
+    // kioskId가 없으면 WebSocket 연결 안 함
+    if (config.kioskId.isEmpty) {
+      print('WebSocket: kioskId가 없어 연결하지 않습니다');
       return;
     }
 
     try {
       // Get kiosk info to obtain kiosk number
-      print('WebSocket: Fetching kiosk info...');
+      print('WebSocket: Fetching kiosk info for ${config.kioskId}...');
       final kiosk = await widget.apiService.getKiosk(config.kioskId);
 
+      // kioskNumber가 없으면 WebSocket 연결 안 함
       if (kiosk.kioskNumber == null) {
-        print('WebSocket: Cannot initialize - kioskNumber is null');
+        print('WebSocket: kioskNumber가 설정되지 않아 연결하지 않습니다');
+        print('WebSocket: 실시간 동기화를 사용하려면 백엔드에서 kiosk_number를 설정하세요');
+        // WebSocket 없이도 앱은 정상 동작 (수동 새로고침 사용)
+        return;
+      }
+
+      // posId가 없으면 WebSocket 연결 안 함
+      if (config.posId == null || config.posId!.isEmpty) {
+        print('WebSocket: posId가 없어 연결하지 않습니다');
         return;
       }
 
@@ -134,7 +150,7 @@ class _VideoListScreenState extends State<VideoListScreen> {
       print('WebSocket: Requesting kiosk token...');
       final kioskToken = await widget.apiService.getKioskToken(
         config.kioskId,
-        config.posId ?? '',
+        config.posId!,
         kiosk.kioskNumber!,
       );
 
@@ -174,14 +190,8 @@ class _VideoListScreenState extends State<VideoListScreen> {
       _webSocketService.connect();
     } catch (e) {
       print('WebSocket: Initialization failed: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('웹소켓 연결 실패: ${e.toString().replaceFirst('Exception: ', '')}'),
-            backgroundColor: Colors.orange,
-          ),
-        );
-      }
+      print('WebSocket: 앱은 WebSocket 없이 계속 동작합니다 (수동 새로고침 사용 가능)');
+      // WebSocket 연결 실패는 치명적이지 않음 - 조용히 실패하고 수동 새로고침만 사용
     }
   }
 
@@ -277,6 +287,7 @@ class _VideoListScreenState extends State<VideoListScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: false, // Remove back button from main screen
         title: Row(
           children: [
             Text('영상 목록 - ${config?.kioskId ?? ""}'),
@@ -347,18 +358,85 @@ class _VideoListScreenState extends State<VideoListScreen> {
               _wsConnected ? Icons.sync : Icons.sync_disabled,
               color: _wsConnected ? Colors.white : Colors.grey,
             ),
-            onPressed: _wsConnected
-                ? () {
-                    _resetAutoLogoutTimer();
-                    _webSocketService.requestSync();
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('동기화 요청을 보냈습니다'),
-                        duration: Duration(seconds: 2),
+            onPressed: () {
+              _resetAutoLogoutTimer();
+
+              // kioskId 검증
+              final config = widget.storageService.getConfig();
+              if (config == null || config.kioskId.isEmpty) {
+                showDialog(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: const Row(
+                      children: [
+                        Icon(Icons.error_outline, color: Colors.red),
+                        SizedBox(width: 8),
+                        Text('동기화 오류'),
+                      ],
+                    ),
+                    content: const Text(
+                      '키오스크 ID가 설정되지 않았습니다.\n설정 화면에서 키오스크 정보를 입력해주세요.',
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('확인'),
                       ),
-                    );
-                  }
-                : null,
+                      TextButton(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => SettingsScreen(
+                                apiService: widget.apiService,
+                                storageService: widget.storageService,
+                              ),
+                            ),
+                          );
+                        },
+                        child: const Text('설정으로 이동'),
+                      ),
+                    ],
+                  ),
+                );
+                return;
+              }
+
+              // WebSocket 연결 확인
+              if (!_wsConnected) {
+                showDialog(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: const Row(
+                      children: [
+                        Icon(Icons.cloud_off, color: Colors.orange),
+                        SizedBox(width: 8),
+                        Text('연결 오류'),
+                      ],
+                    ),
+                    content: const Text(
+                      'WebSocket이 연결되지 않았습니다.\n\n가능한 원인:\n• 키오스크 번호(kiosk_number)가 설정되지 않음\n• POS ID가 설정되지 않음\n• 서버 연결 실패\n\n수동 새로고침 버튼을 사용하세요.',
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('확인'),
+                      ),
+                    ],
+                  ),
+                );
+                return;
+              }
+
+              // 동기화 요청
+              _webSocketService.requestSync();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('동기화 요청을 보냈습니다'),
+                  duration: Duration(seconds: 2),
+                ),
+              );
+            },
             tooltip: '동기화 요청',
           ),
         ],

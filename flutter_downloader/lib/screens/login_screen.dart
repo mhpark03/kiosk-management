@@ -30,6 +30,26 @@ class _LoginScreenState extends State<LoginScreen> {
   final _customServerController = TextEditingController();
 
   @override
+  void initState() {
+    super.initState();
+    _loadLastServerSelection();
+  }
+
+  void _loadLastServerSelection() {
+    final lastServer = widget.storageService.getLastServer();
+    final customUrl = widget.storageService.getCustomServerUrl();
+
+    if (lastServer != null) {
+      setState(() {
+        _selectedServer = lastServer;
+        if (lastServer == 'custom' && customUrl != null) {
+          _customServerController.text = customUrl;
+        }
+      });
+    }
+  }
+
+  @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
@@ -174,10 +194,12 @@ class _LoginScreenState extends State<LoginScreen> {
                           child: Text('직접 입력'),
                         ),
                       ],
-                      onChanged: _isLoading ? null : (value) {
+                      onChanged: _isLoading ? null : (value) async {
                         setState(() {
                           _selectedServer = value!;
                         });
+                        // Save server selection
+                        await widget.storageService.saveLastServer(value!);
                       },
                     ),
                     if (_selectedServer == 'custom') ...[
@@ -191,6 +213,12 @@ class _LoginScreenState extends State<LoginScreen> {
                           border: OutlineInputBorder(),
                         ),
                         enabled: !_isLoading,
+                        onChanged: (value) async {
+                          // Save custom server URL
+                          if (value.isNotEmpty) {
+                            await widget.storageService.saveCustomServerUrl(value);
+                          }
+                        },
                         validator: (value) {
                           if (_selectedServer == 'custom' &&
                               (value == null || value.isEmpty)) {

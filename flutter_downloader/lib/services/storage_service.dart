@@ -8,6 +8,8 @@ class StorageService {
   static const String _keyUser = 'user';
   static const String _keyConfig = 'kiosk_config';
   static const String _keyToken = 'auth_token';
+  static const String _keyLastServer = 'last_server';
+  static const String _keyCustomServerUrl = 'custom_server_url';
 
   final SharedPreferences _prefs;
   final FlutterSecureStorage _secureStorage;
@@ -89,5 +91,22 @@ class StorageService {
   bool isConfigured() {
     final config = getConfig();
     return config != null && config.isValid;
+  }
+
+  // Server selection management
+  Future<void> saveLastServer(String serverValue) async {
+    await _prefs.setString(_keyLastServer, serverValue);
+  }
+
+  String? getLastServer() {
+    return _prefs.getString(_keyLastServer);
+  }
+
+  Future<void> saveCustomServerUrl(String url) async {
+    await _prefs.setString(_keyCustomServerUrl, url);
+  }
+
+  String? getCustomServerUrl() {
+    return _prefs.getString(_keyCustomServerUrl);
   }
 }
