@@ -1,0 +1,95 @@
+name: Release Video Editor
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g., v1.1.0)'
+        required: true
+        default: 'v1.1.0'
+  push:
+    tags:
+      - 'video-editor-v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+    environment: production
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+
+    - name: Install dependencies
+      run: |
+        cd video-editor
+        npm install
+
+    - name: Build Windows installer
+      run: |
+        cd video-editor
+        npm run build:win
+
+    - name: Get version
+      id: get_version
+      shell: bash
+      run: |
+        if [[ "${{ github.event_name }}" == "push" ]]; then
+          echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+        else
+          echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: ${{ steps.get_version.outputs.version }}
+        name: Kiosk Video Editor ${{ steps.get_version.outputs.version }}
+        body: |
+          ## Kiosk Video Editor Release
+
+          ### Changes
+          - Enhanced video/audio editing features
+          - Improved color picker UI with history popup
+          - Added font selection and style options for text/subtitles
+          - Optimized text overlay processing (3-segment approach)
+          - Added speed adjustment preview for video/audio
+          - Improved video merge with 10 transition effects
+          - Removed standalone transition button (integrated into merge)
+
+          ### Features
+          - **Video Editing**: Trim, merge, speed control, filters
+          - **Audio Editing**: Extract, trim, volume control, speed adjustment, merge
+          - **Text/Subtitles**: Multiple fonts, styles, positions, colors with history
+          - **Effects**: Filters, text overlay, transitions
+          - **Preview**: Real-time preview for speed and merge operations
+
+          ### Installation
+          1. Download `Kiosk.Video.Editor.Setup.${{ steps.get_version.outputs.version }}.exe`
+          2. Run the installer
+          3. Follow the installation wizard
+
+          ### System Requirements
+          - Windows 10 or later
+          - FFmpeg (bundled or system-installed)
+          - 200 MB free disk space
+
+          ### Note
+          FFmpeg must be available in system PATH or placed in the application directory for video processing features.
+
+          🤖 Generated with [Claude Code](https://claude.com/claude-code)
+        files: |
+          video-editor/dist/*.exe
+          video-editor/dist/*.exe.blockmap
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
