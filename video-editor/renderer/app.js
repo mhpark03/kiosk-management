@@ -5605,6 +5605,10 @@ function updateModeUI() {
           <span class="icon">🔊</span>
           볼륨 조절
         </button>
+        <button class="tool-btn" data-tool="audio-speed">
+          <span class="icon">⚡</span>
+          속도 조절
+        </button>
       </div>
       <div class="tool-section">
         <h3>내보내기</h3>
