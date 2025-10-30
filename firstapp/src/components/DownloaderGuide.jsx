@@ -92,6 +92,26 @@ function DownloaderGuide() {
         <section className="guide-section">
           <h2>⚙️ 초기 설정</h2>
 
+          <div className="alert alert-warning" style={{marginBottom: '20px'}}>
+            🔐 <strong>중요</strong>: 모든 설정 작업은 <strong>로그인 상태</strong>에서만 가능합니다.
+            먼저 웹 대시보드에서 승인받은 계정으로 로그인해주세요.
+          </div>
+
+          <div className="step-card">
+            <h3>로그인</h3>
+            <p>앱 실행 후 가장 먼저 로그인을 진행합니다.</p>
+
+            <ol>
+              <li>앱 상단의 "로그인" 버튼 클릭</li>
+              <li>웹 대시보드와 동일한 이메일/비밀번호 입력</li>
+              <li>로그인 성공 시 사용자 이름 표시</li>
+            </ol>
+
+            <div className="alert alert-info">
+              💡 <strong>참고</strong>: 웹 대시보드에서 관리자 승인을 받은 계정만 로그인할 수 있습니다.
+            </div>
+          </div>
+
           <div className="step-card">
             <h3>서버 선택</h3>
             <p>앱 상단의 서버 선택 라디오 버튼에서 서버를 선택합니다.</p>
@@ -300,6 +320,31 @@ function DownloaderGuide() {
           <h2>🔧 문제 해결</h2>
 
           <div className="troubleshooting">
+            <h3>로그인 실패</h3>
+            <p><strong>증상</strong>: "로그인에 실패했습니다" 오류</p>
+            <p><strong>해결방법</strong>:</p>
+            <ol>
+              <li>이메일과 비밀번호가 정확한지 확인</li>
+              <li>웹 대시보드에서 로그인 가능한지 확인</li>
+              <li>관리자의 승인을 받았는지 확인 (PENDING_APPROVAL 상태가 아닌지)</li>
+              <li>서버 연결 상태 확인</li>
+              <li>앱 재시작 후 다시 시도</li>
+            </ol>
+          </div>
+
+          <div className="troubleshooting">
+            <h3>설정 저장 불가</h3>
+            <p><strong>증상</strong>: 설정 저장 시 오류 발생</p>
+            <p><strong>해결방법</strong>:</p>
+            <ol>
+              <li><strong>로그인 상태 확인</strong> (로그인하지 않으면 설정 불가)</li>
+              <li>앱 상단에 사용자 이름이 표시되어 있는지 확인</li>
+              <li>로그아웃 상태라면 다시 로그인</li>
+              <li>모든 필수 항목이 입력되었는지 확인</li>
+            </ol>
+          </div>
+
+          <div className="troubleshooting">
             <h3>서버 연결 실패</h3>
             <p><strong>증상</strong>: "서버에 연결할 수 없습니다" 오류</p>
             <p><strong>해결방법</strong>:</p>
@@ -488,6 +533,10 @@ function DownloaderGuide() {
             <label>
               <input type="checkbox" />
               <span>앱 다운로드 및 설치 완료</span>
+            </label>
+            <label>
+              <input type="checkbox" />
+              <span>로그인 완료 (승인받은 계정으로)</span>
             </label>
             <label>
               <input type="checkbox" />
