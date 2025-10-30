@@ -34,77 +34,85 @@ class Video {
   });
 
   factory Video.fromJson(Map<String, dynamic> json) {
-    // Support both VideoDTO and KioskVideoDTO formats
-    // KioskVideoDTO uses: fileName, fileSize, url, videoId
-    // VideoDTO uses: filename, fileSizeBytes, s3Url
+    try {
+      print('[Video.fromJson] Parsing JSON: ${json.keys.toList()}');
 
-    // Handle id field (could be 'id' or 'videoId', and could be int or String)
-    int videoId;
-    if (json['videoId'] != null) {
-      videoId = json['videoId'] is int
-          ? json['videoId'] as int
-          : int.parse(json['videoId'].toString());
-    } else if (json['id'] != null) {
-      videoId = json['id'] is int
-          ? json['id'] as int
-          : int.parse(json['id'].toString());
-    } else {
-      throw FormatException('Video JSON missing id or videoId field');
+      // Support both VideoDTO and KioskVideoDTO formats
+      // KioskVideoDTO uses: fileName, fileSize, url, videoId
+      // VideoDTO uses: filename, fileSizeBytes, s3Url
+
+      // Handle id field (could be 'id' or 'videoId', and could be int or String)
+      int videoId;
+      if (json['videoId'] != null) {
+        final rawId = json['videoId'];
+        print('[Video.fromJson] videoId type: ${rawId.runtimeType}, value: $rawId');
+        videoId = rawId is int ? rawId : int.parse(rawId.toString());
+      } else if (json['id'] != null) {
+        final rawId = json['id'];
+        print('[Video.fromJson] id type: ${rawId.runtimeType}, value: $rawId');
+        videoId = rawId is int ? rawId : int.parse(rawId.toString());
+      } else {
+        throw FormatException('Video JSON missing id or videoId field');
+      }
+
+      // Handle filename field (could be 'filename' or 'fileName')
+      String videoFilename;
+      if (json['fileName'] != null) {
+        videoFilename = json['fileName'].toString();
+      } else if (json['filename'] != null) {
+        videoFilename = json['filename'].toString();
+      } else {
+        print('[Video.fromJson] WARNING: Missing filename, using default');
+        videoFilename = 'unknown.mp4';
+      }
+
+      // Handle file size (could be 'fileSizeBytes' or 'fileSize')
+      int? videoFileSize;
+      if (json['fileSizeBytes'] != null) {
+        final rawSize = json['fileSizeBytes'];
+        videoFileSize = rawSize is int ? rawSize : (rawSize as num).toInt();
+      } else if (json['fileSize'] != null) {
+        final rawSize = json['fileSize'];
+        videoFileSize = rawSize is int ? rawSize : (rawSize as num).toInt();
+      }
+
+      // Handle URL (could be 's3Url' or 'url')
+      final String? videoUrl = (json['s3Url'] as String?) ?? (json['url'] as String?);
+
+      // Handle title
+      final String title = json['title']?.toString() ?? 'Untitled';
+
+      // Handle dates - updatedAt might not exist in KioskVideoDTO
+      DateTime createdAtDate;
+      if (json['createdAt'] != null) {
+        createdAtDate = DateTime.parse(json['createdAt'] as String);
+      } else {
+        createdAtDate = DateTime.now();
+      }
+
+      final DateTime updatedAtDate = json['updatedAt'] != null
+          ? DateTime.parse(json['updatedAt'] as String)
+          : createdAtDate; // Use createdAt as fallback
+
+      return Video(
+        id: videoId,
+        title: title,
+        description: json['description']?.toString(),
+        filename: videoFilename,
+        s3Url: videoUrl,
+        thumbnailUrl: json['thumbnailUrl']?.toString(),
+        fileSizeBytes: videoFileSize,
+        videoType: json['videoType']?.toString() ?? 'UPLOAD',
+        mediaType: json['mediaType']?.toString() ?? 'VIDEO',
+        createdAt: createdAtDate,
+        updatedAt: updatedAtDate,
+      );
+    } catch (e, stackTrace) {
+      print('[Video.fromJson] ERROR parsing video JSON: $e');
+      print('[Video.fromJson] JSON data: $json');
+      print('[Video.fromJson] Stack trace: $stackTrace');
+      rethrow;
     }
-
-    // Handle filename field (could be 'filename' or 'fileName')
-    String videoFilename;
-    if (json['fileName'] != null) {
-      videoFilename = json['fileName'] as String;
-    } else if (json['filename'] != null) {
-      videoFilename = json['filename'] as String;
-    } else {
-      throw FormatException('Video JSON missing filename or fileName field');
-    }
-
-    // Handle file size (could be 'fileSizeBytes' or 'fileSize')
-    int? videoFileSize;
-    if (json['fileSizeBytes'] != null) {
-      videoFileSize = json['fileSizeBytes'] is int
-          ? json['fileSizeBytes'] as int
-          : (json['fileSizeBytes'] as num).toInt();
-    } else if (json['fileSize'] != null) {
-      videoFileSize = json['fileSize'] is int
-          ? json['fileSize'] as int
-          : (json['fileSize'] as num).toInt();
-    }
-
-    // Handle URL (could be 's3Url' or 'url')
-    final String? videoUrl = (json['s3Url'] as String?) ?? (json['url'] as String?);
-
-    // Handle title
-    final String title = json['title'] as String? ?? 'Untitled';
-
-    // Handle dates - updatedAt might not exist in KioskVideoDTO
-    DateTime createdAtDate;
-    if (json['createdAt'] != null) {
-      createdAtDate = DateTime.parse(json['createdAt'] as String);
-    } else {
-      createdAtDate = DateTime.now();
-    }
-
-    final DateTime updatedAtDate = json['updatedAt'] != null
-        ? DateTime.parse(json['updatedAt'] as String)
-        : createdAtDate; // Use createdAt as fallback
-
-    return Video(
-      id: videoId,
-      title: title,
-      description: json['description'] as String?,
-      filename: videoFilename,
-      s3Url: videoUrl,
-      thumbnailUrl: json['thumbnailUrl'] as String?,
-      fileSizeBytes: videoFileSize,
-      videoType: json['videoType'] as String? ?? 'UPLOAD',
-      mediaType: json['mediaType'] as String? ?? 'VIDEO',
-      createdAt: createdAtDate,
-      updatedAt: updatedAtDate,
-    );
   }
 
   Map<String, dynamic> toJson() {
