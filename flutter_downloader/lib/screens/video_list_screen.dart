@@ -554,88 +554,163 @@ class _VideoListScreenState extends State<VideoListScreen> {
                       itemBuilder: (context, index) {
                         final video = _videos[index];
                         return Card(
-                          margin: const EdgeInsets.only(bottom: 16),
+                          margin: const EdgeInsets.only(bottom: 12),
                           child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                            padding: const EdgeInsets.all(12),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
-                                Text(
-                                  video.title,
-                                  style: const TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
+                                // 썸네일 또는 아이콘
+                                Container(
+                                  width: 60,
+                                  height: 60,
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey.shade200,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Icon(
+                                    video.mediaType == 'VIDEO'
+                                        ? Icons.videocam
+                                        : Icons.image,
+                                    size: 32,
+                                    color: Colors.grey.shade600,
                                   ),
                                 ),
-                                const SizedBox(height: 8),
-                                if (video.description != null)
-                                  Text(
-                                    video.description!,
-                                    style: const TextStyle(color: Colors.grey),
-                                  ),
-                                const SizedBox(height: 8),
-                                Row(
-                                  children: [
-                                    Chip(
-                                      label: Text(video.mediaType),
-                                      backgroundColor: Colors.blue.shade100,
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      video.fileSizeDisplay,
-                                      style: const TextStyle(color: Colors.grey),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 16),
-                                if (video.downloadStatus == 'downloading')
-                                  Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.stretch,
+                                const SizedBox(width: 16),
+
+                                // 영상 정보 (확장)
+                                Expanded(
+                                  flex: 3,
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      LinearProgressIndicator(
-                                        value: video.downloadProgress,
-                                      ),
-                                      const SizedBox(height: 8),
                                       Text(
-                                        '다운로드 중... ${(video.downloadProgress * 100).toInt()}%',
-                                        textAlign: TextAlign.center,
+                                        video.title,
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
                                       ),
+                                      if (video.description != null) ...[
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          video.description!,
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            color: Colors.grey.shade600,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ],
                                     ],
-                                  )
-                                else if (video.downloadStatus == 'completed')
-                                  Row(
-                                    children: [
-                                      const Icon(
-                                        Icons.check_circle,
-                                        color: Colors.green,
-                                      ),
-                                      const SizedBox(width: 8),
-                                      const Text(
-                                        '다운로드 완료',
-                                        style: TextStyle(color: Colors.green),
-                                      ),
-                                    ],
-                                  )
-                                else if (video.downloadStatus == 'failed')
-                                  ElevatedButton.icon(
-                                    onPressed: () => _downloadVideo(video),
-                                    icon: const Icon(Icons.refresh),
-                                    label: const Text('재시도'),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.orange,
-                                    ),
-                                  )
-                                else
-                                  ElevatedButton.icon(
-                                    onPressed: () => _downloadVideo(video),
-                                    icon: const Icon(Icons.download),
-                                    label: const Text('다운로드'),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.blue,
-                                      foregroundColor: Colors.white,
-                                    ),
                                   ),
+                                ),
+                                const SizedBox(width: 16),
+
+                                // 메타 정보
+                                SizedBox(
+                                  width: 120,
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                              vertical: 4,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: Colors.blue.shade100,
+                                              borderRadius: BorderRadius.circular(4),
+                                            ),
+                                            child: Text(
+                                              video.mediaType,
+                                              style: const TextStyle(fontSize: 11),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        video.fileSizeDisplay,
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey.shade600,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 16),
+
+                                // 다운로드 상태 및 버튼
+                                SizedBox(
+                                  width: 180,
+                                  child: video.downloadStatus == 'downloading'
+                                      ? Column(
+                                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                                          children: [
+                                            LinearProgressIndicator(
+                                              value: video.downloadProgress,
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              '다운로드 중 ${(video.downloadProgress * 100).toInt()}%',
+                                              textAlign: TextAlign.center,
+                                              style: const TextStyle(fontSize: 12),
+                                            ),
+                                          ],
+                                        )
+                                      : video.downloadStatus == 'completed'
+                                          ? Row(
+                                              mainAxisAlignment: MainAxisAlignment.center,
+                                              children: [
+                                                const Icon(
+                                                  Icons.check_circle,
+                                                  color: Colors.green,
+                                                  size: 20,
+                                                ),
+                                                const SizedBox(width: 8),
+                                                const Text(
+                                                  '완료',
+                                                  style: TextStyle(
+                                                    color: Colors.green,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                              ],
+                                            )
+                                          : video.downloadStatus == 'failed'
+                                              ? ElevatedButton.icon(
+                                                  onPressed: () => _downloadVideo(video),
+                                                  icon: const Icon(Icons.refresh, size: 18),
+                                                  label: const Text('재시도'),
+                                                  style: ElevatedButton.styleFrom(
+                                                    backgroundColor: Colors.orange,
+                                                    padding: const EdgeInsets.symmetric(
+                                                      horizontal: 12,
+                                                      vertical: 8,
+                                                    ),
+                                                  ),
+                                                )
+                                              : ElevatedButton.icon(
+                                                  onPressed: () => _downloadVideo(video),
+                                                  icon: const Icon(Icons.download, size: 18),
+                                                  label: const Text('다운로드'),
+                                                  style: ElevatedButton.styleFrom(
+                                                    backgroundColor: Colors.blue,
+                                                    foregroundColor: Colors.white,
+                                                    padding: const EdgeInsets.symmetric(
+                                                      horizontal: 12,
+                                                      vertical: 8,
+                                                    ),
+                                                  ),
+                                                ),
+                                ),
                               ],
                             ),
                           ),
