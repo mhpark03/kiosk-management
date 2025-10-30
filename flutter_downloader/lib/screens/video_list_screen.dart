@@ -386,10 +386,15 @@ class _VideoListScreenState extends State<VideoListScreen> {
         return;
       }
 
-      // Get download URL
-      print('[DOWNLOAD] Requesting download URL from API...');
-      final downloadUrl = await widget.apiService.getVideoDownloadUrl(video.id);
-      print('[DOWNLOAD] Got download URL, starting file download...');
+      // Check if video has S3 URL
+      if (video.s3Url == null || video.s3Url!.isEmpty) {
+        print('[DOWNLOAD] Video ${video.id} has no S3 URL');
+        throw Exception('영상 다운로드 URL이 없습니다');
+      }
+
+      // Use S3 URL directly (like kiosk-downloader does)
+      final downloadUrl = video.s3Url!;
+      print('[DOWNLOAD] Using S3 URL: ${downloadUrl.substring(0, downloadUrl.length > 100 ? 100 : downloadUrl.length)}...');
 
       // Create kioskId subdirectory: Downloads/KioskVideos/[KioskId]
       final kioskDownloadPath = '${config.downloadPath}\\${config.kioskId}';
