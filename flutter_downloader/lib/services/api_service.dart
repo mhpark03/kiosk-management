@@ -1,0 +1,197 @@
+import 'package:dio/dio.dart';
+import '../models/user.dart';
+import '../models/video.dart';
+import '../models/kiosk.dart';
+
+class ApiService {
+  late final Dio _dio;
+  String? _authToken;
+  String _baseUrl;
+
+  ApiService({required String baseUrl}) : _baseUrl = baseUrl {
+    _dio = Dio(BaseOptions(
+      baseUrl: _baseUrl,
+      connectTimeout: const Duration(seconds: 30),
+      receiveTimeout: const Duration(seconds: 30),
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+    ));
+
+    // Add interceptor for logging and token handling
+    _dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          if (_authToken != null) {
+            options.headers['Authorization'] = 'Bearer $_authToken';
+          }
+          return handler.next(options);
+        },
+        onError: (error, handler) {
+          print('API Error: ${error.message}');
+          return handler.next(error);
+        },
+      ),
+    );
+  }
+
+  void setBaseUrl(String url) {
+    _baseUrl = url;
+    _dio.options.baseUrl = url;
+  }
+
+  void setAuthToken(String? token) {
+    _authToken = token;
+  }
+
+  // Login
+  Future<User> login(String email, String password) async {
+    try {
+      final response = await _dio.post(
+        '/auth/login',
+        data: {
+          'email': email,
+          'password': password,
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final user = User.fromJson(response.data);
+        if (user.token != null) {
+          setAuthToken(user.token);
+        }
+        return user;
+      } else {
+        throw Exception('Login failed: ${response.statusCode}');
+      }
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 401) {
+        throw Exception('이메일 또는 비밀번호가 올바르지 않습니다');
+      } else if (e.response?.data != null && e.response?.data['message'] != null) {
+        throw Exception(e.response?.data['message']);
+      } else {
+        throw Exception('서버 연결에 실패했습니다: ${e.message}');
+      }
+    } catch (e) {
+      throw Exception('로그인 중 오류가 발생했습니다: $e');
+    }
+  }
+
+  // Get kiosk info by ID
+  Future<Kiosk> getKiosk(String kioskId) async {
+    try {
+      final response = await _dio.get('/kiosks/kioskid/$kioskId');
+
+      if (response.statusCode == 200) {
+        return Kiosk.fromJson(response.data);
+      } else {
+        throw Exception('Kiosk not found: ${response.statusCode}');
+      }
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) {
+        throw Exception('키오스크를 찾을 수 없습니다');
+      } else if (e.response?.data != null && e.response?.data['message'] != null) {
+        throw Exception(e.response?.data['message']);
+      } else {
+        throw Exception('서버 연결에 실패했습니다: ${e.message}');
+      }
+    } catch (e) {
+      throw Exception('키오스크 정보 조회 중 오류가 발생했습니다: $e');
+    }
+  }
+
+  // Get videos assigned to kiosk
+  Future<List<Video>> getKioskVideos(String kioskId) async {
+    try {
+      final response = await _dio.get('/kiosks/kioskid/$kioskId');
+
+      if (response.statusCode == 200) {
+        final kiosk = response.data;
+        final List<dynamic> videosList = kiosk['videos'] ?? [];
+        return videosList.map((json) => Video.fromJson(json)).toList();
+      } else {
+        throw Exception('Failed to get videos: ${response.statusCode}');
+      }
+    } on DioException catch (e) {
+      if (e.response?.data != null && e.response?.data['message'] != null) {
+        throw Exception(e.response?.data['message']);
+      } else {
+        throw Exception('서버 연결에 실패했습니다: ${e.message}');
+      }
+    } catch (e) {
+      throw Exception('영상 목록 조회 중 오류가 발생했습니다: $e');
+    }
+  }
+
+  // Get download URL for video
+  Future<String> getVideoDownloadUrl(int videoId) async {
+    try {
+      final response = await _dio.get('/videos/$videoId/download-url');
+
+      if (response.statusCode == 200) {
+        return response.data['downloadUrl'] as String;
+      } else {
+        throw Exception('Failed to get download URL: ${response.statusCode}');
+      }
+    } on DioException catch (e) {
+      if (e.response?.data != null && e.response?.data['message'] != null) {
+        throw Exception(e.response?.data['message']);
+      } else {
+        throw Exception('서버 연결에 실패했습니다: ${e.message}');
+      }
+    } catch (e) {
+      throw Exception('다운로드 URL 조회 중 오류가 발생했습니다: $e');
+    }
+  }
+
+  // Update kiosk configuration
+  Future<void> updateKioskConfig(
+    String kioskId,
+    String posId,
+    String downloadPath,
+    bool autoSyncEnabled,
+    int syncIntervalHours,
+  ) async {
+    try {
+      await _dio.put(
+        '/kiosks/$kioskId',
+        data: {
+          'posid': posId,
+          'download_path': downloadPath,
+          'auto_sync_enabled': autoSyncEnabled,
+          'sync_interval_hours': syncIntervalHours,
+        },
+      );
+    } on DioException catch (e) {
+      if (e.response?.data != null && e.response?.data['message'] != null) {
+        throw Exception(e.response?.data['message']);
+      } else {
+        throw Exception('서버 연결에 실패했습니다: ${e.message}');
+      }
+    } catch (e) {
+      throw Exception('설정 저장 중 오류가 발생했습니다: $e');
+    }
+  }
+
+  // Record event
+  Future<void> recordEvent(
+    String kioskId,
+    String eventType,
+    String? details,
+  ) async {
+    try {
+      await _dio.post(
+        '/kiosk-events',
+        data: {
+          'kioskId': kioskId,
+          'eventType': eventType,
+          'details': details,
+        },
+      );
+    } catch (e) {
+      // Ignore event recording errors
+      print('Failed to record event: $e');
+    }
+  }
+}
