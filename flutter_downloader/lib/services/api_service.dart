@@ -155,35 +155,6 @@ class ApiService {
     }
   }
 
-  // Update kiosk configuration
-  Future<void> updateKioskConfig(
-    String kioskId,
-    String posId,
-    String downloadPath,
-    bool autoSyncEnabled,
-    int syncIntervalHours,
-  ) async {
-    try {
-      await _dio.put(
-        '/kiosks/$kioskId',
-        data: {
-          'posid': posId,
-          'download_path': downloadPath,
-          'auto_sync_enabled': autoSyncEnabled,
-          'sync_interval_hours': syncIntervalHours,
-        },
-      );
-    } on DioException catch (e) {
-      if (e.response?.data != null && e.response?.data['message'] != null) {
-        throw Exception(e.response?.data['message']);
-      } else {
-        throw Exception('서버 연결에 실패했습니다: ${e.message}');
-      }
-    } catch (e) {
-      throw Exception('설정 저장 중 오류가 발생했습니다: $e');
-    }
-  }
-
   // Record event
   Future<void> recordEvent(
     String kioskId,
