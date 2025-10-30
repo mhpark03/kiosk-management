@@ -52,38 +52,38 @@ jobs:
       uses: softprops/action-gh-release@v1
       with:
         tag_name: ${{ steps.get_version.outputs.version }}
-        name: Kiosk Video Editor ${{ steps.get_version.outputs.version }}
+        name: 키오스크 영상 편집기 ${{ steps.get_version.outputs.version }}
         body: |
-          ## Kiosk Video Editor Release
+          ## 키오스크 영상 편집기 릴리즈
 
-          ### Changes
-          - Enhanced video/audio editing features
-          - Improved color picker UI with history popup
-          - Added font selection and style options for text/subtitles
-          - Optimized text overlay processing (3-segment approach)
-          - Added speed adjustment preview for video/audio
-          - Improved video merge with 10 transition effects
-          - Removed standalone transition button (integrated into merge)
+          ### 주요 변경사항
+          - 영상/음성 편집 기능 향상
+          - 색상 선택기 UI 개선 (히스토리 팝업 추가)
+          - 텍스트/자막에 폰트 선택 및 스타일 옵션 추가
+          - 텍스트 오버레이 처리 최적화 (3-세그먼트 방식)
+          - 영상/음성 속도 조절 미리보기 추가
+          - 영상 병합 기능 개선 (10가지 트랜지션 효과)
+          - 독립 트랜지션 버튼 제거 (병합 기능에 통합)
 
-          ### Features
-          - **Video Editing**: Trim, merge, speed control, filters
-          - **Audio Editing**: Extract, trim, volume control, speed adjustment, merge
-          - **Text/Subtitles**: Multiple fonts, styles, positions, colors with history
-          - **Effects**: Filters, text overlay, transitions
-          - **Preview**: Real-time preview for speed and merge operations
+          ### 주요 기능
+          - **영상 편집**: 자르기, 병합, 속도 조절, 필터
+          - **오디오 편집**: 추출, 자르기, 볼륨 조절, 속도 조절, 병합
+          - **텍스트/자막**: 다양한 폰트, 스타일, 위치, 색상 히스토리
+          - **효과**: 필터, 텍스트 오버레이, 트랜지션
+          - **미리보기**: 속도 및 병합 작업 실시간 미리보기
 
-          ### Installation
-          1. Download `Kiosk.Video.Editor.Setup.${{ steps.get_version.outputs.version }}.exe`
-          2. Run the installer
-          3. Follow the installation wizard
+          ### 설치 방법
+          1. `Kiosk.Video.Editor.Setup.${{ steps.get_version.outputs.version }}.exe` 다운로드
+          2. 설치 파일 실행
+          3. 설치 마법사 지시에 따라 진행
 
-          ### System Requirements
-          - Windows 10 or later
-          - FFmpeg (bundled or system-installed)
-          - 200 MB free disk space
+          ### 시스템 요구사항
+          - Windows 10 이상
+          - FFmpeg (번들 포함 또는 시스템 설치)
+          - 200 MB 이상의 여유 디스크 공간
 
-          ### Note
-          FFmpeg must be available in system PATH or placed in the application directory for video processing features.
+          ### 참고사항
+          영상 처리 기능을 사용하려면 FFmpeg가 시스템 PATH에 있거나 애플리케이션 디렉터리에 있어야 합니다.
 
           🤖 Generated with [Claude Code](https://claude.com/claude-code)
         files: |
