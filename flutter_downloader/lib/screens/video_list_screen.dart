@@ -714,31 +714,34 @@ class _VideoListScreenState extends State<VideoListScreen> {
                       padding: const EdgeInsets.all(16),
                       itemBuilder: (context, index) {
                         final video = _videos[index];
+                        final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+                        final thumbnailSize = isLandscape ? 60.0 : 48.0;
+
                         return Card(
-                          margin: const EdgeInsets.only(bottom: 12),
+                          margin: EdgeInsets.only(bottom: isLandscape ? 12 : 8),
                           child: Padding(
-                            padding: const EdgeInsets.all(12),
+                            padding: EdgeInsets.all(isLandscape ? 12 : 8),
                             child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 // 썸네일
                                 Container(
-                                  width: 60,
-                                  height: 60,
+                                  width: thumbnailSize,
+                                  height: thumbnailSize,
                                   decoration: BoxDecoration(
                                     color: Colors.grey.shade200,
-                                    borderRadius: BorderRadius.circular(8),
+                                    borderRadius: BorderRadius.circular(6),
                                   ),
                                   child: video.thumbnailUrl != null && video.thumbnailUrl!.isNotEmpty
                                       ? ClipRRect(
-                                          borderRadius: BorderRadius.circular(8),
+                                          borderRadius: BorderRadius.circular(6),
                                           child: Image.network(
                                             video.thumbnailUrl!,
                                             fit: BoxFit.cover,
                                             errorBuilder: (context, error, stackTrace) {
                                               return Icon(
                                                 Icons.videocam,
-                                                size: 32,
+                                                size: isLandscape ? 28 : 24,
                                                 color: Colors.grey.shade600,
                                               );
                                             },
@@ -746,148 +749,238 @@ class _VideoListScreenState extends State<VideoListScreen> {
                                         )
                                       : Icon(
                                           Icons.videocam,
-                                          size: 32,
+                                          size: isLandscape ? 28 : 24,
                                           color: Colors.grey.shade600,
                                         ),
                                 ),
-                                const SizedBox(width: 12),
+                                SizedBox(width: isLandscape ? 12 : 8),
 
-                                // 제목과 설명 (가로로 나란히, 우선 표시)
+                                // 제목과 설명
                                 Expanded(
-                                  child: Row(
-                                    children: [
-                                      // 영상 ID
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 6,
-                                          vertical: 2,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: Colors.grey.shade300,
-                                          borderRadius: BorderRadius.circular(4),
-                                        ),
-                                        child: Text(
-                                          '#${video.id}',
-                                          style: TextStyle(
-                                            fontSize: 11,
-                                            color: Colors.grey.shade700,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      // 제목
-                                      Flexible(
-                                        flex: 2,
-                                        child: Text(
-                                          video.title,
-                                          style: const TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                      if (video.description != null) ...[
-                                        const SizedBox(width: 12),
-                                        // 설명
-                                        Flexible(
-                                          flex: 3,
-                                          child: Text(
-                                            video.description!,
-                                            style: TextStyle(
-                                              fontSize: 13,
-                                              color: Colors.grey.shade600,
+                                  child: isLandscape
+                                    ? Row(
+                                        children: [
+                                          // 영상 ID
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 6,
+                                              vertical: 2,
                                             ),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
+                                            decoration: BoxDecoration(
+                                              color: Colors.grey.shade300,
+                                              borderRadius: BorderRadius.circular(4),
+                                            ),
+                                            child: Text(
+                                              '#${video.id}',
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                color: Colors.grey.shade700,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
                                           ),
-                                        ),
-                                      ],
-                                    ],
-                                  ),
+                                          const SizedBox(width: 8),
+                                          // 제목
+                                          Flexible(
+                                            flex: 2,
+                                            child: Text(
+                                              video.title,
+                                              style: const TextStyle(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                          if (video.description != null) ...[
+                                            const SizedBox(width: 12),
+                                            // 설명
+                                            Flexible(
+                                              flex: 3,
+                                              child: Text(
+                                                video.description!,
+                                                style: TextStyle(
+                                                  fontSize: 13,
+                                                  color: Colors.grey.shade600,
+                                                ),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                          ],
+                                        ],
+                                      )
+                                    : Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          // 영상 ID와 제목
+                                          Row(
+                                            children: [
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(
+                                                  horizontal: 5,
+                                                  vertical: 2,
+                                                ),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.grey.shade300,
+                                                  borderRadius: BorderRadius.circular(3),
+                                                ),
+                                                child: Text(
+                                                  '#${video.id}',
+                                                  style: TextStyle(
+                                                    fontSize: 10,
+                                                    color: Colors.grey.shade700,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                ),
+                                              ),
+                                              const SizedBox(width: 6),
+                                              Expanded(
+                                                child: Text(
+                                                  video.title,
+                                                  style: const TextStyle(
+                                                    fontSize: 14,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                  maxLines: 1,
+                                                  overflow: TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          if (video.description != null) ...[
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              video.description!,
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: Colors.grey.shade600,
+                                              ),
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ],
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            video.fileSizeDisplay,
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              color: Colors.grey.shade500,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                 ),
-                                const SizedBox(width: 8),
 
-                                // 파일 크기 (VIDEO 태그 제거)
-                                SizedBox(
-                                  width: 60,
-                                  child: Text(
-                                    video.fileSizeDisplay,
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: Colors.grey.shade600,
+                                // 가로 모드일 때만 파일 크기 표시
+                                if (isLandscape) ...[
+                                  const SizedBox(width: 8),
+                                  SizedBox(
+                                    width: 60,
+                                    child: Text(
+                                      video.fileSizeDisplay,
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: Colors.grey.shade600,
+                                      ),
+                                      textAlign: TextAlign.right,
                                     ),
-                                    textAlign: TextAlign.right,
                                   ),
-                                ),
+                                ],
                                 const SizedBox(width: 8),
 
-                                // 다운로드 상태 및 버튼 (축소된 폭)
+                                // 다운로드 상태 및 버튼
                                 SizedBox(
-                                  width: 120,
+                                  width: isLandscape ? 120 : 70,
                                   child: video.downloadStatus == 'downloading'
                                       ? Column(
                                           crossAxisAlignment: CrossAxisAlignment.stretch,
+                                          mainAxisSize: MainAxisSize.min,
                                           children: [
                                             LinearProgressIndicator(
                                               value: video.downloadProgress,
                                             ),
-                                            const SizedBox(height: 4),
-                                            Text(
-                                              '다운로드 중 ${(video.downloadProgress * 100).toInt()}%',
-                                              textAlign: TextAlign.center,
-                                              style: const TextStyle(fontSize: 12),
-                                            ),
+                                            if (isLandscape) ...[
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                '${(video.downloadProgress * 100).toInt()}%',
+                                                textAlign: TextAlign.center,
+                                                style: const TextStyle(fontSize: 11),
+                                              ),
+                                            ],
                                           ],
                                         )
                                       : video.downloadStatus == 'completed'
-                                          ? Row(
-                                              mainAxisAlignment: MainAxisAlignment.center,
-                                              children: [
-                                                const Icon(
-                                                  Icons.check_circle,
-                                                  color: Colors.green,
-                                                  size: 16,
-                                                ),
-                                                const SizedBox(width: 4),
-                                                const Text(
-                                                  '완료',
-                                                  style: TextStyle(
+                                          ? isLandscape
+                                            ? Row(
+                                                mainAxisAlignment: MainAxisAlignment.center,
+                                                children: [
+                                                  const Icon(
+                                                    Icons.check_circle,
                                                     color: Colors.green,
-                                                    fontWeight: FontWeight.bold,
-                                                    fontSize: 12,
+                                                    size: 16,
                                                   ),
-                                                ),
-                                              ],
-                                            )
+                                                  const SizedBox(width: 4),
+                                                  const Text(
+                                                    '완료',
+                                                    style: TextStyle(
+                                                      color: Colors.green,
+                                                      fontWeight: FontWeight.bold,
+                                                      fontSize: 12,
+                                                    ),
+                                                  ),
+                                                ],
+                                              )
+                                            : const Icon(
+                                                Icons.check_circle,
+                                                color: Colors.green,
+                                                size: 24,
+                                              )
                                           : video.downloadStatus == 'failed'
-                                              ? ElevatedButton.icon(
-                                                  onPressed: () => _downloadVideo(video),
-                                                  icon: const Icon(Icons.refresh, size: 16),
-                                                  label: const Text('재시도', style: TextStyle(fontSize: 12)),
-                                                  style: ElevatedButton.styleFrom(
-                                                    backgroundColor: Colors.orange,
-                                                    padding: const EdgeInsets.symmetric(
-                                                      horizontal: 8,
-                                                      vertical: 6,
+                                              ? isLandscape
+                                                ? ElevatedButton.icon(
+                                                    onPressed: () => _downloadVideo(video),
+                                                    icon: const Icon(Icons.refresh, size: 16),
+                                                    label: const Text('재시도', style: TextStyle(fontSize: 12)),
+                                                    style: ElevatedButton.styleFrom(
+                                                      backgroundColor: Colors.orange,
+                                                      padding: const EdgeInsets.symmetric(
+                                                        horizontal: 8,
+                                                        vertical: 6,
+                                                      ),
                                                     ),
-                                                  ),
-                                                )
-                                              : ElevatedButton.icon(
-                                                  onPressed: () => _downloadVideo(video),
-                                                  icon: const Icon(Icons.download, size: 16),
-                                                  label: const Text('다운', style: TextStyle(fontSize: 12)),
-                                                  style: ElevatedButton.styleFrom(
-                                                    backgroundColor: Colors.blue,
-                                                    foregroundColor: Colors.white,
-                                                    padding: const EdgeInsets.symmetric(
-                                                      horizontal: 8,
-                                                      vertical: 6,
+                                                  )
+                                                : IconButton(
+                                                    onPressed: () => _downloadVideo(video),
+                                                    icon: const Icon(Icons.refresh),
+                                                    color: Colors.orange,
+                                                    iconSize: 28,
+                                                    padding: EdgeInsets.zero,
+                                                    constraints: const BoxConstraints(),
+                                                  )
+                                              : isLandscape
+                                                ? ElevatedButton.icon(
+                                                    onPressed: () => _downloadVideo(video),
+                                                    icon: const Icon(Icons.download, size: 16),
+                                                    label: const Text('다운', style: TextStyle(fontSize: 12)),
+                                                    style: ElevatedButton.styleFrom(
+                                                      backgroundColor: Colors.blue,
+                                                      foregroundColor: Colors.white,
+                                                      padding: const EdgeInsets.symmetric(
+                                                        horizontal: 8,
+                                                        vertical: 6,
+                                                      ),
                                                     ),
+                                                  )
+                                                : IconButton(
+                                                    onPressed: () => _downloadVideo(video),
+                                                    icon: const Icon(Icons.download),
+                                                    color: Colors.blue,
+                                                    iconSize: 28,
+                                                    padding: EdgeInsets.zero,
+                                                    constraints: const BoxConstraints(),
                                                   ),
-                                                ),
                                 ),
                               ],
                             ),
