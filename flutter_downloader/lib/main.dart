@@ -30,7 +30,7 @@ void main() async {
   ));
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   final ApiService apiService;
   final StorageService storageService;
 
@@ -39,6 +39,13 @@ class MyApp extends StatelessWidget {
     required this.apiService,
     required this.storageService,
   });
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  // 키오스크는 무인으로 동작하므로 자동 로그아웃 기능 제거
 
   @override
   Widget build(BuildContext context) {
@@ -54,26 +61,20 @@ class MyApp extends StatelessWidget {
   }
 
   Widget _getInitialScreen() {
-    // Check if user is logged in
-    if (!storageService.isLoggedIn()) {
-      return LoginScreen(
-        apiService: apiService,
-        storageService: storageService,
+    // 키오스크는 무인 환경에서 동작하므로 설정이 있으면 로그인 없이 바로 실행
+    // Check if config is set (키오스크 설정 확인)
+    if (widget.storageService.isConfigured()) {
+      // 설정이 있으면 로그인 여부와 상관없이 영상 목록으로
+      return VideoListScreen(
+        apiService: widget.apiService,
+        storageService: widget.storageService,
       );
     }
 
-    // Check if config is set
-    if (!storageService.isConfigured()) {
-      return SettingsScreen(
-        apiService: apiService,
-        storageService: storageService,
-      );
-    }
-
-    // Go to video list
-    return VideoListScreen(
-      apiService: apiService,
-      storageService: storageService,
+    // 설정이 없으면 로그인 화면으로 (초기 설정 필요)
+    return LoginScreen(
+      apiService: widget.apiService,
+      storageService: widget.storageService,
     );
   }
 }

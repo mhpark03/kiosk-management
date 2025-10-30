@@ -267,7 +267,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         foregroundColor: Colors.blue,
                       ),
                       child: const Text(
-                        '나중에',
+                        '나중에 (로그인 없이 실행)',
                         style: TextStyle(fontSize: 16),
                       ),
                     ),
