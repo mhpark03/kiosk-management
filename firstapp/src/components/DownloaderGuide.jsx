@@ -53,8 +53,8 @@ function DownloaderGuide() {
               </div>
               <div className="download-item">
                 <strong>🔗 다운로드 링크</strong>
-                <a href="https://github.com/mhpark03/kiosk-management/releases" target="_blank" rel="noopener noreferrer">
-                  GitHub Releases 페이지 →
+                <a href="https://github.com/mhpark03/kiosk-management/tags" target="_blank" rel="noopener noreferrer">
+                  GitHub Tags 페이지 →
                 </a>
               </div>
             </div>
