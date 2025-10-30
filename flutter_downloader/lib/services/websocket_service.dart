@@ -13,6 +13,9 @@ class WebSocketService {
   // Callback for sync command from admin
   Function()? onSyncCommand;
 
+  // Callback for config update from server
+  Function()? onConfigUpdate;
+
   // Callback for connection status changes
   Function(bool)? onConnectionStatusChanged;
 
@@ -121,6 +124,10 @@ class WebSocketService {
         print('WebSocket: Sync command received from admin');
         onSyncCommand?.call();
         break;
+      case 'CONFIG_UPDATE':
+        print('WebSocket: Config update notification received from server');
+        onConfigUpdate?.call();
+        break;
       case 'HEARTBEAT_ACK':
         print('WebSocket: Heartbeat acknowledged');
         break;
@@ -189,6 +196,7 @@ class WebSocketService {
   void dispose() {
     disconnect();
     onSyncCommand = null;
+    onConfigUpdate = null;
     onConnectionStatusChanged = null;
   }
 }

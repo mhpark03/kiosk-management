@@ -232,4 +232,63 @@ class ApiService {
       throw Exception('키오스크 토큰 발급 중 오류: $e');
     }
   }
+
+  // Update kiosk configuration on server
+  Future<void> updateKioskConfig(
+    String kioskId,
+    String downloadPath,
+    String apiUrl,
+    bool autoSync,
+    int syncInterval,
+  ) async {
+    try {
+      final response = await _dio.patch(
+        '/kiosks/by-kioskid/$kioskId/config',
+        data: {
+          'downloadPath': downloadPath,
+          'apiUrl': apiUrl,
+          'autoSync': autoSync,
+          'syncInterval': syncInterval,
+        },
+        options: Options(
+          headers: {
+            'X-Kiosk-Id': kioskId,
+          },
+        ),
+      );
+
+      if (response.statusCode != 200) {
+        throw Exception('Failed to update config: ${response.statusCode}');
+      }
+
+      print('[CONFIG SYNC] Configuration synced to server successfully');
+    } on DioException catch (e) {
+      print('[CONFIG SYNC] Failed to sync configuration to server: ${e.message}');
+      // Don't throw error, just log it (background operation)
+    } catch (e) {
+      print('[CONFIG SYNC] Error syncing configuration to server: $e');
+      // Don't throw error, just log it (background operation)
+    }
+  }
+
+  // Get kiosk configuration from server
+  Future<Map<String, dynamic>> getKioskConfig(String kioskId) async {
+    try {
+      final response = await _dio.get('/kiosks/by-kioskid/$kioskId/config');
+
+      if (response.statusCode == 200) {
+        return response.data as Map<String, dynamic>;
+      } else {
+        throw Exception('Failed to get config: ${response.statusCode}');
+      }
+    } on DioException catch (e) {
+      if (e.response?.data != null && e.response?.data['message'] != null) {
+        throw Exception(e.response?.data['message']);
+      } else {
+        throw Exception('설정 조회 실패: ${e.message}');
+      }
+    } catch (e) {
+      throw Exception('설정 조회 중 오류: $e');
+    }
+  }
 }

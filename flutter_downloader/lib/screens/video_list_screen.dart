@@ -177,6 +177,11 @@ class _VideoListScreenState extends State<VideoListScreen> {
         _loadVideos();
       };
 
+      _webSocketService.onConfigUpdate = () {
+        print('WebSocket: Config update received, reloading config from server...');
+        _handleConfigUpdate();
+      };
+
       _webSocketService.onConnectionStatusChanged = (connected) {
         if (mounted) {
           setState(() {
@@ -200,6 +205,54 @@ class _VideoListScreenState extends State<VideoListScreen> {
       print('WebSocket: Initialization failed: $e');
       print('WebSocket: 앱은 WebSocket 없이 계속 동작합니다 (수동 새로고침 사용 가능)');
       // WebSocket 연결 실패는 치명적이지 않음 - 조용히 실패하고 수동 새로고침만 사용
+    }
+  }
+
+  Future<void> _handleConfigUpdate() async {
+    print('[CONFIG UPDATE] Received config update notification from server');
+
+    final config = widget.storageService.getConfig();
+    if (config == null || config.kioskId.isEmpty) {
+      print('[CONFIG UPDATE] No config available, skipping update');
+      return;
+    }
+
+    try {
+      // Fetch latest config from server
+      final serverConfig = await widget.apiService.getKioskConfig(config.kioskId);
+      print('[CONFIG UPDATE] Fetched latest config from server: $serverConfig');
+
+      // Extract config fields
+      final downloadPath = serverConfig['downloadPath'] as String?;
+      final apiUrl = serverConfig['apiUrl'] as String?;
+      final autoSync = serverConfig['autoSync'] as bool?;
+      final syncInterval = serverConfig['syncInterval'] as int?;
+
+      // Update local config with server values
+      final updatedConfig = config.copyWith(
+        downloadPath: downloadPath ?? config.downloadPath,
+        serverUrl: apiUrl ?? config.serverUrl,
+        autoSync: autoSync ?? config.autoSync,
+        syncIntervalHours: syncInterval ?? config.syncIntervalHours,
+      );
+
+      // Save updated config locally
+      await widget.storageService.saveConfig(updatedConfig);
+
+      print('[CONFIG UPDATE] Local config updated successfully from server');
+
+      // Show notification to user
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('관리자가 설정을 변경했습니다'),
+            duration: Duration(seconds: 3),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    } catch (e) {
+      print('[CONFIG UPDATE] Failed to update config from server: $e');
     }
   }
 
