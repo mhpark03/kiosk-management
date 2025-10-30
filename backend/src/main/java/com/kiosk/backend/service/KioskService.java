@@ -74,10 +74,11 @@ public class KioskService {
     private KioskDTO toDTO(Kiosk kiosk) {
         KioskDTO dto = KioskDTO.fromEntity(kiosk);
 
-        // Fetch store to get regdate
+        // Fetch store to get regdate and posname
         Store store = storeRepository.findByPosid(kiosk.getPosid()).orElse(null);
         if (store != null) {
             dto.setStoreRegdate(store.getRegdate());
+            dto.setPosname(store.getPosname());
         }
 
         // Calculate video statistics

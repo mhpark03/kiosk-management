@@ -1,6 +1,7 @@
 class Kiosk {
   final String kioskid;
   final String? posid;
+  final String? posname;
   final int? kioskNumber;
   final String? location;
   final String? status;
@@ -14,6 +15,7 @@ class Kiosk {
   Kiosk({
     required this.kioskid,
     this.posid,
+    this.posname,
     this.kioskNumber,
     this.location,
     this.status,
@@ -29,7 +31,8 @@ class Kiosk {
     return Kiosk(
       kioskid: json['kioskid'] as String,
       posid: json['posid'] as String?,
-      kioskNumber: json['kiosk_number'] as int?,
+      posname: json['posname'] as String?,
+      kioskNumber: (json['kiosk_number'] ?? json['kioskno']) as int?,
       location: json['location'] as String?,
       status: json['status'] as String?,
       downloadPath: json['download_path'] as String?,
@@ -51,6 +54,7 @@ class Kiosk {
     return {
       'kioskid': kioskid,
       'posid': posid,
+      'posname': posname,
       'kiosk_number': kioskNumber,
       'location': location,
       'status': status,

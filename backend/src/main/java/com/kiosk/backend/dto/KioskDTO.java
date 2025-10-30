@@ -17,6 +17,7 @@ public class KioskDTO {
     private Long id;
     private String kioskid;
     private String posid;
+    private String posname; // Store name
     private Integer kioskno;
     private String maker;
     private String serialno;
