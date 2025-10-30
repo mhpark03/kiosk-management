@@ -235,6 +235,34 @@ function DownloaderGuide() {
             <div className="alert alert-success">
               ✅ 설정이 저장되면 "설정이 저장되었습니다" 메시지가 표시됩니다.
             </div>
+
+            <div className="info-box">
+              <strong>💡 참고: 웹에서도 설정 가능</strong>
+              <p>다운로더 앱에서 설정한 키오스크 정보(매장 ID, 다운로드 경로, 자동 동기화 간격 등)는
+              웹 대시보드의 <strong>"키오스크 관리"</strong> 화면에서도 확인 및 수정할 수 있습니다.
+              웹에서 수정한 설정은 다음 동기화 시 자동으로 앱에 반영됩니다.</p>
+            </div>
+          </div>
+
+          <div className="step-card">
+            <h3>로그아웃 (보안 권장)</h3>
+            <p>설정 작업이 완료되면 보안을 위해 <strong>반드시 로그아웃</strong>하는 것을 권장합니다.</p>
+
+            <ol>
+              <li>앱 상단의 <strong>"로그아웃"</strong> 버튼 클릭</li>
+              <li>로그아웃 확인</li>
+            </ol>
+
+            <div className="alert alert-warning">
+              🔒 <strong>보안 중요</strong>: 키오스크 장치는 무인으로 운영되므로, 설정 완료 후 로그아웃하여
+              타인이 설정을 임의로 변경하지 못하도록 해야 합니다.
+            </div>
+
+            <div className="alert alert-success">
+              ✅ <strong>안심하세요</strong>: 로그아웃 후에도 <strong>자동 동기화는 정상적으로 계속 동작</strong>합니다.
+              저장된 설정(키오스크 ID, 매장 ID, 다운로드 경로, 자동 동기화 간격)은 유지되며,
+              예약된 시간에 자동으로 영상을 다운로드합니다.
+            </div>
           </div>
         </section>
 
@@ -476,9 +504,21 @@ function DownloaderGuide() {
 
           <div className="tips-grid">
             <div className="tip-card">
+              <div className="tip-icon">🔒</div>
+              <h3>보안 유지</h3>
+              <p>설정 완료 후 반드시 로그아웃하세요. 로그아웃 후에도 자동 동기화는 정상 작동합니다.</p>
+            </div>
+
+            <div className="tip-card">
               <div className="tip-icon">⚡</div>
               <h3>빠른 동기화</h3>
               <p>동기화 버튼 단축키: <kbd>Ctrl</kbd> + <kbd>S</kbd></p>
+            </div>
+
+            <div className="tip-card">
+              <div className="tip-icon">🌐</div>
+              <h3>웹에서 관리</h3>
+              <p>키오스크 설정은 웹 대시보드에서도 수정 가능하며, 다음 동기화 시 자동 반영됩니다.</p>
             </div>
 
             <div className="tip-card">
@@ -561,6 +601,10 @@ function DownloaderGuide() {
             <label>
               <input type="checkbox" />
               <span>설정 저장 완료</span>
+            </label>
+            <label>
+              <input type="checkbox" />
+              <span>로그아웃 (보안을 위해 필수)</span>
             </label>
             <label>
               <input type="checkbox" />
