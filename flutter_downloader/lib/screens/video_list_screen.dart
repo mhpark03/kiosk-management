@@ -257,6 +257,9 @@ class _VideoListScreenState extends State<VideoListScreen> {
       // Get download URL
       final downloadUrl = await widget.apiService.getVideoDownloadUrl(video.id);
 
+      // Create kioskId subdirectory: Downloads/KioskVideos/[KioskId]
+      final kioskDownloadPath = '${config.downloadPath}\\${config.kioskId}';
+
       // Update video status
       setState(() {
         video.downloadStatus = 'downloading';
@@ -266,7 +269,7 @@ class _VideoListScreenState extends State<VideoListScreen> {
       // Download file
       final localPath = await _downloadService.downloadFile(
         downloadUrl,
-        config.downloadPath,
+        kioskDownloadPath,
         video.filename,
         onProgress: (received, total) {
           setState(() {
