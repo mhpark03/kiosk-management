@@ -10,16 +10,31 @@ spring:
   jpa:
     hibernate:
       ddl-auto: update
-    show-sql: true
+    show-sql: false  # Disabled for production performance
     properties:
       hibernate:
-        format_sql: true
+        format_sql: false
         jdbc:
           time_zone: Asia/Seoul
+          batch_size: 20
+          fetch_size: 50
+        order_inserts: true
+        order_updates: true
+        query:
+          in_clause_parameter_padding: true
 
   jackson:
     time-zone: Asia/Seoul
     date-format: yyyy-MM-dd HH:mm:ss
+
+  # HikariCP connection pool optimization for low memory
+  datasource:
+    hikari:
+      maximum-pool-size: 5  # Reduced from default 10
+      minimum-idle: 2
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
 
   security:
     user:
