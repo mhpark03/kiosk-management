@@ -315,26 +315,42 @@ function showToolProperties(tool) {
 
       propertiesPanel.innerHTML = `
         <div class="property-group">
-          <label>병합할 영상들</label>
+          <label>병합할 영상들 (순서대로)</label>
           <div id="merge-files" class="file-list"></div>
           <button class="property-btn secondary" onclick="addVideoToMerge()">+ 영상 추가</button>
         </div>
         <div class="property-group">
-          <label>트랜지션</label>
-          <select id="merge-transition">
+          <label>트랜지션 효과</label>
+          <select id="merge-transition" onchange="updateTransitionDurationVisibility()">
             <option value="concat">없음 (이어붙이기)</option>
-            <option value="xfade">크로스페이드</option>
+            <option value="fade">페이드</option>
+            <option value="xfade-fade">크로스페이드 - Fade</option>
+            <option value="xfade-wipeleft">크로스페이드 - Wipe Left</option>
+            <option value="xfade-wiperight">크로스페이드 - Wipe Right</option>
+            <option value="xfade-wipeup">크로스페이드 - Wipe Up</option>
+            <option value="xfade-wipedown">크로스페이드 - Wipe Down</option>
+            <option value="xfade-slideleft">크로스페이드 - Slide Left</option>
+            <option value="xfade-slideright">크로스페이드 - Slide Right</option>
+            <option value="xfade-slideup">크로스페이드 - Slide Up</option>
+            <option value="xfade-slidedown">크로스페이드 - Slide Down</option>
           </select>
+          <small id="transition-description" style="color: #888; display: block; margin-top: 5px;"></small>
         </div>
-        <div class="property-group">
+        <div class="property-group" id="duration-group">
           <label>트랜지션 지속시간 (초)</label>
           <input type="number" id="merge-duration" min="0.5" max="3" step="0.1" value="1">
         </div>
         <button class="property-btn" onclick="executeMerge()">영상 병합</button>
+        <div style="background: #3a3a3a; padding: 10px; border-radius: 5px; margin-top: 10px;">
+          <small style="color: #aaa;">💡 영상들을 순서대로 병합합니다. 트랜지션은 영상과 영상 사이에 적용됩니다.</small>
+        </div>
       `;
 
       // 파일 리스트 업데이트
       updateMergeFileList();
+      // 트랜지션 설명 업데이트
+      updateTransitionDescription();
+      updateTransitionDurationVisibility();
       break;
 
     case 'merge-audio':
@@ -3498,17 +3514,74 @@ async function addVideoToMerge() {
 
 function updateMergeFileList() {
   const list = document.getElementById('merge-files');
+  if (!list) return;
+
   list.innerHTML = mergeVideos.map((path, index) => `
-    <div class="file-item">
-      <span>${path.split('\\').pop()}</span>
-      <button onclick="removeMergeVideo(${index})">제거</button>
+    <div class="file-item" style="display: flex; align-items: center; gap: 5px; margin-bottom: 5px; padding: 5px; background: #2d2d2d; border-radius: 3px;">
+      <span style="color: #888; min-width: 20px;">${index + 1}.</span>
+      <span style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${path.split('\\').pop()}</span>
+      <button onclick="moveMergeVideoUp(${index})" ${index === 0 ? 'disabled' : ''} style="padding: 2px 8px; font-size: 12px;" title="위로">↑</button>
+      <button onclick="moveMergeVideoDown(${index})" ${index === mergeVideos.length - 1 ? 'disabled' : ''} style="padding: 2px 8px; font-size: 12px;" title="아래로">↓</button>
+      <button onclick="removeMergeVideo(${index})" style="padding: 2px 8px; font-size: 12px;">제거</button>
     </div>
   `).join('');
+}
+
+function moveMergeVideoUp(index) {
+  if (index === 0) return;
+  [mergeVideos[index], mergeVideos[index - 1]] = [mergeVideos[index - 1], mergeVideos[index]];
+  updateMergeFileList();
+}
+
+function moveMergeVideoDown(index) {
+  if (index === mergeVideos.length - 1) return;
+  [mergeVideos[index], mergeVideos[index + 1]] = [mergeVideos[index + 1], mergeVideos[index]];
+  updateMergeFileList();
 }
 
 function removeMergeVideo(index) {
   mergeVideos.splice(index, 1);
   updateMergeFileList();
+}
+
+// Update transition description based on selection
+function updateTransitionDescription() {
+  const transitionSelect = document.getElementById('merge-transition');
+  const descriptionElement = document.getElementById('transition-description');
+  if (!transitionSelect || !descriptionElement) return;
+
+  const descriptions = {
+    'concat': '트랜지션 없이 영상을 이어붙입니다.',
+    'fade': '첫 번째 영상이 페이드 아웃되고 두 번째 영상이 페이드 인됩니다.',
+    'xfade-fade': '두 영상이 서로 교차하며 페이드됩니다.',
+    'xfade-wipeleft': '두 번째 영상이 왼쪽에서 오른쪽으로 닦아내듯 나타납니다.',
+    'xfade-wiperight': '두 번째 영상이 오른쪽에서 왼쪽으로 닦아내듯 나타납니다.',
+    'xfade-wipeup': '두 번째 영상이 아래에서 위로 닦아내듯 나타납니다.',
+    'xfade-wipedown': '두 번째 영상이 위에서 아래로 닦아내듯 나타납니다.',
+    'xfade-slideleft': '첫 번째 영상이 왼쪽으로 슬라이드되며 두 번째 영상이 나타납니다.',
+    'xfade-slideright': '첫 번째 영상이 오른쪽으로 슬라이드되며 두 번째 영상이 나타납니다.',
+    'xfade-slideup': '첫 번째 영상이 위로 슬라이드되며 두 번째 영상이 나타납니다.',
+    'xfade-slidedown': '첫 번째 영상이 아래로 슬라이드되며 두 번째 영상이 나타납니다.'
+  };
+
+  descriptionElement.textContent = descriptions[transitionSelect.value] || '';
+}
+
+// Update transition duration visibility
+function updateTransitionDurationVisibility() {
+  const transitionSelect = document.getElementById('merge-transition');
+  const durationGroup = document.getElementById('duration-group');
+  if (!transitionSelect || !durationGroup) return;
+
+  // Hide duration for concat (no transition)
+  if (transitionSelect.value === 'concat') {
+    durationGroup.style.display = 'none';
+  } else {
+    durationGroup.style.display = 'block';
+  }
+
+  // Update description
+  updateTransitionDescription();
 }
 
 async function executeMerge() {
