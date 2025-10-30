@@ -1,0 +1,354 @@
+.user-guide {
+  padding: 20px;
+  background-color: #f8f9fa;
+  min-height: calc(100vh - 60px);
+}
+
+.guide-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  background: white;
+  padding: 40px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.guide-container h1 {
+  color: #2d3748;
+  font-size: 32px;
+  margin-bottom: 30px;
+  border-bottom: 3px solid #4a5568;
+  padding-bottom: 15px;
+}
+
+.guide-section {
+  margin-bottom: 40px;
+}
+
+.guide-section h2 {
+  color: #2d3748;
+  font-size: 24px;
+  margin-bottom: 20px;
+  padding-left: 10px;
+  border-left: 5px solid #667eea;
+}
+
+.workflow-box {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 30px;
+  border-radius: 12px;
+  margin-bottom: 30px;
+}
+
+.workflow-box h3 {
+  color: white;
+  font-size: 20px;
+  margin-bottom: 20px;
+}
+
+.workflow-steps {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 20px 20px 20px 40px;
+  border-radius: 8px;
+  backdrop-filter: blur(10px);
+}
+
+.workflow-steps li {
+  margin-bottom: 12px;
+  font-size: 16px;
+  line-height: 1.6;
+  position: relative;
+}
+
+.workflow-steps li::before {
+  content: '→';
+  position: absolute;
+  left: -20px;
+  font-weight: bold;
+}
+
+.workflow-box .note {
+  margin-top: 15px;
+  padding: 15px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.step-card {
+  background: #f7fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 25px;
+  margin-bottom: 25px;
+}
+
+.step-card h3 {
+  color: #2d3748;
+  font-size: 20px;
+  margin-bottom: 15px;
+  display: flex;
+  align-items: center;
+}
+
+.step-card h3::before {
+  content: '✓';
+  background: #667eea;
+  color: white;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 10px;
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.step-card h4 {
+  color: #4a5568;
+  font-size: 16px;
+  margin-top: 20px;
+  margin-bottom: 10px;
+}
+
+.step-card ol,
+.step-card ul {
+  margin-left: 20px;
+  margin-bottom: 15px;
+}
+
+.step-card li {
+  margin-bottom: 8px;
+  line-height: 1.6;
+}
+
+.step-card ul ul,
+.step-card ol ul {
+  margin-top: 8px;
+  margin-left: 20px;
+}
+
+.alert {
+  padding: 15px 20px;
+  border-radius: 6px;
+  margin-top: 15px;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.alert-info {
+  background: #e6f7ff;
+  border: 1px solid #91d5ff;
+  color: #0050b3;
+}
+
+.alert-warning {
+  background: #fffbe6;
+  border: 1px solid #ffe58f;
+  color: #ad6800;
+}
+
+.alert-success {
+  background: #f6ffed;
+  border: 1px solid #b7eb8f;
+  color: #389e0d;
+}
+
+.alert strong {
+  font-weight: 600;
+}
+
+.info-box {
+  background: #edf2f7;
+  border-left: 4px solid #4299e1;
+  padding: 15px 20px;
+  margin-top: 15px;
+  border-radius: 4px;
+}
+
+.info-box strong {
+  color: #2c5282;
+  display: block;
+  margin-bottom: 8px;
+}
+
+.info-box ul {
+  margin-left: 20px;
+  margin-top: 8px;
+}
+
+.info-box code {
+  background: #cbd5e0;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-family: 'Courier New', monospace;
+  font-size: 13px;
+}
+
+.example-box {
+  background: #f0fff4;
+  border: 1px solid #9ae6b4;
+  border-radius: 6px;
+  padding: 15px 20px;
+  margin-top: 15px;
+}
+
+.example-box strong {
+  color: #22543d;
+  display: block;
+  margin-bottom: 8px;
+}
+
+.example-box ul {
+  margin-left: 20px;
+  margin-top: 8px;
+}
+
+.example-box code {
+  background: #c6f6d5;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-family: 'Courier New', monospace;
+  font-size: 13px;
+}
+
+.update-steps {
+  background: #f7fafc;
+  padding: 20px 20px 20px 40px;
+  border-radius: 8px;
+  border: 2px solid #e2e8f0;
+}
+
+.update-steps li {
+  margin-bottom: 10px;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.tip-box {
+  background: #fffaf0;
+  border: 2px solid #fbd38d;
+  border-radius: 8px;
+  padding: 15px 20px;
+  margin-top: 15px;
+  color: #744210;
+}
+
+.troubleshooting {
+  background: #fff5f5;
+  border: 1px solid #feb2b2;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.troubleshooting h3 {
+  color: #c53030;
+  font-size: 18px;
+  margin-bottom: 10px;
+}
+
+.troubleshooting p {
+  margin-bottom: 8px;
+  line-height: 1.6;
+}
+
+.troubleshooting strong {
+  font-weight: 600;
+}
+
+.troubleshooting ol {
+  margin-left: 20px;
+  margin-top: 10px;
+}
+
+.troubleshooting li {
+  margin-bottom: 5px;
+}
+
+.support-box {
+  background: #f7fafc;
+  border: 2px solid #4299e1;
+  border-radius: 8px;
+  padding: 25px;
+}
+
+.support-box h3 {
+  color: #2c5282;
+  font-size: 18px;
+  margin-bottom: 10px;
+}
+
+.support-box ul {
+  margin-left: 20px;
+  margin-top: 10px;
+}
+
+.support-box li {
+  margin-bottom: 8px;
+}
+
+.checklist {
+  background: #f7fafc;
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 25px;
+}
+
+.checklist label {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12px;
+  cursor: pointer;
+  padding: 10px;
+  border-radius: 6px;
+  transition: background 0.2s;
+}
+
+.checklist label:hover {
+  background: #edf2f7;
+}
+
+.checklist input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  margin-right: 12px;
+  cursor: pointer;
+}
+
+.checklist span {
+  font-size: 15px;
+  color: #2d3748;
+}
+
+.checklist input[type="checkbox"]:checked + span {
+  color: #48bb78;
+  text-decoration: line-through;
+  font-weight: 500;
+}
+
+/* 반응형 디자인 */
+@media (max-width: 768px) {
+  .guide-container {
+    padding: 20px;
+  }
+
+  .guide-container h1 {
+    font-size: 24px;
+  }
+
+  .guide-section h2 {
+    font-size: 20px;
+  }
+
+  .step-card {
+    padding: 15px;
+  }
+
+  .workflow-box {
+    padding: 20px;
+  }
+}

@@ -243,6 +243,24 @@ function Signup() {
           </button>
         </form>
 
+        <div style={{
+          background: '#fffaf0',
+          border: '1px solid #fbd38d',
+          borderRadius: '6px',
+          padding: '15px',
+          marginTop: '20px',
+          fontSize: '14px',
+          lineHeight: '1.6',
+          color: '#744210'
+        }}>
+          <strong>📌 회원가입 안내</strong>
+          <ul style={{marginTop: '10px', marginLeft: '20px'}}>
+            <li>회원가입 후 <strong>관리자의 승인</strong>이 필요합니다.</li>
+            <li>승인이 완료되면 로그인하여 시스템을 사용할 수 있습니다.</li>
+            <li>승인이 지연되는 경우 관리자에게 문의하세요.</li>
+          </ul>
+        </div>
+
         <p className="auth-link">
           이미 계정이 있으신가요? <Link to="/login">로그인</Link>
         </p>

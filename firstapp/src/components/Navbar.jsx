@@ -256,6 +256,15 @@ function Navbar() {
                 </ul>
               )}
             </li>
+            <li>
+              <Link
+                to="/user-guide"
+                className={location.pathname === '/user-guide' ? 'active' : ''}
+                onClick={closeMenu}
+              >
+                사용법
+              </Link>
+            </li>
           </ul>
 
           <div className="navbar-user">
