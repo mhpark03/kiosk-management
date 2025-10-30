@@ -247,10 +247,16 @@ function KioskManagement() {
     }
   };
 
+  // Helper function to format posid (remove leading zeros)
+  const formatPosId = (posid) => {
+    if (!posid) return 'N/A';
+    return posid.replace(/^0+/, '') || '0';
+  };
+
   // Helper function to get store name by posid
   const getStoreName = (posid) => {
     const store = stores.find(s => s.posid === posid);
-    return store ? `${store.posname} (${posid})` : posid; // Display store name with posid in parentheses
+    return store ? `${store.posname} (${formatPosId(posid)})` : formatPosId(posid); // Display store name with formatted posid in parentheses
   };
 
   // Get unique makers - if store is selected, only show makers from that store

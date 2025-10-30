@@ -41,6 +41,7 @@ public class Kiosk {
 
     @Column(nullable = false, length = 20)
     @Enumerated(EnumType.STRING)
+    @Builder.Default
     private KioskState state = KioskState.INACTIVE;
 
     // Configuration fields from Kiosk app
@@ -57,6 +58,7 @@ public class Kiosk {
     private LocalDateTime lastSync; // Last sync timestamp
 
     @Column(nullable = false)
+    @Builder.Default
     private Boolean configModifiedByWeb = false; // Flag: admin modified config via web
 
     private LocalDateTime regdate; // Registration date
