@@ -40,9 +40,13 @@ class _LoginScreenState extends State<LoginScreen> {
     final customUrl = widget.storageService.getCustomServerUrl();
 
     if (lastServer != null) {
+      // Validate that the saved server is in the dropdown options
+      final validServers = [ServerPresets.awsDev, ServerPresets.local, 'custom'];
+
       setState(() {
-        _selectedServer = lastServer;
-        if (lastServer == 'custom' && customUrl != null) {
+        // If saved server is not in dropdown, use local as default
+        _selectedServer = validServers.contains(lastServer) ? lastServer : ServerPresets.local;
+        if (_selectedServer == 'custom' && customUrl != null) {
           _customServerController.text = customUrl;
         }
       });
@@ -147,45 +151,48 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+
     return Scaffold(
-      body: Center(
+      resizeToAvoidBottomInset: true,
+      body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
+          padding: EdgeInsets.all(isLandscape ? 12.0 : 24.0),
           child: Card(
             elevation: 4,
             child: Container(
               constraints: const BoxConstraints(maxWidth: 400),
-              padding: const EdgeInsets.all(32.0),
+              padding: EdgeInsets.all(isLandscape ? 16.0 : 32.0),
               child: Form(
                 key: _formKey,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.login,
-                      size: 64,
+                      size: isLandscape ? 40 : 64,
                       color: Colors.blue,
                     ),
-                    const SizedBox(height: 24),
-                    const Text(
+                    SizedBox(height: isLandscape ? 8 : 24),
+                    Text(
                       '키오스크 다운로더',
                       style: TextStyle(
-                        fontSize: 28,
+                        fontSize: isLandscape ? 20 : 28,
                         fontWeight: FontWeight.bold,
                       ),
                       textAlign: TextAlign.center,
                     ),
-                    const SizedBox(height: 8),
-                    const Text(
+                    SizedBox(height: isLandscape ? 4 : 8),
+                    Text(
                       '로그인',
                       style: TextStyle(
-                        fontSize: 18,
+                        fontSize: isLandscape ? 14 : 18,
                         color: Colors.grey,
                       ),
                       textAlign: TextAlign.center,
                     ),
-                    const SizedBox(height: 32),
+                    SizedBox(height: isLandscape ? 12 : 32),
                     if (_errorMessage != null)
                       Container(
                         padding: const EdgeInsets.all(12),
@@ -230,7 +237,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       },
                     ),
                     if (_selectedServer == 'custom') ...[
-                      const SizedBox(height: 16),
+                      SizedBox(height: isLandscape ? 8 : 16),
                       TextFormField(
                         controller: _customServerController,
                         decoration: const InputDecoration(
@@ -255,7 +262,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         },
                       ),
                     ],
-                    const SizedBox(height: 16),
+                    SizedBox(height: isLandscape ? 8 : 16),
                     TextFormField(
                       controller: _emailController,
                       decoration: const InputDecoration(
@@ -272,7 +279,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         return null;
                       },
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: isLandscape ? 8 : 16),
                     TextFormField(
                       controller: _passwordController,
                       decoration: const InputDecoration(
@@ -289,7 +296,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         return null;
                       },
                     ),
-                    const SizedBox(height: 24),
+                    SizedBox(height: isLandscape ? 12 : 24),
                     ElevatedButton(
                       onPressed: _isLoading ? null : _login,
                       style: ElevatedButton.styleFrom(
@@ -312,7 +319,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               style: TextStyle(fontSize: 16),
                             ),
                     ),
-                    const SizedBox(height: 12),
+                    SizedBox(height: isLandscape ? 8 : 12),
                     OutlinedButton(
                       onPressed: (_isLoading || !widget.storageService.isConfigured())
                           ? null

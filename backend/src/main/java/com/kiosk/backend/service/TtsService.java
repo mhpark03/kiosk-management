@@ -71,10 +71,14 @@ public class TtsService {
                 }
                 log.info("Google Cloud TTS credentials loaded successfully from S3");
                 return;
-            } catch (Exception e) {
-                log.error("Failed to load Google Cloud TTS credentials from S3: {}", e.getMessage());
-                log.error("Full exception:", e);
+            } catch (RuntimeException e) {
+                log.warn("Failed to load Google Cloud TTS credentials from S3 (runtime exception): {}", e.getMessage());
                 log.warn("TTS service will attempt to use other credential sources");
+                // Don't rethrow - continue to try other credential sources
+            } catch (Exception e) {
+                log.warn("Failed to load Google Cloud TTS credentials from S3: {}", e.getMessage());
+                log.warn("TTS service will attempt to use other credential sources");
+                // Don't rethrow - continue to try other credential sources
             }
         }
 
