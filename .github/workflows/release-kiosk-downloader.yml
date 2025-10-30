@@ -52,22 +52,22 @@ jobs:
       uses: softprops/action-gh-release@v1
       with:
         tag_name: ${{ steps.get_version.outputs.version }}
-        name: Kiosk Downloader ${{ steps.get_version.outputs.version }}
+        name: 키오스크 다운로더 ${{ steps.get_version.outputs.version }}
         body: |
-          ## Kiosk Video Downloader Release
+          ## 키오스크 영상 다운로더 릴리즈
 
-          ### Changes
-          - Set AWS development server as default
-          - Updated UI and functionality improvements
+          ### 주요 변경사항
+          - AWS 개발 서버를 기본 서버로 설정
+          - UI 및 기능 개선
 
-          ### Installation
-          1. Download `Kiosk.Video.Downloader.Setup.${{ steps.get_version.outputs.version }}.exe`
-          2. Run the installer
-          3. Follow the installation wizard
+          ### 설치 방법
+          1. `Kiosk.Video.Downloader.Setup.${{ steps.get_version.outputs.version }}.exe` 다운로드
+          2. 설치 파일 실행
+          3. 설치 마법사 지시에 따라 진행
 
-          ### System Requirements
-          - Windows 10 or later
-          - 100 MB free disk space
+          ### 시스템 요구사항
+          - Windows 10 이상
+          - 100 MB 이상의 여유 디스크 공간
 
           🤖 Generated with [Claude Code](https://claude.com/claude-code)
         files: |
