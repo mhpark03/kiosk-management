@@ -362,13 +362,16 @@ class _VideoListScreenState extends State<VideoListScreen> {
   Widget build(BuildContext context) {
     final user = widget.storageService.getUser();
     final config = widget.storageService.getConfig();
+    final hasConfig = config != null && config.isValid;
 
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false, // Remove back button from main screen
         title: Row(
           children: [
-            Text('영상 목록 - ${_kiosk?.posname ?? ""} ${_kiosk?.kioskNumber != null ? "#${_kiosk!.kioskNumber}" : ""}'),
+            Text(hasConfig && _kiosk != null
+              ? '영상 목록 - ${_kiosk!.posname ?? ""} ${_kiosk!.kioskNumber != null ? "#${_kiosk!.kioskNumber}" : ""}'
+              : '영상 목록 - 설정 필요'),
             const SizedBox(width: 8),
             Icon(
               _wsConnected ? Icons.cloud_done : Icons.cloud_off,
@@ -428,15 +431,15 @@ class _VideoListScreenState extends State<VideoListScreen> {
           ),
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: _loadVideos,
-            tooltip: '영상 목록 새로고침',
+            onPressed: hasConfig ? _loadVideos : null,
+            tooltip: hasConfig ? '영상 목록 새로고침' : '설정이 필요합니다',
           ),
           IconButton(
             icon: Icon(
               _wsConnected ? Icons.sync : Icons.sync_disabled,
-              color: _wsConnected ? Colors.white : Colors.grey,
+              color: hasConfig && _wsConnected ? Colors.white : Colors.grey,
             ),
-            onPressed: () {
+            onPressed: !hasConfig ? null : () {
               _resetAutoLogoutTimer();
 
               // kioskId 검증
