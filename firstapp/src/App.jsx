@@ -26,6 +26,7 @@ import KioskEventHistory from './components/KioskEventHistory';
 import AudioGenerator from './components/AudioGenerator';
 import AudioEdit from './components/AudioEdit';
 import UserGuide from './components/UserGuide';
+import DownloaderGuide from './components/DownloaderGuide';
 import ProtectedRoute from './components/ProtectedRoute';
 import './App.css';
 
@@ -239,6 +240,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <UserGuide />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/downloader-guide"
+            element={
+              <ProtectedRoute>
+                <DownloaderGuide />
               </ProtectedRoute>
             }
           />
