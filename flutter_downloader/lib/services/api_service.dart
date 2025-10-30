@@ -196,20 +196,25 @@ class ApiService {
   Future<void> recordEvent(
     String kioskId,
     String eventType,
-    String? details,
-  ) async {
+    String message, {
+    String? metadata,
+  }) async {
     try {
       await _dio.post(
         '/kiosk-events',
         data: {
-          'kioskId': kioskId,
+          'kioskid': kioskId,
           'eventType': eventType,
-          'details': details,
+          'userEmail': null,  // Not sent for security
+          'userName': null,   // Not sent for security
+          'message': message,
+          'metadata': metadata,
         },
       );
+      print('[EVENT] Recorded: $eventType - $message');
     } catch (e) {
-      // Ignore event recording errors
-      print('Failed to record event: $e');
+      // Ignore event recording errors (background operation)
+      print('[EVENT] Failed to record event: $e');
     }
   }
 

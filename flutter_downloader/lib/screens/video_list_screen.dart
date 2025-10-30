@@ -279,6 +279,13 @@ class _VideoListScreenState extends State<VideoListScreen> {
         throw Exception('설정이 올바르지 않습니다');
       }
 
+      // Record sync started event
+      await widget.apiService.recordEvent(
+        config.kioskId,
+        'SYNC_STARTED',
+        '영상 동기화 시작',
+      );
+
       // Fetch kiosk info if not already loaded
       if (_kiosk == null) {
         try {
@@ -303,9 +310,28 @@ class _VideoListScreenState extends State<VideoListScreen> {
         _isLoading = false;
       });
 
+      // Record sync completed event
+      await widget.apiService.recordEvent(
+        config.kioskId,
+        'SYNC_COMPLETED',
+        '영상 파일 ${videos.length} 개 동기완료',
+        metadata: '{"videoCount": ${videos.length}}',
+      );
+
       // Auto-download pending videos in background
       _downloadPendingVideosInBackground();
     } catch (e) {
+      final config = widget.storageService.getConfig();
+      if (config != null) {
+        // Record sync failed event
+        await widget.apiService.recordEvent(
+          config.kioskId,
+          'SYNC_FAILED',
+          '동기화 실패: ${e.toString()}',
+          metadata: '{"error": "${e.toString()}"}',
+        );
+      }
+
       setState(() {
         _errorMessage = e.toString().replaceFirst('Exception: ', '');
         _isLoading = false;
@@ -392,6 +418,14 @@ class _VideoListScreenState extends State<VideoListScreen> {
         throw Exception('영상 다운로드 URL이 없습니다');
       }
 
+      // Record download started event
+      await widget.apiService.recordEvent(
+        config.kioskId,
+        'DOWNLOAD_STARTED',
+        '다운로드 시작: ${video.title}',
+        metadata: '{"videoId": ${video.id}, "title": "${video.title}"}',
+      );
+
       // Use S3 URL directly (like kiosk-downloader does)
       final downloadUrl = video.s3Url!;
       print('[DOWNLOAD] Using S3 URL: ${downloadUrl.substring(0, downloadUrl.length > 100 ? 100 : downloadUrl.length)}...');
@@ -423,6 +457,14 @@ class _VideoListScreenState extends State<VideoListScreen> {
         video.downloadProgress = 1.0;
       });
 
+      // Record download completed event
+      await widget.apiService.recordEvent(
+        config.kioskId,
+        'DOWNLOAD_COMPLETED',
+        '다운로드 완료: ${video.title}',
+        metadata: '{"videoId": ${video.id}, "title": "${video.title}", "fileSize": ${video.fileSizeBytes}}',
+      );
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('${video.title} 다운로드 완료')),
@@ -430,6 +472,18 @@ class _VideoListScreenState extends State<VideoListScreen> {
       }
     } catch (e) {
       print('[DOWNLOAD] Error downloading video ${video.title} (ID: ${video.id}): $e');
+
+      final config = widget.storageService.getConfig();
+      if (config != null) {
+        // Record download failed event
+        await widget.apiService.recordEvent(
+          config.kioskId,
+          'DOWNLOAD_FAILED',
+          '다운로드 실패: ${video.title}',
+          metadata: '{"videoId": ${video.id}, "title": "${video.title}", "error": "${e.toString()}"}',
+        );
+      }
+
       setState(() {
         video.downloadStatus = 'failed';
       });
