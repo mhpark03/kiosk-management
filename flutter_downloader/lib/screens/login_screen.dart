@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../services/storage_service.dart';
 import '../models/user.dart';
+import '../models/kiosk_config.dart';
 import 'settings_screen.dart';
+import 'video_list_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   final ApiService apiService;
@@ -24,11 +26,14 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
   bool _isLoading = false;
   String? _errorMessage;
+  String _selectedServer = ServerPresets.awsDev;
+  final _customServerController = TextEditingController();
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
+    _customServerController.dispose();
     super.dispose();
   }
 
@@ -41,6 +46,16 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
+      // Set server URL before login
+      String serverUrl = _selectedServer;
+      if (_selectedServer == 'custom') {
+        serverUrl = _customServerController.text.trim();
+        if (serverUrl.isEmpty) {
+          throw Exception('서버 URL을 입력하세요');
+        }
+      }
+      widget.apiService.setBaseUrl(serverUrl);
+
       final user = await widget.apiService.login(
         _emailController.text.trim(),
         _passwordController.text,
@@ -69,6 +84,18 @@ class _LoginScreenState extends State<LoginScreen> {
         _isLoading = false;
       });
     }
+  }
+
+  void _skipLogin() {
+    // Navigate to video list screen if config exists
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => VideoListScreen(
+          apiService: widget.apiService,
+          storageService: widget.storageService,
+        ),
+      ),
+    );
   }
 
   @override
@@ -126,6 +153,54 @@ class _LoginScreenState extends State<LoginScreen> {
                           style: const TextStyle(color: Colors.red),
                         ),
                       ),
+                    DropdownButtonFormField<String>(
+                      value: _selectedServer,
+                      decoration: const InputDecoration(
+                        labelText: '서버 선택',
+                        prefixIcon: Icon(Icons.dns),
+                        border: OutlineInputBorder(),
+                      ),
+                      items: const [
+                        DropdownMenuItem(
+                          value: ServerPresets.awsDev,
+                          child: Text('AWS 개발 서버'),
+                        ),
+                        DropdownMenuItem(
+                          value: ServerPresets.local,
+                          child: Text('로컬 서버'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'custom',
+                          child: Text('직접 입력'),
+                        ),
+                      ],
+                      onChanged: _isLoading ? null : (value) {
+                        setState(() {
+                          _selectedServer = value!;
+                        });
+                      },
+                    ),
+                    if (_selectedServer == 'custom') ...[
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _customServerController,
+                        decoration: const InputDecoration(
+                          labelText: '서버 URL',
+                          hintText: 'http://example.com/api',
+                          prefixIcon: Icon(Icons.link),
+                          border: OutlineInputBorder(),
+                        ),
+                        enabled: !_isLoading,
+                        validator: (value) {
+                          if (_selectedServer == 'custom' &&
+                              (value == null || value.isEmpty)) {
+                            return '서버 URL을 입력하세요';
+                          }
+                          return null;
+                        },
+                      ),
+                    ],
+                    const SizedBox(height: 16),
                     TextFormField(
                       controller: _emailController,
                       decoration: const InputDecoration(
@@ -181,6 +256,20 @@ class _LoginScreenState extends State<LoginScreen> {
                               '로그인',
                               style: TextStyle(fontSize: 16),
                             ),
+                    ),
+                    const SizedBox(height: 12),
+                    OutlinedButton(
+                      onPressed: (_isLoading || !widget.storageService.isConfigured())
+                          ? null
+                          : _skipLogin,
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.all(16),
+                        foregroundColor: Colors.blue,
+                      ),
+                      child: const Text(
+                        '나중에',
+                        style: TextStyle(fontSize: 16),
+                      ),
                     ),
                   ],
                 ),
