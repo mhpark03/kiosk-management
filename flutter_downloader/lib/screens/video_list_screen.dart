@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../services/storage_service.dart';
@@ -294,16 +295,83 @@ class _VideoListScreenState extends State<VideoListScreen> {
 
       final videos = await widget.apiService.getKioskVideos(config.kioskId);
 
+      // Check local file existence and update download status
+      await _checkLocalFiles(videos, config);
+
       setState(() {
         _videos = videos;
         _isLoading = false;
       });
+
+      // Auto-download pending videos in background
+      _downloadPendingVideosInBackground();
     } catch (e) {
       setState(() {
         _errorMessage = e.toString().replaceFirst('Exception: ', '');
         _isLoading = false;
       });
     }
+  }
+
+  Future<void> _checkLocalFiles(List<Video> videos, dynamic config) async {
+    print('[CHECK FILES] Checking local file existence for ${videos.length} videos');
+
+    for (final video in videos) {
+      final fileName = '${video.filename}';
+      final filePath = '${config.downloadPath}/${config.kioskId}/$fileName';
+
+      try {
+        final file = File(filePath);
+        final exists = await file.exists();
+
+        if (exists && video.downloadStatus != 'completed') {
+          print('[CHECK FILES] File exists but status is ${video.downloadStatus}, marking as completed: $fileName');
+          video.downloadStatus = 'completed';
+          video.localPath = filePath;
+        } else if (!exists && video.downloadStatus == 'completed') {
+          print('[CHECK FILES] File missing but status is completed, marking as pending: $fileName');
+          video.downloadStatus = 'pending';
+          video.localPath = null;
+        } else if (exists) {
+          print('[CHECK FILES] File exists: $fileName');
+          video.downloadStatus = 'completed';
+          video.localPath = filePath;
+        } else {
+          print('[CHECK FILES] File missing: $fileName');
+          video.downloadStatus = 'pending';
+        }
+      } catch (e) {
+        print('[CHECK FILES] Error checking file $fileName: $e');
+        video.downloadStatus = 'pending';
+      }
+    }
+  }
+
+  Future<void> _downloadPendingVideosInBackground() async {
+    final pendingVideos = _videos.where((v) => v.downloadStatus == 'pending').toList();
+
+    if (pendingVideos.isEmpty) {
+      print('[AUTO DOWNLOAD] No pending videos to download');
+      return;
+    }
+
+    print('[AUTO DOWNLOAD] Found ${pendingVideos.length} pending videos, starting background download...');
+
+    // Download videos sequentially in background (don't wait)
+    Future.microtask(() async {
+      for (final video in pendingVideos) {
+        try {
+          print('[AUTO DOWNLOAD] Starting download: ${video.title}');
+          await _downloadVideo(video);
+          // Small delay between downloads
+          await Future.delayed(const Duration(milliseconds: 500));
+        } catch (e) {
+          print('[AUTO DOWNLOAD] Failed to download ${video.title}: $e');
+          // Continue with next video even if one fails
+        }
+      }
+      print('[AUTO DOWNLOAD] Background download completed');
+    });
   }
 
   Future<void> _downloadVideo(Video video) async {
