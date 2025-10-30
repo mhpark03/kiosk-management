@@ -79,6 +79,10 @@ class Video {
       // Handle URL (could be 's3Url' or 'url')
       final String? videoUrl = (json['s3Url'] as String?) ?? (json['url'] as String?);
 
+      // Handle thumbnail URL
+      final String? thumbnailUrlValue = json['thumbnailUrl']?.toString();
+      print('[Video.fromJson] thumbnailUrl: $thumbnailUrlValue');
+
       // Handle title
       final String title = json['title']?.toString() ?? 'Untitled';
 
@@ -100,7 +104,7 @@ class Video {
         description: json['description']?.toString(),
         filename: videoFilename,
         s3Url: videoUrl,
-        thumbnailUrl: json['thumbnailUrl']?.toString(),
+        thumbnailUrl: thumbnailUrlValue,
         fileSizeBytes: videoFileSize,
         videoType: json['videoType']?.toString() ?? 'UPLOAD',
         mediaType: json['mediaType']?.toString() ?? 'VIDEO',
