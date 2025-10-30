@@ -449,9 +449,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         final confirm = await showDialog<bool>(
                           context: context,
                           builder: (context) => AlertDialog(
-                            title: const Text('초기화 확인'),
+                            title: const Text('설정 초기화 확인'),
                             content: const Text(
-                              '모든 설정과 데이터를 삭제하고 초기 상태로 돌아갑니다.\n계속하시겠습니까?',
+                              '모든 설정 값을 기본값으로 되돌립니다.\n계속하시겠습니까?',
                             ),
                             actions: [
                               TextButton(
@@ -470,10 +470,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         );
 
                         if (confirm == true && mounted) {
-                          await widget.storageService.clearAll();
-                          if (mounted) {
-                            Navigator.of(context).pushReplacementNamed('/');
-                            }
+                          _resetToDefaults();
                           }
                         },
                       style: OutlinedButton.styleFrom(
@@ -538,6 +535,54 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (mounted) {
       _checkLoginStatus();
       setState(() {});
+    }
+  }
+
+  void _resetToDefaults() async {
+    // Get default download path
+    String basePath = '';
+    try {
+      final directory = await getDownloadsDirectory();
+      if (directory != null) {
+        basePath = directory.path;
+      }
+    } catch (e) {
+      // Fallback for Windows
+      final userProfile = Platform.environment['USERPROFILE'];
+      if (userProfile != null && userProfile.isNotEmpty) {
+        basePath = '$userProfile\\Downloads';
+      } else {
+        basePath = 'C:\\Downloads';
+      }
+    }
+
+    setState(() {
+      // Reset form fields to defaults
+      _kioskIdController.text = '';
+      _posIdController.text = '';
+      _downloadPathController.text = '$basePath\\KioskVideos';
+      _autoSync = true;
+      _syncIntervalHours = 12;
+
+      // Reset original values
+      _originalKioskId = '';
+      _originalPosId = '';
+      _originalDownloadPath = '$basePath\\KioskVideos';
+      _originalAutoSync = true;
+      _originalSyncInterval = 12;
+
+      // Mark as no existing config
+      _hasExistingConfig = false;
+    });
+
+    // Show confirmation
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('설정이 기본값으로 초기화되었습니다'),
+          duration: Duration(seconds: 2),
+        ),
+      );
     }
   }
 }
