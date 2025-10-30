@@ -25,6 +25,7 @@ import KioskVideoManagement from './components/KioskVideoManagement';
 import KioskEventHistory from './components/KioskEventHistory';
 import AudioGenerator from './components/AudioGenerator';
 import AudioEdit from './components/AudioEdit';
+import UserGuide from './components/UserGuide';
 import ProtectedRoute from './components/ProtectedRoute';
 import './App.css';
 
@@ -230,6 +231,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <KioskEventHistory />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/user-guide"
+            element={
+              <ProtectedRoute>
+                <UserGuide />
               </ProtectedRoute>
             }
           />
