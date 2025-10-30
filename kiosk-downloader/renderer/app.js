@@ -95,6 +95,10 @@ async function initialize() {
     if (config.autoSync && config.apiUrl && config.kioskId) {
       startAutoSync();
     }
+  } else {
+    // No config exists, set default to AWS development server
+    elements.apiUrl.value = SERVER_URLS.aws;
+    document.querySelector('input[name="server"][value="aws"]').checked = true;
   }
 
   // Explicitly enable all input fields AGAIN after loading config
