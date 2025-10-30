@@ -736,6 +736,26 @@ class _VideoListScreenState extends State<VideoListScreen> {
                                 Expanded(
                                   child: Row(
                                     children: [
+                                      // 영상 ID
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 6,
+                                          vertical: 2,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: Colors.grey.shade300,
+                                          borderRadius: BorderRadius.circular(4),
+                                        ),
+                                        child: Text(
+                                          '#${video.id}',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            color: Colors.grey.shade700,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
                                       // 제목
                                       Flexible(
                                         flex: 2,
