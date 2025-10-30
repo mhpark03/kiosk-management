@@ -57,10 +57,18 @@ class ApiService {
       );
 
       if (response.statusCode == 200) {
-        final user = User.fromJson(response.data);
-        if (user.token != null) {
-          setAuthToken(user.token);
-        }
+        final data = response.data;
+        // AuthResponse: token, type, email, displayName, role
+        final user = User(
+          id: 0, // AuthResponse doesn't include id
+          email: data['email'] as String,
+          name: data['displayName'] as String,
+          phoneNumber: null,
+          role: data['role'] as String,
+          status: 'ACTIVE', // Default status
+          token: data['token'] as String,
+        );
+        setAuthToken(user.token!);
         return user;
       } else {
         throw Exception('Login failed: ${response.statusCode}');
