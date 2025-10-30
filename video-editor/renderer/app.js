@@ -340,6 +340,10 @@ function showToolProperties(tool) {
           <label>트랜지션 지속시간 (초)</label>
           <input type="number" id="merge-duration" min="0.5" max="3" step="0.1" value="1">
         </div>
+        <div style="display: flex; gap: 10px; margin-top: 10px;">
+          <button class="property-btn secondary" onclick="previewMerge()" style="flex: 1;">🎬 미리보기</button>
+          <button class="property-btn secondary" onclick="stopMergePreview()" style="flex: 1;">⏹️ 중지</button>
+        </div>
         <button class="property-btn" onclick="executeMerge()">영상 병합</button>
         <div style="background: #3a3a3a; padding: 10px; border-radius: 5px; margin-top: 10px;">
           <small style="color: #aaa;">💡 영상들을 순서대로 병합합니다. 트랜지션은 영상과 영상 사이에 적용됩니다.</small>
@@ -3503,6 +3507,8 @@ async function executeTrimAudioOnly() {
 // Merge videos
 let mergeVideos = [];
 let mergeAudios = [];
+let mergePreviewIndex = 0;
+let isMergePreviewPlaying = false;
 
 async function addVideoToMerge() {
   const videoPath = await window.electronAPI.selectVideo();
@@ -3582,6 +3588,73 @@ function updateTransitionDurationVisibility() {
 
   // Update description
   updateTransitionDescription();
+}
+
+// Preview merge videos
+async function previewMerge() {
+  if (mergeVideos.length < 1) {
+    alert('미리보기할 영상이 없습니다.');
+    return;
+  }
+
+  // Start preview from first video
+  mergePreviewIndex = 0;
+  isMergePreviewPlaying = true;
+
+  await playNextMergeVideo();
+}
+
+// Play next video in merge list
+async function playNextMergeVideo() {
+  if (!isMergePreviewPlaying || mergePreviewIndex >= mergeVideos.length) {
+    stopMergePreview();
+    return;
+  }
+
+  const videoPath = mergeVideos[mergePreviewIndex];
+  const video = document.getElementById('preview-video');
+
+  if (!video) return;
+
+  // Load and play the video
+  video.src = `file://${videoPath}`;
+
+  // Update status
+  updateStatus(`미리보기: ${mergePreviewIndex + 1}/${mergeVideos.length} - ${videoPath.split('\\').pop()}`);
+
+  // Remove previous ended listener
+  video.onended = null;
+
+  // When this video ends, play the next one
+  video.onended = () => {
+    if (isMergePreviewPlaying) {
+      mergePreviewIndex++;
+      playNextMergeVideo();
+    }
+  };
+
+  // Start playing
+  try {
+    await video.play();
+  } catch (error) {
+    console.error('Failed to play video:', error);
+    updateStatus('미리보기 재생 실패');
+    stopMergePreview();
+  }
+}
+
+// Stop merge preview
+function stopMergePreview() {
+  isMergePreviewPlaying = false;
+  mergePreviewIndex = 0;
+
+  const video = document.getElementById('preview-video');
+  if (video) {
+    video.pause();
+    video.onended = null;
+  }
+
+  updateStatus('미리보기 중지됨');
 }
 
 async function executeMerge() {
