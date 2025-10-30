@@ -5810,10 +5810,6 @@ function updateModeUI() {
           <span class="icon">📝</span>
           텍스트/자막
         </button>
-        <button class="tool-btn" data-tool="transition">
-          <span class="icon">✨</span>
-          트랜지션
-        </button>
         <button class="tool-btn" data-tool="speed">
           <span class="icon">⚡</span>
           속도 조절
