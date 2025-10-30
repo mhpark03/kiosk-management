@@ -535,6 +535,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _resetToDefaults() async {
+    // Delete saved configuration
+    await widget.storageService.deleteConfig();
+
     // Get default download path
     String basePath = '';
     try {
@@ -571,12 +574,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _hasExistingConfig = false;
     });
 
-    // Show confirmation
+    // Navigate to fresh video list screen to disconnect WebSocket and reset state
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('설정이 기본값으로 초기화되었습니다'),
-          duration: Duration(seconds: 2),
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => VideoListScreen(
+            apiService: widget.apiService,
+            storageService: widget.storageService,
+          ),
         ),
       );
     }
