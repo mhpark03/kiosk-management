@@ -701,7 +701,7 @@ class _VideoListScreenState extends State<VideoListScreen> {
                             child: Row(
                               crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
-                                // 썸네일 또는 아이콘
+                                // 썸네일
                                 Container(
                                   width: 60,
                                   height: 60,
@@ -709,88 +709,84 @@ class _VideoListScreenState extends State<VideoListScreen> {
                                     color: Colors.grey.shade200,
                                     borderRadius: BorderRadius.circular(8),
                                   ),
-                                  child: Icon(
-                                    video.mediaType == 'VIDEO'
-                                        ? Icons.videocam
-                                        : Icons.image,
-                                    size: 32,
-                                    color: Colors.grey.shade600,
-                                  ),
-                                ),
-                                const SizedBox(width: 16),
-
-                                // 영상 정보 (확장)
-                                Expanded(
-                                  flex: 3,
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        video.title,
-                                        style: const TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.bold,
+                                  child: video.thumbnailUrl != null && video.thumbnailUrl!.isNotEmpty
+                                      ? ClipRRect(
+                                          borderRadius: BorderRadius.circular(8),
+                                          child: Image.network(
+                                            video.thumbnailUrl!,
+                                            fit: BoxFit.cover,
+                                            errorBuilder: (context, error, stackTrace) {
+                                              return Icon(
+                                                Icons.videocam,
+                                                size: 32,
+                                                color: Colors.grey.shade600,
+                                              );
+                                            },
+                                          ),
+                                        )
+                                      : Icon(
+                                          Icons.videocam,
+                                          size: 32,
+                                          color: Colors.grey.shade600,
                                         ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                      if (video.description != null) ...[
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          video.description!,
-                                          style: TextStyle(
-                                            fontSize: 13,
-                                            color: Colors.grey.shade600,
+                                ),
+                                const SizedBox(width: 12),
+
+                                // 제목과 설명 (가로로 나란히, 우선 표시)
+                                Expanded(
+                                  child: Row(
+                                    children: [
+                                      // 제목
+                                      Flexible(
+                                        flex: 2,
+                                        child: Text(
+                                          video.title,
+                                          style: const TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold,
                                           ),
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      if (video.description != null) ...[
+                                        const SizedBox(width: 12),
+                                        // 설명
+                                        Flexible(
+                                          flex: 3,
+                                          child: Text(
+                                            video.description!,
+                                            style: TextStyle(
+                                              fontSize: 13,
+                                              color: Colors.grey.shade600,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
                                         ),
                                       ],
                                     ],
                                   ),
                                 ),
-                                const SizedBox(width: 16),
+                                const SizedBox(width: 8),
 
-                                // 메타 정보
+                                // 파일 크기 (VIDEO 태그 제거)
                                 SizedBox(
-                                  width: 120,
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        children: [
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 8,
-                                              vertical: 4,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: Colors.blue.shade100,
-                                              borderRadius: BorderRadius.circular(4),
-                                            ),
-                                            child: Text(
-                                              video.mediaType,
-                                              style: const TextStyle(fontSize: 11),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        video.fileSizeDisplay,
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.grey.shade600,
-                                        ),
-                                      ),
-                                    ],
+                                  width: 60,
+                                  child: Text(
+                                    video.fileSizeDisplay,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: Colors.grey.shade600,
+                                    ),
+                                    textAlign: TextAlign.right,
                                   ),
                                 ),
-                                const SizedBox(width: 16),
+                                const SizedBox(width: 8),
 
-                                // 다운로드 상태 및 버튼
+                                // 다운로드 상태 및 버튼 (축소된 폭)
                                 SizedBox(
-                                  width: 180,
+                                  width: 120,
                                   child: video.downloadStatus == 'downloading'
                                       ? Column(
                                           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -813,14 +809,15 @@ class _VideoListScreenState extends State<VideoListScreen> {
                                                 const Icon(
                                                   Icons.check_circle,
                                                   color: Colors.green,
-                                                  size: 20,
+                                                  size: 16,
                                                 ),
-                                                const SizedBox(width: 8),
+                                                const SizedBox(width: 4),
                                                 const Text(
                                                   '완료',
                                                   style: TextStyle(
                                                     color: Colors.green,
                                                     fontWeight: FontWeight.bold,
+                                                    fontSize: 12,
                                                   ),
                                                 ),
                                               ],
@@ -828,26 +825,26 @@ class _VideoListScreenState extends State<VideoListScreen> {
                                           : video.downloadStatus == 'failed'
                                               ? ElevatedButton.icon(
                                                   onPressed: () => _downloadVideo(video),
-                                                  icon: const Icon(Icons.refresh, size: 18),
-                                                  label: const Text('재시도'),
+                                                  icon: const Icon(Icons.refresh, size: 16),
+                                                  label: const Text('재시도', style: TextStyle(fontSize: 12)),
                                                   style: ElevatedButton.styleFrom(
                                                     backgroundColor: Colors.orange,
                                                     padding: const EdgeInsets.symmetric(
-                                                      horizontal: 12,
-                                                      vertical: 8,
+                                                      horizontal: 8,
+                                                      vertical: 6,
                                                     ),
                                                   ),
                                                 )
                                               : ElevatedButton.icon(
                                                   onPressed: () => _downloadVideo(video),
-                                                  icon: const Icon(Icons.download, size: 18),
-                                                  label: const Text('다운로드'),
+                                                  icon: const Icon(Icons.download, size: 16),
+                                                  label: const Text('다운', style: TextStyle(fontSize: 12)),
                                                   style: ElevatedButton.styleFrom(
                                                     backgroundColor: Colors.blue,
                                                     foregroundColor: Colors.white,
                                                     padding: const EdgeInsets.symmetric(
-                                                      horizontal: 12,
-                                                      vertical: 8,
+                                                      horizontal: 8,
+                                                      vertical: 6,
                                                     ),
                                                   ),
                                                 ),
