@@ -164,20 +164,30 @@ class ApiService {
   // Get download URL for video
   Future<String> getVideoDownloadUrl(int videoId) async {
     try {
+      print('[API] Requesting download URL for video ID: $videoId');
       final response = await _dio.get('/videos/$videoId/download-url');
 
+      print('[API] Download URL response status: ${response.statusCode}');
       if (response.statusCode == 200) {
-        return response.data['downloadUrl'] as String;
+        final downloadUrl = response.data['downloadUrl'] as String;
+        print('[API] Download URL received: ${downloadUrl.substring(0, downloadUrl.length > 100 ? 100 : downloadUrl.length)}...');
+        return downloadUrl;
       } else {
         throw Exception('Failed to get download URL: ${response.statusCode}');
       }
     } on DioException catch (e) {
+      print('[API] DioException getting download URL for video $videoId:');
+      print('  Status code: ${e.response?.statusCode}');
+      print('  Response data: ${e.response?.data}');
+      print('  Error message: ${e.message}');
+
       if (e.response?.data != null && e.response?.data['message'] != null) {
         throw Exception(e.response?.data['message']);
       } else {
         throw Exception('서버 연결에 실패했습니다: ${e.message}');
       }
     } catch (e) {
+      print('[API] Exception getting download URL for video $videoId: $e');
       throw Exception('다운로드 URL 조회 중 오류가 발생했습니다: $e');
     }
   }

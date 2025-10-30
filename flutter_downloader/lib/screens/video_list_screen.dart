@@ -379,11 +379,17 @@ class _VideoListScreenState extends State<VideoListScreen> {
     _resetAutoLogoutTimer();
 
     try {
+      print('[DOWNLOAD] Starting download for video: ${video.title} (ID: ${video.id})');
       final config = widget.storageService.getConfig();
-      if (config == null) return;
+      if (config == null) {
+        print('[DOWNLOAD] Config is null, aborting download');
+        return;
+      }
 
       // Get download URL
+      print('[DOWNLOAD] Requesting download URL from API...');
       final downloadUrl = await widget.apiService.getVideoDownloadUrl(video.id);
+      print('[DOWNLOAD] Got download URL, starting file download...');
 
       // Create kioskId subdirectory: Downloads/KioskVideos/[KioskId]
       final kioskDownloadPath = '${config.downloadPath}\\${config.kioskId}';
@@ -418,6 +424,7 @@ class _VideoListScreenState extends State<VideoListScreen> {
         );
       }
     } catch (e) {
+      print('[DOWNLOAD] Error downloading video ${video.title} (ID: ${video.id}): $e');
       setState(() {
         video.downloadStatus = 'failed';
       });
