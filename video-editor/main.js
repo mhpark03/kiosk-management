@@ -1719,8 +1719,17 @@ ipcMain.handle('merge-videos', async (event, options) => {
         inputs.push('-i', path);
       });
 
+      // Parse transition type and effect
+      let transitionType = transition;
+      let transitionEffect = 'fade';
+
+      if (transition.startsWith('xfade-')) {
+        transitionType = 'xfade';
+        transitionEffect = transition.substring(6); // Extract effect name after 'xfade-'
+      }
+
       // Build filter chain based on transition type
-      if (transition === 'xfade') {
+      if (transitionType === 'xfade') {
         // Get durations of all videos
         const durations = await Promise.all(videoPaths.map(path => getVideoDuration(path)));
 
@@ -1730,12 +1739,12 @@ ipcMain.handle('merge-videos', async (event, options) => {
           filterComplex += `[${i}:a]aresample=48000,aformat=sample_rates=48000:channel_layouts=stereo[a${i}];`; // Resample to 48000Hz stereo (higher quality)
         }
 
-        // Apply xfade transitions with correct offsets
+        // Apply xfade transitions with correct offsets and specified effect
         let currentLabel = 'v0';
         let offset = durations[0] - transitionDuration;
         for (let i = 1; i < videoPaths.length; i++) {
           const nextLabel = i === videoPaths.length - 1 ? 'outv' : `v${i}x`;
-          filterComplex += `[${currentLabel}][v${i}]xfade=transition=fade:duration=${transitionDuration}:offset=${offset.toFixed(2)}[${nextLabel}];`;
+          filterComplex += `[${currentLabel}][v${i}]xfade=transition=${transitionEffect}:duration=${transitionDuration}:offset=${offset.toFixed(2)}[${nextLabel}];`;
           currentLabel = nextLabel;
           if (i < videoPaths.length - 1) {
             offset += durations[i] - transitionDuration;
@@ -1743,6 +1752,37 @@ ipcMain.handle('merge-videos', async (event, options) => {
         }
 
         // Concatenate audio separately (simple concat, no crossfade for audio)
+        filterComplex += videoPaths.map((_, i) => `[a${i}]`).join('') + `concat=n=${videoPaths.length}:v=0:a=1[outa]`;
+      } else if (transitionType === 'fade') {
+        // Simple fade transition (fade out first video, fade in second video)
+        const durations = await Promise.all(videoPaths.map(path => getVideoDuration(path)));
+
+        // Normalize all videos first
+        for (let i = 0; i < videoPaths.length; i++) {
+          filterComplex += `[${i}:v]scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1[v${i}];`;
+          filterComplex += `[${i}:a]aresample=48000,aformat=sample_rates=48000:channel_layouts=stereo[a${i}];`;
+        }
+
+        // Apply fade out/in transitions to each video
+        for (let i = 0; i < videoPaths.length; i++) {
+          if (i === 0) {
+            // First video: only fade out at the end
+            const fadeStartTime = durations[i] - transitionDuration;
+            filterComplex += `[v${i}]fade=t=out:st=${fadeStartTime.toFixed(2)}:d=${transitionDuration}[v${i}f];`;
+          } else if (i === videoPaths.length - 1) {
+            // Last video: only fade in at the start
+            filterComplex += `[v${i}]fade=t=in:st=0:d=${transitionDuration}[v${i}f];`;
+          } else {
+            // Middle videos: fade in at start and fade out at end
+            const fadeStartTime = durations[i] - transitionDuration;
+            filterComplex += `[v${i}]fade=t=in:st=0:d=${transitionDuration},fade=t=out:st=${fadeStartTime.toFixed(2)}:d=${transitionDuration}[v${i}f];`;
+          }
+        }
+
+        // Concatenate faded videos
+        filterComplex += videoPaths.map((_, i) => `[v${i}f]`).join('') + `concat=n=${videoPaths.length}:v=1:a=0[outv];`;
+
+        // Concatenate audio separately
         filterComplex += videoPaths.map((_, i) => `[a${i}]`).join('') + `concat=n=${videoPaths.length}:v=0:a=1[outa]`;
       } else {
         // Simple concatenation - normalize videos and concat with audio (all videos guaranteed to have audio)
