@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'services/api_service.dart';
 import 'services/storage_service.dart';
 import 'models/kiosk_config.dart';
@@ -9,13 +10,21 @@ import 'screens/video_list_screen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Allow all orientations (auto-rotation)
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+    DeviceOrientation.landscapeLeft,
+    DeviceOrientation.landscapeRight,
+  ]);
+
   // Initialize storage service
   final storageService = await StorageService.init();
 
   // Initialize API service with default server
   final config = storageService.getConfig();
   final apiService = ApiService(
-    baseUrl: config?.serverUrl ?? ServerPresets.awsDev,
+    baseUrl: config?.serverUrl ?? ServerPresets.local, // Use local server for development
   );
 
   // Restore auth token if exists

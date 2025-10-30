@@ -504,41 +504,50 @@ class _VideoListScreenState extends State<VideoListScreen> {
     final user = widget.storageService.getUser();
     final config = widget.storageService.getConfig();
     final hasConfig = config != null && config.isValid;
+    final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
 
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false, // Remove back button from main screen
         title: Row(
           children: [
-            Text(hasConfig && _kiosk != null
-              ? '영상 목록 - ${_kiosk!.posname ?? ""} ${_kiosk!.kioskNumber != null ? "#${_kiosk!.kioskNumber}" : ""}'
-              : '영상 목록 - 설정 필요'),
-            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                hasConfig && _kiosk != null
+                  ? '${_kiosk!.posname ?? ""} ${_kiosk!.kioskNumber != null ? "#${_kiosk!.kioskNumber}" : ""}'
+                  : '설정 필요',
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 2),
             Icon(
               _wsConnected ? Icons.cloud_done : Icons.cloud_off,
-              size: 20,
+              size: 14,
               color: _wsConnected ? Colors.green : Colors.grey,
             ),
             if (_isLoggedIn) ...[
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.green.shade700,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.person, size: 14, color: Colors.white),
-                    const SizedBox(width: 4),
-                    Text(
-                      user?.name ?? '로그인됨',
-                      style: const TextStyle(fontSize: 12, color: Colors.white),
-                    ),
-                  ],
-                ),
-              ),
+              const SizedBox(width: 2),
+              if (isLandscape)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.green.shade700,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.person, size: 12, color: Colors.white),
+                      const SizedBox(width: 2),
+                      Text(
+                        user?.name ?? '로그인됨',
+                        style: const TextStyle(fontSize: 11, color: Colors.white),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                Icon(Icons.person, size: 14, color: Colors.green.shade700),
             ],
           ],
         ),
@@ -546,18 +555,24 @@ class _VideoListScreenState extends State<VideoListScreen> {
           // 로그인/로그아웃 버튼
           if (_isLoggedIn)
             IconButton(
-              icon: const Icon(Icons.logout),
+              icon: const Icon(Icons.logout, size: 20),
               onPressed: () => _performLogout(isAuto: false),
               tooltip: '로그아웃',
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
             )
           else
             IconButton(
-              icon: const Icon(Icons.login),
+              icon: const Icon(Icons.login, size: 20),
               onPressed: _navigateToLogin,
               tooltip: '로그인',
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
             ),
           IconButton(
-            icon: const Icon(Icons.settings),
+            icon: const Icon(Icons.settings, size: 20),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
             onPressed: () {
               _resetAutoLogoutTimer();
               Navigator.of(context).push(
@@ -571,15 +586,20 @@ class _VideoListScreenState extends State<VideoListScreen> {
             },
           ),
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Icons.refresh, size: 20),
             onPressed: hasConfig ? _loadVideos : null,
             tooltip: hasConfig ? '영상 목록 새로고침' : '설정이 필요합니다',
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
           ),
           IconButton(
             icon: Icon(
               _wsConnected ? Icons.sync : Icons.sync_disabled,
+              size: 20,
               color: hasConfig && _wsConnected ? Colors.white : Colors.grey,
             ),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
             onPressed: !hasConfig ? null : () {
               _resetAutoLogoutTimer();
 
