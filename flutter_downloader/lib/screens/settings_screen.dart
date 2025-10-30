@@ -248,9 +248,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
           TextButton.icon(
             onPressed: () async {
               // 사용자만 로그아웃 (설정은 유지하여 무인 동작 가능)
+              final config = widget.storageService.getConfig();
+              final user = widget.storageService.getUser();
+
               await widget.storageService.deleteUser();
               await widget.storageService.deleteToken();
               widget.apiService.setAuthToken(null);
+
+              // Record logout event if config exists
+              if (config != null) {
+                try {
+                  await widget.apiService.recordEvent(
+                    config.kioskId,
+                    'USER_LOGOUT',
+                    '사용자 로그아웃: ${user?.email ?? "unknown"}',
+                    metadata: user != null
+                        ? '{"userEmail": "${user.email}", "userName": "${user.name}"}'
+                        : null,
+                  );
+                } catch (e) {
+                  print('[LOGOUT EVENT] Failed to record logout event: $e');
+                }
+              }
+
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('로그아웃되었습니다 (설정은 유지됨)')),
