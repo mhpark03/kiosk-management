@@ -304,4 +304,35 @@ class ApiService {
       throw Exception('설정 조회 중 오류: $e');
     }
   }
+
+  // Update video download status
+  Future<void> updateVideoDownloadStatus(
+    String kioskId,
+    int videoId,
+    String status,
+  ) async {
+    try {
+      final response = await _dio.patch(
+        '/kiosks/by-kioskid/${Uri.encodeComponent(kioskId)}/videos/$videoId/status',
+        queryParameters: {'status': status},
+        options: Options(
+          headers: {
+            'X-Kiosk-Id': kioskId,
+          },
+        ),
+      );
+
+      if (response.statusCode != 200) {
+        throw Exception('Failed to update download status: ${response.statusCode}');
+      }
+
+      print('[DOWNLOAD STATUS] Updated video $videoId status to $status');
+    } on DioException catch (e) {
+      print('[DOWNLOAD STATUS] Failed to update status: ${e.message}');
+      // Don't throw error, just log it (background operation)
+    } catch (e) {
+      print('[DOWNLOAD STATUS] Error updating status: $e');
+      // Don't throw error, just log it (background operation)
+    }
+  }
 }

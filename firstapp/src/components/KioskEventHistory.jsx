@@ -80,12 +80,16 @@ function KioskEventHistory() {
   const formatDate = (timestamp) => {
     if (!timestamp) return 'N/A';
     const date = new Date(timestamp);
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    const seconds = String(date.getSeconds()).padStart(2, '0');
+
+    // Convert to KST (Korea Standard Time, UTC+9)
+    const kstDate = new Date(date.toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
+
+    const year = kstDate.getFullYear();
+    const month = String(kstDate.getMonth() + 1).padStart(2, '0');
+    const day = String(kstDate.getDate()).padStart(2, '0');
+    const hours = String(kstDate.getHours()).padStart(2, '0');
+    const minutes = String(kstDate.getMinutes()).padStart(2, '0');
+    const seconds = String(kstDate.getSeconds()).padStart(2, '0');
     return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
   };
 
@@ -103,6 +107,10 @@ function KioskEventHistory() {
       // App lifecycle
       'APP_START': '앱 시작',
       'APP_SHUTDOWN': '앱 종료',
+
+      // User authentication
+      'USER_LOGIN': '사용자 로그인',
+      'USER_LOGOUT': '사용자 로그아웃',
 
       // Sync events
       'SYNC_STARTED': '동기화 시작',
@@ -153,6 +161,7 @@ function KioskEventHistory() {
     // Success/Completion events - green
     if (type?.includes('COMPLETED') || type?.includes('SUCCESS') ||
         type === 'APP_START' || type === 'CONFIG_SAVED' ||
+        type === 'USER_LOGIN' || type === 'USER_LOGOUT' ||
         type === 'WEBSOCKET_CONNECTED' || type === 'FILE_VERIFIED') {
       return 'action-create';
     }
@@ -266,6 +275,10 @@ function KioskEventHistory() {
             <optgroup label="앱">
               <option value="APP_START">앱 시작</option>
               <option value="APP_SHUTDOWN">앱 종료</option>
+            </optgroup>
+            <optgroup label="사용자">
+              <option value="USER_LOGIN">사용자 로그인</option>
+              <option value="USER_LOGOUT">사용자 로그아웃</option>
             </optgroup>
             <optgroup label="동기화">
               <option value="SYNC_STARTED">동기화 시작</option>

@@ -427,6 +427,13 @@ class _VideoListScreenState extends State<VideoListScreen> {
         metadata: '{"videoId": ${video.id}, "title": "${video.title}"}',
       );
 
+      // Update video download status on server to DOWNLOADING
+      await widget.apiService.updateVideoDownloadStatus(
+        config.kioskId,
+        video.id,
+        'DOWNLOADING',
+      );
+
       // Use S3 URL directly (like kiosk-downloader does)
       final downloadUrl = video.s3Url!;
       print('[DOWNLOAD] Using S3 URL: ${downloadUrl.substring(0, downloadUrl.length > 100 ? 100 : downloadUrl.length)}...');
@@ -466,6 +473,13 @@ class _VideoListScreenState extends State<VideoListScreen> {
         metadata: '{"videoId": ${video.id}, "title": "${video.title}", "fileSize": ${video.fileSizeBytes}}',
       );
 
+      // Update video download status on server
+      await widget.apiService.updateVideoDownloadStatus(
+        config.kioskId,
+        video.id,
+        'COMPLETED',
+      );
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('${video.title} 다운로드 완료')),
@@ -482,6 +496,13 @@ class _VideoListScreenState extends State<VideoListScreen> {
           'DOWNLOAD_FAILED',
           '다운로드 실패: ${video.title}',
           metadata: '{"videoId": ${video.id}, "title": "${video.title}", "error": "${e.toString()}"}',
+        );
+
+        // Update video download status on server to FAILED
+        await widget.apiService.updateVideoDownloadStatus(
+          config.kioskId,
+          video.id,
+          'FAILED',
         );
       }
 

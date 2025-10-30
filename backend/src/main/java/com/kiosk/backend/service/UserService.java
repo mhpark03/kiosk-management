@@ -4,8 +4,11 @@ import com.kiosk.backend.dto.AuthResponse;
 import com.kiosk.backend.dto.LoginRequest;
 import com.kiosk.backend.dto.SignupRequest;
 import com.kiosk.backend.entity.EntityHistory;
+import com.kiosk.backend.entity.Kiosk;
+import com.kiosk.backend.entity.KioskEvent;
 import com.kiosk.backend.entity.User;
 import com.kiosk.backend.repository.EntityHistoryRepository;
+import com.kiosk.backend.repository.KioskRepository;
 import com.kiosk.backend.repository.UserRepository;
 import com.kiosk.backend.security.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -31,6 +35,8 @@ public class UserService {
     private final AuthenticationManager authenticationManager;
     private final JwtTokenProvider tokenProvider;
     private final EntityHistoryRepository entityHistoryRepository;
+    private final KioskEventService kioskEventService;
+    private final KioskRepository kioskRepository;
 
         @Transactional
     public AuthResponse signup(SignupRequest request) {
@@ -95,6 +101,11 @@ public class UserService {
 
     @Transactional
     public AuthResponse login(LoginRequest request) {
+        return login(request, null, null);
+    }
+
+    @Transactional
+    public AuthResponse login(LoginRequest request, String kioskId, String clientIp) {
         Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
         );
@@ -109,12 +120,68 @@ public class UserService {
         // Log login event
         logUserActivity(user.getEmail(), user.getDisplayName(), "LOGIN", "User logged in successfully");
 
+        // Record kiosk event if kiosk ID is provided
+        if (kioskId != null && !kioskId.isEmpty()) {
+            try {
+                Optional<Kiosk> kioskOpt = kioskRepository.findByKioskid(kioskId);
+                String kioskInfo = kioskOpt.map(k -> k.getPosname() + " #" + k.getKioskNumber()).orElse(kioskId);
+
+                kioskEventService.recordEvent(
+                    kioskId,
+                    KioskEvent.EventType.USER_LOGIN,
+                    user.getEmail(),
+                    user.getDisplayName(),
+                    "사용자 로그인: " + user.getDisplayName() + " (" + user.getEmail() + ")",
+                    String.format("{\"userEmail\": \"%s\", \"userName\": \"%s\", \"kioskInfo\": \"%s\"}",
+                        user.getEmail(), user.getDisplayName(), kioskInfo),
+                    clientIp
+                );
+                log.info("Kiosk login event recorded for user {} on kiosk {}", user.getEmail(), kioskId);
+            } catch (Exception e) {
+                log.error("Failed to record kiosk login event: {}", e.getMessage());
+            }
+        }
+
         return AuthResponse.builder()
                 .token(token)
                 .email(user.getEmail())
                 .displayName(user.getDisplayName())
                 .role(user.getRole().name())
                 .build();
+    }
+
+    @Transactional
+    public void logout(String kioskId, String userEmail, String clientIp) {
+        // Record kiosk logout event if kiosk ID is provided
+        if (kioskId != null && !kioskId.isEmpty()) {
+            try {
+                Optional<Kiosk> kioskOpt = kioskRepository.findByKioskid(kioskId);
+                String kioskInfo = kioskOpt.map(k -> k.getPosname() + " #" + k.getKioskNumber()).orElse(kioskId);
+
+                // Try to get user information
+                String userName = null;
+                if (userEmail != null && !userEmail.isEmpty()) {
+                    Optional<User> userOpt = userRepository.findByEmail(userEmail);
+                    userName = userOpt.map(User::getDisplayName).orElse(null);
+                }
+
+                kioskEventService.recordEvent(
+                    kioskId,
+                    KioskEvent.EventType.USER_LOGOUT,
+                    userEmail,
+                    userName,
+                    "사용자 로그아웃" + (userEmail != null ? ": " + userEmail : ""),
+                    String.format("{\"userEmail\": \"%s\", \"userName\": \"%s\", \"kioskInfo\": \"%s\"}",
+                        userEmail != null ? userEmail : "unknown",
+                        userName != null ? userName : "unknown",
+                        kioskInfo),
+                    clientIp
+                );
+                log.info("Kiosk logout event recorded for user {} on kiosk {}", userEmail, kioskId);
+            } catch (Exception e) {
+                log.error("Failed to record kiosk logout event: {}", e.getMessage());
+            }
+        }
     }
 
     @Transactional(readOnly = true)
