@@ -561,6 +561,16 @@ public class KioskService {
                     // Get video details
                     var video = videoRepository.findById(kv.getVideoId()).orElse(null);
 
+                    // Generate presigned URL for video download (valid for 7 days)
+                    String videoPresignedUrl = null;
+                    if (video != null && video.getS3Key() != null && !video.getS3Key().isEmpty()) {
+                        try {
+                            videoPresignedUrl = videoService.generatePresignedUrl(kv.getVideoId(), 10080); // 7 days
+                        } catch (Exception e) {
+                            log.warn("Failed to generate presigned URL for video {}: {}", kv.getVideoId(), e.getMessage());
+                        }
+                    }
+
                     // Generate presigned URL for thumbnail if exists
                     String thumbnailPresignedUrl = null;
                     if (video != null && video.getThumbnailS3Key() != null && !video.getThumbnailS3Key().isEmpty()) {
@@ -586,7 +596,7 @@ public class KioskService {
                             .fileName(video != null ? video.getOriginalFilename() : null)
                             .fileSize(video != null ? video.getFileSize() : null)
                             .duration(video != null ? video.getDuration() : null)
-                            .url(video != null ? video.getS3Url() : null)
+                            .url(videoPresignedUrl)  // Use presigned URL instead of raw S3 URL
                             .thumbnailUrl(thumbnailPresignedUrl)
                             .build();
                 })
@@ -608,6 +618,16 @@ public class KioskService {
                     // Get video details
                     var video = videoRepository.findById(kv.getVideoId()).orElse(null);
 
+                    // Generate presigned URL for video download (valid for 7 days)
+                    String videoPresignedUrl = null;
+                    if (video != null && video.getS3Key() != null && !video.getS3Key().isEmpty()) {
+                        try {
+                            videoPresignedUrl = videoService.generatePresignedUrl(kv.getVideoId(), 10080); // 7 days
+                        } catch (Exception e) {
+                            log.warn("Failed to generate presigned URL for video {}: {}", kv.getVideoId(), e.getMessage());
+                        }
+                    }
+
                     // Generate presigned URL for thumbnail if exists
                     String thumbnailPresignedUrl = null;
                     if (video != null && video.getThumbnailS3Key() != null && !video.getThumbnailS3Key().isEmpty()) {
@@ -633,7 +653,7 @@ public class KioskService {
                             .fileName(video != null ? video.getOriginalFilename() : null)
                             .fileSize(video != null ? video.getFileSize() : null)
                             .duration(video != null ? video.getDuration() : null)
-                            .url(video != null ? video.getS3Url() : null)
+                            .url(videoPresignedUrl)  // Use presigned URL instead of raw S3 URL
                             .thumbnailUrl(thumbnailPresignedUrl)
                             .build();
                 })
