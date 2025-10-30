@@ -194,8 +194,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
       // Verify kiosk exists
       await widget.apiService.getKiosk(config.kioskId);
 
-      // Save config
+      // Save config locally
       await widget.storageService.saveConfig(config);
+
+      // Sync config to server (background operation, don't wait)
+      widget.apiService.updateKioskConfig(
+        config.kioskId,
+        config.downloadPath,
+        config.serverUrl,
+        config.autoSync,
+        config.syncIntervalHours,
+      ).catchError((e) {
+        print('[CONFIG SYNC] Failed to sync to server: $e');
+        // Don't show error to user, this is a background operation
+      });
 
       // Update original values after successful save
       setState(() {
