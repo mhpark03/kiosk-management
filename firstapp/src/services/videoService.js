@@ -253,27 +253,7 @@ export const videoService = {
 
     return `${year}-${month}-${day} ${hours}:${minutes}`;
   },
-
-  // Merge two videos
-  async mergeVideos(videoId1, videoId2, title, description, transitionType = 'concat', transitionDuration = 1, outputQuality = 'medium') {
-    try {
-      const requestBody = {
-        videoId1,
-        videoId2,
-        title,
-        description,
-        transitionType,
-        transitionDuration,
-        outputQuality
-      };
-
-      const response = await api.post('/videos/merge', requestBody);
-      return response.data;
-    } catch (error) {
-      console.error('Video merge error:', error);
-      throw new Error(error.response?.data?.error || 'Failed to merge videos');
-    }
-  },
 };
+
 
 export default videoService;
