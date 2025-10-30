@@ -34,18 +34,41 @@ class Video {
   });
 
   factory Video.fromJson(Map<String, dynamic> json) {
+    // Support both VideoDTO and KioskVideoDTO formats
+    // KioskVideoDTO uses: fileName, fileSize, url, videoId
+    // VideoDTO uses: filename, fileSizeBytes, s3Url
+
+    // Handle id field (could be 'id' or 'videoId')
+    final int videoId = (json['videoId'] as int?) ?? (json['id'] as int);
+
+    // Handle filename field (could be 'filename' or 'fileName')
+    final String videoFilename = (json['fileName'] as String?) ?? (json['filename'] as String);
+
+    // Handle file size (could be 'fileSizeBytes' or 'fileSize')
+    final int? videoFileSize = (json['fileSizeBytes'] as int?) ??
+                               (json['fileSize'] != null ? (json['fileSize'] as num).toInt() : null);
+
+    // Handle URL (could be 's3Url' or 'url')
+    final String? videoUrl = (json['s3Url'] as String?) ?? (json['url'] as String?);
+
+    // Handle dates - updatedAt might not exist in KioskVideoDTO
+    final DateTime createdAtDate = DateTime.parse(json['createdAt'] as String);
+    final DateTime updatedAtDate = json['updatedAt'] != null
+        ? DateTime.parse(json['updatedAt'] as String)
+        : createdAtDate; // Use createdAt as fallback
+
     return Video(
-      id: json['id'] as int,
+      id: videoId,
       title: json['title'] as String,
       description: json['description'] as String?,
-      filename: json['filename'] as String,
-      s3Url: json['s3Url'] as String?,
+      filename: videoFilename,
+      s3Url: videoUrl,
       thumbnailUrl: json['thumbnailUrl'] as String?,
-      fileSizeBytes: json['fileSizeBytes'] as int?,
+      fileSizeBytes: videoFileSize,
       videoType: json['videoType'] as String? ?? 'UPLOAD',
       mediaType: json['mediaType'] as String? ?? 'VIDEO',
-      createdAt: DateTime.parse(json['createdAt'] as String),
-      updatedAt: DateTime.parse(json['updatedAt'] as String),
+      createdAt: createdAtDate,
+      updatedAt: updatedAtDate,
     );
   }
 
