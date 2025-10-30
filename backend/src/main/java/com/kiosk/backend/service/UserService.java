@@ -124,7 +124,7 @@ public class UserService {
         if (kioskId != null && !kioskId.isEmpty()) {
             try {
                 Optional<Kiosk> kioskOpt = kioskRepository.findByKioskid(kioskId);
-                String kioskInfo = kioskOpt.map(k -> k.getPosname() + " #" + k.getKioskNumber()).orElse(kioskId);
+                String kioskInfo = kioskOpt.map(k -> k.getPosid() + " #" + k.getKioskno()).orElse(kioskId);
 
                 kioskEventService.recordEvent(
                     kioskId,
@@ -156,7 +156,7 @@ public class UserService {
         if (kioskId != null && !kioskId.isEmpty()) {
             try {
                 Optional<Kiosk> kioskOpt = kioskRepository.findByKioskid(kioskId);
-                String kioskInfo = kioskOpt.map(k -> k.getPosname() + " #" + k.getKioskNumber()).orElse(kioskId);
+                String kioskInfo = kioskOpt.map(k -> k.getPosid() + " #" + k.getKioskno()).orElse(kioskId);
 
                 // Try to get user information
                 String userName = null;
