@@ -2133,6 +2133,93 @@ ipcMain.handle('extract-audio', async (event, options) => {
   });
 });
 
+// Adjust audio speed
+ipcMain.handle('adjust-audio-speed', async (event, options) => {
+  let { inputPath, outputPath, speed } = options;
+
+  // If outputPath is null, create temp file
+  if (!outputPath) {
+    const os = require('os');
+    const tempDir = os.tmpdir();
+    const timestamp = Date.now();
+    const fileName = path.basename(inputPath, path.extname(inputPath));
+    outputPath = path.join(tempDir, `${fileName}_speed_${speed}x_${timestamp}.mp3`);
+  }
+
+  logInfo('ADJUST_AUDIO_SPEED_START', 'Adjusting audio speed', { inputPath, speed, outputPath });
+
+  return new Promise((resolve, reject) => {
+    // FFmpeg atempo filter: values from 0.5 to 100.0 are supported
+    // For speeds outside this range, we need to chain multiple atempo filters
+    let filterString = '';
+
+    if (speed >= 0.5 && speed <= 2.0) {
+      // Single atempo filter
+      filterString = `atempo=${speed}`;
+    } else if (speed < 0.5) {
+      // Chain multiple atempo filters for very slow speeds
+      // e.g., 0.25x = atempo=0.5,atempo=0.5
+      let currentSpeed = speed;
+      let filters = [];
+      while (currentSpeed < 0.5) {
+        filters.push('atempo=0.5');
+        currentSpeed *= 2;
+      }
+      if (currentSpeed < 1.0) {
+        filters.push(`atempo=${currentSpeed}`);
+      }
+      filterString = filters.join(',');
+    } else {
+      // Chain multiple atempo filters for very fast speeds
+      // e.g., 4.0x = atempo=2.0,atempo=2.0
+      let currentSpeed = speed;
+      let filters = [];
+      while (currentSpeed > 2.0) {
+        filters.push('atempo=2.0');
+        currentSpeed /= 2;
+      }
+      if (currentSpeed > 1.0) {
+        filters.push(`atempo=${currentSpeed}`);
+      }
+      filterString = filters.join(',');
+    }
+
+    const args = [
+      '-i', inputPath,
+      '-af', filterString,
+      '-y',
+      outputPath
+    ];
+
+    const ffmpeg = spawn(ffmpegPath, args, {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true
+    });
+    let errorOutput = '';
+
+    ffmpeg.stderr.on('data', (data) => {
+      const message = data.toString('utf8');
+      errorOutput += message;
+      mainWindow.webContents.send('ffmpeg-progress', message);
+    });
+
+    ffmpeg.on('close', (code) => {
+      if (code === 0) {
+        logInfo('ADJUST_AUDIO_SPEED_SUCCESS', 'Audio speed adjusted', { outputPath, speed });
+        resolve({ success: true, outputPath });
+      } else {
+        logError('ADJUST_AUDIO_SPEED_FAILED', 'Audio speed adjustment failed', { error: errorOutput });
+        reject(new Error(errorOutput || 'FFmpeg failed'));
+      }
+    });
+
+    ffmpeg.on('error', (err) => {
+      logError('ADJUST_AUDIO_SPEED_FAILED', 'FFmpeg spawn error', { error: err.message });
+      reject(new Error(`FFmpeg error: ${err.message}`));
+    });
+  });
+});
+
 // Generate silence file
 ipcMain.handle('generate-silence-file', async (event, options) => {
   const { duration } = options;

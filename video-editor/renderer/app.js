@@ -568,6 +568,21 @@ function showToolProperties(tool) {
       `;
       break;
 
+    case 'audio-speed':
+      propertiesPanel.innerHTML = `
+        <div class="property-group">
+          <label>속도 배율 <span class="property-value" id="audio-speed-value">1.0x</span></label>
+          <input type="range" id="audio-speed-factor" min="0.25" max="4" step="0.25" value="1" oninput="updateAudioSpeedDisplay()">
+          <small style="color: #888;">0.5x = 슬로우모션, 2.0x = 배속</small>
+        </div>
+        <div style="display: flex; gap: 10px; margin-top: 10px;">
+          <button class="property-btn secondary" onclick="previewAudioSpeed()" style="flex: 1;">🎬 미리보기</button>
+          <button class="property-btn secondary" onclick="stopAudioSpeedPreview()" style="flex: 1;">⏹️ 중지</button>
+        </div>
+        <button class="property-btn" onclick="executeAudioSpeed()">속도 적용</button>
+      `;
+      break;
+
     case 'export':
       if (!currentVideo) {
         alert('먼저 영상을 가져와주세요.');
@@ -4350,6 +4365,81 @@ async function executeSpeed() {
   } catch (error) {
     hideProgress();
     handleError('속도 조절', error, '속도 조절에 실패했습니다.');
+  }
+}
+
+// Audio Speed adjust
+function updateAudioSpeedDisplay() {
+  const value = document.getElementById('audio-speed-factor').value;
+  document.getElementById('audio-speed-value').textContent = `${value}x`;
+}
+
+// Preview audio speed change
+function previewAudioSpeed() {
+  if (!currentAudioFile) {
+    alert('먼저 음성 파일을 가져와주세요.');
+    return;
+  }
+
+  const audioElement = document.getElementById('preview-audio');
+  const speedFactor = parseFloat(document.getElementById('audio-speed-factor').value);
+
+  if (audioElement) {
+    audioElement.playbackRate = speedFactor;
+    // Start playing from current position
+    if (audioElement.paused) {
+      audioElement.play();
+    }
+    updateStatus(`미리보기 재생 중 (${speedFactor}x 속도)`);
+  }
+}
+
+// Stop audio speed preview and reset to normal
+function stopAudioSpeedPreview() {
+  const audioElement = document.getElementById('preview-audio');
+
+  if (audioElement) {
+    audioElement.playbackRate = 1.0;
+    audioElement.pause();
+    updateStatus('미리보기 중지됨 (속도 1.0x로 복원)');
+  }
+}
+
+async function executeAudioSpeed() {
+  if (!currentAudioFile) {
+    alert('먼저 음성 파일을 가져와주세요.');
+    return;
+  }
+
+  const speed = parseFloat(document.getElementById('audio-speed-factor').value);
+
+  showProgress();
+  updateProgress(0, '오디오 속도 조절 중...');
+
+  // Save previous audio file path for cleanup
+  const previousAudio = currentAudioFile;
+
+  try {
+    const result = await window.electronAPI.adjustAudioSpeed({
+      inputPath: currentAudioFile,
+      outputPath: null, // null means create temp file
+      speed
+    });
+
+    hideProgress();
+    alert('오디오 속도 조절 완료!\n\n편집된 내용은 임시 저장되었습니다.\n최종 저장하려면 "비디오 내보내기"를 사용하세요.');
+
+    // Reload audio with new file
+    await loadAudio(result.outputPath);
+    currentAudioFile = result.outputPath;
+
+    // Delete previous temp file if it exists
+    if (previousAudio && previousAudio !== result.outputPath) {
+      await window.electronAPI.deleteTempFile(previousAudio);
+    }
+  } catch (error) {
+    hideProgress();
+    handleError('오디오 속도 조절', error, '오디오 속도 조절에 실패했습니다.');
   }
 }
 

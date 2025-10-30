@@ -18,6 +18,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   trimAudioFile: (options) => ipcRenderer.invoke('trim-audio-file', options),
   addAudio: (options) => ipcRenderer.invoke('add-audio', options),
   adjustAudioVolume: (options) => ipcRenderer.invoke('adjust-audio-volume', options),
+  adjustAudioSpeed: (options) => ipcRenderer.invoke('adjust-audio-speed', options),
   applyFilter: (options) => ipcRenderer.invoke('apply-filter', options),
   mergeVideos: (options) => ipcRenderer.invoke('merge-videos', options),
   mergeAudios: (options) => ipcRenderer.invoke('merge-audios', options),
