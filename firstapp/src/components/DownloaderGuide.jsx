@@ -138,13 +138,27 @@ function DownloaderGuide() {
           </div>
 
           <div className="step-card">
-            <h3>매장 ID 입력 (선택사항)</h3>
-            <p>매장 ID를 입력하면 해당 매장 정보를 함께 표시합니다.</p>
+            <h3>매장 ID 입력</h3>
+            <p>키오스크가 속한 매장의 8자리 POS ID를 입력합니다.</p>
 
             <div className="input-example">
-              <label>매장 ID</label>
+              <label>매장 ID (POS ID)</label>
               <input type="text" value="00000001" readOnly />
-              <p className="help-text">예: 00000001 (선택사항)</p>
+              <p className="help-text">예: 00000001</p>
+            </div>
+
+            <div className="alert alert-warning">
+              ⚠️ <strong>중요</strong>: 매장 ID는 키오스크 등록 시 설정한 매장과 일치해야 합니다. 일치하지 않으면 정상적으로 등록되지 않습니다.
+            </div>
+
+            <div className="info-box">
+              <strong>매장 ID 확인 방법</strong>:
+              <ul>
+                <li>웹 대시보드 로그인</li>
+                <li>"키오스크" 메뉴 클릭</li>
+                <li>해당 키오스크의 "매장" 열에서 매장명 확인</li>
+                <li>매장명 옆 괄호 안의 숫자가 매장 ID입니다 (예: 강남점 (1) → POS ID: 00000001)</li>
+              </ul>
             </div>
           </div>
 
@@ -310,6 +324,19 @@ function DownloaderGuide() {
           </div>
 
           <div className="troubleshooting">
+            <h3>매장 ID 불일치 오류</h3>
+            <p><strong>증상</strong>: 설정은 저장되지만 동기화 시 오류 발생</p>
+            <p><strong>해결방법</strong>:</p>
+            <ol>
+              <li>웹 대시보드 → 키오스크 관리에서 해당 키오스크의 매장 확인</li>
+              <li>매장명 옆 괄호 안의 숫자 확인 (예: 강남점 (1))</li>
+              <li>괄호 안 숫자에 0을 앞에 붙여 8자리로 만들기 (1 → 00000001)</li>
+              <li>다운로더 앱의 매장 ID를 정확히 일치하도록 수정</li>
+              <li>설정 저장 후 앱 재시작</li>
+            </ol>
+          </div>
+
+          <div className="troubleshooting">
             <h3>다운로드 실패</h3>
             <p><strong>증상</strong>: 특정 영상 다운로드가 실패함</p>
             <p><strong>해결방법</strong>:</p>
@@ -468,7 +495,11 @@ function DownloaderGuide() {
             </label>
             <label>
               <input type="checkbox" />
-              <span>키오스크 ID 입력</span>
+              <span>키오스크 ID 입력 (12자리)</span>
+            </label>
+            <label>
+              <input type="checkbox" />
+              <span>매장 ID 입력 (8자리, 키오스크 매장과 일치 필수)</span>
             </label>
             <label>
               <input type="checkbox" />

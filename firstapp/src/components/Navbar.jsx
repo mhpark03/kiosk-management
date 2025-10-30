@@ -11,6 +11,7 @@ function Navbar() {
   const [isVideosOpen, setIsVideosOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [isGuideOpen, setIsGuideOpen] = useState(false);
   const navbarRef = useRef(null);
 
   const handleLogout = () => {
@@ -28,6 +29,7 @@ function Navbar() {
     setIsVideosOpen(false);
     setIsSettingsOpen(false);
     setIsHistoryOpen(false);
+    setIsGuideOpen(false);
   };
 
   const toggleVideos = () => {
@@ -48,6 +50,13 @@ function Navbar() {
     setIsSettingsOpen(false);
   };
 
+  const toggleGuide = () => {
+    setIsGuideOpen(!isGuideOpen);
+    setIsVideosOpen(false);
+    setIsSettingsOpen(false);
+    setIsHistoryOpen(false);
+  };
+
   // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -55,6 +64,7 @@ function Navbar() {
         setIsVideosOpen(false);
         setIsSettingsOpen(false);
         setIsHistoryOpen(false);
+        setIsGuideOpen(false);
       }
     };
 
@@ -256,23 +266,36 @@ function Navbar() {
                 </ul>
               )}
             </li>
-            <li>
-              <Link
-                to="/user-guide"
-                className={location.pathname === '/user-guide' ? 'active' : ''}
-                onClick={closeMenu}
+            <li className="dropdown">
+              <button
+                className={`dropdown-toggle ${isGuideOpen ? 'active' : ''}`}
+                onClick={toggleGuide}
               >
                 사용법
-              </Link>
-            </li>
-            <li>
-              <Link
-                to="/downloader-guide"
-                className={location.pathname === '/downloader-guide' ? 'active' : ''}
-                onClick={closeMenu}
-              >
-                다운로더 앱
-              </Link>
+                <span className={`arrow ${isGuideOpen ? 'open' : ''}`}>▼</span>
+              </button>
+              {isGuideOpen && (
+                <ul className="dropdown-menu">
+                  <li>
+                    <Link
+                      to="/user-guide"
+                      className={location.pathname === '/user-guide' ? 'active' : ''}
+                      onClick={closeMenu}
+                    >
+                      웹 사용법
+                    </Link>
+                  </li>
+                  <li>
+                    <Link
+                      to="/downloader-guide"
+                      className={location.pathname === '/downloader-guide' ? 'active' : ''}
+                      onClick={closeMenu}
+                    >
+                      앱 사용법
+                    </Link>
+                  </li>
+                </ul>
+              )}
             </li>
           </ul>
 
