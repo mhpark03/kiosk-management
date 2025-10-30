@@ -25,8 +25,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final _posIdController = TextEditingController();
   final _downloadPathController = TextEditingController();
 
-  String _selectedServer = ServerPresets.awsDev;
-  String _serverUrl = ServerPresets.awsDev;
   bool _autoSync = false;
   int _syncIntervalHours = 12;
   bool _isLoading = false;
@@ -42,20 +40,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final config = widget.storageService.getConfig();
     if (config != null) {
       setState(() {
-        _serverUrl = config.serverUrl;
         _kioskIdController.text = config.kioskId;
         _posIdController.text = config.posId ?? '';
         _downloadPathController.text = config.downloadPath;
         _autoSync = config.autoSync;
         _syncIntervalHours = config.syncIntervalHours;
-
-        if (config.serverUrl == ServerPresets.awsDev) {
-          _selectedServer = ServerPresets.awsDev;
-        } else if (config.serverUrl == ServerPresets.local) {
-          _selectedServer = ServerPresets.local;
-        } else {
-          _selectedServer = 'custom';
-        }
       });
     }
   }
@@ -86,17 +75,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
     });
 
     try {
+      // Use current API service base URL (set during login)
+      final serverUrl = widget.apiService.baseUrl;
+
       final config = KioskConfig(
-        serverUrl: _serverUrl,
+        serverUrl: serverUrl,
         kioskId: _kioskIdController.text.trim(),
         posId: _posIdController.text.trim(),
         downloadPath: _downloadPathController.text.trim(),
         autoSync: _autoSync,
         syncIntervalHours: _syncIntervalHours,
       );
-
-      // Update API service base URL
-      widget.apiService.setBaseUrl(config.serverUrl);
 
       // Verify kiosk exists
       await widget.apiService.getKiosk(config.kioskId);
@@ -176,76 +165,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
-                        '서버 선택',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      RadioListTile<String>(
-                        title: const Text('AWS 개발 서버'),
-                        value: ServerPresets.awsDev,
-                        groupValue: _selectedServer,
-                        onChanged: (value) {
-                          setState(() {
-                            _selectedServer = value!;
-                            _serverUrl = value;
-                          });
-                        },
-                      ),
-                      RadioListTile<String>(
-                        title: const Text('로컬 서버'),
-                        value: ServerPresets.local,
-                        groupValue: _selectedServer,
-                        onChanged: (value) {
-                          setState(() {
-                            _selectedServer = value!;
-                            _serverUrl = value;
-                          });
-                        },
-                      ),
-                      RadioListTile<String>(
-                        title: const Text('직접 입력'),
-                        value: 'custom',
-                        groupValue: _selectedServer,
-                        onChanged: (value) {
-                          setState(() {
-                            _selectedServer = value!;
-                          });
-                        },
-                      ),
-                      if (_selectedServer == 'custom')
-                        Padding(
-                          padding: const EdgeInsets.only(left: 16.0),
-                          child: TextFormField(
-                            initialValue: _serverUrl,
-                            decoration: const InputDecoration(
-                              labelText: '서버 URL',
-                              hintText: 'http://example.com/api',
-                            ),
-                            onChanged: (value) => _serverUrl = value,
-                            validator: (value) {
-                              if (_selectedServer == 'custom' &&
-                                  (value == null || value.isEmpty)) {
-                                return '서버 URL을 입력하세요';
-                              }
-                              return null;
-                            },
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
                         '키오스크 정보',
                         style: TextStyle(
                           fontSize: 18,
@@ -257,10 +176,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         controller: _kioskIdController,
                         decoration: const InputDecoration(
                           labelText: '키오스크 ID',
-                          hintText: '000000000001',
-                          helperText: '12자리 키오스크 ID',
+                          helperText: '12자리 키오스크 ID (예: 000000000001)',
                           border: OutlineInputBorder(),
                         ),
+                        autocorrect: false,
+                        enableSuggestions: false,
                         validator: (value) {
                           if (value == null || value.isEmpty) {
                             return '키오스크 ID를 입력하세요';
@@ -273,10 +193,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         controller: _posIdController,
                         decoration: const InputDecoration(
                           labelText: '매장 ID (POS ID)',
-                          hintText: '00000001',
-                          helperText: '8자리 매장 ID (필수)',
+                          helperText: '8자리 매장 ID (예: 00000001)',
                           border: OutlineInputBorder(),
                         ),
+                        autocorrect: false,
+                        enableSuggestions: false,
                         validator: (value) {
                           if (value == null || value.isEmpty) {
                             return '매장 ID를 입력하세요';

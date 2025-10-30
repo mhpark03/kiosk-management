@@ -41,6 +41,8 @@ class ApiService {
     _dio.options.baseUrl = url;
   }
 
+  String get baseUrl => _baseUrl;
+
   void setAuthToken(String? token) {
     _authToken = token;
   }
