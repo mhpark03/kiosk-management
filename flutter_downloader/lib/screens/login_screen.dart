@@ -66,6 +66,10 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
+      // Check previous server URL from saved config
+      final previousConfig = widget.storageService.getConfig();
+      final previousServerUrl = previousConfig?.serverUrl;
+
       // Set server URL before login
       String serverUrl = _selectedServer;
       if (_selectedServer == 'custom') {
@@ -85,6 +89,14 @@ class _LoginScreenState extends State<LoginScreen> {
       await widget.storageService.saveUser(user);
       if (user.token != null) {
         await widget.storageService.saveToken(user.token!);
+      }
+
+      // Check if server has changed
+      if (previousServerUrl != null && previousServerUrl != serverUrl) {
+        // Server changed - delete existing config to disconnect WebSocket
+        print('Server changed from $previousServerUrl to $serverUrl');
+        print('Deleting existing configuration...');
+        await widget.storageService.deleteConfig();
       }
 
       if (mounted) {
