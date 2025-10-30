@@ -207,12 +207,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _originalSyncInterval = _syncIntervalHours;
       });
 
+      // Navigate to video list
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('설정이 저장되었습니다')),
-        );
-
-        // Navigate to video list
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
             builder: (_) => VideoListScreen(
