@@ -140,6 +140,13 @@ class _VideoListScreenState extends State<VideoListScreen> {
         });
       }
 
+      // Set kiosk authentication headers for API requests (for unattended operation)
+      widget.apiService.setKioskAuth(
+        config.posId,
+        config.kioskId,
+        kiosk.kioskNumber,
+      );
+
       // kioskNumber가 없으면 WebSocket 연결 안 함
       if (kiosk.kioskNumber == null) {
         print('WebSocket: kioskNumber가 설정되지 않아 연결하지 않습니다');
