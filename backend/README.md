@@ -74,6 +74,78 @@ RUNWAY_API_KEY=your_runway_api_key
 SPRING_PROFILES_ACTIVE=local  # local, dev, prod
 ```
 
+## Google TTS Credentials Setup (Optional)
+
+If you want to enable TTS (Text-to-Speech) functionality in the backend, you need to download the Google TTS service account credentials from S3.
+
+### Download from S3 (Recommended for team development)
+
+**Prerequisites:**
+- AWS CLI installed and configured
+- AWS credentials with S3 read access
+
+**Method 1: AWS CLI (Quickest)**
+```bash
+# Navigate to backend directory
+cd backend
+
+# Download credentials from S3
+aws s3 cp s3://kiosk-video-bucket/credentials/google-tts-service-account.json ./google-tts-service-account.json --region ap-northeast-2
+
+# Verify download (file size should be ~2.3KB)
+ls -lh google-tts-service-account.json  # Linux/Mac
+dir google-tts-service-account.json     # Windows
+```
+
+**Method 2: Using DownloadCredentials Utility**
+```bash
+cd backend
+
+# Set environment variables
+set AWS_ACCESS_KEY_ID=your-access-key
+set AWS_SECRET_ACCESS_KEY=your-secret-key
+set AWS_S3_BUCKET_NAME=kiosk-video-bucket
+set AWS_REGION=ap-northeast-2
+
+# Build the project first (if not already built)
+gradlew.bat build -x test
+
+# Run the utility
+java -cp build/libs/backend-0.0.1-SNAPSHOT.jar com.kiosk.backend.util.DownloadCredentials
+```
+
+**Expected Output:**
+```
+Downloading from S3: s3://kiosk-video-bucket/credentials/google-tts-service-account.json
+Downloaded 2353 bytes
+Saved to: C:\your-path\backend\google-tts-service-account.json
+
+To use this file, set the environment variable:
+GOOGLE_APPLICATION_CREDENTIALS=C:\your-path\backend\google-tts-service-account.json
+```
+
+**File Location:**
+- The file will be saved to: `backend/google-tts-service-account.json`
+- This file is already in `.gitignore` and will NOT be committed to Git
+- Keep this file secure - it contains service account credentials
+
+**Enable TTS in Backend:**
+
+After downloading the credentials, add this to your environment:
+```bash
+# Enable TTS service (required)
+set GOOGLE_TTS_ENABLED=true
+
+# Or add to application-local.yml:
+google:
+  tts:
+    enabled: true
+    credentials:
+      file: C:/claudtest/backend/google-tts-service-account.json
+```
+
+**Note:** TTS functionality is currently disabled by default to reduce backend memory usage. The video-editor app has its own direct Google TTS API integration that works independently of the backend.
+
 ## Database Setup
 
 ### 1. Install MySQL

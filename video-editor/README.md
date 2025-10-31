@@ -122,6 +122,51 @@ TTS (음성 생성) 기능을 사용하려면 Google Cloud TTS API 키가 필요
 3. **대체 환경 변수**
    - `GOOGLE_TTS_API_KEY` 또는 `GOOGLE_AI_API_KEY` 중 하나만 설정하면 됩니다
 
+4. **다른 PC에서 개발 시 (S3에서 인증 파일 다운로드)**
+
+   팀의 다른 개발자가 새로운 PC에서 작업할 경우, S3에 백업된 인증 파일을 다운로드할 수 있습니다.
+
+   **방법 1: AWS CLI 사용 (권장)**
+   ```bash
+   # 백엔드 루트 폴더로 이동
+   cd C:\your-path\kiosk-management\backend
+
+   # S3에서 인증 파일 다운로드
+   aws s3 cp s3://kiosk-video-bucket/credentials/google-tts-service-account.json ./google-tts-service-account.json --region ap-northeast-2
+
+   # 다운로드 확인
+   dir google-tts-service-account.json
+   ```
+
+   **방법 2: 유틸리티 스크립트 사용**
+
+   백엔드에 포함된 `DownloadCredentials` 유틸리티를 사용:
+   ```bash
+   cd backend
+
+   # 환경변수 설정 (AWS 인증)
+   set AWS_ACCESS_KEY_ID=your-access-key
+   set AWS_SECRET_ACCESS_KEY=your-secret-key
+   set AWS_S3_BUCKET_NAME=kiosk-video-bucket
+
+   # 유틸리티 실행
+   java -cp build/libs/backend-0.0.1-SNAPSHOT.jar com.kiosk.backend.util.DownloadCredentials
+   ```
+
+   **다운로드 후 확인:**
+   ```bash
+   # 파일 존재 확인
+   ls backend/google-tts-service-account.json
+
+   # 파일 크기 확인 (약 2.3KB)
+   # Windows: dir backend\google-tts-service-account.json
+   ```
+
+   **중요:**
+   - 다운로드한 인증 파일은 `.gitignore`에 포함되어 있어 Git에 커밋되지 않습니다
+   - 인증 파일은 민감한 정보이므로 안전하게 보관해야 합니다
+   - S3 접근 권한이 필요합니다 (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY)
+
 ### 2. Windows 설치 파일 빌드
 
 ```bash
