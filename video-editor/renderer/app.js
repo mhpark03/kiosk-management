@@ -720,41 +720,97 @@ function showToolProperties(tool) {
     // Import tools for content mode
     case 'import-image':
       propertiesPanel.innerHTML = `
-        <h3>이미지 가져오기</h3>
-        <p>이미지 파일을 S3에 업로드합니다.</p>
-        <div class="property-group">
-          <label>이미지 파일</label>
-          <input type="file" id="import-image-file" accept="image/*" style="margin-bottom: 10px;">
+        <div style="height: calc(100vh - 250px); overflow-y: auto; overflow-x: hidden; padding-right: 10px;">
+          <h3 style="margin-bottom: 15px; color: #667eea;">🖼️ 이미지 가져오기</h3>
+
+          <div class="property-group">
+            <label>선택된 파일</label>
+            <div id="selected-image-info" style="padding: 10px; background: #2d2d2d; border: 1px solid #444; border-radius: 5px; color: #aaa; font-size: 13px; min-height: 40px; display: flex; align-items: center;">
+              파일이 선택되지 않았습니다
+            </div>
+          </div>
+
+          <div style="background: #2a2a3e; padding: 12px; border-radius: 8px; margin-top: 10px; border-left: 4px solid #4ade80;">
+            <input type="file" id="import-image-file" accept="image/*" style="display: none;" onchange="updateSelectedImageInfo()">
+            <button class="property-btn" onclick="document.getElementById('import-image-file').click()" style="margin: 0; background: #4ade80; width: 100%;">
+              📁 이미지 파일 선택
+            </button>
+          </div>
+
+          <div class="property-group">
+            <label>제목 *</label>
+            <input
+              type="text"
+              id="import-image-title"
+              placeholder="이미지 제목을 입력하세요"
+              style="width: 100%; padding: 10px; background: #2d2d2d; border: 1px solid #444; border-radius: 5px; color: #e0e0e0; font-size: 14px;"
+            />
+          </div>
+
+          <div class="property-group">
+            <label>설명</label>
+            <textarea
+              id="import-image-description"
+              rows="3"
+              placeholder="이미지 설명을 입력하세요 (선택사항)"
+              style="width: 100%; padding: 10px; background: #2d2d2d; border: 1px solid #444; border-radius: 5px; color: #e0e0e0; font-size: 14px; resize: vertical;"
+            ></textarea>
+          </div>
+
+          <div style="background: #2a2a3e; padding: 12px; border-radius: 8px; margin-top: 10px; border-left: 4px solid #667eea;">
+            <button class="property-btn" onclick="uploadImageToS3()" style="margin: 0; background: #667eea; width: 100%;">
+              ☁️ S3에 업로드
+            </button>
+          </div>
         </div>
-        <div class="property-group">
-          <label>제목</label>
-          <input type="text" id="import-image-title" placeholder="이미지 제목 입력">
-        </div>
-        <div class="property-group">
-          <label>설명</label>
-          <textarea id="import-image-description" rows="3" placeholder="설명 입력 (선택사항)"></textarea>
-        </div>
-        <button class="property-btn" onclick="uploadImageToS3()">S3에 업로드</button>
       `;
       break;
 
     case 'import-video-content':
       propertiesPanel.innerHTML = `
-        <h3>영상 가져오기</h3>
-        <p>영상 파일을 S3에 업로드합니다.</p>
-        <div class="property-group">
-          <label>영상 파일</label>
-          <input type="file" id="import-video-content-file" accept="video/*" style="margin-bottom: 10px;">
+        <div style="height: calc(100vh - 250px); overflow-y: auto; overflow-x: hidden; padding-right: 10px;">
+          <h3 style="margin-bottom: 15px; color: #667eea;">🎬 영상 가져오기</h3>
+
+          <div class="property-group">
+            <label>선택된 파일</label>
+            <div id="selected-video-content-info" style="padding: 10px; background: #2d2d2d; border: 1px solid #444; border-radius: 5px; color: #aaa; font-size: 13px; min-height: 40px; display: flex; align-items: center;">
+              파일이 선택되지 않았습니다
+            </div>
+          </div>
+
+          <div style="background: #2a2a3e; padding: 12px; border-radius: 8px; margin-top: 10px; border-left: 4px solid #4ade80;">
+            <input type="file" id="import-video-content-file" accept="video/*" style="display: none;" onchange="updateSelectedVideoContentInfo()">
+            <button class="property-btn" onclick="document.getElementById('import-video-content-file').click()" style="margin: 0; background: #4ade80; width: 100%;">
+              📁 영상 파일 선택
+            </button>
+          </div>
+
+          <div class="property-group">
+            <label>제목 *</label>
+            <input
+              type="text"
+              id="import-video-content-title"
+              placeholder="영상 제목을 입력하세요"
+              style="width: 100%; padding: 10px; background: #2d2d2d; border: 1px solid #444; border-radius: 5px; color: #e0e0e0; font-size: 14px;"
+            />
+          </div>
+
+          <div class="property-group">
+            <label>설명</label>
+            <textarea
+              id="import-video-content-description"
+              rows="3"
+              placeholder="영상 설명을 입력하세요 (선택사항)"
+              style="width: 100%; padding: 10px; background: #2d2d2d; border: 1px solid #444; border-radius: 5px; color: #e0e0e0; font-size: 14px; resize: vertical;"
+            ></textarea>
+          </div>
+
+          <div style="background: #2a2a3e; padding: 12px; border-radius: 8px; margin-top: 10px; border-left: 4px solid #667eea;">
+            <button class="property-btn" onclick="uploadVideoContentToS3()" style="margin: 0; background: #667eea; width: 100%;">
+              ☁️ S3에 업로드
+            </button>
+          </div>
         </div>
-        <div class="property-group">
-          <label>제목</label>
-          <input type="text" id="import-video-content-title" placeholder="영상 제목 입력">
-        </div>
-        <div class="property-group">
-          <label>설명</label>
-          <textarea id="import-video-content-description" rows="3" placeholder="설명 입력 (선택사항)"></textarea>
-        </div>
-        <button class="property-btn" onclick="uploadVideoContentToS3()">S3에 업로드</button>
       `;
       break;
 
@@ -8796,6 +8852,64 @@ async function executeGenerateTTSAndUpload() {
     console.error('[TTS Upload] Failed:', error);
     handleError('TTS 음성 생성 및 S3 업로드', error, 'TTS 음성 생성 및 S3 업로드에 실패했습니다.');
     hideProgress();
+  }
+}
+
+// Update selected image info display
+function updateSelectedImageInfo() {
+  const fileInput = document.getElementById('import-image-file');
+  const infoDiv = document.getElementById('selected-image-info');
+
+  if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+    if (infoDiv) {
+      infoDiv.innerHTML = '파일이 선택되지 않았습니다';
+    }
+    return;
+  }
+
+  const file = fileInput.files[0];
+  const filename = file.name;
+  const fileSize = (file.size / (1024 * 1024)).toFixed(2);
+
+  if (infoDiv) {
+    infoDiv.innerHTML = `
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <span style="color: #4ade80;">✓</span>
+        <div style="flex: 1; overflow: hidden;">
+          <div style="color: #e0e0e0; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${filename}</div>
+          <div style="color: #888; font-size: 12px; margin-top: 2px;">${fileSize} MB</div>
+        </div>
+      </div>
+    `;
+  }
+}
+
+// Update selected video content info display
+function updateSelectedVideoContentInfo() {
+  const fileInput = document.getElementById('import-video-content-file');
+  const infoDiv = document.getElementById('selected-video-content-info');
+
+  if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+    if (infoDiv) {
+      infoDiv.innerHTML = '파일이 선택되지 않았습니다';
+    }
+    return;
+  }
+
+  const file = fileInput.files[0];
+  const filename = file.name;
+  const fileSize = (file.size / (1024 * 1024)).toFixed(2);
+
+  if (infoDiv) {
+    infoDiv.innerHTML = `
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <span style="color: #4ade80;">✓</span>
+        <div style="flex: 1; overflow: hidden;">
+          <div style="color: #e0e0e0; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${filename}</div>
+          <div style="color: #888; font-size: 12px; margin-top: 2px;">${fileSize} MB</div>
+        </div>
+      </div>
+    `;
   }
 }
 
