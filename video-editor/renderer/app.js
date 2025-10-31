@@ -728,7 +728,9 @@ function showToolProperties(tool) {
           </div>
 
           <div style="background: #3a3a3a; padding: 10px; border-radius: 5px; margin-top: 10px;">
-            <small style="color: #aaa;">💡 Google Cloud TTS를 사용하여 자연스러운 음성을 생성합니다</small>
+            <small style="color: #aaa;">💡 Google Cloud TTS API를 직접 호출하여 자연스러운 음성을 생성합니다 (백엔드 불필요)</small>
+            <br>
+            <small style="color: #888; font-size: 10px;">⚙️ 환경변수 필요: GOOGLE_TTS_API_KEY 또는 GOOGLE_AI_API_KEY</small>
           </div>
         </div>
       `;
@@ -6085,106 +6087,61 @@ async function executeGenerateTTS() {
 
   try {
     showProgress();
-    updateProgress(10, 'TTS 음성 생성 요청 중...');
+    updateProgress(10, 'Google TTS API 호출 준비 중...');
     updateStatus('TTS 음성 생성 중...');
 
-    let audioResult;
-    let useBackend = true;
+    console.log('[TTS] Starting direct Google TTS API call...');
 
-    // Try backend first
-    try {
-      console.log('[TTS] Attempting backend API call...');
-      const API_URL = 'http://localhost:8080/api';
-      const response = await fetch(`${API_URL}/tts/generate`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          text,
-          title,
-          description,
-          languageCode,
-          voiceName,
-          gender: voiceName.includes('Male') ? 'MALE' : 'FEMALE',
-          speakingRate,
-          pitch
-        })
-      });
+    // Determine gender from voice name
+    const gender = voiceName.includes('Male') ? 'MALE' : 'FEMALE';
 
-      if (!response.ok) {
-        throw new Error(`Backend API error: ${response.status}`);
-      }
+    updateProgress(30, 'Google TTS API 호출 중...');
 
-      updateProgress(50, '음성 생성 완료, 저장 중...');
-      const data = await response.json();
-      audioResult = data.audio;
-      console.log('[TTS] Backend API success:', audioResult);
-    } catch (backendError) {
-      console.warn('[TTS] Backend API failed, falling back to direct Google API:', backendError.message);
-      useBackend = false;
+    // Direct Google API call (no backend dependency)
+    const directResult = await window.electronAPI.generateTtsDirect({
+      text,
+      title,
+      languageCode,
+      voiceName,
+      gender,
+      speakingRate,
+      pitch
+    });
 
-      // Fallback to direct Google API call
-      updateProgress(20, '백엔드 연결 실패, 직접 Google API 호출 중...');
-
-      const gender = voiceName.includes('Male') ? 'MALE' : 'FEMALE';
-
-      const directResult = await window.electronAPI.generateTtsDirect({
-        text,
-        title,
-        languageCode,
-        voiceName,
-        gender,
-        speakingRate,
-        pitch
-      });
-
-      if (!directResult.success) {
-        throw new Error('Direct API call failed: ' + directResult.error);
-      }
-
-      updateProgress(80, '음성 생성 완료, 로컬에 저장됨...');
-
-      audioResult = {
-        title,
-        voiceName,
-        languageCode,
-        speakingRate,
-        pitch,
-        audioPath: directResult.audioPath,
-        filename: directResult.filename,
-        fileSize: directResult.fileSize
-      };
-
-      console.log('[TTS] Direct API success:', audioResult);
+    if (!directResult.success) {
+      throw new Error('Google TTS API call failed: ' + (directResult.error || 'Unknown error'));
     }
+
+    updateProgress(80, '음성 생성 완료, 로컬에 저장됨...');
+
+    const audioResult = {
+      title,
+      voiceName,
+      languageCode,
+      speakingRate,
+      pitch,
+      audioPath: directResult.audioPath,
+      filename: directResult.filename,
+      fileSize: directResult.fileSize
+    };
+
+    console.log('[TTS] Direct API success:', audioResult);
 
     updateProgress(100, 'TTS 음성 생성 완료!');
 
     // Show success message with audio details
-    if (useBackend) {
-      alert(
-        `TTS 음성이 성공적으로 생성되었습니다! (백엔드 사용)\n\n` +
-        `제목: ${audioResult.title}\n` +
-        `음성: ${audioResult.voiceName}\n` +
-        `언어: ${audioResult.languageCode}\n` +
-        `속도: ${audioResult.speakingRate}x\n` +
-        `피치: ${audioResult.pitch}\n\n` +
-        `저장 위치: 서버 (ID: ${audioResult.id})`
-      );
-    } else {
-      alert(
-        `TTS 음성이 성공적으로 생성되었습니다! (직접 Google API 사용)\n\n` +
-        `제목: ${audioResult.title}\n` +
-        `음성: ${audioResult.voiceName}\n` +
-        `언어: ${audioResult.languageCode}\n` +
-        `속도: ${audioResult.speakingRate}x\n` +
-        `피치: ${audioResult.pitch}\n\n` +
-        `저장 위치: ${audioResult.audioPath}\n` +
-        `파일명: ${audioResult.filename}\n` +
-        `파일 크기: ${(audioResult.fileSize / 1024).toFixed(2)} KB`
-      );
-    }
+    alert(
+      `TTS 음성이 성공적으로 생성되었습니다!\n\n` +
+      `제목: ${audioResult.title}\n` +
+      `음성: ${audioResult.voiceName}\n` +
+      `언어: ${audioResult.languageCode}\n` +
+      `속도: ${audioResult.speakingRate}x\n` +
+      `피치: ${audioResult.pitch}\n\n` +
+      `저장 위치: ${audioResult.audioPath}\n` +
+      `파일명: ${audioResult.filename}\n` +
+      `파일 크기: ${(audioResult.fileSize / 1024).toFixed(2)} KB\n\n` +
+      `💡 생성된 파일을 비디오에 오디오로 추가하거나,\n다른 위치로 복사하여 사용할 수 있습니다.`
+    );
 
     // Clear form
     document.getElementById('tts-text').value = '';
