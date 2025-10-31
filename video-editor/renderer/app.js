@@ -320,12 +320,12 @@ function showToolProperties(tool) {
           </div>
         </div>
         <div class="property-group">
-          <label for="export-audio-title" style="pointer-events: none; user-select: none;">제목 *</label>
-          <input type="text" id="export-audio-title" placeholder="음성 파일 제목을 입력하세요" autocomplete="off" spellcheck="false" style="width: 100%; padding: 10px; background: #2d2d2d; border: 1px solid #555; border-radius: 4px; color: #e0e0e0; font-size: 14px; pointer-events: auto !important; user-select: text !important;">
+          <label style="pointer-events: none; user-select: none; display: block; margin-bottom: 5px; color: #aaa;">제목 *</label>
+          <div id="export-audio-title" contenteditable="true" spellcheck="false" data-placeholder="음성 파일 제목을 입력하세요" style="width: 100%; min-height: 40px; padding: 10px; background: #2d2d2d; border: 1px solid #555; border-radius: 4px; color: #e0e0e0; font-size: 14px; outline: none; overflow-wrap: break-word; white-space: pre-wrap;"></div>
         </div>
         <div class="property-group">
-          <label for="export-audio-description" style="pointer-events: none; user-select: none;">설명</label>
-          <textarea id="export-audio-description" placeholder="음성 파일 설명 (선택사항)" autocomplete="off" spellcheck="false" style="width: 100%; padding: 10px; background: #2d2d2d; border: 1px solid #555; border-radius: 4px; color: #e0e0e0; min-height: 80px; resize: vertical; font-size: 14px; pointer-events: auto !important; user-select: text !important;"></textarea>
+          <label style="pointer-events: none; user-select: none; display: block; margin-bottom: 5px; color: #aaa;">설명</label>
+          <div id="export-audio-description" contenteditable="true" spellcheck="false" data-placeholder="음성 파일 설명 (선택사항)" style="width: 100%; min-height: 80px; padding: 10px; background: #2d2d2d; border: 1px solid #555; border-radius: 4px; color: #e0e0e0; font-size: 14px; outline: none; overflow-wrap: break-word; white-space: pre-wrap;"></div>
         </div>
         <button class="property-btn" onclick="executeExportAudioToS3()" style="width: 100%;">☁️ S3 업로드</button>
         <div style="background: #3a3a3a; padding: 10px; border-radius: 5px; margin-top: 10px;">
@@ -339,8 +339,8 @@ function showToolProperties(tool) {
         const descriptionInput = document.getElementById('export-audio-description');
 
         if (titleInput) {
-          // Set value
-          titleInput.value = currentAudioMetadata.title || '';
+          // Set value for contenteditable div
+          titleInput.textContent = currentAudioMetadata.title || '';
 
           // Force webContents focus from main process (Electron workaround)
           try {
@@ -350,114 +350,25 @@ function showToolProperties(tool) {
             console.error('[DEBUG] Failed to focus webContents:', err);
           }
 
-          // Remove readonly attribute if present
-          titleInput.removeAttribute('readonly');
-          titleInput.removeAttribute('disabled');
-
-          // Force enable input by removing any preventing attributes
-          titleInput.style.pointerEvents = 'auto';
-          titleInput.style.userSelect = 'text';
-          titleInput.tabIndex = 0;
-
-          // Add explicit click listener to force activation
-          titleInput.addEventListener('click', function(e) {
-            console.log('[DEBUG] Title input clicked');
-            this.focus();
-
-            // Move cursor to click position, or end if no specific position
-            setTimeout(() => {
-              if (this.selectionStart === this.selectionEnd) {
-                // If no selection, ensure cursor is at click position (already handled by browser)
-                console.log('[DEBUG] Cursor at position:', this.selectionStart);
-              }
-            }, 10);
-
-            e.stopPropagation();
-          }, { once: false });
-
-          // Use beforeinput event to handle all input including IME
-          titleInput.addEventListener('beforeinput', function(e) {
-            console.log('[DEBUG] Title beforeinput:', e.inputType, 'data:', e.data);
-
-            // Allow the default behavior for beforeinput
-            // This will let composition events fire properly
-          }, { once: false });
-
-          // Add explicit keydown listener to manually handle input
-          titleInput.addEventListener('keydown', function(e) {
-            console.log('[DEBUG] Title input keydown:', e.key);
-
-            // Skip manual handling during IME composition (Process key indicates IME is active)
-            if (e.key === 'Process' || e.isComposing) {
-              console.log('[DEBUG] Skipping manual handling (IME active)');
-              return; // Let beforeinput handle this
-            }
-
-            // Manually handle keyboard input since default behavior is blocked
-            if (e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey) {
-              // Regular character input
-              e.preventDefault();
-              const start = this.selectionStart;
-              const end = this.selectionEnd;
-              const value = this.value;
-              this.value = value.substring(0, start) + e.key + value.substring(end);
-              this.selectionStart = this.selectionEnd = start + 1;
-              console.log('[DEBUG] Manually inserted character:', e.key, 'New value:', this.value);
-            } else if (e.key === 'Backspace') {
-              // Backspace handling
-              e.preventDefault();
-              const start = this.selectionStart;
-              const end = this.selectionEnd;
-              const value = this.value;
-              if (start !== end) {
-                // Delete selection
-                this.value = value.substring(0, start) + value.substring(end);
-                this.selectionStart = this.selectionEnd = start;
-              } else if (start > 0) {
-                // Delete one character before cursor
-                this.value = value.substring(0, start - 1) + value.substring(start);
-                this.selectionStart = this.selectionEnd = start - 1;
-              }
-              console.log('[DEBUG] Backspace, new value:', this.value);
-            } else if (e.key === 'Delete') {
-              // Delete key handling
-              e.preventDefault();
-              const start = this.selectionStart;
-              const end = this.selectionEnd;
-              const value = this.value;
-              if (start !== end) {
-                // Delete selection
-                this.value = value.substring(0, start) + value.substring(end);
-                this.selectionStart = this.selectionEnd = start;
-              } else if (start < value.length) {
-                // Delete one character after cursor
-                this.value = value.substring(0, start) + value.substring(start + 1);
-                this.selectionStart = this.selectionEnd = start;
-              }
-              console.log('[DEBUG] Delete, new value:', this.value);
-            }
-          }, { once: false });
-
-          // Add input event listener to track value changes
-          titleInput.addEventListener('input', function(e) {
-            console.log('[DEBUG] Title input value changed:', this.value);
-          }, { once: false });
-
           // Wait for next animation frame to ensure rendering is complete
           requestAnimationFrame(() => {
             requestAnimationFrame(() => {
-              // Additional delay before focusing input
+              // Additional delay before focusing contenteditable div
               setTimeout(() => {
                 titleInput.focus();
 
-                // Move cursor to end of text instead of selecting all
-                const len = titleInput.value.length;
-                titleInput.setSelectionRange(len, len);
+                // Move cursor to end of text for contenteditable
+                const range = document.createRange();
+                const sel = window.getSelection();
+                if (titleInput.childNodes.length > 0) {
+                  range.setStart(titleInput.childNodes[0], titleInput.textContent.length);
+                  range.collapse(true);
+                  sel.removeAllRanges();
+                  sel.addRange(range);
+                }
 
-                console.log('[DEBUG] Title input setup complete, focused:', document.activeElement === titleInput);
-                console.log('[DEBUG] Title input disabled:', titleInput.disabled);
-                console.log('[DEBUG] Title input readonly:', titleInput.readOnly);
-                console.log('[DEBUG] Cursor position:', titleInput.selectionStart, '/', titleInput.value.length);
+                console.log('[DEBUG] Title contenteditable setup complete, focused:', document.activeElement === titleInput);
+                console.log('[DEBUG] Content:', titleInput.textContent);
                 console.log('[DEBUG] Current time:', new Date().toISOString());
               }, 100);
             });
@@ -465,100 +376,8 @@ function showToolProperties(tool) {
         }
 
         if (descriptionInput) {
-          // Set value
-          descriptionInput.value = currentAudioMetadata.description || '';
-
-          // Same treatment for description
-          descriptionInput.removeAttribute('readonly');
-          descriptionInput.removeAttribute('disabled');
-          descriptionInput.style.pointerEvents = 'auto';
-          descriptionInput.style.userSelect = 'text';
-          descriptionInput.tabIndex = 0;
-
-          descriptionInput.addEventListener('click', function(e) {
-            console.log('[DEBUG] Description input clicked');
-            this.focus();
-
-            // Move cursor to click position
-            setTimeout(() => {
-              if (this.selectionStart === this.selectionEnd) {
-                console.log('[DEBUG] Description cursor at position:', this.selectionStart);
-              }
-            }, 10);
-
-            e.stopPropagation();
-          }, { once: false });
-
-          // Use beforeinput event to handle all input including IME (description)
-          descriptionInput.addEventListener('beforeinput', function(e) {
-            console.log('[DEBUG] Description beforeinput:', e.inputType, 'data:', e.data);
-
-            // Allow the default behavior for beforeinput
-            // This will let composition events fire properly
-          }, { once: false });
-
-          descriptionInput.addEventListener('keydown', function(e) {
-            console.log('[DEBUG] Description input keydown:', e.key);
-
-            // Skip manual handling during IME composition
-            if (e.key === 'Process' || e.isComposing) {
-              console.log('[DEBUG] Description: Skipping manual handling (IME active)');
-              return; // Let beforeinput handle this
-            }
-
-            // Manually handle keyboard input since default behavior is blocked
-            if (e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey) {
-              // Regular character input
-              e.preventDefault();
-              const start = this.selectionStart;
-              const end = this.selectionEnd;
-              const value = this.value;
-              this.value = value.substring(0, start) + e.key + value.substring(end);
-              this.selectionStart = this.selectionEnd = start + 1;
-              console.log('[DEBUG] Description: Manually inserted character:', e.key);
-            } else if (e.key === 'Backspace') {
-              // Backspace handling
-              e.preventDefault();
-              const start = this.selectionStart;
-              const end = this.selectionEnd;
-              const value = this.value;
-              if (start !== end) {
-                this.value = value.substring(0, start) + value.substring(end);
-                this.selectionStart = this.selectionEnd = start;
-              } else if (start > 0) {
-                this.value = value.substring(0, start - 1) + value.substring(start);
-                this.selectionStart = this.selectionEnd = start - 1;
-              }
-              console.log('[DEBUG] Description: Backspace');
-            } else if (e.key === 'Delete') {
-              // Delete key handling
-              e.preventDefault();
-              const start = this.selectionStart;
-              const end = this.selectionEnd;
-              const value = this.value;
-              if (start !== end) {
-                this.value = value.substring(0, start) + value.substring(end);
-                this.selectionStart = this.selectionEnd = start;
-              } else if (start < value.length) {
-                this.value = value.substring(0, start) + value.substring(start + 1);
-                this.selectionStart = this.selectionEnd = start;
-              }
-              console.log('[DEBUG] Description: Delete');
-            } else if (e.key === 'Enter') {
-              // Enter key for textarea - insert newline
-              e.preventDefault();
-              const start = this.selectionStart;
-              const end = this.selectionEnd;
-              const value = this.value;
-              this.value = value.substring(0, start) + '\n' + value.substring(end);
-              this.selectionStart = this.selectionEnd = start + 1;
-              console.log('[DEBUG] Description: Enter (newline)');
-            }
-          }, { once: false });
-
-          descriptionInput.addEventListener('input', function(e) {
-            console.log('[DEBUG] Description input value changed:', this.value);
-          }, { once: false });
+          // Set value for contenteditable div
+          descriptionInput.textContent = currentAudioMetadata.description || '';
         }
       }, 300);
       break;
@@ -6319,12 +6138,12 @@ async function executeExportAudioToS3() {
     return;
   }
 
-  // Get title and description
+  // Get title and description from contenteditable divs
   const titleInput = document.getElementById('export-audio-title');
   const descriptionInput = document.getElementById('export-audio-description');
 
-  const title = titleInput ? titleInput.value.trim() : '';
-  const description = descriptionInput ? descriptionInput.value.trim() : '';
+  const title = titleInput ? titleInput.textContent.trim() : '';
+  const description = descriptionInput ? descriptionInput.textContent.trim() : '';
 
   if (!title) {
     alert('제목을 입력해주세요.');
