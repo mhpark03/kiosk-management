@@ -9283,6 +9283,10 @@ function clearReferenceImage(slotIndex) {
   }
 }
 
+// Pagination for image selection
+let imageListCurrentPage = 1;
+const imageListItemsPerPage = 10;
+
 /**
  * Select reference image from S3
  */
@@ -9298,35 +9302,153 @@ async function selectReferenceImageFromS3(slotIndex) {
       return;
     }
 
-    // Create modal HTML
-    const modalHtml = `
-      <div style="background: #2a2a2a; padding: 20px; border-radius: 8px; max-width: 800px; max-height: 80vh; overflow-y: auto;">
-        <h3 style="margin: 0 0 15px 0; color: #e0e0e0;">S3에서 참조 이미지 선택 (슬롯 ${slotIndex + 1})</h3>
-        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-bottom: 15px;">
-          ${images.map(img => `
-            <div onclick="selectS3ImageForSlot(${slotIndex}, '${img.id}', '${img.title.replace(/'/g, "\\'")}', '${img.s3Url.replace(/'/g, "\\'")}')"
-                 style="cursor: pointer; border: 2px solid #444; border-radius: 8px; padding: 5px; transition: all 0.2s; background: #1a1a1a;"
-                 onmouseover="this.style.borderColor='#667eea'" onmouseout="this.style.borderColor='#444'">
-              <img src="${img.s3Url}" style="width: 100%; aspect-ratio: 1/1; object-fit: cover; border-radius: 4px;"/>
-              <div style="margin-top: 5px; font-size: 11px; color: #aaa; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${img.title}</div>
-            </div>
-          `).join('')}
-        </div>
-        <button onclick="closeCustomDialog()" style="width: 100%; padding: 10px; background: #444; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px;">취소</button>
-      </div>
-    `;
+    // Sort by upload date (newest first)
+    images.sort((a, b) => {
+      const dateA = new Date(a.uploadedAt || a.createdAt || 0);
+      const dateB = new Date(b.uploadedAt || b.createdAt || 0);
+      return dateB - dateA;
+    });
 
-    // Show modal
-    const overlay = document.getElementById('modal-overlay');
-    const content = document.getElementById('modal-content');
-    content.innerHTML = modalHtml;
-    overlay.style.display = 'flex';
+    // Reset to first page
+    imageListCurrentPage = 1;
+
+    // Store for pagination
+    window.currentImageFilesList = images;
+    window.currentImageSlotIndex = slotIndex;
+
+    // Render image list
+    renderImageList();
 
   } catch (error) {
     console.error('[Runway Image] Error loading S3 images:', error);
     alert(`S3 이미지 로딩 중 오류가 발생했습니다: ${error.message}`);
   }
 }
+
+/**
+ * Render image list with pagination
+ */
+function renderImageList() {
+  const images = window.currentImageFilesList;
+  const slotIndex = window.currentImageSlotIndex;
+
+  const totalPages = Math.ceil(images.length / imageListItemsPerPage);
+  const startIndex = (imageListCurrentPage - 1) * imageListItemsPerPage;
+  const endIndex = Math.min(startIndex + imageListItemsPerPage, images.length);
+  const currentPageItems = images.slice(startIndex, endIndex);
+
+  const modalHtml = `
+    <div style="background: #2a2a2a; padding: 20px; border-radius: 8px; width: 90vw; max-width: 1200px; height: 85vh; overflow: hidden; display: flex; flex-direction: column;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+        <h2 style="margin: 0; color: #e0e0e0; font-size: 20px;">🖼️ S3에서 참조 이미지 선택 (슬롯 ${slotIndex + 1})</h2>
+        <button onclick="closeCustomDialog()" style="background: none; border: none; color: #aaa; font-size: 28px; cursor: pointer; padding: 0; width: 35px; height: 35px; line-height: 1;">&times;</button>
+      </div>
+
+      <div style="margin-bottom: 12px;">
+        <div style="color: #aaa; font-size: 13px;">
+          총 ${images.length}개의 이미지 파일 (${imageListCurrentPage}/${totalPages} 페이지)
+        </div>
+      </div>
+
+      <div style="flex: 1; overflow-x: hidden; overflow-y: auto; border: 1px solid #444; border-radius: 4px;">
+        <table style="width: 100%; border-collapse: collapse; table-layout: fixed;">
+          <thead style="position: sticky; top: 0; background: #333; z-index: 1;">
+            <tr style="border-bottom: 2px solid #555;">
+              <th style="padding: 12px 8px; text-align: center; color: #e0e0e0; font-size: 13px; font-weight: 600; width: 100px;">미리보기</th>
+              <th style="padding: 12px 8px; text-align: left; color: #e0e0e0; font-size: 13px; font-weight: 600; width: 25%;">제목</th>
+              <th style="padding: 12px 8px; text-align: left; color: #e0e0e0; font-size: 13px; font-weight: 600; width: 40%;">설명</th>
+              <th style="padding: 12px 8px; text-align: center; color: #e0e0e0; font-size: 13px; font-weight: 600; width: 70px;">분류</th>
+              <th style="padding: 12px 8px; text-align: right; color: #e0e0e0; font-size: 13px; font-weight: 600; width: 80px;">크기</th>
+              <th style="padding: 12px 8px; text-align: center; color: #e0e0e0; font-size: 13px; font-weight: 600; width: 100px;">업로드일</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${currentPageItems.map((img, index) => {
+              const sizeInMB = img.fileSize ? (img.fileSize / (1024 * 1024)).toFixed(2) : '?';
+              let uploadDate = '날짜 없음';
+              const dateField = img.uploadedAt || img.createdAt;
+              if (dateField) {
+                const date = new Date(dateField);
+                if (!isNaN(date.getTime())) {
+                  uploadDate = date.toLocaleDateString('ko-KR');
+                }
+              }
+              const folder = img.s3Key ? (img.s3Key.includes('images/ai/') ? 'AI' : img.s3Key.includes('images/uploads/') ? '업로드' : '기타') : '?';
+              const rowBg = index % 2 === 0 ? '#2d2d2d' : '#333';
+
+              return `
+                <tr style="border-bottom: 1px solid #444; background: ${rowBg}; transition: background 0.2s; cursor: pointer;"
+                    onmouseover="this.style.background='#3a3a5a'"
+                    onmouseout="this.style.background='${rowBg}'"
+                    onclick="selectS3ImageForSlot(${slotIndex}, '${img.id}', '${img.title.replace(/'/g, "\\'")}', '${img.s3Url.replace(/'/g, "\\'")}')">
+                  <td style="padding: 8px; text-align: center;">
+                    <img src="${img.s3Url}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 4px; border: 1px solid #555;"/>
+                  </td>
+                  <td style="padding: 12px 8px; color: #e0e0e0; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                    <div style="font-weight: 600;">${img.title || img.filename}</div>
+                  </td>
+                  <td style="padding: 12px 8px; color: #aaa; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                    ${img.description || '설명 없음'}
+                  </td>
+                  <td style="padding: 12px 8px; text-align: center;">
+                    <span style="background: #667eea; color: white; padding: 3px 8px; border-radius: 3px; font-size: 10px; font-weight: 600; white-space: nowrap;">
+                      ${folder}
+                    </span>
+                  </td>
+                  <td style="padding: 12px 8px; text-align: right; color: #aaa; font-size: 12px; white-space: nowrap;">
+                    ${sizeInMB} MB
+                  </td>
+                  <td style="padding: 12px 8px; text-align: center; color: #aaa; font-size: 12px; white-space: nowrap;">
+                    ${uploadDate}
+                  </td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+
+      <div style="margin-top: 20px; display: flex; justify-content: space-between; align-items: center;">
+        <div style="display: flex; gap: 10px; align-items: center;">
+          <button onclick="goToImageListPage(1)" ${imageListCurrentPage === 1 ? 'disabled' : ''}
+                  style="padding: 8px 12px; background: ${imageListCurrentPage === 1 ? '#444' : '#667eea'}; color: white; border: none; border-radius: 4px; cursor: ${imageListCurrentPage === 1 ? 'not-allowed' : 'pointer'}; font-size: 12px;">
+            처음
+          </button>
+          <button onclick="goToImageListPage(${imageListCurrentPage - 1})" ${imageListCurrentPage === 1 ? 'disabled' : ''}
+                  style="padding: 8px 12px; background: ${imageListCurrentPage === 1 ? '#444' : '#667eea'}; color: white; border: none; border-radius: 4px; cursor: ${imageListCurrentPage === 1 ? 'not-allowed' : 'pointer'}; font-size: 12px;">
+            이전
+          </button>
+          <span style="color: #e0e0e0; font-size: 13px;">${imageListCurrentPage} / ${totalPages}</span>
+          <button onclick="goToImageListPage(${imageListCurrentPage + 1})" ${imageListCurrentPage === totalPages ? 'disabled' : ''}
+                  style="padding: 8px 12px; background: ${imageListCurrentPage === totalPages ? '#444' : '#667eea'}; color: white; border: none; border-radius: 4px; cursor: ${imageListCurrentPage === totalPages ? 'not-allowed' : 'pointer'}; font-size: 12px;">
+            다음
+          </button>
+          <button onclick="goToImageListPage(${totalPages})" ${imageListCurrentPage === totalPages ? 'disabled' : ''}
+                  style="padding: 8px 12px; background: ${imageListCurrentPage === totalPages ? '#444' : '#667eea'}; color: white; border: none; border-radius: 4px; cursor: ${imageListCurrentPage === totalPages ? 'not-allowed' : 'pointer'}; font-size: 12px;">
+            마지막
+          </button>
+        </div>
+        <button onclick="closeCustomDialog()" style="padding: 10px 20px; background: #666; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px;">
+          취소
+        </button>
+      </div>
+    </div>
+  `;
+
+  // Show modal
+  const overlay = document.getElementById('modal-overlay');
+  const content = document.getElementById('modal-content');
+  content.innerHTML = modalHtml;
+  overlay.style.display = 'flex';
+}
+
+/**
+ * Go to specific image list page
+ */
+window.goToImageListPage = function(page) {
+  imageListCurrentPage = page;
+  renderImageList();
+};
 
 /**
  * Select S3 image for a specific slot
