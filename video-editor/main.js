@@ -2762,4 +2762,200 @@ ipcMain.handle('generate-tts-direct', async (event, params) => {
   }
 });
 
+// ============================================================================
+// Runway ML API Integration (Image Generation)
+// ============================================================================
+
+/**
+ * Generate image using Runway ML API
+ */
+ipcMain.handle('generate-image-runway', async (event, params) => {
+  const { imagePaths, prompt, style, aspectRatio } = params;
+
+  logInfo('RUNWAY_IMAGE', 'Starting Runway ML image generation', {
+    imageCount: imagePaths?.length || 0,
+    prompt: prompt?.substring(0, 50),
+    style,
+    aspectRatio
+  });
+
+  try {
+    // Get Runway API key from environment variable
+    const RUNWAY_API_KEY = process.env.RUNWAY_API_KEY;
+
+    if (!RUNWAY_API_KEY) {
+      throw new Error('RUNWAY_API_KEY 환경변수가 설정되지 않았습니다.\n\n환경변수를 설정하거나 .env 파일을 생성하세요.');
+    }
+
+    // Validate inputs
+    if (!imagePaths || imagePaths.length === 0) {
+      throw new Error('참조 이미지를 최소 1개 이상 선택해주세요.');
+    }
+
+    if (!prompt || prompt.trim() === '') {
+      throw new Error('프롬프트를 입력해주세요.');
+    }
+
+    // Convert image files to base64
+    const imageDataArray = [];
+    for (const imagePath of imagePaths) {
+      if (imagePath && fs.existsSync(imagePath)) {
+        const imageBuffer = fs.readFileSync(imagePath);
+        const base64Data = imageBuffer.toString('base64');
+        const mimeType = imagePath.toLowerCase().endsWith('.png') ? 'image/png' : 'image/jpeg';
+        imageDataArray.push({
+          uri: `data:${mimeType};base64,${base64Data}`,
+          tag: `reference_${imageDataArray.length + 1}`
+        });
+
+        logInfo('RUNWAY_IMAGE', `Loaded reference image ${imageDataArray.length}`, {
+          path: imagePath,
+          size: imageBuffer.length
+        });
+      }
+    }
+
+    if (imageDataArray.length === 0) {
+      throw new Error('유효한 참조 이미지를 찾을 수 없습니다.');
+    }
+
+    // Add style to prompt
+    let enhancedPrompt = prompt;
+    if (style && style !== 'realistic') {
+      enhancedPrompt = `${prompt}, ${style} style`;
+    }
+
+    // Prepare API request payload
+    const requestBody = {
+      promptText: enhancedPrompt,
+      referenceImages: imageDataArray,
+      outputFormat: 'png',
+      aspectRatio: aspectRatio || '1024:1024'
+    };
+
+    logInfo('RUNWAY_IMAGE', 'Calling Runway ML API', {
+      url: 'https://api.runwayml.com/v1/text_to_image',
+      promptLength: enhancedPrompt.length,
+      imageCount: imageDataArray.length
+    });
+
+    // Call Runway ML API
+    const https = require('https');
+    const axios = require('axios');
+
+    const response = await axios.post(
+      'https://api.runwayml.com/v1/text_to_image',
+      requestBody,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${RUNWAY_API_KEY}`,
+          'X-Runway-Version': '2024-11-06'
+        },
+        timeout: 120000, // 2 minutes
+        httpsAgent: new https.Agent({
+          rejectUnauthorized: false
+        })
+      }
+    );
+
+    logInfo('RUNWAY_IMAGE', 'Runway ML API response received', {
+      status: response.status,
+      hasTaskId: !!response.data?.id
+    });
+
+    if (!response.data || !response.data.id) {
+      throw new Error('Runway ML API에서 작업 ID를 받지 못했습니다.');
+    }
+
+    const taskId = response.data.id;
+
+    return {
+      success: true,
+      taskId: taskId,
+      message: '이미지 생성 작업이 시작되었습니다.'
+    };
+
+  } catch (error) {
+    logError('RUNWAY_IMAGE_ERROR', 'Runway image generation failed', {
+      error: error.message,
+      response: error.response?.data,
+      status: error.response?.status
+    });
+
+    // Handle specific error codes
+    if (error.response) {
+      const status = error.response.status;
+      const errorData = error.response.data;
+
+      if (status === 401) {
+        throw new Error('Runway ML API 인증 실패\n\nAPI 키가 올바르지 않거나 만료되었습니다.');
+      } else if (status === 402) {
+        throw new Error('Runway ML 크레딧 부족\n\n계정 크레딧을 충전해주세요.');
+      } else if (status === 429) {
+        throw new Error('API 요청 한도 초과\n\n잠시 후 다시 시도해주세요.');
+      } else {
+        throw new Error(`Runway ML API 오류 (${status}): ${errorData?.message || error.message}`);
+      }
+    }
+
+    throw error;
+  }
+});
+
+/**
+ * Poll Runway ML task status
+ */
+ipcMain.handle('poll-runway-task', async (event, taskId) => {
+  logInfo('RUNWAY_POLL', 'Polling Runway ML task status', { taskId });
+
+  try {
+    const RUNWAY_API_KEY = process.env.RUNWAY_API_KEY;
+
+    if (!RUNWAY_API_KEY) {
+      throw new Error('RUNWAY_API_KEY not configured');
+    }
+
+    const https = require('https');
+    const axios = require('axios');
+
+    const response = await axios.get(
+      `https://api.runwayml.com/v1/tasks/${taskId}`,
+      {
+        headers: {
+          'Authorization': `Bearer ${RUNWAY_API_KEY}`,
+          'X-Runway-Version': '2024-11-06'
+        },
+        timeout: 30000,
+        httpsAgent: new https.Agent({
+          rejectUnauthorized: false
+        })
+      }
+    );
+
+    const taskData = response.data;
+    const status = taskData.status;
+
+    logInfo('RUNWAY_POLL', 'Task status received', {
+      taskId,
+      status,
+      hasOutput: !!taskData.output
+    });
+
+    return {
+      status: status,
+      output: taskData.output,
+      failure: taskData.failure,
+      failureCode: taskData.failureCode
+    };
+
+  } catch (error) {
+    logError('RUNWAY_POLL_ERROR', 'Failed to poll task status', {
+      taskId,
+      error: error.message
+    });
+    throw error;
+  }
+});
+
 logInfo('SYSTEM', 'Kiosk Video Editor initialized');

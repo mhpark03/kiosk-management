@@ -49,5 +49,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // TTS operations
   generateTtsDirect: (params) => ipcRenderer.invoke('generate-tts-direct', params),
-  selectAudioSavePath: (defaultName) => ipcRenderer.invoke('select-audio-save-path', defaultName)
+  selectAudioSavePath: (defaultName) => ipcRenderer.invoke('select-audio-save-path', defaultName),
+
+  // Runway ML operations
+  generateImageRunway: (params) => ipcRenderer.invoke('generate-image-runway', params),
+  pollRunwayTask: (taskId) => ipcRenderer.invoke('poll-runway-task', taskId)
 });
