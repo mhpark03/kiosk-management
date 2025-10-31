@@ -318,37 +318,41 @@ function showToolProperties(tool) {
         </div>
       `;
 
-      // Set values directly without requestAnimationFrame
-      const titleInput = document.getElementById('export-audio-title');
-      const descriptionInput = document.getElementById('export-audio-description');
+      // Set values and focus after DOM is ready
+      setTimeout(() => {
+        const titleInput = document.getElementById('export-audio-title');
+        const descriptionInput = document.getElementById('export-audio-description');
 
-      if (titleInput) {
-        // Remove any potentially blocking attributes
-        titleInput.removeAttribute('readonly');
-        titleInput.removeAttribute('disabled');
-        titleInput.removeAttribute('contenteditable');
+        if (titleInput) {
+          // Remove any potentially blocking attributes
+          titleInput.removeAttribute('readonly');
+          titleInput.removeAttribute('disabled');
+          titleInput.removeAttribute('contenteditable');
 
-        // Set value
-        titleInput.value = currentAudioMetadata.title || '';
-        console.log('[DEBUG] Title input value set:', titleInput.value);
+          // Set value
+          titleInput.value = currentAudioMetadata.title || '';
 
-        // Focus immediately
-        setTimeout(() => {
+          // Make input editable by ensuring it's not readonly
+          titleInput.readOnly = false;
+
+          // Try to focus with selection
           titleInput.focus();
-          console.log('[DEBUG] Title input focused, activeElement:', document.activeElement === titleInput);
-        }, 50);
-      }
+          titleInput.select();
 
-      if (descriptionInput) {
-        // Remove any potentially blocking attributes
-        descriptionInput.removeAttribute('readonly');
-        descriptionInput.removeAttribute('disabled');
-        descriptionInput.removeAttribute('contenteditable');
+          console.log('[DEBUG] Title input setup complete, focused:', document.activeElement === titleInput);
+        }
 
-        // Set value
-        descriptionInput.value = currentAudioMetadata.description || '';
-        console.log('[DEBUG] Description textarea value set:', descriptionInput.value);
-      }
+        if (descriptionInput) {
+          // Remove any potentially blocking attributes
+          descriptionInput.removeAttribute('readonly');
+          descriptionInput.removeAttribute('disabled');
+          descriptionInput.removeAttribute('contenteditable');
+
+          // Set value
+          descriptionInput.value = currentAudioMetadata.description || '';
+          descriptionInput.readOnly = false;
+        }
+      }, 100);
       break;
 
     case 'merge':
