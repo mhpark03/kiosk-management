@@ -321,11 +321,11 @@ function showToolProperties(tool) {
         </div>
         <div class="property-group">
           <label for="export-audio-title" style="pointer-events: none; user-select: none;">제목 *</label>
-          <input type="text" id="export-audio-title" placeholder="음성 파일 제목을 입력하세요" style="width: 100%; padding: 10px; background: #2d2d2d; border: 1px solid #555; border-radius: 4px; color: #e0e0e0; font-size: 14px;">
+          <input type="text" id="export-audio-title" placeholder="음성 파일 제목을 입력하세요" autocomplete="off" spellcheck="false" style="width: 100%; padding: 10px; background: #2d2d2d; border: 1px solid #555; border-radius: 4px; color: #e0e0e0; font-size: 14px; pointer-events: auto !important; user-select: text !important;">
         </div>
         <div class="property-group">
           <label for="export-audio-description" style="pointer-events: none; user-select: none;">설명</label>
-          <textarea id="export-audio-description" placeholder="음성 파일 설명 (선택사항)" style="width: 100%; padding: 10px; background: #2d2d2d; border: 1px solid #555; border-radius: 4px; color: #e0e0e0; min-height: 80px; resize: vertical; font-size: 14px;"></textarea>
+          <textarea id="export-audio-description" placeholder="음성 파일 설명 (선택사항)" autocomplete="off" spellcheck="false" style="width: 100%; padding: 10px; background: #2d2d2d; border: 1px solid #555; border-radius: 4px; color: #e0e0e0; min-height: 80px; resize: vertical; font-size: 14px; pointer-events: auto !important; user-select: text !important;"></textarea>
         </div>
         <button class="property-btn" onclick="executeExportAudioToS3()" style="width: 100%;">☁️ S3 업로드</button>
         <div style="background: #3a3a3a; padding: 10px; border-radius: 5px; margin-top: 10px;">
@@ -371,6 +371,11 @@ function showToolProperties(tool) {
             console.log('[DEBUG] Title input keydown:', e.key);
           }, { once: false });
 
+          // Add input event listener to track value changes
+          titleInput.addEventListener('input', function(e) {
+            console.log('[DEBUG] Title input value changed:', this.value);
+          }, { once: false });
+
           // Wait for next animation frame to ensure rendering is complete
           requestAnimationFrame(() => {
             requestAnimationFrame(() => {
@@ -410,6 +415,10 @@ function showToolProperties(tool) {
 
           descriptionInput.addEventListener('keydown', function(e) {
             console.log('[DEBUG] Description input keydown:', e.key);
+          }, { once: false });
+
+          descriptionInput.addEventListener('input', function(e) {
+            console.log('[DEBUG] Description input value changed:', this.value);
           }, { once: false });
         }
       }, 300);
