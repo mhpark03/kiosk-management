@@ -9328,7 +9328,7 @@ async function selectReferenceImageFromS3(slotIndex) {
 /**
  * Render image list with pagination
  */
-function renderImageList() {
+async function renderImageList() {
   const images = window.currentImageFilesList;
   const slotIndex = window.currentImageSlotIndex;
 
@@ -9336,6 +9336,27 @@ function renderImageList() {
   const startIndex = (imageListCurrentPage - 1) * imageListItemsPerPage;
   const endIndex = Math.min(startIndex + imageListItemsPerPage, images.length);
   const currentPageItems = images.slice(startIndex, endIndex);
+
+  // Get presigned URLs for images
+  for (const img of currentPageItems) {
+    if (!img.presignedUrl) {
+      try {
+        const response = await fetch(`${backendBaseUrl}/api/videos/${img.id}/download-url`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${authToken}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          img.presignedUrl = data.url || data.downloadUrl;
+        }
+      } catch (error) {
+        console.error('[Image List] Failed to get presigned URL:', error);
+      }
+    }
+  }
 
   const modalHtml = `
     <div style="background: #2a2a2a; padding: 20px; border-radius: 8px; width: 90vw; max-width: 1200px; height: 85vh; overflow: hidden; display: flex; flex-direction: column;">
@@ -9376,13 +9397,14 @@ function renderImageList() {
               const folder = img.s3Key ? (img.s3Key.includes('images/ai/') ? 'AI' : img.s3Key.includes('images/uploads/') ? '업로드' : '기타') : '?';
               const rowBg = index % 2 === 0 ? '#2d2d2d' : '#333';
 
+              const imageUrl = img.presignedUrl || img.s3Url || '';
               return `
                 <tr style="border-bottom: 1px solid #444; background: ${rowBg}; transition: background 0.2s; cursor: pointer;"
                     onmouseover="this.style.background='#3a3a5a'"
                     onmouseout="this.style.background='${rowBg}'"
-                    onclick="selectS3ImageForSlot(${slotIndex}, '${img.id}', '${img.title.replace(/'/g, "\\'")}', '${img.s3Url.replace(/'/g, "\\'")}')">
+                    onclick="selectS3ImageForSlot(${slotIndex}, '${img.id}', '${img.title.replace(/'/g, "\\'")}', '${imageUrl.replace(/'/g, "\\'")}')">
                   <td style="padding: 8px; text-align: center;">
-                    <img src="${img.s3Url}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 4px; border: 1px solid #555;"/>
+                    <img src="${imageUrl}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 4px; border: 1px solid #555;"/>
                   </td>
                   <td style="padding: 12px 8px; color: #e0e0e0; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
                     <div style="font-weight: 600;">${img.title || img.filename}</div>
