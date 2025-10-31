@@ -166,15 +166,6 @@ function Navbar() {
                       이미지 관리
                     </Link>
                   </li>
-                  <li>
-                    <Link
-                      to="/audio/generate"
-                      className={location.pathname === '/audio/generate' ? 'active' : ''}
-                      onClick={closeMenu}
-                    >
-                      오디오 관리
-                    </Link>
-                  </li>
                 </ul>
               )}
             </li>
