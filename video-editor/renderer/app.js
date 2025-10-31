@@ -332,9 +332,26 @@ function showToolProperties(tool) {
           // Set value
           titleInput.value = currentAudioMetadata.title || '';
 
-          // Focus and select
+          // Force enable input by adding explicit event handlers
+          titleInput.addEventListener('keydown', (e) => {
+            // Allow all keys to pass through
+            e.stopPropagation();
+          }, true); // Use capture phase
+
+          titleInput.addEventListener('keypress', (e) => {
+            e.stopPropagation();
+          }, true);
+
+          titleInput.addEventListener('input', (e) => {
+            e.stopPropagation();
+          }, true);
+
+          // Force focus and select
           titleInput.focus();
           titleInput.select();
+
+          // Try clicking programmatically to activate input
+          titleInput.click();
 
           console.log('[DEBUG] Title input setup complete, focused:', document.activeElement === titleInput);
           console.log('[DEBUG] Title input readOnly:', titleInput.readOnly);
@@ -344,6 +361,19 @@ function showToolProperties(tool) {
         if (descriptionInput) {
           // Set value
           descriptionInput.value = currentAudioMetadata.description || '';
+
+          // Add same event handlers for textarea
+          descriptionInput.addEventListener('keydown', (e) => {
+            e.stopPropagation();
+          }, true);
+
+          descriptionInput.addEventListener('keypress', (e) => {
+            e.stopPropagation();
+          }, true);
+
+          descriptionInput.addEventListener('input', (e) => {
+            e.stopPropagation();
+          }, true);
         }
       }, 150);
       break;
