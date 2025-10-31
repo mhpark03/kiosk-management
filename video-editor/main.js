@@ -286,20 +286,10 @@ function createWindow() {
 // IPC handler to force focus webContents (workaround for input activation issue)
 ipcMain.handle('focus-webcontents', async () => {
   if (mainWindow && mainWindow.webContents) {
+    // Simple focus attempt - just return success
+    // The real fix will be in the renderer process
+    mainWindow.focus();
     mainWindow.webContents.focus();
-
-    // Workaround: Toggle devtools to reactivate input
-    // Opening devtools resets some internal state that blocks input
-    const isDevToolsOpened = mainWindow.webContents.isDevToolsOpened();
-    if (!isDevToolsOpened) {
-      mainWindow.webContents.openDevTools({ mode: 'detach' });
-      // Close it immediately after a short delay
-      setTimeout(() => {
-        if (mainWindow && mainWindow.webContents.isDevToolsOpened()) {
-          mainWindow.webContents.closeDevTools();
-        }
-      }, 100);
-    }
 
     return { success: true };
   }
