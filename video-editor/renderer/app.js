@@ -9390,8 +9390,8 @@ async function executeGenerateImageRunway() {
       throw new Error(`S3 업로드 실패: ${uploadResponse.status} ${errorText}`);
     }
 
-    const result = await uploadResponse.json();
-    console.log('[Runway Image] Upload successful:', result);
+    const uploadResult = await uploadResponse.json();
+    console.log('[Runway Image] Upload successful:', uploadResult);
 
     updateStatus('AI 이미지 생성 및 S3 저장 완료!');
     alert(`Runway AI 이미지가 성공적으로 생성되고 S3에 저장되었습니다!\n\n제목: ${title}\n설명: ${description}`);
