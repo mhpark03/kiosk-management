@@ -509,7 +509,18 @@ function showToolProperties(tool) {
     case 'extract-audio':
       propertiesPanel.innerHTML = `
         <p style="margin-bottom: 20px;">현재 영상에서 오디오를 추출합니다.</p>
-        <button class="property-btn" onclick="executeExtractAudio()">오디오 추출</button>
+        <div class="property-group">
+          <label>제목</label>
+          <input type="text" id="extract-audio-title" placeholder="추출된 오디오 제목 입력">
+        </div>
+        <div class="property-group">
+          <label>설명</label>
+          <textarea id="extract-audio-description" rows="3" placeholder="설명 입력 (선택사항)"></textarea>
+        </div>
+        <div style="display: flex; gap: 10px; margin-top: 20px;">
+          <button class="property-btn" style="flex: 1;" onclick="executeExtractAudioLocal()">로컬에 저장</button>
+          <button class="property-btn" style="flex: 1; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);" onclick="executeExtractAudioToS3()">S3에 저장</button>
+        </div>
       `;
       break;
 
@@ -3060,61 +3071,12 @@ function previewTextEndTime() {
 }
 
 // Set audio start time from current video time
-function setAudioStartFromCurrentTime() {
-  const video = document.getElementById('preview-video');
-  const startInput = document.getElementById('audio-start-time');
-
-  if (!video || !video.src) {
-    alert('먼저 영상을 가져와주세요.');
-    return;
-  }
-
-  if (!startInput) {
-    return;
-  }
-
-  const currentTime = video.currentTime;
-  startInput.value = currentTime.toFixed(2);
-  updateAudioRangeOverlay();
-  updateStatus(`오디오 시작 시간 설정: ${formatTime(currentTime)}`);
-}
+// setAudioStartFromCurrentTime function consolidated below (around line 3815)
+// This duplicate function has been removed to prevent override issues
 
 // Preview audio start time
-function previewAudioStartTime() {
-  const startInput = document.getElementById('audio-start-time');
-  const video = document.getElementById('preview-video');
-  const currentTimeDisplay = document.getElementById('current-time');
-  const slider = document.getElementById('timeline-slider');
-
-  if (!video || !video.src) {
-    alert('먼저 영상을 가져와주세요.');
-    return;
-  }
-
-  if (!startInput) {
-    return;
-  }
-
-  const startTime = parseFloat(startInput.value) || 0;
-  const maxDuration = video.duration;
-  const targetTime = Math.min(startTime, maxDuration);
-
-  video.currentTime = targetTime;
-  video.pause();
-
-  setTimeout(() => {
-    if (video.duration && slider) {
-      const progress = (video.currentTime / video.duration) * 100;
-      slider.value = progress;
-    }
-
-    if (currentTimeDisplay) {
-      currentTimeDisplay.textContent = formatTime(video.currentTime);
-    }
-
-    updateStatus(`오디오 시작 위치로 이동: ${formatTime(video.currentTime)}`);
-  }, 50);
-}
+// previewAudioStartTime function consolidated below (around line 3851)
+// This duplicate function has been removed to prevent override issues
 
 function previewTrimRange() {
   const startTime = parseFloat(document.getElementById('trim-start').value) || 0;
@@ -3814,17 +3776,38 @@ function updateTrimAudioEndMax() {
 
 function setAudioStartFromCurrentTime() {
   const video = document.getElementById('preview-video');
-  const startInput = document.getElementById('trim-audio-start');
+
+  // Check which tool is active to get the correct input element
+  let startInput;
+  if (currentMode === 'audio') {
+    // Audio edit mode (trim-audio tool)
+    startInput = document.getElementById('trim-audio-start');
+  } else {
+    // Video mode (add-audio tool)
+    startInput = document.getElementById('audio-start-time');
+  }
 
   if (!video || !video.src) {
     alert('먼저 영상을 가져와주세요.');
     return;
   }
 
+  if (!startInput) {
+    console.error('Start time input not found');
+    return;
+  }
+
   const currentTime = video.currentTime;
   startInput.value = currentTime.toFixed(2);
-  updateTrimAudioEndMax();
-  updateTrimAudioDurationDisplay();
+
+  // Call appropriate update functions based on mode
+  if (currentMode === 'audio') {
+    updateTrimAudioEndMax();
+    updateTrimAudioDurationDisplay();
+  } else {
+    updateAudioRangeOverlay();
+  }
+
   updateStatus(`시작 시간 설정: ${formatTime(currentTime)}`);
 }
 
@@ -3845,10 +3828,24 @@ function setAudioEndFromCurrentTime() {
 
 function previewAudioStartTime() {
   const video = document.getElementById('preview-video');
-  const startInput = document.getElementById('trim-audio-start');
+
+  // Check which tool is active to get the correct input element
+  let startInput;
+  if (currentMode === 'audio') {
+    // Audio edit mode (trim-audio tool)
+    startInput = document.getElementById('trim-audio-start');
+  } else {
+    // Video mode (add-audio tool)
+    startInput = document.getElementById('audio-start-time');
+  }
 
   if (!video || !video.src) {
     alert('먼저 영상을 가져와주세요.');
+    return;
+  }
+
+  if (!startInput) {
+    console.error('Start time input not found');
     return;
   }
 
@@ -4624,8 +4621,8 @@ async function executeAddAudio() {
   }
 }
 
-// Extract audio
-async function executeExtractAudio() {
+// Extract audio to local file
+async function executeExtractAudioLocal() {
   if (!currentVideo) {
     alert('먼저 영상을 가져와주세요.');
     return;
@@ -4648,6 +4645,133 @@ async function executeExtractAudio() {
   } catch (error) {
     hideProgress();
     handleError('오디오 추출', error, '오디오 추출에 실패했습니다.');
+  }
+}
+
+// Extract audio and upload to S3
+async function executeExtractAudioToS3() {
+  console.log('[Extract Audio S3] Function called');
+
+  if (!currentVideo) {
+    alert('먼저 영상을 가져와주세요.');
+    return;
+  }
+
+  // Check if user is logged in
+  if (!authToken || !currentUser) {
+    alert('S3에 업로드하려면 로그인이 필요합니다.');
+    return;
+  }
+
+  // Get title and description from input fields
+  const titleInput = document.getElementById('extract-audio-title');
+  const descriptionInput = document.getElementById('extract-audio-description');
+
+  const title = titleInput ? titleInput.value.trim() : '';
+  const description = descriptionInput ? descriptionInput.value.trim() : '';
+
+  if (!title) {
+    alert('제목을 입력해주세요.');
+    if (titleInput) titleInput.focus();
+    return;
+  }
+
+  showProgress();
+  updateProgress(0, '제목 중복 확인 중...');
+
+  try {
+    // Check for duplicate title
+    console.log('[Extract Audio S3] Checking for duplicate title:', title);
+    const checkResponse = await fetch(`${backendBaseUrl}/api/videos`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${authToken}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!checkResponse.ok) {
+      throw new Error(`제목 확인 실패: ${checkResponse.status}`);
+    }
+
+    const allVideos = await checkResponse.json();
+    const audioFiles = allVideos.filter(v => v.contentType && v.contentType.startsWith('audio/'));
+    const duplicateTitle = audioFiles.find(audio => audio.title === title);
+
+    if (duplicateTitle) {
+      hideProgress();
+      alert(`같은 제목의 음성 파일이 이미 존재합니다.\n\n제목: ${title}\n\n다른 제목을 사용해주세요.`);
+      if (titleInput) titleInput.focus();
+      return;
+    }
+
+    // First, extract audio to a temporary file
+    updateProgress(30, '영상에서 오디오 추출 중...');
+
+    const tempPath = await window.electronAPI.getTempFilePath('extracted_audio.mp3');
+    console.log('[Extract Audio S3] Extracting to temp file:', tempPath);
+
+    const extractResult = await window.electronAPI.extractAudio({
+      videoPath: currentVideo,
+      outputPath: tempPath
+    });
+
+    console.log('[Extract Audio S3] Extraction complete:', extractResult.outputPath);
+
+    // Upload extracted audio to S3
+    updateProgress(60, 'S3에 음성 파일 업로드 중...');
+
+    // Read file and create FormData
+    const fileUrl = `file:///${extractResult.outputPath.replace(/\\/g, '/')}`;
+    const fileResponse = await fetch(fileUrl);
+    const audioBlob = await fileResponse.blob();
+    const fileName = `${title}.mp3`;
+
+    console.log('[Extract Audio S3] Uploading to S3:', { title, description, fileName, size: audioBlob.size });
+
+    // Create FormData for multipart upload
+    const formData = new FormData();
+    formData.append('file', audioBlob, fileName);
+    formData.append('title', title);
+    formData.append('description', description);
+
+    // Upload to backend (audios/uploads folder)
+    const uploadResponse = await fetch(`${backendBaseUrl}/api/audios/upload`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${authToken}`
+      },
+      body: formData
+    });
+
+    if (!uploadResponse.ok) {
+      const errorText = await uploadResponse.text();
+      throw new Error(`Upload failed: ${uploadResponse.status} ${errorText}`);
+    }
+
+    const result = await uploadResponse.json();
+    console.log('[Extract Audio S3] Upload successful:', result);
+
+    // Clean up temp file
+    try {
+      await window.electronAPI.deleteTempFile(extractResult.outputPath);
+    } catch (cleanupError) {
+      console.warn('[Extract Audio S3] Failed to delete temp file:', cleanupError);
+    }
+
+    updateProgress(100, '오디오 추출 및 업로드 완료!');
+    hideProgress();
+
+    alert(`S3 업로드 완료!\n\n제목: ${title}\n파일명: ${fileName}\n\n클라우드 (audios/uploads/)에 성공적으로 저장되었습니다.`);
+    updateStatus(`S3 업로드 완료: ${title}`);
+
+    // Clear input fields after successful upload
+    if (titleInput) titleInput.value = '';
+    if (descriptionInput) descriptionInput.value = '';
+  } catch (error) {
+    hideProgress();
+    console.error('[Extract Audio S3] Error:', error);
+    handleError('오디오 추출 및 S3 업로드', error, 'S3 업로드에 실패했습니다.');
   }
 }
 
