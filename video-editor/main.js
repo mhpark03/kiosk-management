@@ -2635,35 +2635,66 @@ ipcMain.handle('ensure-video-has-audio', async (event, videoPath) => {
   });
 });
 
-// Generate TTS audio using Google Cloud Text-to-Speech API (direct call without backend)
+// Generate TTS audio using Google Cloud Text-to-Speech SDK
 ipcMain.handle('generate-tts-direct', async (event, params) => {
-  const { text, title, languageCode, voiceName, gender, speakingRate, pitch } = params;
+  const { text, title, languageCode, voiceName, gender, speakingRate, pitch, savePath } = params;
 
-  logInfo('TTS_DIRECT_START', 'Starting direct TTS generation', {
+  logInfo('TTS_SDK_START', 'Starting TTS generation with Google Cloud SDK', {
     textLength: text.length,
     languageCode,
     voiceName,
-    gender
+    gender,
+    savePath
   });
 
-  return new Promise((resolve, reject) => {
-    // Get API key from environment variable or config
-    const apiKey = process.env.GOOGLE_TTS_API_KEY || process.env.GOOGLE_AI_API_KEY;
+  try {
+    const textToSpeech = require('@google-cloud/text-to-speech');
 
-    if (!apiKey) {
-      logError('TTS_DIRECT_NO_KEY', 'Google TTS API key not found', {
-        envVars: 'GOOGLE_TTS_API_KEY or GOOGLE_AI_API_KEY required'
+    // Determine credentials path
+    const serviceAccountPath = path.join(__dirname, 'google-tts-service-account.json');
+
+    let client;
+
+    // Try service account JSON file first
+    if (fs.existsSync(serviceAccountPath)) {
+      logInfo('TTS_SDK_AUTH', 'Using service account JSON file', {
+        path: serviceAccountPath
       });
-      reject(new Error('Google TTS API key not configured. Please set GOOGLE_TTS_API_KEY or GOOGLE_AI_API_KEY environment variable.'));
-      return;
+
+      client = new textToSpeech.TextToSpeechClient({
+        keyFilename: serviceAccountPath
+      });
+    }
+    // Fall back to API key if available
+    else {
+      const apiKey = process.env.GOOGLE_TTS_API_KEY || process.env.GOOGLE_AI_API_KEY;
+
+      if (apiKey) {
+        logInfo('TTS_SDK_AUTH', 'Using API key from environment variable');
+
+        client = new textToSpeech.TextToSpeechClient({
+          apiKey: apiKey
+        });
+      } else {
+        logError('TTS_SDK_NO_AUTH', 'No authentication method found', {
+          checkedFile: serviceAccountPath,
+          checkedEnvVars: 'GOOGLE_TTS_API_KEY, GOOGLE_AI_API_KEY'
+        });
+
+        throw new Error(
+          'Google TTS authentication not configured.\n\n' +
+          'Please either:\n' +
+          '1. Place google-tts-service-account.json in the app directory, or\n' +
+          '2. Set GOOGLE_TTS_API_KEY or GOOGLE_AI_API_KEY environment variable'
+        );
+      }
     }
 
-    const https = require('https');
-
-    const requestBody = JSON.stringify({
-      input: { text },
+    // Construct the request
+    const request = {
+      input: { text: text },
       voice: {
-        languageCode,
+        languageCode: languageCode,
         name: voiceName,
         ssmlGender: gender // MALE, FEMALE, NEUTRAL
       },
@@ -2672,89 +2703,63 @@ ipcMain.handle('generate-tts-direct', async (event, params) => {
         speakingRate: speakingRate || 1.0,
         pitch: pitch || 0.0
       }
-    });
-
-    const options = {
-      hostname: 'texttospeech.googleapis.com',
-      path: `/v1/text:synthesize?key=${apiKey}`,
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Content-Length': Buffer.byteLength(requestBody)
-      }
     };
 
-    logInfo('TTS_DIRECT_REQUEST', 'Sending request to Google TTS API', {
-      hostname: options.hostname,
+    logInfo('TTS_SDK_REQUEST', 'Sending request to Google TTS API', {
+      languageCode,
+      voiceName,
       textLength: text.length
     });
 
-    const req = https.request(options, (res) => {
-      let data = '';
+    // Perform the Text-to-Speech request
+    const [response] = await client.synthesizeSpeech(request);
 
-      res.on('data', (chunk) => {
-        data += chunk.toString();
-      });
+    if (!response.audioContent) {
+      logError('TTS_SDK_NO_AUDIO', 'No audio content in response');
+      throw new Error('No audio content received from Google TTS API');
+    }
 
-      res.on('end', () => {
-        if (res.statusCode === 200) {
-          try {
-            const response = JSON.parse(data);
+    // Determine save path
+    let audioPath;
+    let filename;
 
-            if (!response.audioContent) {
-              logError('TTS_DIRECT_NO_AUDIO', 'No audio content in response', { response });
-              reject(new Error('No audio content received from Google TTS API'));
-              return;
-            }
+    if (savePath) {
+      // User specified save path (full generation)
+      audioPath = savePath;
+      filename = path.basename(audioPath);
+    } else {
+      // No save path specified (preview mode)
+      const os = require('os');
+      const tempDir = os.tmpdir();
+      const timestamp = Date.now();
+      filename = `tts_preview_${timestamp}.mp3`;
+      audioPath = path.join(tempDir, filename);
+    }
 
-            // Save audio to temp file
-            const os = require('os');
-            const tempDir = os.tmpdir();
-            const timestamp = Date.now();
-            const filename = `tts_${title.replace(/[^a-zA-Z0-9]/g, '_')}_${timestamp}.mp3`;
-            const audioPath = path.join(tempDir, filename);
+    // Write the binary audio content to a file
+    fs.writeFileSync(audioPath, response.audioContent, 'binary');
 
-            // Decode base64 and write to file
-            const audioBuffer = Buffer.from(response.audioContent, 'base64');
-            fs.writeFileSync(audioPath, audioBuffer);
-
-            logInfo('TTS_DIRECT_SUCCESS', 'TTS audio generated and saved', {
-              audioPath,
-              fileSize: audioBuffer.length
-            });
-
-            resolve({
-              success: true,
-              audioPath,
-              filename,
-              fileSize: audioBuffer.length
-            });
-          } catch (error) {
-            logError('TTS_DIRECT_PARSE_ERROR', 'Failed to parse response', {
-              error: error.message,
-              statusCode: res.statusCode,
-              data: data.substring(0, 500)
-            });
-            reject(new Error(`Failed to parse API response: ${error.message}`));
-          }
-        } else {
-          logError('TTS_DIRECT_API_ERROR', 'Google TTS API error', {
-            statusCode: res.statusCode,
-            error: data
-          });
-          reject(new Error(`Google TTS API Error (${res.statusCode}): ${data}`));
-        }
-      });
+    logInfo('TTS_SDK_SUCCESS', 'TTS audio generated and saved', {
+      audioPath,
+      fileSize: response.audioContent.length,
+      isPreview: !savePath
     });
 
-    req.on('error', (error) => {
-      logError('TTS_DIRECT_REQUEST_ERROR', 'Request error', { error: error.message });
-      reject(new Error(`Network error: ${error.message}`));
+    return {
+      success: true,
+      audioPath,
+      filename,
+      fileSize: response.audioContent.length
+    };
+
+  } catch (error) {
+    logError('TTS_SDK_ERROR', 'TTS generation failed', {
+      error: error.message,
+      stack: error.stack
     });
 
-    req.write(requestBody);
-    req.end();
-  });
+    throw new Error(`TTS generation failed: ${error.message}`);
+  }
 });
 
 logInfo('SYSTEM', 'Kiosk Video Editor initialized');

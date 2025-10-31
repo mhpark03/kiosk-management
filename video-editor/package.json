@@ -40,11 +40,14 @@
       {
         "from": "ffmpeg",
         "to": "ffmpeg",
-        "filter": ["**/*"]
+        "filter": [
+          "**/*"
+        ]
       }
     ]
   },
   "dependencies": {
+    "@google-cloud/text-to-speech": "^6.4.0",
     "axios": "^1.6.0"
   },
   "devDependencies": {

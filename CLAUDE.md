@@ -30,9 +30,12 @@ React Admin Dashboard (Port 5173) ────────┘
 The backend requires MySQL and environment variables for database access.
 
 ```bash
-# Development (local MySQL)
+# Development (local MySQL) - Quick start
 cd backend
-DB_PASSWORD=aioztesting JAVA_HOME="C:/Program Files/Eclipse Adoptium/jdk-17.0.16.8-hotspot" ./gradlew.bat bootRun
+start-backend.bat              # Convenience script with pre-configured JAVA_HOME
+
+# Development (local MySQL) - Manual
+DB_PASSWORD=your_password JAVA_HOME="C:/Program Files/Eclipse Adoptium/jdk-17.0.16.8-hotspot" ./gradlew.bat bootRun
 
 # Build
 ./gradlew.bat build
@@ -284,6 +287,13 @@ The project uses **GitHub Actions for automated deployment** to avoid Windows ZI
 - JAR name fixed: `backend-0.0.1-SNAPSHOT.jar` (see `build.gradle`)
 - Port: 5000 (set in Procfile, overriding application.yml's 8080)
 
+**Security Group Configuration:**
+- Security Group: `sg-0f75c519287fcacbe`
+- Port 80 (HTTP) restricted to Korean IP ranges only
+- Allowed IP ranges include major Korean ISPs (KT, SK, LG, etc.)
+- Specific IP allowlist can be added for testing/development
+- All international traffic blocked by default for security
+
 ### S3 Media Storage
 
 - SDK: AWS SDK for Java v2
@@ -507,7 +517,11 @@ The video-editor is a standalone Electron desktop application for advanced video
 - Logs sent to renderer via IPC for console display
 
 **Editing Features:**
-- Trim: Extract specific time range (video-only, audio-only, or both)
+- Trim: Two modes available
+  - **Keep Range**: Extract specific time range (preserves selected portion)
+  - **Delete Range**: Remove selected portion (keeps everything else)
+  - Separate controls for video-only, audio-only, or both tracks
+  - Split trim buttons in audio editing mode for precise control
 - Merge: Concatenate multiple videos with transition effects (fade, xfade)
 - Audio insert: Add background music with volume control at specific timestamp
 - Audio extract: Save audio track as separate file
@@ -515,6 +529,11 @@ The video-editor is a standalone Electron desktop application for advanced video
 - Filters: Brightness, contrast, saturation, blur, sharpen
 - Text overlay: Position, size, color, time-based display
 - Speed adjust: 0.25x to 4x playback speed
+
+**Audio Processing Standards:**
+- All audio operations use **48kHz sample rate** to prevent quality loss
+- Silent audio generation for videos without audio tracks
+- Automatic audio stream detection and handling
 
 **State Management:**
 - Global variables track: currentVideo, videoInfo, activeTool, zoomStart/End

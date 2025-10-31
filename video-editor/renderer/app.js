@@ -867,7 +867,7 @@ function showToolProperties(tool) {
     case 'generate-audio':
     case 'generate-tts':
       propertiesPanel.innerHTML = `
-        <div style="max-height: 60vh; overflow-y: auto; padding-right: 10px;">
+        <div style="height: calc(100vh - 250px); overflow-y: auto; overflow-x: hidden; padding-right: 10px;">
           <h3 style="margin-bottom: 15px; color: #667eea;">🗣️ TTS 음성 생성</h3>
 
           <div class="property-group">
@@ -875,7 +875,7 @@ function showToolProperties(tool) {
             <textarea
               id="tts-text"
               maxlength="5000"
-              rows="6"
+              rows="4"
               placeholder="음성으로 변환할 텍스트를 입력하세요..."
               style="width: 100%; padding: 10px; background: #2d2d2d; border: 1px solid #444; border-radius: 5px; color: #e0e0e0; font-size: 14px; resize: vertical;"
               oninput="updateTtsCharCount()"
@@ -893,23 +893,13 @@ function showToolProperties(tool) {
             />
           </div>
 
-          <div class="property-group">
-            <label>설명 (선택사항)</label>
-            <textarea
-              id="tts-description"
-              rows="3"
-              placeholder="음성 설명을 입력하세요"
-              style="width: 100%; padding: 10px; background: #2d2d2d; border: 1px solid #444; border-radius: 5px; color: #e0e0e0; font-size: 14px; resize: vertical;"
-            ></textarea>
-          </div>
-
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
             <div class="property-group">
               <label>언어</label>
               <select
                 id="tts-language"
                 onchange="updateTtsVoiceOptions()"
-                style="width: 100%; padding: 10px; background: #2d2d2d; border: 1px solid #444; border-radius: 5px; color: #e0e0e0; font-size: 14px;"
+                style="width: 100%; padding: 8px; background: #2d2d2d; border: 1px solid #444; border-radius: 5px; color: #e0e0e0; font-size: 13px;"
               >
                 <option value="ko-KR">한국어</option>
                 <option value="en-US">영어 (미국)</option>
@@ -922,11 +912,11 @@ function showToolProperties(tool) {
               <label>음성</label>
               <select
                 id="tts-voice"
-                style="width: 100%; padding: 10px; background: #2d2d2d; border: 1px solid #444; border-radius: 5px; color: #e0e0e0; font-size: 14px;"
+                style="width: 100%; padding: 8px; background: #2d2d2d; border: 1px solid #444; border-radius: 5px; color: #e0e0e0; font-size: 13px;"
               >
-                <option value="ko-KR-Neural2-A">Korean Female A (Neural2)</option>
-                <option value="ko-KR-Neural2-B">Korean Female B (Neural2)</option>
-                <option value="ko-KR-Neural2-C">Korean Male C (Neural2)</option>
+                <option value="ko-KR-Neural2-A">Female A</option>
+                <option value="ko-KR-Neural2-B">Female B</option>
+                <option value="ko-KR-Neural2-C">Male C</option>
               </select>
             </div>
           </div>
@@ -962,15 +952,20 @@ function showToolProperties(tool) {
           </div>
 
           <div style="background: #2a2a3e; padding: 12px; border-radius: 8px; margin-top: 10px; border-left: 4px solid #667eea;">
-            <button class="property-btn" onclick="executeGenerateTTS()" style="width: 100%; margin: 0; background: #667eea;">
-              🎵 음성 생성
-            </button>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+              <button class="property-btn secondary" onclick="previewTTS()" id="preview-tts-btn" style="margin: 0;">
+                🎧 미리듣기
+              </button>
+              <button class="property-btn" onclick="executeGenerateTTS()" style="margin: 0; background: #667eea;">
+                🎵 음성 생성
+              </button>
+            </div>
           </div>
 
-          <div style="background: #3a3a3a; padding: 10px; border-radius: 5px; margin-top: 10px;">
-            <small style="color: #aaa;">💡 Google Cloud TTS API를 직접 호출하여 자연스러운 음성을 생성합니다 (백엔드 불필요)</small>
+          <div style="background: #3a3a3a; padding: 10px; border-radius: 5px; margin-top: 10px; margin-bottom: 20px;">
+            <small style="color: #aaa;">💡 Google Cloud TTS SDK를 사용하여 음성을 생성합니다</small>
             <br>
-            <small style="color: #888; font-size: 10px;">⚙️ 환경변수 필요: GOOGLE_TTS_API_KEY 또는 GOOGLE_AI_API_KEY</small>
+            <small style="color: #888; font-size: 10px;">⚙️ 인증: google-tts-service-account.json 또는 API Key</small>
           </div>
         </div>
       `;
@@ -6419,6 +6414,17 @@ async function executeGenerateTTS() {
   }
 
   try {
+    // Ask user where to save the audio file
+    const sanitizedTitle = title.replace(/[^a-zA-Z0-9가-힣]/g, '_');
+    const defaultFilename = `${sanitizedTitle}.mp3`;
+
+    const savePath = await window.electronAPI.selectOutput(defaultFilename);
+
+    if (!savePath) {
+      console.log('[TTS] User canceled save dialog');
+      return;
+    }
+
     showProgress();
     updateProgress(10, 'Google TTS API 호출 준비 중...');
     updateStatus('TTS 음성 생성 중...');
@@ -6430,7 +6436,7 @@ async function executeGenerateTTS() {
 
     updateProgress(30, 'Google TTS API 호출 중...');
 
-    // Direct Google API call (no backend dependency)
+    // Direct Google API call with save path (no backend dependency)
     const directResult = await window.electronAPI.generateTtsDirect({
       text,
       title,
@@ -6438,14 +6444,15 @@ async function executeGenerateTTS() {
       voiceName,
       gender,
       speakingRate,
-      pitch
+      pitch,
+      savePath  // User-selected save path
     });
 
     if (!directResult.success) {
       throw new Error('Google TTS API call failed: ' + (directResult.error || 'Unknown error'));
     }
 
-    updateProgress(80, '음성 생성 완료, 로컬에 저장됨...');
+    updateProgress(80, '음성 생성 완료, 파일 저장 중...');
 
     const audioResult = {
       title,
@@ -6472,14 +6479,15 @@ async function executeGenerateTTS() {
       `피치: ${audioResult.pitch}\n\n` +
       `저장 위치: ${audioResult.audioPath}\n` +
       `파일명: ${audioResult.filename}\n` +
-      `파일 크기: ${(audioResult.fileSize / 1024).toFixed(2)} KB\n\n` +
-      `💡 생성된 파일을 비디오에 오디오로 추가하거나,\n다른 위치로 복사하여 사용할 수 있습니다.`
+      `파일 크기: ${(audioResult.fileSize / 1024).toFixed(2)} KB`
     );
 
     // Clear form
-    document.getElementById('tts-text').value = '';
-    document.getElementById('tts-title').value = '';
-    document.getElementById('tts-description').value = '';
+    const textField = document.getElementById('tts-text');
+    const titleField = document.getElementById('tts-title');
+
+    if (textField) textField.value = '';
+    if (titleField) titleField.value = '';
     updateTtsCharCount();
 
     updateStatus('TTS 음성 생성 완료');
@@ -6573,4 +6581,96 @@ async function executeGenerateVideoVeo() {
         '⚙️ Google Veo API 연동이 필요합니다.');
 
   console.log('[Veo Video] Placeholder called with:', { prompt, duration, aspect });
+}
+
+// Preview TTS audio before saving
+let previewAudioElement = null;
+
+async function previewTTS() {
+  const text = document.getElementById('tts-text')?.value;
+  const languageCode = document.getElementById('tts-language')?.value;
+  const voiceName = document.getElementById('tts-voice')?.value;
+  const speakingRate = parseFloat(document.getElementById('tts-speed')?.value || 1.0);
+  const pitch = parseFloat(document.getElementById('tts-pitch')?.value || 0);
+
+  // Validate inputs
+  if (!text || text.trim().length === 0) {
+    alert('텍스트를 입력해주세요.');
+    return;
+  }
+
+  // Limit preview text length
+  const previewText = text.length > 500 ? text.substring(0, 500) + '...' : text;
+
+  if (text.length > 500) {
+    console.log('[TTS Preview] Text truncated to 500 characters for preview');
+  }
+
+  try {
+    const previewBtn = document.getElementById('preview-tts-btn');
+    previewBtn.disabled = true;
+    previewBtn.textContent = '🔄 생성 중...';
+
+    console.log('[TTS Preview] Starting preview generation...');
+
+    // Determine gender from voice name
+    const gender = voiceName.includes('Male') ? 'MALE' : 'FEMALE';
+
+    // Generate preview audio
+    const result = await window.electronAPI.generateTtsDirect({
+      text: previewText,
+      title: 'preview',
+      languageCode,
+      voiceName,
+      gender,
+      speakingRate,
+      pitch
+    });
+
+    if (!result.success) {
+      throw new Error('Preview generation failed: ' + (result.error || 'Unknown error'));
+    }
+
+    console.log('[TTS Preview] Preview generated:', result.audioPath);
+
+    // Stop any existing preview
+    if (previewAudioElement) {
+      previewAudioElement.pause();
+      previewAudioElement.src = '';
+    }
+
+    // Create and play audio element with file:// protocol
+    const audioUrl = `file:///${result.audioPath.replace(/\\/g, '/')}`;
+    console.log('[TTS Preview] Audio URL:', audioUrl);
+    previewAudioElement = new Audio(audioUrl);
+
+    previewAudioElement.onended = () => {
+      previewBtn.textContent = '🎧 미리듣기';
+      previewBtn.disabled = false;
+      console.log('[TTS Preview] Playback ended');
+    };
+
+    previewAudioElement.onerror = (error) => {
+      console.error('[TTS Preview] Playback error:', error);
+      alert('미리듣기 재생 중 오류가 발생했습니다.');
+      previewBtn.textContent = '🎧 미리듣기';
+      previewBtn.disabled = false;
+    };
+
+    await previewAudioElement.play();
+    previewBtn.textContent = '⏸️ 재생 중...';
+    previewBtn.disabled = false;
+
+    console.log('[TTS Preview] Playing preview audio');
+
+  } catch (error) {
+    console.error('[TTS Preview] Preview failed:', error);
+    alert('미리듣기 생성에 실패했습니다.\n\n' + error.message);
+
+    const previewBtn = document.getElementById('preview-tts-btn');
+    if (previewBtn) {
+      previewBtn.textContent = '🎧 미리듣기';
+      previewBtn.disabled = false;
+    }
+  }
 }
