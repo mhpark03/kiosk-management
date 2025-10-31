@@ -710,12 +710,9 @@ function showToolProperties(tool) {
           <label>설명</label>
           <textarea id="export-video-description" rows="3" placeholder="설명 입력 (선택사항)">${exportVideoDescription.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</textarea>
         </div>
-        <div style="display: flex; gap: 10px; margin-top: 20px;">
-          <button class="property-btn" style="flex: 1;" onclick="executeExportVideoLocal()">로컬에 저장</button>
-          <button class="property-btn" style="flex: 1; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);" onclick="executeExportVideoToS3()">S3에 저장</button>
-        </div>
+        <button class="property-btn" onclick="executeExportVideoToS3()">S3에 저장</button>
         <div style="background: #3a3a3a; padding: 10px; border-radius: 5px; margin-top: 10px;">
-          <small style="color: #aaa;">💡 편집된 영상 파일을 로컬 또는 S3에 저장합니다</small>
+          <small style="color: #aaa;">💡 편집된 영상 파일을 S3에 저장합니다</small>
         </div>
       `;
       break;
