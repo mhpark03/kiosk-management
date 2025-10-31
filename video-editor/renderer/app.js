@@ -375,45 +375,22 @@ function showToolProperties(tool) {
             e.stopPropagation();
           }, { once: false });
 
-          // Track composition state for Korean/Chinese/Japanese input
-          let isComposing = false;
-          let compositionStart = 0;
+          // Use beforeinput event to handle all input including IME
+          titleInput.addEventListener('beforeinput', function(e) {
+            console.log('[DEBUG] Title beforeinput:', e.inputType, 'data:', e.data);
 
-          // Composition events for IME (Korean, Japanese, Chinese input)
-          titleInput.addEventListener('compositionstart', function(e) {
-            isComposing = true;
-            compositionStart = this.selectionStart;
-            console.log('[DEBUG] Composition started at position:', compositionStart);
-          }, { once: false });
-
-          titleInput.addEventListener('compositionupdate', function(e) {
-            console.log('[DEBUG] Composition update:', e.data);
-          }, { once: false });
-
-          titleInput.addEventListener('compositionend', function(e) {
-            isComposing = false;
-            console.log('[DEBUG] Composition ended with:', e.data);
-
-            // Manually insert the composed text
-            const start = compositionStart;
-            const end = this.selectionEnd;
-            const value = this.value;
-
-            // Remove any IME temporary text and insert final composed text
-            this.value = value.substring(0, start) + e.data + value.substring(end);
-            this.selectionStart = this.selectionEnd = start + e.data.length;
-
-            console.log('[DEBUG] Final composed text inserted:', e.data, 'New value:', this.value);
+            // Allow the default behavior for beforeinput
+            // This will let composition events fire properly
           }, { once: false });
 
           // Add explicit keydown listener to manually handle input
           titleInput.addEventListener('keydown', function(e) {
-            console.log('[DEBUG] Title input keydown:', e.key, 'isComposing:', isComposing);
+            console.log('[DEBUG] Title input keydown:', e.key);
 
-            // Skip manual handling during IME composition
-            if (isComposing || e.key === 'Process') {
+            // Skip manual handling during IME composition (Process key indicates IME is active)
+            if (e.key === 'Process' || e.isComposing) {
               console.log('[DEBUG] Skipping manual handling (IME active)');
-              return;
+              return; // Let beforeinput handle this
             }
 
             // Manually handle keyboard input since default behavior is blocked
@@ -512,44 +489,21 @@ function showToolProperties(tool) {
             e.stopPropagation();
           }, { once: false });
 
-          // Track composition state for Korean/Chinese/Japanese input (description)
-          let isComposingDesc = false;
-          let compositionStartDesc = 0;
+          // Use beforeinput event to handle all input including IME (description)
+          descriptionInput.addEventListener('beforeinput', function(e) {
+            console.log('[DEBUG] Description beforeinput:', e.inputType, 'data:', e.data);
 
-          // Composition events for IME (description)
-          descriptionInput.addEventListener('compositionstart', function(e) {
-            isComposingDesc = true;
-            compositionStartDesc = this.selectionStart;
-            console.log('[DEBUG] Description composition started at position:', compositionStartDesc);
-          }, { once: false });
-
-          descriptionInput.addEventListener('compositionupdate', function(e) {
-            console.log('[DEBUG] Description composition update:', e.data);
-          }, { once: false });
-
-          descriptionInput.addEventListener('compositionend', function(e) {
-            isComposingDesc = false;
-            console.log('[DEBUG] Description composition ended with:', e.data);
-
-            // Manually insert the composed text
-            const start = compositionStartDesc;
-            const end = this.selectionEnd;
-            const value = this.value;
-
-            // Remove any IME temporary text and insert final composed text
-            this.value = value.substring(0, start) + e.data + value.substring(end);
-            this.selectionStart = this.selectionEnd = start + e.data.length;
-
-            console.log('[DEBUG] Description final composed text inserted:', e.data);
+            // Allow the default behavior for beforeinput
+            // This will let composition events fire properly
           }, { once: false });
 
           descriptionInput.addEventListener('keydown', function(e) {
-            console.log('[DEBUG] Description input keydown:', e.key, 'isComposing:', isComposingDesc);
+            console.log('[DEBUG] Description input keydown:', e.key);
 
             // Skip manual handling during IME composition
-            if (isComposingDesc || e.key === 'Process') {
+            if (e.key === 'Process' || e.isComposing) {
               console.log('[DEBUG] Description: Skipping manual handling (IME active)');
-              return;
+              return; // Let beforeinput handle this
             }
 
             // Manually handle keyboard input since default behavior is blocked
