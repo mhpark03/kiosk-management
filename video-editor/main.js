@@ -287,6 +287,20 @@ function createWindow() {
 ipcMain.handle('focus-webcontents', async () => {
   if (mainWindow && mainWindow.webContents) {
     mainWindow.webContents.focus();
+
+    // Workaround: Toggle devtools to reactivate input
+    // Opening devtools resets some internal state that blocks input
+    const isDevToolsOpened = mainWindow.webContents.isDevToolsOpened();
+    if (!isDevToolsOpened) {
+      mainWindow.webContents.openDevTools({ mode: 'detach' });
+      // Close it immediately after a short delay
+      setTimeout(() => {
+        if (mainWindow && mainWindow.webContents.isDevToolsOpened()) {
+          mainWindow.webContents.closeDevTools();
+        }
+      }, 100);
+    }
+
     return { success: true };
   }
   return { success: false };
