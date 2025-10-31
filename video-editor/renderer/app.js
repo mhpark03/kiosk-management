@@ -1117,8 +1117,17 @@ function setupVideoControls() {
     if (currentMode === 'audio') {
       const audioElement = document.getElementById('preview-audio');
       if (audioElement) {
-        audioElement.play();
-        updateStatus('재생 중...');
+        // Check if audio is ready to play
+        if (audioElement.readyState >= 2) { // HAVE_CURRENT_DATA or better
+          audioElement.play().catch(err => {
+            console.error('Audio play error:', err);
+            updateStatus('재생 실패: ' + err.message);
+          });
+          updateStatus('재생 중...');
+        } else {
+          console.log('[Play] Audio not ready, readyState:', audioElement.readyState);
+          updateStatus('음성 파일 로딩 중... 잠시 후 다시 시도해주세요.');
+        }
       }
       return;
     }
@@ -4154,11 +4163,23 @@ async function executeMerge() {
 
 // Audio merge functions
 async function addAudioToMerge() {
-  const audioPath = await window.electronAPI.selectAudio();
-  if (!audioPath) return;
+  // Check authentication
+  if (!authToken || !currentUser) {
+    const useLocal = confirm('로그인이 필요합니다.\n\n로컬 파일을 선택하시겠습니까?\n(취소를 누르면 로그인 화면으로 이동합니다)');
+    if (useLocal) {
+      const audioPath = await window.electronAPI.selectAudio();
+      if (!audioPath) return;
+      mergeAudios.push({ type: 'file', path: audioPath });
+      updateMergeAudioFileList();
+    } else {
+      // Show login modal
+      showLoginModal();
+    }
+    return;
+  }
 
-  mergeAudios.push({ type: 'file', path: audioPath });
-  updateMergeAudioFileList();
+  // Show audio list from S3 for merge
+  await showAudioListForMerge();
 }
 
 function addSilenceToMerge() {
@@ -5385,6 +5406,286 @@ window.selectAudioFromS3 = async function(audioId, audioTitle, audioDescription 
   }
 };
 
+// Show audio list from S3 for merge (병합용)
+async function showAudioListForMerge() {
+  try {
+    showProgress();
+    updateProgress(30, 'S3에서 음성 목록 불러오는 중...');
+    updateStatus('음성 목록 로드 중...');
+
+    // Fetch audio list from backend
+    const response = await fetch(`${backendBaseUrl}/api/videos`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${authToken}`
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch audio list: ${response.status}`);
+    }
+
+    const videos = await response.json();
+
+    // Filter only audio files (check contentType starts with 'audio/')
+    const audioFiles = videos.filter(v => v.contentType && v.contentType.startsWith('audio/'));
+
+    console.log('[Audio Merge] Found audio files:', audioFiles.length);
+
+    updateProgress(100, '음성 목록 로드 완료');
+    hideProgress();
+
+    if (audioFiles.length === 0) {
+      const useLocal = confirm('S3에 저장된 음성 파일이 없습니다.\n\n로컬 파일을 선택하시겠습니까?');
+      if (useLocal) {
+        const audioPath = await window.electronAPI.selectAudio();
+        if (!audioPath) return;
+        mergeAudios.push({ type: 'file', path: audioPath });
+        updateMergeAudioFileList();
+      }
+      return;
+    }
+
+    // Show modal with audio list for merge
+    showAudioSelectionModalForMerge(audioFiles);
+
+  } catch (error) {
+    console.error('[Audio Merge] Failed to fetch audio list:', error);
+    hideProgress();
+
+    const useLocal = confirm('S3 음성 목록을 불러오는데 실패했습니다.\n\n로컬 파일을 선택하시겠습니까?');
+    if (useLocal) {
+      const audioPath = await window.electronAPI.selectAudio();
+      if (!audioPath) return;
+      mergeAudios.push({ type: 'file', path: audioPath });
+      updateMergeAudioFileList();
+    }
+  }
+}
+
+// Show audio selection modal for merge (병합용 - selectAudioFromS3ForMerge 호출)
+function showAudioSelectionModalForMerge(audioFiles) {
+  const modalOverlay = document.getElementById('modal-overlay');
+  const modalContent = document.getElementById('modal-content');
+
+  if (!modalOverlay || !modalContent) {
+    console.error('[Audio Merge] Modal elements not found');
+    return;
+  }
+
+  // Sort by upload date (newest first)
+  audioFiles.sort((a, b) => {
+    const dateA = new Date(a.uploadedAt || a.createdAt || 0);
+    const dateB = new Date(b.uploadedAt || b.createdAt || 0);
+    return dateB - dateA;
+  });
+
+  // Reset to first page
+  audioListCurrentPage = 1;
+
+  // Render the audio list for merge
+  renderAudioListForMerge(audioFiles, modalContent);
+
+  modalOverlay.style.display = 'flex';
+}
+
+// Render audio list with pagination for merge (병합용)
+function renderAudioListForMerge(audioFiles, modalContent) {
+  const totalPages = Math.ceil(audioFiles.length / audioListItemsPerPage);
+  const startIndex = (audioListCurrentPage - 1) * audioListItemsPerPage;
+  const endIndex = Math.min(startIndex + audioListItemsPerPage, audioFiles.length);
+  const currentPageItems = audioFiles.slice(startIndex, endIndex);
+
+  // Create modal HTML with table layout - 병합용이므로 selectAudioFromS3ForMerge 호출
+  modalContent.innerHTML = `
+    <div style="background: #2a2a2a; padding: 20px; border-radius: 8px; width: 90vw; max-width: 1400px; height: 85vh; overflow: hidden; display: flex; flex-direction: column;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+        <h2 style="margin: 0; color: #e0e0e0; font-size: 20px;">📁 S3 음성 파일 선택 (병합에 추가)</h2>
+        <button onclick="closeAudioSelectionModalForMerge()" style="background: none; border: none; color: #aaa; font-size: 28px; cursor: pointer; padding: 0; width: 35px; height: 35px; line-height: 1;">&times;</button>
+      </div>
+
+      <div style="margin-bottom: 12px;">
+        <div style="color: #aaa; font-size: 13px;">
+          총 ${audioFiles.length}개의 음성 파일 (${audioListCurrentPage}/${totalPages} 페이지)
+        </div>
+      </div>
+
+      <div style="flex: 1; overflow-x: hidden; overflow-y: auto; border: 1px solid #444; border-radius: 4px;">
+        <table style="width: 100%; border-collapse: collapse; table-layout: fixed;">
+          <thead style="position: sticky; top: 0; background: #333; z-index: 1;">
+            <tr style="border-bottom: 2px solid #555;">
+              <th style="padding: 12px 8px; text-align: left; color: #e0e0e0; font-size: 13px; font-weight: 600; width: 25%;">제목</th>
+              <th style="padding: 12px 8px; text-align: left; color: #e0e0e0; font-size: 13px; font-weight: 600; width: 45%;">설명</th>
+              <th style="padding: 12px 8px; text-align: center; color: #e0e0e0; font-size: 13px; font-weight: 600; width: 70px;">분류</th>
+              <th style="padding: 12px 8px; text-align: right; color: #e0e0e0; font-size: 13px; font-weight: 600; width: 80px;">크기</th>
+              <th style="padding: 12px 8px; text-align: center; color: #e0e0e0; font-size: 13px; font-weight: 600; width: 100px;">업로드일</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${currentPageItems.map((audio, index) => {
+              const sizeInMB = audio.fileSize ? (audio.fileSize / (1024 * 1024)).toFixed(2) : '?';
+              let uploadDate = '날짜 없음';
+              const dateField = audio.uploadedAt || audio.createdAt;
+              if (dateField) {
+                const date = new Date(dateField);
+                if (!isNaN(date.getTime())) {
+                  uploadDate = date.toLocaleDateString('ko-KR');
+                }
+              }
+              const folder = audio.s3Key ? (audio.s3Key.includes('audios/tts/') ? 'TTS' : audio.s3Key.includes('audios/uploads/') ? '업로드' : '기타') : '?';
+              const rowBg = index % 2 === 0 ? '#2d2d2d' : '#333';
+
+              return `
+                <tr style="border-bottom: 1px solid #444; background: ${rowBg}; transition: background 0.2s;"
+                    onmouseover="this.style.background='#3a3a5a'"
+                    onmouseout="this.style.background='${rowBg}'"
+                    onclick="selectAudioFromS3ForMerge(${audio.id}, '${audio.title.replace(/'/g, "\\'")}')">
+                  <td style="padding: 12px 8px; color: #e0e0e0; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer;">
+                    <div style="font-weight: 600;">🎵 ${audio.title || audio.filename}</div>
+                  </td>
+                  <td style="padding: 12px 8px; color: #aaa; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer;">
+                    ${audio.description || '설명 없음'}
+                  </td>
+                  <td style="padding: 12px 8px; text-align: center; cursor: pointer;">
+                    <span style="background: #667eea; color: white; padding: 3px 8px; border-radius: 3px; font-size: 10px; font-weight: 600; white-space: nowrap;">
+                      ${folder}
+                    </span>
+                  </td>
+                  <td style="padding: 12px 8px; text-align: right; color: #aaa; font-size: 12px; white-space: nowrap; cursor: pointer;">
+                    ${sizeInMB} MB
+                  </td>
+                  <td style="padding: 12px 8px; text-align: center; color: #aaa; font-size: 12px; white-space: nowrap; cursor: pointer;">
+                    ${uploadDate}
+                  </td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+
+      <div style="margin-top: 20px; display: flex; justify-content: space-between; align-items: center;">
+        <div style="display: flex; gap: 10px; align-items: center;">
+          <button onclick="goToAudioListPageForMerge(1)" ${audioListCurrentPage === 1 ? 'disabled' : ''}
+                  style="padding: 8px 12px; background: ${audioListCurrentPage === 1 ? '#444' : '#667eea'}; color: white; border: none; border-radius: 4px; cursor: ${audioListCurrentPage === 1 ? 'not-allowed' : 'pointer'}; font-size: 12px;">
+            처음
+          </button>
+          <button onclick="goToAudioListPageForMerge(${audioListCurrentPage - 1})" ${audioListCurrentPage === 1 ? 'disabled' : ''}
+                  style="padding: 8px 12px; background: ${audioListCurrentPage === 1 ? '#444' : '#667eea'}; color: white; border: none; border-radius: 4px; cursor: ${audioListCurrentPage === 1 ? 'not-allowed' : 'pointer'}; font-size: 12px;">
+            이전
+          </button>
+          <span style="color: #e0e0e0; font-size: 13px;">${audioListCurrentPage} / ${totalPages}</span>
+          <button onclick="goToAudioListPageForMerge(${audioListCurrentPage + 1})" ${audioListCurrentPage === totalPages ? 'disabled' : ''}
+                  style="padding: 8px 12px; background: ${audioListCurrentPage === totalPages ? '#444' : '#667eea'}; color: white; border: none; border-radius: 4px; cursor: ${audioListCurrentPage === totalPages ? 'not-allowed' : 'pointer'}; font-size: 12px;">
+            다음
+          </button>
+          <button onclick="goToAudioListPageForMerge(${totalPages})" ${audioListCurrentPage === totalPages ? 'disabled' : ''}
+                  style="padding: 8px 12px; background: ${audioListCurrentPage === totalPages ? '#444' : '#667eea'}; color: white; border: none; border-radius: 4px; cursor: ${audioListCurrentPage === totalPages ? 'not-allowed' : 'pointer'}; font-size: 12px;">
+            마지막
+          </button>
+        </div>
+        <div style="display: flex; gap: 10px;">
+          <button onclick="selectLocalAudioFileForMerge()" style="padding: 10px 20px; background: #764ba2; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px;">
+            💾 로컬 파일 선택
+          </button>
+          <button onclick="closeAudioSelectionModalForMerge()" style="padding: 10px 20px; background: #666; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px;">
+            취소
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Store audio files in window for pagination
+  window.currentAudioFilesListForMerge = audioFiles;
+}
+
+// Navigate to a specific page for merge
+window.goToAudioListPageForMerge = function(page) {
+  if (!window.currentAudioFilesListForMerge) return;
+
+  const totalPages = Math.ceil(window.currentAudioFilesListForMerge.length / audioListItemsPerPage);
+  if (page < 1 || page > totalPages) return;
+
+  audioListCurrentPage = page;
+  const modalContent = document.getElementById('modal-content');
+  if (modalContent) {
+    renderAudioListForMerge(window.currentAudioFilesListForMerge, modalContent);
+  }
+};
+
+// Close audio selection modal for merge
+window.closeAudioSelectionModalForMerge = function() {
+  const modalOverlay = document.getElementById('modal-overlay');
+  if (modalOverlay) {
+    modalOverlay.style.display = 'none';
+  }
+};
+
+// Select local audio file for merge
+window.selectLocalAudioFileForMerge = async function() {
+  closeAudioSelectionModalForMerge();
+  const audioPath = await window.electronAPI.selectAudio();
+  if (!audioPath) return;
+  mergeAudios.push({ type: 'file', path: audioPath });
+  updateMergeAudioFileList();
+};
+
+// Select audio from S3 for merge (병합 리스트에 추가)
+window.selectAudioFromS3ForMerge = async function(audioId, audioTitle) {
+  try {
+    closeAudioSelectionModalForMerge();
+    showProgress();
+    updateProgress(30, 'S3에서 음성 다운로드 중...');
+    updateStatus(`음성 다운로드 중: ${audioTitle}`);
+
+    console.log('[Audio Merge] Downloading audio from S3:', audioId);
+
+    // Get download URL from backend
+    const response = await fetch(`${backendBaseUrl}/api/videos/${audioId}/download-url`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${authToken}`
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to get download URL: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const downloadUrl = data.url;
+
+    console.log('[Audio Merge] Got presigned URL:', downloadUrl);
+
+    updateProgress(60, '음성 파일 다운로드 중...');
+
+    // Download audio file using electron API
+    const result = await window.electronAPI.downloadFile(downloadUrl, audioTitle);
+
+    if (!result.success) {
+      throw new Error(result.error || 'Download failed');
+    }
+
+    console.log('[Audio Merge] Downloaded to:', result.filePath);
+
+    updateProgress(90, '병합 목록에 추가 중...');
+
+    // Add to merge list
+    mergeAudios.push({ type: 'file', path: result.filePath });
+    updateMergeAudioFileList();
+
+    updateProgress(100, '음성 파일 추가 완료');
+    hideProgress();
+    updateStatus(`음성 파일 추가됨: ${audioTitle}`);
+
+  } catch (error) {
+    console.error('[Audio Merge] Failed to download audio from S3:', error);
+    hideProgress();
+    alert('S3에서 음성 다운로드에 실패했습니다.\n\n' + error.message);
+  }
+};
+
 // Delete audio from S3
 window.deleteAudioFromS3 = async function(audioId, audioTitle) {
   try {
@@ -5536,11 +5837,16 @@ async function loadAudioFile(audioPath) {
       const audioEl = document.getElementById('preview-audio');
 
       audioEl.src = `file:///${audioPath.replace(/\\/g, '/')}`;
-      audioEl.load();
 
-      // Enable play/pause buttons for audio playback
-      if (playBtn) playBtn.disabled = false;
-      if (pauseBtn) pauseBtn.disabled = false;
+      // Wait for audio to be ready before enabling controls
+      audioEl.addEventListener('loadedmetadata', () => {
+        console.log('[loadAudioFile] Audio metadata loaded, ready to play');
+        // Enable play/pause buttons for audio playback
+        if (playBtn) playBtn.disabled = false;
+        if (pauseBtn) pauseBtn.disabled = false;
+      }, { once: true });
+
+      audioEl.load();
 
       // Update slider and playhead as audio plays
       audioEl.addEventListener('timeupdate', () => {
