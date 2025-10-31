@@ -5685,6 +5685,14 @@ async function executeTrimAudioFile() {
     hideProgress();
     alert('음성 자르기 완료!\n• 선택 구간만 남김\n\n편집된 내용은 임시 저장되었습니다.\n최종 저장하려면 "음성 내보내기"를 사용하세요.');
 
+    // Force webContents focus after alert (alert steals focus)
+    try {
+      await window.electronAPI.focusWebContents();
+      console.log('[Trim Audio] WebContents refocused after alert');
+    } catch (err) {
+      console.error('[Trim Audio] Failed to refocus webContents:', err);
+    }
+
     // Wait a bit for file to be fully written
     await new Promise(resolve => setTimeout(resolve, 500));
 
@@ -5837,6 +5845,14 @@ async function executeDeleteAudioRange() {
 
     hideProgress();
     alert('음성 자르기 완료!\n• 선택 구간 삭제됨\n• 앞뒤 부분 연결됨\n\n편집된 내용은 임시 저장되었습니다.\n최종 저장하려면 "음성 내보내기"를 사용하세요.');
+
+    // Force webContents focus after alert (alert steals focus)
+    try {
+      await window.electronAPI.focusWebContents();
+      console.log('[Delete Audio Range] WebContents refocused after alert');
+    } catch (err) {
+      console.error('[Delete Audio Range] Failed to refocus webContents:', err);
+    }
 
     // Wait a bit for file to be fully written
     await new Promise(resolve => setTimeout(resolve, 500));
