@@ -16,12 +16,7 @@
         <p class="subtitle">고급 영상/음성 편집 도구</p>
       </div>
       <div class="header-right">
-        <div id="user-info" style="display: none; margin-right: 20px; color: #e0e0e0; font-size: 14px;">
-          <span id="user-email"></span>
-          <button id="logout-btn" style="margin-left: 10px; padding: 5px 10px; background: #dc2626; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">로그아웃</button>
-        </div>
-        <button id="login-btn" style="padding: 8px 16px; background: #667eea; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; font-weight: 600;">🔐 로그인</button>
-        <div class="mode-switch">
+        <div class="mode-switch" id="mode-switch-container" style="display: none;">
           <button class="mode-btn active" id="video-mode-btn" data-mode="video">
             🎬 영상 편집
           </button>
@@ -32,6 +27,10 @@
             ✨ 컨텐츠 생성
           </button>
         </div>
+        <div id="user-info" style="display: none; color: #e0e0e0; font-size: 14px;">
+          <span id="user-email"></span>
+        </div>
+        <button id="logout-btn" style="display: none; padding: 8px 16px; background: #dc2626; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; font-weight: 600; margin-left: 15px;">로그아웃</button>
       </div>
     </header>
 
@@ -67,8 +66,23 @@
       </div>
     </div>
 
+    <!-- Login Required Message -->
+    <div id="login-required" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: calc(100vh - 80px); background: #1a1a1a;">
+      <div style="text-align: center; padding: 40px; background: #2a2a2a; border-radius: 12px; max-width: 500px; margin: 0 20px;">
+        <div style="font-size: 64px; margin-bottom: 20px;">🔐</div>
+        <h2 style="color: #e0e0e0; margin-bottom: 15px; font-size: 24px;">로그인이 필요합니다</h2>
+        <p style="color: #aaa; margin-bottom: 30px; font-size: 16px; line-height: 1.5;">
+          Kiosk Video Editor를 사용하려면<br/>
+          백엔드 서버에 로그인해야 합니다.
+        </p>
+        <button onclick="showLoginModal()" style="padding: 12px 32px; background: #667eea; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 16px; font-weight: 600;">
+          로그인하기
+        </button>
+      </div>
+    </div>
+
     <!-- Main Content -->
-    <div class="main-content">
+    <div class="main-content" id="main-content" style="display: none;">
       <!-- Sidebar - Tool Panel -->
       <aside class="sidebar">
         <h2>편집 도구</h2>
