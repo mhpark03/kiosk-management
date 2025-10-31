@@ -329,21 +329,7 @@ function showToolProperties(tool) {
           titleInput.removeAttribute('disabled');
           titleInput.removeAttribute('contenteditable');
 
-          titleInput.value = currentAudioMetadata.title || '';
-
-          // Force focus with delay to ensure DOM is ready
-          setTimeout(() => {
-            try {
-              titleInput.focus({ preventScroll: true });
-              const focusResult = document.activeElement === titleInput;
-              console.log('[DEBUG] Title input focus attempt:', focusResult ? 'SUCCESS' : 'FAILED');
-              console.log('[DEBUG] Active element:', document.activeElement);
-            } catch (err) {
-              console.error('[DEBUG] Focus error:', err);
-            }
-          }, 100);
-
-          // Test: Add various event listeners to verify input is functional
+          // Add event listeners FIRST before any focus attempt
           titleInput.addEventListener('click', (e) => {
             console.log('[DEBUG] Title input clicked', e);
             e.stopPropagation();
@@ -351,7 +337,7 @@ function showToolProperties(tool) {
           });
 
           titleInput.addEventListener('focus', () => {
-            console.log('[DEBUG] Title input focused');
+            console.log('[DEBUG] Title input focused - NOW IT SHOULD WORK!');
           });
 
           titleInput.addEventListener('blur', () => {
@@ -365,6 +351,29 @@ function showToolProperties(tool) {
           titleInput.addEventListener('keydown', (e) => {
             console.log('[DEBUG] Title input keydown:', e.key);
           });
+
+          titleInput.addEventListener('keypress', (e) => {
+            console.log('[DEBUG] Title input keypress:', e.key, e.charCode);
+          });
+
+          titleInput.addEventListener('keyup', (e) => {
+            console.log('[DEBUG] Title input keyup:', e.key);
+          });
+
+          // Set value AFTER event listeners
+          titleInput.value = currentAudioMetadata.title || '';
+
+          // Focus LAST after everything is set up
+          setTimeout(() => {
+            try {
+              titleInput.focus({ preventScroll: true });
+              const focusResult = document.activeElement === titleInput;
+              console.log('[DEBUG] Title input focus attempt:', focusResult ? 'SUCCESS' : 'FAILED');
+              console.log('[DEBUG] Active element:', document.activeElement);
+            } catch (err) {
+              console.error('[DEBUG] Focus error:', err);
+            }
+          }, 100);
         }
 
         if (descriptionInput) {
@@ -373,9 +382,7 @@ function showToolProperties(tool) {
           descriptionInput.removeAttribute('disabled');
           descriptionInput.removeAttribute('contenteditable');
 
-          descriptionInput.value = currentAudioMetadata.description || '';
-
-          // Test: Add various event listeners to verify textarea is functional
+          // Add event listeners FIRST
           descriptionInput.addEventListener('click', (e) => {
             console.log('[DEBUG] Description textarea clicked', e);
             e.stopPropagation();
@@ -397,6 +404,17 @@ function showToolProperties(tool) {
           descriptionInput.addEventListener('keydown', (e) => {
             console.log('[DEBUG] Description textarea keydown:', e.key);
           });
+
+          descriptionInput.addEventListener('keypress', (e) => {
+            console.log('[DEBUG] Description textarea keypress:', e.key, e.charCode);
+          });
+
+          descriptionInput.addEventListener('keyup', (e) => {
+            console.log('[DEBUG] Description textarea keyup:', e.key);
+          });
+
+          // Set value AFTER event listeners
+          descriptionInput.value = currentAudioMetadata.description || '';
         }
       });
       break;
