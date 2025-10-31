@@ -366,9 +366,53 @@ function showToolProperties(tool) {
             e.stopPropagation();
           }, { once: false });
 
-          // Add explicit keydown listener to verify keyboard events
+          // Add explicit keydown listener to manually handle input
           titleInput.addEventListener('keydown', function(e) {
             console.log('[DEBUG] Title input keydown:', e.key);
+
+            // Manually handle keyboard input since default behavior is blocked
+            if (e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey) {
+              // Regular character input
+              e.preventDefault();
+              const start = this.selectionStart;
+              const end = this.selectionEnd;
+              const value = this.value;
+              this.value = value.substring(0, start) + e.key + value.substring(end);
+              this.selectionStart = this.selectionEnd = start + 1;
+              console.log('[DEBUG] Manually inserted character:', e.key, 'New value:', this.value);
+            } else if (e.key === 'Backspace') {
+              // Backspace handling
+              e.preventDefault();
+              const start = this.selectionStart;
+              const end = this.selectionEnd;
+              const value = this.value;
+              if (start !== end) {
+                // Delete selection
+                this.value = value.substring(0, start) + value.substring(end);
+                this.selectionStart = this.selectionEnd = start;
+              } else if (start > 0) {
+                // Delete one character before cursor
+                this.value = value.substring(0, start - 1) + value.substring(start);
+                this.selectionStart = this.selectionEnd = start - 1;
+              }
+              console.log('[DEBUG] Backspace, new value:', this.value);
+            } else if (e.key === 'Delete') {
+              // Delete key handling
+              e.preventDefault();
+              const start = this.selectionStart;
+              const end = this.selectionEnd;
+              const value = this.value;
+              if (start !== end) {
+                // Delete selection
+                this.value = value.substring(0, start) + value.substring(end);
+                this.selectionStart = this.selectionEnd = start;
+              } else if (start < value.length) {
+                // Delete one character after cursor
+                this.value = value.substring(0, start) + value.substring(start + 1);
+                this.selectionStart = this.selectionEnd = start;
+              }
+              console.log('[DEBUG] Delete, new value:', this.value);
+            }
           }, { once: false });
 
           // Add input event listener to track value changes
@@ -415,6 +459,55 @@ function showToolProperties(tool) {
 
           descriptionInput.addEventListener('keydown', function(e) {
             console.log('[DEBUG] Description input keydown:', e.key);
+
+            // Manually handle keyboard input since default behavior is blocked
+            if (e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey) {
+              // Regular character input
+              e.preventDefault();
+              const start = this.selectionStart;
+              const end = this.selectionEnd;
+              const value = this.value;
+              this.value = value.substring(0, start) + e.key + value.substring(end);
+              this.selectionStart = this.selectionEnd = start + 1;
+              console.log('[DEBUG] Description: Manually inserted character:', e.key);
+            } else if (e.key === 'Backspace') {
+              // Backspace handling
+              e.preventDefault();
+              const start = this.selectionStart;
+              const end = this.selectionEnd;
+              const value = this.value;
+              if (start !== end) {
+                this.value = value.substring(0, start) + value.substring(end);
+                this.selectionStart = this.selectionEnd = start;
+              } else if (start > 0) {
+                this.value = value.substring(0, start - 1) + value.substring(start);
+                this.selectionStart = this.selectionEnd = start - 1;
+              }
+              console.log('[DEBUG] Description: Backspace');
+            } else if (e.key === 'Delete') {
+              // Delete key handling
+              e.preventDefault();
+              const start = this.selectionStart;
+              const end = this.selectionEnd;
+              const value = this.value;
+              if (start !== end) {
+                this.value = value.substring(0, start) + value.substring(end);
+                this.selectionStart = this.selectionEnd = start;
+              } else if (start < value.length) {
+                this.value = value.substring(0, start) + value.substring(start + 1);
+                this.selectionStart = this.selectionEnd = start;
+              }
+              console.log('[DEBUG] Description: Delete');
+            } else if (e.key === 'Enter') {
+              // Enter key for textarea - insert newline
+              e.preventDefault();
+              const start = this.selectionStart;
+              const end = this.selectionEnd;
+              const value = this.value;
+              this.value = value.substring(0, start) + '\n' + value.substring(end);
+              this.selectionStart = this.selectionEnd = start + 1;
+              console.log('[DEBUG] Description: Enter (newline)');
+            }
           }, { once: false });
 
           descriptionInput.addEventListener('input', function(e) {
