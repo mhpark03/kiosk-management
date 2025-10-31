@@ -868,21 +868,21 @@ function showToolProperties(tool) {
           <h3 style="margin-bottom: 15px; color: #667eea;">🎨 Runway 이미지 생성</h3>
 
           <div class="property-group">
-            <label>참조 이미지 (1~5개)</label>
+            <label>참조 이미지 (1~5개) - S3에서 선택</label>
             <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 10px;">
-              <div id="ref-image-slot-0" style="border: 2px dashed #444; border-radius: 8px; padding: 8px; aspect-ratio: 1/1; cursor: pointer; display: flex; align-items: center; justify-content: center; background: #2a2a2a;" onclick="selectReferenceImage(0)">
+              <div id="ref-image-slot-0" style="border: 2px dashed #444; border-radius: 8px; padding: 8px; aspect-ratio: 1/1; cursor: pointer; display: flex; align-items: center; justify-content: center; background: #2a2a2a;" onclick="selectReferenceImageFromS3(0)">
                 <span style="font-size: 32px;">🖼️</span>
               </div>
-              <div id="ref-image-slot-1" style="border: 2px dashed #444; border-radius: 8px; padding: 8px; aspect-ratio: 1/1; cursor: pointer; display: flex; align-items: center; justify-content: center; background: #2a2a2a;" onclick="selectReferenceImage(1)">
+              <div id="ref-image-slot-1" style="border: 2px dashed #444; border-radius: 8px; padding: 8px; aspect-ratio: 1/1; cursor: pointer; display: flex; align-items: center; justify-content: center; background: #2a2a2a;" onclick="selectReferenceImageFromS3(1)">
                 <span style="font-size: 32px;">🖼️</span>
               </div>
-              <div id="ref-image-slot-2" style="border: 2px dashed #444; border-radius: 8px; padding: 8px; aspect-ratio: 1/1; cursor: pointer; display: flex; align-items: center; justify-content: center; background: #2a2a2a;" onclick="selectReferenceImage(2)">
+              <div id="ref-image-slot-2" style="border: 2px dashed #444; border-radius: 8px; padding: 8px; aspect-ratio: 1/1; cursor: pointer; display: flex; align-items: center; justify-content: center; background: #2a2a2a;" onclick="selectReferenceImageFromS3(2)">
                 <span style="font-size: 32px;">🖼️</span>
               </div>
-              <div id="ref-image-slot-3" style="border: 2px dashed #444; border-radius: 8px; padding: 8px; aspect-ratio: 1/1; cursor: pointer; display: flex; align-items: center; justify-content: center; background: #2a2a2a;" onclick="selectReferenceImage(3)">
+              <div id="ref-image-slot-3" style="border: 2px dashed #444; border-radius: 8px; padding: 8px; aspect-ratio: 1/1; cursor: pointer; display: flex; align-items: center; justify-content: center; background: #2a2a2a;" onclick="selectReferenceImageFromS3(3)">
                 <span style="font-size: 32px;">🖼️</span>
               </div>
-              <div id="ref-image-slot-4" style="border: 2px dashed #444; border-radius: 8px; padding: 8px; aspect-ratio: 1/1; cursor: pointer; display: flex; align-items: center; justify-content: center; background: #2a2a2a;" onclick="selectReferenceImage(4)">
+              <div id="ref-image-slot-4" style="border: 2px dashed #444; border-radius: 8px; padding: 8px; aspect-ratio: 1/1; cursor: pointer; display: flex; align-items: center; justify-content: center; background: #2a2a2a;" onclick="selectReferenceImageFromS3(4)">
                 <span style="font-size: 32px;">🖼️</span>
               </div>
             </div>
@@ -9284,6 +9284,100 @@ function clearReferenceImage(slotIndex) {
 }
 
 /**
+ * Select reference image from S3
+ */
+async function selectReferenceImageFromS3(slotIndex) {
+  console.log(`[Runway Image] Opening S3 image selection for slot ${slotIndex}`);
+
+  try {
+    // Fetch images from S3
+    const images = await fetchMediaFromS3('image');
+
+    if (!images || images.length === 0) {
+      alert('S3에 저장된 이미지가 없습니다.');
+      return;
+    }
+
+    // Create modal HTML
+    const modalHtml = `
+      <div style="background: #2a2a2a; padding: 20px; border-radius: 8px; max-width: 800px; max-height: 80vh; overflow-y: auto;">
+        <h3 style="margin: 0 0 15px 0; color: #e0e0e0;">S3에서 참조 이미지 선택 (슬롯 ${slotIndex + 1})</h3>
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-bottom: 15px;">
+          ${images.map(img => `
+            <div onclick="selectS3ImageForSlot(${slotIndex}, '${img.id}', '${img.title.replace(/'/g, "\\'")}', '${img.s3Url.replace(/'/g, "\\'")}')"
+                 style="cursor: pointer; border: 2px solid #444; border-radius: 8px; padding: 5px; transition: all 0.2s; background: #1a1a1a;"
+                 onmouseover="this.style.borderColor='#667eea'" onmouseout="this.style.borderColor='#444'">
+              <img src="${img.s3Url}" style="width: 100%; aspect-ratio: 1/1; object-fit: cover; border-radius: 4px;"/>
+              <div style="margin-top: 5px; font-size: 11px; color: #aaa; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${img.title}</div>
+            </div>
+          `).join('')}
+        </div>
+        <button onclick="closeCustomDialog()" style="width: 100%; padding: 10px; background: #444; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px;">취소</button>
+      </div>
+    `;
+
+    // Show modal
+    const overlay = document.getElementById('modal-overlay');
+    const content = document.getElementById('modal-content');
+    content.innerHTML = modalHtml;
+    overlay.style.display = 'flex';
+
+  } catch (error) {
+    console.error('[Runway Image] Error loading S3 images:', error);
+    alert(`S3 이미지 로딩 중 오류가 발생했습니다: ${error.message}`);
+  }
+}
+
+/**
+ * Select S3 image for a specific slot
+ */
+async function selectS3ImageForSlot(slotIndex, imageId, imageTitle, imageUrl) {
+  console.log(`[Runway Image] Selected S3 image for slot ${slotIndex}:`, { imageId, imageTitle });
+
+  try {
+    // Download the image to local temp file
+    const localPath = await window.electronAPI.downloadFile(imageUrl, `runway-ref-${slotIndex}-${Date.now()}.jpg`);
+
+    if (!localPath) {
+      throw new Error('이미지 다운로드 실패');
+    }
+
+    // Store the local file path
+    referenceImages[slotIndex] = localPath;
+
+    // Update UI to show preview
+    const slot = document.getElementById(`ref-image-slot-${slotIndex}`);
+    if (slot) {
+      slot.innerHTML = `
+        <div style="position: relative; width: 100%; height: 100%;">
+          <img src="${imageUrl}"
+               style="width: 100%; height: 100%; object-fit: cover; border-radius: 4px;"/>
+          <button onclick="clearReferenceImage(${slotIndex})"
+                  style="position: absolute; top: 5px; right: 5px; width: 24px; height: 24px; border-radius: 50%; border: none; background: rgba(220, 38, 38, 0.9); color: #fff; cursor: pointer; font-size: 16px; line-height: 1; padding: 0;">
+            ✕
+          </button>
+          <div style="position: absolute; bottom: 5px; left: 5px; right: 5px; background: rgba(0,0,0,0.7); color: white; padding: 3px 5px; border-radius: 3px; font-size: 10px; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+            ${imageTitle}
+          </div>
+        </div>
+      `;
+    }
+
+    // Close modal
+    closeCustomDialog();
+
+  } catch (error) {
+    console.error('[Runway Image] Error selecting S3 image:', error);
+    alert(`이미지 선택 중 오류가 발생했습니다: ${error.message}`);
+  }
+}
+
+// Make functions globally accessible
+window.selectReferenceImageFromS3 = selectReferenceImageFromS3;
+window.selectS3ImageForSlot = selectS3ImageForSlot;
+window.clearReferenceImage = clearReferenceImage;
+
+/**
  * Execute Runway image generation
  */
 async function executeGenerateImageRunway() {
@@ -10149,6 +10243,52 @@ function getAuthToken() {
 function getBackendUrl() {
   return backendBaseUrl;
 }
+
+/**
+ * Fetch media files from S3 by type (unified)
+ * @param {string} mediaType - 'image', 'video', 'audio', or 'all'
+ * @returns {Promise<Array>} - Array of media files
+ */
+async function fetchMediaFromS3(mediaType = 'all') {
+  if (!authToken) {
+    throw new Error('로그인이 필요합니다.');
+  }
+
+  try {
+    const response = await fetch(`${backendBaseUrl}/api/videos`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${authToken}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch media: ${response.status}`);
+    }
+
+    const allFiles = await response.json();
+
+    // Filter by media type
+    switch(mediaType) {
+      case 'image':
+        return allFiles.filter(f => f.contentType && f.contentType.startsWith('image/'));
+      case 'video':
+        return allFiles.filter(f => f.contentType && f.contentType.startsWith('video/'));
+      case 'audio':
+        return allFiles.filter(f => f.contentType && f.contentType.startsWith('audio/'));
+      case 'all':
+      default:
+        return allFiles;
+    }
+  } catch (error) {
+    console.error('[Fetch Media] Error:', error);
+    throw error;
+  }
+}
+
+// Make fetchMediaFromS3 globally accessible
+window.fetchMediaFromS3 = fetchMediaFromS3;
 
 // Initialize auth on page load
 document.addEventListener('DOMContentLoaded', () => {
