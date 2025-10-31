@@ -2763,6 +2763,77 @@ ipcMain.handle('generate-tts-direct', async (event, params) => {
 });
 
 // ============================================================================
+// Backend Authentication
+// ============================================================================
+
+/**
+ * Login to backend server
+ */
+ipcMain.handle('backend-login', async (event, params) => {
+  const { email, password, backendUrl } = params;
+
+  logInfo('BACKEND_LOGIN', 'Attempting login', {
+    email,
+    backendUrl
+  });
+
+  try {
+    const axios = require('axios');
+
+    const response = await axios.post(
+      `${backendUrl}/api/auth/login`,
+      {
+        email,
+        password
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        timeout: 10000
+      }
+    );
+
+    logInfo('BACKEND_LOGIN', 'Login successful', {
+      email,
+      hasToken: !!response.data?.token
+    });
+
+    return {
+      success: true,
+      token: response.data.token,
+      user: response.data.user || { email }
+    };
+
+  } catch (error) {
+    logError('BACKEND_LOGIN_ERROR', 'Login failed', {
+      email,
+      error: error.message,
+      response: error.response?.data
+    });
+
+    if (error.response) {
+      const status = error.response.status;
+      const errorData = error.response.data;
+
+      if (status === 401) {
+        throw new Error('이메일 또는 비밀번호가 올바르지 않습니다.');
+      } else if (status === 404) {
+        throw new Error('백엔드 서버를 찾을 수 없습니다.\nURL을 확인해주세요.');
+      } else {
+        throw new Error(errorData?.message || `로그인 실패 (${status})`);
+      }
+    } else if (error.code === 'ECONNREFUSED') {
+      throw new Error('백엔드 서버에 연결할 수 없습니다.\n서버가 실행 중인지 확인해주세요.');
+    } else if (error.code === 'ETIMEDOUT' || error.code === 'ECONNABORTED') {
+      throw new Error('서버 응답 시간이 초과되었습니다.\n네트워크 연결을 확인해주세요.');
+    } else {
+      throw new Error(`로그인 중 오류가 발생했습니다: ${error.message}`);
+    }
+  }
+});
+
+// ============================================================================
 // Runway ML API Integration (Image Generation)
 // ============================================================================
 

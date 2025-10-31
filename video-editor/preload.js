@@ -53,5 +53,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Runway ML operations
   generateImageRunway: (params) => ipcRenderer.invoke('generate-image-runway', params),
-  pollRunwayTask: (taskId) => ipcRenderer.invoke('poll-runway-task', taskId)
+  pollRunwayTask: (taskId) => ipcRenderer.invoke('poll-runway-task', taskId),
+
+  // Backend authentication
+  backendLogin: (params) => ipcRenderer.invoke('backend-login', params)
 });
