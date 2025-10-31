@@ -2143,7 +2143,15 @@ ipcMain.handle('add-text', async (event, options) => {
 
 // Extract audio from video
 ipcMain.handle('extract-audio', async (event, options) => {
-  const { videoPath, outputPath } = options;
+  let { videoPath, outputPath } = options;
+
+  // If outputPath is null, create temp file
+  if (!outputPath) {
+    const timestamp = Date.now();
+    const basename = path.basename(videoPath, path.extname(videoPath));
+    outputPath = path.join(os.tmpdir(), `${basename}_extracted_${timestamp}.mp3`);
+    logInfo('EXTRACT_AUDIO_TEMP', 'Creating temp file', { actualOutputPath: outputPath });
+  }
 
   logInfo('EXTRACT_AUDIO_START', 'Extracting audio from video', { videoPath });
 
