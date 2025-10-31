@@ -31,6 +31,11 @@ import java.util.UUID;
 @Service
 @Slf4j
 @RequiredArgsConstructor
+@org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(
+    name = "google.tts.enabled",
+    havingValue = "true",
+    matchIfMissing = false
+)
 public class TtsService {
 
     @Value("${google.tts.credentials.file:}")
@@ -51,6 +56,15 @@ public class TtsService {
 
     @PostConstruct
     public void init() {
+        try {
+            initializeCredentials();
+        } catch (Exception e) {
+            log.warn("Failed to initialize Google TTS credentials during startup: {}", e.getMessage());
+            log.warn("TTS functionality will be disabled. Credentials will be loaded on first TTS request.");
+        }
+    }
+
+    private void initializeCredentials() {
         // First, try to load credentials from S3 (recommended for AWS EB deployment)
         String s3Key = System.getenv("GOOGLE_TTS_CREDENTIALS_S3_KEY");
         if (s3Key == null || s3Key.isEmpty()) {
