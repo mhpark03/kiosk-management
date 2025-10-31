@@ -687,6 +687,11 @@ function showToolProperties(tool) {
         alert('먼저 영상을 가져와주세요.');
         return;
       }
+
+      // Use video metadata as default values if available
+      const exportVideoTitle = currentVideoMetadata?.title || '';
+      const exportVideoDescription = currentVideoMetadata?.description || '';
+
       propertiesPanel.innerHTML = `
         <div class="property-group">
           <label>현재 영상 파일</label>
@@ -697,9 +702,20 @@ function showToolProperties(tool) {
             </div>
           </div>
         </div>
-        <button class="property-btn" onclick="executeExportVideo()">💾 비디오 내보내기</button>
+        <div class="property-group">
+          <label>제목</label>
+          <input type="text" id="export-video-title" placeholder="영상 제목 입력" value="${exportVideoTitle.replace(/"/g, '&quot;')}">
+        </div>
+        <div class="property-group">
+          <label>설명</label>
+          <textarea id="export-video-description" rows="3" placeholder="설명 입력 (선택사항)">${exportVideoDescription.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</textarea>
+        </div>
+        <div style="display: flex; gap: 10px; margin-top: 20px;">
+          <button class="property-btn" style="flex: 1;" onclick="executeExportVideoLocal()">로컬에 저장</button>
+          <button class="property-btn" style="flex: 1; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);" onclick="executeExportVideoToS3()">S3에 저장</button>
+        </div>
         <div style="background: #3a3a3a; padding: 10px; border-radius: 5px; margin-top: 10px;">
-          <small style="color: #aaa;">💡 편집된 영상 파일을 원하는 위치에 저장합니다</small>
+          <small style="color: #aaa;">💡 편집된 영상 파일을 로컬 또는 S3에 저장합니다</small>
         </div>
       `;
       break;
@@ -7618,8 +7634,9 @@ async function executeExportAudioToS3() {
 }
 
 // Export video function
-async function executeExportVideo() {
-  console.log('[Export Video] Function called');
+// Export video to local file
+async function executeExportVideoLocal() {
+  console.log('[Export Video Local] Function called');
 
   if (!currentVideo) {
     alert('먼저 영상을 가져와주세요.');
@@ -7630,12 +7647,12 @@ async function executeExportVideo() {
   const fileName = currentVideo.split('\\').pop().split('/').pop();
   const defaultName = fileName.endsWith('.mp4') ? fileName : fileName.replace(/\.[^/.]+$/, '.mp4');
 
-  console.log('[Export Video] Requesting file save dialog', { currentFile: fileName, defaultName });
+  console.log('[Export Video Local] Requesting file save dialog', { currentFile: fileName, defaultName });
   const outputPath = await window.electronAPI.selectOutput(defaultName);
 
-  console.log('[Export Video] Dialog returned', { outputPath });
+  console.log('[Export Video Local] Dialog returned', { outputPath });
   if (!outputPath) {
-    console.log('[Export Video] Export canceled by user');
+    console.log('[Export Video Local] Export canceled by user');
     updateStatus('내보내기 취소됨');
     return;
   }
@@ -7664,6 +7681,112 @@ async function executeExportVideo() {
   } catch (error) {
     hideProgress();
     handleError('비디오 내보내기', error, '비디오 내보내기에 실패했습니다.');
+  }
+}
+
+// Export video to S3
+async function executeExportVideoToS3() {
+  console.log('[Export Video S3] Function called');
+
+  if (!currentVideo) {
+    alert('먼저 영상을 가져와주세요.');
+    return;
+  }
+
+  // Check if user is logged in
+  if (!authToken || !currentUser) {
+    alert('S3에 업로드하려면 로그인이 필요합니다.');
+    return;
+  }
+
+  // Get title and description from input fields
+  const titleInput = document.getElementById('export-video-title');
+  const descriptionInput = document.getElementById('export-video-description');
+
+  const title = titleInput ? titleInput.value.trim() : '';
+  const description = descriptionInput ? descriptionInput.value.trim() : '';
+
+  if (!title) {
+    alert('제목을 입력해주세요.');
+    if (titleInput) titleInput.focus();
+    return;
+  }
+
+  showProgress();
+  updateProgress(0, '제목 중복 확인 중...');
+
+  try {
+    // Check for duplicate title
+    console.log('[Export Video S3] Checking for duplicate title:', title);
+    const checkResponse = await fetch(`${backendBaseUrl}/api/videos`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${authToken}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!checkResponse.ok) {
+      throw new Error(`제목 확인 실패: ${checkResponse.status}`);
+    }
+
+    const allVideos = await checkResponse.json();
+    const videoFiles = allVideos.filter(v => v.contentType && v.contentType.startsWith('video/'));
+    const duplicateTitle = videoFiles.find(video => video.title === title);
+
+    if (duplicateTitle) {
+      hideProgress();
+      alert(`같은 제목의 영상 파일이 이미 존재합니다.\n\n제목: ${title}\n\n다른 제목을 사용해주세요.`);
+      if (titleInput) titleInput.focus();
+      return;
+    }
+
+    updateProgress(50, 'S3에 영상 파일 업로드 중...');
+
+    // Read file and create FormData
+    const fileUrl = `file:///${currentVideo.replace(/\\/g, '/')}`;
+    const fileResponse = await fetch(fileUrl);
+    const videoBlob = await fileResponse.blob();
+    const fileName = currentVideo.split('\\').pop().split('/').pop();
+
+    console.log('[Export Video S3] Uploading to S3:', { title, description, fileName, size: videoBlob.size });
+
+    // Create FormData for multipart upload
+    const formData = new FormData();
+    formData.append('file', videoBlob, fileName);
+    formData.append('title', title);
+    formData.append('description', description);
+
+    // Upload to backend (videos folder)
+    const uploadResponse = await fetch(`${backendBaseUrl}/api/videos/upload`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${authToken}`
+      },
+      body: formData
+    });
+
+    if (!uploadResponse.ok) {
+      const errorText = await uploadResponse.text();
+      throw new Error(`Upload failed: ${uploadResponse.status} ${errorText}`);
+    }
+
+    const result = await uploadResponse.json();
+    console.log('[Export Video S3] Upload successful:', result);
+
+    updateProgress(100, '영상 파일 업로드 완료!');
+    hideProgress();
+
+    alert(`S3 업로드 완료!\n\n제목: ${title}\n파일명: ${fileName}\n\n클라우드에 성공적으로 저장되었습니다.`);
+    updateStatus(`S3 업로드 완료: ${title}`);
+
+    // Clear input fields after successful upload
+    if (titleInput) titleInput.value = '';
+    if (descriptionInput) descriptionInput.value = '';
+  } catch (error) {
+    hideProgress();
+    console.error('[Export Video S3] Error:', error);
+    handleError('영상 내보내기 및 S3 업로드', error, 'S3 업로드에 실패했습니다.');
   }
 }
 
