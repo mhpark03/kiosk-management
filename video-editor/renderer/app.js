@@ -6946,7 +6946,7 @@ let selectedServerType = 'local'; // 'local', 'dev', 'custom'
 // Server configurations
 const SERVER_URLS = {
   local: 'http://localhost:8080',
-  dev: 'http://kiosk-backend-env.eba-gusam3pk.ap-northeast-2.elasticbeanstalk.com'
+  dev: 'http://kiosk-backend-env.eba-32jx2nbm.ap-northeast-2.elasticbeanstalk.com'
 };
 
 /**
