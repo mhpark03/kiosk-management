@@ -332,50 +332,24 @@ function showToolProperties(tool) {
           // Set value
           titleInput.value = currentAudioMetadata.title || '';
 
-          // Force enable input by adding explicit event handlers
-          titleInput.addEventListener('keydown', (e) => {
-            // Allow all keys to pass through
-            e.stopPropagation();
-          }, true); // Use capture phase
+          // Force window blur/focus cycle to activate input (Electron workaround)
+          window.blur();
+          setTimeout(() => {
+            window.focus();
 
-          titleInput.addEventListener('keypress', (e) => {
-            e.stopPropagation();
-          }, true);
+            // Now focus the input
+            titleInput.focus();
+            titleInput.select();
 
-          titleInput.addEventListener('input', (e) => {
-            e.stopPropagation();
-          }, true);
-
-          // Force focus and select
-          titleInput.focus();
-          titleInput.select();
-
-          // Try clicking programmatically to activate input
-          titleInput.click();
-
-          console.log('[DEBUG] Title input setup complete, focused:', document.activeElement === titleInput);
-          console.log('[DEBUG] Title input readOnly:', titleInput.readOnly);
-          console.log('[DEBUG] Title input disabled:', titleInput.disabled);
+            console.log('[DEBUG] Title input setup complete, focused:', document.activeElement === titleInput);
+          }, 50);
         }
 
         if (descriptionInput) {
           // Set value
           descriptionInput.value = currentAudioMetadata.description || '';
-
-          // Add same event handlers for textarea
-          descriptionInput.addEventListener('keydown', (e) => {
-            e.stopPropagation();
-          }, true);
-
-          descriptionInput.addEventListener('keypress', (e) => {
-            e.stopPropagation();
-          }, true);
-
-          descriptionInput.addEventListener('input', (e) => {
-            e.stopPropagation();
-          }, true);
         }
-      }, 150);
+      }, 100);
       break;
 
     case 'merge':
