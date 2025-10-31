@@ -296,7 +296,7 @@ function showToolProperties(tool) {
 
       propertiesPanel.innerHTML = `
         <div class="property-group">
-          <label>현재 음성 파일</label>
+          <label style="pointer-events: none;">현재 음성 파일</label>
           <div style="background: #2d2d2d; padding: 15px; border-radius: 5px; margin-top: 10px;">
             <div style="color: #e0e0e0; font-size: 14px; margin-bottom: 8px;">📄 ${currentAudioFile.split('\\').pop()}</div>
             <div style="color: #888; font-size: 12px;">
@@ -305,12 +305,12 @@ function showToolProperties(tool) {
           </div>
         </div>
         <div class="property-group">
-          <label>제목 *</label>
-          <input type="text" id="export-audio-title" placeholder="음성 파일 제목을 입력하세요" style="width: 100%; padding: 10px; background: #2d2d2d; border: 1px solid #555; border-radius: 4px; color: #e0e0e0; font-size: 14px;">
+          <label for="export-audio-title" style="pointer-events: none;">제목 *</label>
+          <input type="text" id="export-audio-title" placeholder="음성 파일 제목을 입력하세요" style="width: 100%; padding: 10px; background: #2d2d2d; border: 1px solid #555; border-radius: 4px; color: #e0e0e0; font-size: 14px; pointer-events: auto; cursor: text; position: relative; z-index: 10;">
         </div>
         <div class="property-group">
-          <label>설명</label>
-          <textarea id="export-audio-description" placeholder="음성 파일 설명 (선택사항)" style="width: 100%; padding: 10px; background: #2d2d2d; border: 1px solid #555; border-radius: 4px; color: #e0e0e0; min-height: 80px; resize: vertical; font-size: 14px;"></textarea>
+          <label for="export-audio-description" style="pointer-events: none;">설명</label>
+          <textarea id="export-audio-description" placeholder="음성 파일 설명 (선택사항)" style="width: 100%; padding: 10px; background: #2d2d2d; border: 1px solid #555; border-radius: 4px; color: #e0e0e0; min-height: 80px; resize: vertical; font-size: 14px; pointer-events: auto; cursor: text; position: relative; z-index: 10;"></textarea>
         </div>
         <button class="property-btn" onclick="executeExportAudioToS3()" style="width: 100%;">☁️ S3 업로드</button>
         <div style="background: #3a3a3a; padding: 10px; border-radius: 5px; margin-top: 10px;">
