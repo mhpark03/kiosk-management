@@ -23,8 +23,6 @@ import ImageEdit from './components/ImageEdit';
 import AIVideoManagement from './components/AIVideoManagement';
 import KioskVideoManagement from './components/KioskVideoManagement';
 import KioskEventHistory from './components/KioskEventHistory';
-import AudioGenerator from './components/AudioGenerator';
-import AudioEdit from './components/AudioEdit';
 import UserGuide from './components/UserGuide';
 import DownloaderGuide from './components/DownloaderGuide';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -208,22 +206,6 @@ function App() {
             element={
               <ProtectedRoute>
                 <VeoGenerator />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/audio/generate"
-            element={
-              <ProtectedRoute>
-                <AudioGenerator />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/audios/edit/:id"
-            element={
-              <ProtectedRoute>
-                <AudioEdit />
               </ProtectedRoute>
             }
           />
