@@ -625,6 +625,246 @@ function showToolProperties(tool) {
       `;
       break;
 
+    // Import tools for content mode
+    case 'import-image':
+      propertiesPanel.innerHTML = `
+        <h3>이미지 가져오기</h3>
+        <p>이미지 파일을 불러오는 기능입니다.</p>
+        <button class="property-btn" onclick="importImageFile()">📁 이미지 선택</button>
+      `;
+      break;
+
+    case 'import-video-content':
+      propertiesPanel.innerHTML = `
+        <h3>영상 가져오기</h3>
+        <p>영상 파일을 불러오는 기능입니다.</p>
+        <button class="property-btn" onclick="importVideo()">📁 영상 선택</button>
+      `;
+      break;
+
+    case 'import-audio-content':
+      propertiesPanel.innerHTML = `
+        <h3>음성 가져오기</h3>
+        <p>음성 파일을 불러오는 기능입니다.</p>
+        <button class="property-btn" onclick="importAudioFile()">📁 음성 선택</button>
+      `;
+      break;
+
+    // Runway Image Generation
+    case 'generate-image-runway':
+      propertiesPanel.innerHTML = `
+        <div style="max-height: 60vh; overflow-y: auto; padding-right: 10px;">
+          <h3 style="margin-bottom: 15px; color: #667eea;">🎨 Runway 이미지 생성</h3>
+
+          <div class="property-group">
+            <label>프롬프트 *</label>
+            <textarea
+              id="image-prompt-runway"
+              rows="4"
+              placeholder="생성할 이미지에 대한 설명을 입력하세요..."
+              style="width: 100%; padding: 10px; background: #2d2d2d; border: 1px solid #444; border-radius: 5px; color: #e0e0e0; font-size: 14px; resize: vertical;"
+            ></textarea>
+          </div>
+
+          <div class="property-group">
+            <label>이미지 스타일</label>
+            <select
+              id="image-style-runway"
+              style="width: 100%; padding: 10px; background: #2d2d2d; border: 1px solid #444; border-radius: 5px; color: #e0e0e0; font-size: 14px;"
+            >
+              <option value="realistic">사실적 (Realistic)</option>
+              <option value="anime">애니메이션 (Anime)</option>
+              <option value="digital-art">디지털 아트 (Digital Art)</option>
+              <option value="painting">회화 (Painting)</option>
+              <option value="sketch">스케치 (Sketch)</option>
+            </select>
+          </div>
+
+          <div class="property-group">
+            <label>해상도</label>
+            <select
+              id="image-resolution-runway"
+              style="width: 100%; padding: 10px; background: #2d2d2d; border: 1px solid #444; border-radius: 5px; color: #e0e0e0; font-size: 14px;"
+            >
+              <option value="1024x1024">정사각형 (1024x1024)</option>
+              <option value="1920x1080">가로 (1920x1080)</option>
+              <option value="1080x1920">세로 (1080x1920)</option>
+            </select>
+          </div>
+
+          <div style="background: #2a2a3e; padding: 12px; border-radius: 8px; margin-top: 10px; border-left: 4px solid #667eea;">
+            <button class="property-btn" onclick="executeGenerateImageRunway()" style="width: 100%; margin: 0; background: #667eea;">
+              🎨 이미지 생성
+            </button>
+          </div>
+
+          <div style="background: #3a3a3a; padding: 10px; border-radius: 5px; margin-top: 10px;">
+            <small style="color: #aaa;">💡 Runway ML API를 사용하여 AI 이미지를 생성합니다</small>
+            <br>
+            <small style="color: #888; font-size: 10px;">⚙️ 환경변수 필요: RUNWAY_API_KEY</small>
+          </div>
+        </div>
+      `;
+      break;
+
+    // Veo Image Generation
+    case 'generate-image-veo':
+      propertiesPanel.innerHTML = `
+        <div style="max-height: 60vh; overflow-y: auto; padding-right: 10px;">
+          <h3 style="margin-bottom: 15px; color: #667eea;">✨ Veo 이미지 생성</h3>
+
+          <div class="property-group">
+            <label>프롬프트 *</label>
+            <textarea
+              id="image-prompt-veo"
+              rows="4"
+              placeholder="생성할 이미지에 대한 설명을 입력하세요..."
+              style="width: 100%; padding: 10px; background: #2d2d2d; border: 1px solid #444; border-radius: 5px; color: #e0e0e0; font-size: 14px; resize: vertical;"
+            ></textarea>
+          </div>
+
+          <div class="property-group">
+            <label>종횡비</label>
+            <select
+              id="image-aspect-veo"
+              style="width: 100%; padding: 10px; background: #2d2d2d; border: 1px solid #444; border-radius: 5px; color: #e0e0e0; font-size: 14px;"
+            >
+              <option value="16:9">16:9 (가로)</option>
+              <option value="9:16">9:16 (세로)</option>
+              <option value="1:1">1:1 (정사각형)</option>
+            </select>
+          </div>
+
+          <div style="background: #2a2a3e; padding: 12px; border-radius: 8px; margin-top: 10px; border-left: 4px solid #667eea;">
+            <button class="property-btn" onclick="executeGenerateImageVeo()" style="width: 100%; margin: 0; background: #667eea;">
+              ✨ 이미지 생성
+            </button>
+          </div>
+
+          <div style="background: #3a3a3a; padding: 10px; border-radius: 5px; margin-top: 10px;">
+            <small style="color: #aaa;">💡 Google Veo API를 사용하여 AI 이미지를 생성합니다</small>
+            <br>
+            <small style="color: #888; font-size: 10px;">⚙️ 환경변수 필요: GOOGLE_AI_API_KEY</small>
+          </div>
+        </div>
+      `;
+      break;
+
+    // Runway Video Generation
+    case 'generate-video-runway':
+      propertiesPanel.innerHTML = `
+        <div style="max-height: 60vh; overflow-y: auto; padding-right: 10px;">
+          <h3 style="margin-bottom: 15px; color: #667eea;">🎥 Runway 영상 생성</h3>
+
+          <div class="property-group">
+            <label>프롬프트 *</label>
+            <textarea
+              id="video-prompt-runway"
+              rows="4"
+              placeholder="생성할 영상에 대한 설명을 입력하세요..."
+              style="width: 100%; padding: 10px; background: #2d2d2d; border: 1px solid #444; border-radius: 5px; color: #e0e0e0; font-size: 14px; resize: vertical;"
+            ></textarea>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <div class="property-group">
+              <label>영상 길이 (초)</label>
+              <select
+                id="video-duration-runway"
+                style="width: 100%; padding: 10px; background: #2d2d2d; border: 1px solid #444; border-radius: 5px; color: #e0e0e0; font-size: 14px;"
+              >
+                <option value="5">5초</option>
+                <option value="10" selected>10초</option>
+                <option value="15">15초</option>
+              </select>
+            </div>
+
+            <div class="property-group">
+              <label>해상도</label>
+              <select
+                id="video-resolution-runway"
+                style="width: 100%; padding: 10px; background: #2d2d2d; border: 1px solid #444; border-radius: 5px; color: #e0e0e0; font-size: 14px;"
+              >
+                <option value="1280x720">HD (1280x720)</option>
+                <option value="1920x1080" selected>Full HD (1920x1080)</option>
+              </select>
+            </div>
+          </div>
+
+          <div style="background: #2a2a3e; padding: 12px; border-radius: 8px; margin-top: 10px; border-left: 4px solid #667eea;">
+            <button class="property-btn" onclick="executeGenerateVideoRunway()" style="width: 100%; margin: 0; background: #667eea;">
+              🎥 영상 생성
+            </button>
+          </div>
+
+          <div style="background: #3a3a3a; padding: 10px; border-radius: 5px; margin-top: 10px;">
+            <small style="color: #aaa;">💡 Runway ML API를 사용하여 AI 영상을 생성합니다</small>
+            <br>
+            <small style="color: #888; font-size: 10px;">⚙️ 환경변수 필요: RUNWAY_API_KEY</small>
+          </div>
+        </div>
+      `;
+      break;
+
+    // Veo Video Generation
+    case 'generate-video-veo':
+      propertiesPanel.innerHTML = `
+        <div style="max-height: 60vh; overflow-y: auto; padding-right: 10px;">
+          <h3 style="margin-bottom: 15px; color: #667eea;">🌟 Veo 영상 생성</h3>
+
+          <div class="property-group">
+            <label>프롬프트 *</label>
+            <textarea
+              id="video-prompt-veo"
+              rows="4"
+              placeholder="생성할 영상에 대한 설명을 입력하세요..."
+              style="width: 100%; padding: 10px; background: #2d2d2d; border: 1px solid #444; border-radius: 5px; color: #e0e0e0; font-size: 14px; resize: vertical;"
+            ></textarea>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <div class="property-group">
+              <label>영상 길이 (초)</label>
+              <select
+                id="video-duration-veo"
+                style="width: 100%; padding: 10px; background: #2d2d2d; border: 1px solid #444; border-radius: 5px; color: #e0e0e0; font-size: 14px;"
+              >
+                <option value="5">5초</option>
+                <option value="8" selected>8초</option>
+                <option value="10">10초</option>
+              </select>
+            </div>
+
+            <div class="property-group">
+              <label>종횡비</label>
+              <select
+                id="video-aspect-veo"
+                style="width: 100%; padding: 10px; background: #2d2d2d; border: 1px solid #444; border-radius: 5px; color: #e0e0e0; font-size: 14px;"
+              >
+                <option value="16:9" selected>16:9 (가로)</option>
+                <option value="9:16">9:16 (세로)</option>
+              </select>
+            </div>
+          </div>
+
+          <div style="background: #2a2a3e; padding: 12px; border-radius: 8px; margin-top: 10px; border-left: 4px solid #667eea;">
+            <button class="property-btn" onclick="executeGenerateVideoVeo()" style="width: 100%; margin: 0; background: #667eea;">
+              🌟 영상 생성
+            </button>
+          </div>
+
+          <div style="background: #3a3a3a; padding: 10px; border-radius: 5px; margin-top: 10px;">
+            <small style="color: #aaa;">💡 Google Veo API를 사용하여 AI 영상을 생성합니다</small>
+            <br>
+            <small style="color: #888; font-size: 10px;">⚙️ 환경변수 필요: GOOGLE_AI_API_KEY</small>
+          </div>
+        </div>
+      `;
+      break;
+
+    // Google TTS Audio Generation
+    case 'generate-audio-google':
+    case 'generate-audio':
     case 'generate-tts':
       propertiesPanel.innerHTML = `
         <div style="max-height: 60vh; overflow-y: auto; padding-right: 10px;">
@@ -5690,7 +5930,7 @@ async function previewAudioTrimRange() {
 function setupModeButtons() {
   const videoModeBtn = document.getElementById('video-mode-btn');
   const audioModeBtn = document.getElementById('audio-mode-btn');
-  const ttsModeBtn = document.getElementById('tts-mode-btn');
+  const contentModeBtn = document.getElementById('content-mode-btn');
 
   if (videoModeBtn) {
     videoModeBtn.addEventListener('click', () => {
@@ -5704,9 +5944,9 @@ function setupModeButtons() {
     });
   }
 
-  if (ttsModeBtn) {
-    ttsModeBtn.addEventListener('click', () => {
-      switchMode('tts');
+  if (contentModeBtn) {
+    contentModeBtn.addEventListener('click', () => {
+      switchMode('content');
     });
   }
 }
@@ -5854,32 +6094,67 @@ function updateModeUI() {
   const header = document.querySelector('.header h1');
   const subtitle = document.querySelector('.header .subtitle');
 
-  if (currentMode === 'tts') {
-    // TTS mode
-    header.textContent = 'TTS 음성 생성기';
-    subtitle.textContent = 'Google Cloud TTS를 사용한 음성 생성';
+  if (currentMode === 'content') {
+    // Content generation mode
+    header.textContent = '컨텐츠 생성';
+    subtitle.textContent = 'AI를 활용한 이미지, 영상, 음성 생성';
     sidebar.innerHTML = `
-      <h2>TTS 음성 생성</h2>
+      <h2>생성 도구</h2>
+
+      <div class="tool-section">
+        <h3>🖼️ 이미지 만들기</h3>
+        <button class="tool-btn" data-tool="import-image">
+          <span class="icon">📁</span>
+          이미지 가져오기
+        </button>
+        <button class="tool-btn" data-tool="generate-image-runway">
+          <span class="icon">🎨</span>
+          Runway 이미지 생성
+        </button>
+        <button class="tool-btn" data-tool="generate-image-veo">
+          <span class="icon">✨</span>
+          Veo 이미지 생성
+        </button>
+      </div>
+
+      <div class="tool-section">
+        <h3>🎬 영상 만들기</h3>
+        <button class="tool-btn" data-tool="import-video-content">
+          <span class="icon">📁</span>
+          영상 가져오기
+        </button>
+        <button class="tool-btn" data-tool="generate-video-runway">
+          <span class="icon">🎥</span>
+          Runway 영상 생성
+        </button>
+        <button class="tool-btn" data-tool="generate-video-veo">
+          <span class="icon">🌟</span>
+          Veo 영상 생성
+        </button>
+      </div>
+
+      <div class="tool-section">
+        <h3>🗣️ 음성 만들기</h3>
+        <button class="tool-btn" data-tool="import-audio-content">
+          <span class="icon">📁</span>
+          음성 가져오기
+        </button>
+        <button class="tool-btn" data-tool="generate-audio-google">
+          <span class="icon">🎵</span>
+          Google TTS 생성
+        </button>
+      </div>
+
       <div class="tool-section">
         <h3>정보</h3>
         <p style="color: #aaa; font-size: 12px; padding: 10px; line-height: 1.5;">
-          Google Cloud Text-to-Speech API를 사용하여 텍스트를 자연스러운 음성으로 변환합니다.
+          Runway ML, Google Veo 및 Google Cloud API를 사용하여 AI 기반 컨텐츠를 생성합니다.
         </p>
         <p style="color: #888; font-size: 11px; padding: 0 10px;">
           ⚙️ 환경변수 필요:<br>
-          GOOGLE_TTS_API_KEY<br>
-          또는<br>
-          GOOGLE_AI_API_KEY
+          RUNWAY_API_KEY (Runway)<br>
+          GOOGLE_AI_API_KEY (Veo/TTS)
         </p>
-      </div>
-      <div class="tool-section">
-        <h3>기능</h3>
-        <ul style="color: #aaa; font-size: 12px; padding: 10px 10px 10px 25px; margin: 0;">
-          <li>최대 5000자 변환</li>
-          <li>다국어 지원</li>
-          <li>속도 및 피치 조절</li>
-          <li>MP3 파일로 저장</li>
-        </ul>
       </div>
     `;
   } else if (currentMode === 'audio') {
@@ -6214,4 +6489,88 @@ async function executeGenerateTTS() {
     handleError('TTS 음성 생성', error, 'TTS 음성 생성에 실패했습니다.');
     hideProgress();
   }
+}
+
+// Import Image File
+function importImageFile() {
+  alert('이미지 가져오기 기능은 곧 구현될 예정입니다.\n\n이미지 파일을 불러와서 미리보기 및 편집할 수 있습니다.');
+  console.log('[Import Image] Placeholder called');
+}
+
+// Runway Image Generation
+async function executeGenerateImageRunway() {
+  const prompt = document.getElementById('image-prompt-runway')?.value;
+  const style = document.getElementById('image-style-runway')?.value;
+  const resolution = document.getElementById('image-resolution-runway')?.value;
+
+  if (!prompt) {
+    alert('프롬프트를 입력해주세요.');
+    return;
+  }
+
+  alert('Runway 이미지 생성 기능은 곧 구현될 예정입니다.\n\n' +
+        `프롬프트: ${prompt}\n` +
+        `스타일: ${style}\n` +
+        `해상도: ${resolution}\n\n` +
+        '⚙️ Runway ML API 연동이 필요합니다.');
+
+  console.log('[Runway Image] Placeholder called with:', { prompt, style, resolution });
+}
+
+// Veo Image Generation
+async function executeGenerateImageVeo() {
+  const prompt = document.getElementById('image-prompt-veo')?.value;
+  const aspect = document.getElementById('image-aspect-veo')?.value;
+
+  if (!prompt) {
+    alert('프롬프트를 입력해주세요.');
+    return;
+  }
+
+  alert('Veo 이미지 생성 기능은 곧 구현될 예정입니다.\n\n' +
+        `프롬프트: ${prompt}\n` +
+        `종횡비: ${aspect}\n\n` +
+        '⚙️ Google Veo API 연동이 필요합니다.');
+
+  console.log('[Veo Image] Placeholder called with:', { prompt, aspect });
+}
+
+// Runway Video Generation
+async function executeGenerateVideoRunway() {
+  const prompt = document.getElementById('video-prompt-runway')?.value;
+  const duration = document.getElementById('video-duration-runway')?.value;
+  const resolution = document.getElementById('video-resolution-runway')?.value;
+
+  if (!prompt) {
+    alert('프롬프트를 입력해주세요.');
+    return;
+  }
+
+  alert('Runway 영상 생성 기능은 곧 구현될 예정입니다.\n\n' +
+        `프롬프트: ${prompt}\n` +
+        `길이: ${duration}초\n` +
+        `해상도: ${resolution}\n\n` +
+        '⚙️ Runway ML API 연동이 필요합니다.');
+
+  console.log('[Runway Video] Placeholder called with:', { prompt, duration, resolution });
+}
+
+// Veo Video Generation
+async function executeGenerateVideoVeo() {
+  const prompt = document.getElementById('video-prompt-veo')?.value;
+  const duration = document.getElementById('video-duration-veo')?.value;
+  const aspect = document.getElementById('video-aspect-veo')?.value;
+
+  if (!prompt) {
+    alert('프롬프트를 입력해주세요.');
+    return;
+  }
+
+  alert('Veo 영상 생성 기능은 곧 구현될 예정입니다.\n\n' +
+        `프롬프트: ${prompt}\n` +
+        `길이: ${duration}초\n` +
+        `종횡비: ${aspect}\n\n` +
+        '⚙️ Google Veo API 연동이 필요합니다.');
+
+  console.log('[Veo Video] Placeholder called with:', { prompt, duration, aspect });
 }
