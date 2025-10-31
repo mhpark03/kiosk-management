@@ -324,19 +324,47 @@ function showToolProperties(tool) {
         const descriptionInput = document.getElementById('export-audio-description');
 
         if (titleInput) {
+          // Remove any potentially blocking attributes
+          titleInput.removeAttribute('readonly');
+          titleInput.removeAttribute('disabled');
+
           titleInput.value = currentAudioMetadata.title || '';
-          // Test: Add click listener to verify input is clickable
-          titleInput.addEventListener('click', () => {
-            console.log('[DEBUG] Title input clicked');
-          }, { once: true });
+
+          // Test: Add various event listeners to verify input is functional
+          titleInput.addEventListener('click', (e) => {
+            console.log('[DEBUG] Title input clicked', e);
+            titleInput.focus();
+          });
+
+          titleInput.addEventListener('focus', () => {
+            console.log('[DEBUG] Title input focused');
+          });
+
+          titleInput.addEventListener('input', (e) => {
+            console.log('[DEBUG] Title input changed:', e.target.value);
+          });
         }
 
         if (descriptionInput) {
+          // Remove any potentially blocking attributes
+          descriptionInput.removeAttribute('readonly');
+          descriptionInput.removeAttribute('disabled');
+
           descriptionInput.value = currentAudioMetadata.description || '';
-          // Test: Add click listener to verify textarea is clickable
-          descriptionInput.addEventListener('click', () => {
-            console.log('[DEBUG] Description textarea clicked');
-          }, { once: true });
+
+          // Test: Add various event listeners to verify textarea is functional
+          descriptionInput.addEventListener('click', (e) => {
+            console.log('[DEBUG] Description textarea clicked', e);
+            descriptionInput.focus();
+          });
+
+          descriptionInput.addEventListener('focus', () => {
+            console.log('[DEBUG] Description textarea focused');
+          });
+
+          descriptionInput.addEventListener('input', (e) => {
+            console.log('[DEBUG] Description textarea changed:', e.target.value);
+          });
         }
       });
       break;
