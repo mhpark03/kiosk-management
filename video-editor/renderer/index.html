@@ -35,9 +35,20 @@
     </header>
 
     <!-- Login Modal -->
-    <div id="login-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 10000; align-items: center; justify-content: center;">
+    <div id="login-modal" style="display: flex; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 10000; align-items: center; justify-content: center;">
       <div style="background: #2a2a2a; padding: 30px; border-radius: 8px; width: 400px; max-width: 90%;">
         <h2 style="margin: 0 0 20px 0; color: #e0e0e0;">로그인</h2>
+
+        <div style="margin-bottom: 15px;">
+          <label style="display: block; margin-bottom: 5px; color: #aaa; font-size: 14px;">서버 선택</label>
+          <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+            <button id="server-local-btn" class="server-select-btn" onclick="selectServer('local')" style="flex: 1; padding: 10px; background: #667eea; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: 600;">로컬</button>
+            <button id="server-dev-btn" class="server-select-btn" onclick="selectServer('dev')" style="flex: 1; padding: 10px; background: #444; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: 600;">개발</button>
+            <button id="server-custom-btn" class="server-select-btn" onclick="selectServer('custom')" style="flex: 1; padding: 10px; background: #444; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: 600;">직접입력</button>
+          </div>
+          <input type="text" id="backend-url" placeholder="http://localhost:8080" value="http://localhost:8080" readonly
+                 style="width: 100%; padding: 10px; background: #1a1a1a; border: 1px solid #444; border-radius: 4px; color: #e0e0e0; font-size: 14px;"/>
+        </div>
 
         <div style="margin-bottom: 15px;">
           <label style="display: block; margin-bottom: 5px; color: #aaa; font-size: 14px;">이메일</label>
@@ -51,33 +62,11 @@
                  style="width: 100%; padding: 10px; background: #1a1a1a; border: 1px solid #444; border-radius: 4px; color: #e0e0e0; font-size: 14px;"/>
         </div>
 
-        <div style="margin-bottom: 15px;">
-          <label style="display: block; margin-bottom: 5px; color: #aaa; font-size: 14px;">백엔드 서버 URL</label>
-          <input type="text" id="backend-url" placeholder="http://localhost:8080" value="http://localhost:8080"
-                 style="width: 100%; padding: 10px; background: #1a1a1a; border: 1px solid #444; border-radius: 4px; color: #e0e0e0; font-size: 14px;"/>
-        </div>
-
         <div id="login-error" style="display: none; padding: 10px; background: #dc2626; color: white; border-radius: 4px; margin-bottom: 15px; font-size: 13px;"></div>
 
         <div style="display: flex; gap: 10px;">
           <button id="login-submit-btn" style="flex: 1; padding: 12px; background: #667eea; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; font-weight: 600;">로그인</button>
-          <button id="login-cancel-btn" style="padding: 12px 20px; background: #444; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px;">취소</button>
         </div>
-      </div>
-    </div>
-
-    <!-- Login Required Message -->
-    <div id="login-required" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: calc(100vh - 80px); background: #1a1a1a;">
-      <div style="text-align: center; padding: 40px; background: #2a2a2a; border-radius: 12px; max-width: 500px; margin: 0 20px;">
-        <div style="font-size: 64px; margin-bottom: 20px;">🔐</div>
-        <h2 style="color: #e0e0e0; margin-bottom: 15px; font-size: 24px;">로그인이 필요합니다</h2>
-        <p style="color: #aaa; margin-bottom: 30px; font-size: 16px; line-height: 1.5;">
-          Kiosk Video Editor를 사용하려면<br/>
-          백엔드 서버에 로그인해야 합니다.
-        </p>
-        <button onclick="showLoginModal()" style="padding: 12px 32px; background: #667eea; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 16px; font-weight: 600;">
-          로그인하기
-        </button>
       </div>
     </div>
 

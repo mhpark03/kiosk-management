@@ -6941,6 +6941,13 @@ async function previewTTS() {
 let authToken = null;
 let currentUser = null;
 let backendBaseUrl = 'http://localhost:8080';
+let selectedServerType = 'local'; // 'local', 'dev', 'custom'
+
+// Server configurations
+const SERVER_URLS = {
+  local: 'http://localhost:8080',
+  dev: 'http://kiosk-backend-env.ap-northeast-2.elasticbeanstalk.com'
+};
 
 /**
  * Initialize authentication UI
@@ -6961,15 +6968,61 @@ function initializeAuth() {
   const savedToken = localStorage.getItem('authToken');
   const savedUser = localStorage.getItem('currentUser');
   const savedBackendUrl = localStorage.getItem('backendUrl');
+  const savedServerType = localStorage.getItem('serverType');
 
   if (savedToken && savedUser) {
     authToken = savedToken;
     currentUser = JSON.parse(savedUser);
     backendBaseUrl = savedBackendUrl || 'http://localhost:8080';
+    selectedServerType = savedServerType || 'local';
     updateAuthUI();
     console.log('[Auth] Restored session from localStorage');
+  } else {
+    // Show login modal on startup if not logged in
+    showLoginModal();
   }
 }
+
+/**
+ * Select server type
+ */
+function selectServer(serverType) {
+  console.log('[Auth] Server selected:', serverType);
+  selectedServerType = serverType;
+
+  const backendUrlInput = document.getElementById('backend-url');
+  const localBtn = document.getElementById('server-local-btn');
+  const devBtn = document.getElementById('server-dev-btn');
+  const customBtn = document.getElementById('server-custom-btn');
+
+  // Update button styles
+  [localBtn, devBtn, customBtn].forEach(btn => {
+    if (btn) btn.style.background = '#444';
+  });
+
+  if (serverType === 'local') {
+    if (localBtn) localBtn.style.background = '#667eea';
+    if (backendUrlInput) {
+      backendUrlInput.value = SERVER_URLS.local;
+      backendUrlInput.readOnly = true;
+    }
+  } else if (serverType === 'dev') {
+    if (devBtn) devBtn.style.background = '#667eea';
+    if (backendUrlInput) {
+      backendUrlInput.value = SERVER_URLS.dev;
+      backendUrlInput.readOnly = true;
+    }
+  } else if (serverType === 'custom') {
+    if (customBtn) customBtn.style.background = '#667eea';
+    if (backendUrlInput) {
+      backendUrlInput.readOnly = false;
+      backendUrlInput.focus();
+    }
+  }
+}
+
+// Make selectServer globally accessible
+window.selectServer = selectServer;
 
 /**
  * Show login modal
@@ -6978,7 +7031,6 @@ function showLoginModal() {
   const modal = document.getElementById('login-modal');
   const errorDiv = document.getElementById('login-error');
   const loginSubmitBtn = document.getElementById('login-submit-btn');
-  const loginCancelBtn = document.getElementById('login-cancel-btn');
   const loginEmailInput = document.getElementById('login-email');
   const loginPasswordInput = document.getElementById('login-password');
 
@@ -6988,23 +7040,14 @@ function showLoginModal() {
       errorDiv.style.display = 'none';
     }
 
-    // Load saved backend URL
-    const savedUrl = localStorage.getItem('backendUrl');
-    const backendUrlInput = document.getElementById('backend-url');
-    if (backendUrlInput && savedUrl) {
-      backendUrlInput.value = savedUrl;
-    }
+    // Initialize server selection
+    const savedServerType = localStorage.getItem('serverType') || 'local';
+    selectServer(savedServerType);
 
     // Setup event listeners
     if (loginSubmitBtn) {
       loginSubmitBtn.onclick = async () => {
         await handleLogin();
-      };
-    }
-
-    if (loginCancelBtn) {
-      loginCancelBtn.onclick = () => {
-        hideLoginModal();
       };
     }
 
@@ -7016,13 +7059,6 @@ function showLoginModal() {
         }
       };
     }
-
-    // Close modal on background click
-    modal.onclick = (e) => {
-      if (e.target === modal) {
-        hideLoginModal();
-      }
-    };
   }
 }
 
@@ -7084,6 +7120,7 @@ async function handleLogin() {
     localStorage.setItem('authToken', authToken);
     localStorage.setItem('currentUser', JSON.stringify(currentUser));
     localStorage.setItem('backendUrl', backendBaseUrl);
+    localStorage.setItem('serverType', selectedServerType);
 
     // Update UI
     updateAuthUI();
@@ -7135,6 +7172,9 @@ function logout() {
   // Update UI
   updateAuthUI();
   updateStatus('로그아웃되었습니다.');
+
+  // Show login modal
+  showLoginModal();
 }
 
 /**
@@ -7145,7 +7185,6 @@ function updateAuthUI() {
   const userInfo = document.getElementById('user-info');
   const userEmail = document.getElementById('user-email');
   const logoutBtn = document.getElementById('logout-btn');
-  const loginRequired = document.getElementById('login-required');
   const mainContent = document.getElementById('main-content');
 
   if (authToken && currentUser) {
@@ -7154,14 +7193,12 @@ function updateAuthUI() {
     if (userInfo) userInfo.style.display = 'block';
     if (userEmail) userEmail.textContent = currentUser.email;
     if (logoutBtn) logoutBtn.style.display = 'block';
-    if (loginRequired) loginRequired.style.display = 'none';
     if (mainContent) mainContent.style.display = 'flex';
   } else {
     // Logged out state
     if (modeSwitchContainer) modeSwitchContainer.style.display = 'none';
     if (userInfo) userInfo.style.display = 'none';
     if (logoutBtn) logoutBtn.style.display = 'none';
-    if (loginRequired) loginRequired.style.display = 'flex';
     if (mainContent) mainContent.style.display = 'none';
   }
 }
