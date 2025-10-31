@@ -350,15 +350,41 @@ function showToolProperties(tool) {
             console.error('[DEBUG] Failed to focus webContents:', err);
           }
 
+          // Remove readonly attribute if present
+          titleInput.removeAttribute('readonly');
+          titleInput.removeAttribute('disabled');
+
+          // Force enable input by removing any preventing attributes
+          titleInput.style.pointerEvents = 'auto';
+          titleInput.style.userSelect = 'text';
+          titleInput.tabIndex = 0;
+
+          // Add explicit click listener to force activation
+          titleInput.addEventListener('click', function(e) {
+            console.log('[DEBUG] Title input clicked');
+            this.focus();
+            e.stopPropagation();
+          }, { once: false });
+
+          // Add explicit keydown listener to verify keyboard events
+          titleInput.addEventListener('keydown', function(e) {
+            console.log('[DEBUG] Title input keydown:', e.key);
+          }, { once: false });
+
           // Wait for next animation frame to ensure rendering is complete
           requestAnimationFrame(() => {
             requestAnimationFrame(() => {
               // Additional delay before focusing input
               setTimeout(() => {
+                // Dispatch a click event to simulate user interaction
+                titleInput.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
                 titleInput.focus();
                 titleInput.select();
 
                 console.log('[DEBUG] Title input setup complete, focused:', document.activeElement === titleInput);
+                console.log('[DEBUG] Title input disabled:', titleInput.disabled);
+                console.log('[DEBUG] Title input readonly:', titleInput.readOnly);
                 console.log('[DEBUG] Current time:', new Date().toISOString());
               }, 100);
             });
@@ -368,6 +394,23 @@ function showToolProperties(tool) {
         if (descriptionInput) {
           // Set value
           descriptionInput.value = currentAudioMetadata.description || '';
+
+          // Same treatment for description
+          descriptionInput.removeAttribute('readonly');
+          descriptionInput.removeAttribute('disabled');
+          descriptionInput.style.pointerEvents = 'auto';
+          descriptionInput.style.userSelect = 'text';
+          descriptionInput.tabIndex = 0;
+
+          descriptionInput.addEventListener('click', function(e) {
+            console.log('[DEBUG] Description input clicked');
+            this.focus();
+            e.stopPropagation();
+          }, { once: false });
+
+          descriptionInput.addEventListener('keydown', function(e) {
+            console.log('[DEBUG] Description input keydown:', e.key);
+          }, { once: false });
         }
       }, 300);
       break;
