@@ -2802,7 +2802,11 @@ ipcMain.handle('backend-login', async (event, params) => {
     return {
       success: true,
       token: response.data.token,
-      user: response.data.user || { email }
+      user: {
+        email: response.data.email || email,
+        name: response.data.displayName || response.data.email || email,
+        role: response.data.role
+      }
     };
 
   } catch (error) {
