@@ -1542,9 +1542,26 @@ function setupVideoControls() {
 
 // Import video
 async function importVideo() {
-  const videoPath = await window.electronAPI.selectVideo();
-  if (!videoPath) return;
+  // Check authentication
+  if (!authToken || !currentUser) {
+    const useLocal = confirm('로그인이 필요합니다.\n\n로컬 파일을 선택하시겠습니까?\n(취소를 누르면 로그인 화면으로 이동합니다)');
+    if (useLocal) {
+      const videoPath = await window.electronAPI.selectVideo();
+      if (!videoPath) return;
+      await loadVideoWithAudioCheck(videoPath);
+    } else {
+      // Show login modal
+      showLoginModal();
+    }
+    return;
+  }
 
+  // Show video list from S3
+  await showVideoListFromS3();
+}
+
+// Load video with audio check (helper function)
+async function loadVideoWithAudioCheck(videoPath) {
   try {
     // Check if video has audio track, add silent audio if missing
     console.log('[Import Video] Checking audio for:', videoPath);
@@ -5683,6 +5700,341 @@ window.selectAudioFromS3ForMerge = async function(audioId, audioTitle) {
     console.error('[Audio Merge] Failed to download audio from S3:', error);
     hideProgress();
     alert('S3에서 음성 다운로드에 실패했습니다.\n\n' + error.message);
+  }
+};
+
+// Show video list from S3
+async function showVideoListFromS3() {
+  try {
+    showProgress();
+    updateProgress(30, 'S3에서 영상 목록 불러오는 중...');
+    updateStatus('영상 목록 로드 중...');
+
+    // Fetch video list from backend
+    const response = await fetch(`${backendBaseUrl}/api/videos`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${authToken}`
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch video list: ${response.status}`);
+    }
+
+    const videos = await response.json();
+
+    // Filter only video files (check contentType starts with 'video/')
+    const videoFiles = videos.filter(v => v.contentType && v.contentType.startsWith('video/'));
+
+    console.log('[Video Import] Found video files:', videoFiles.length);
+
+    updateProgress(100, '영상 목록 로드 완료');
+    hideProgress();
+
+    if (videoFiles.length === 0) {
+      const useLocal = confirm('S3에 저장된 영상 파일이 없습니다.\n\n로컬 파일을 선택하시겠습니까?');
+      if (useLocal) {
+        const videoPath = await window.electronAPI.selectVideo();
+        if (!videoPath) return;
+        await loadVideoWithAudioCheck(videoPath);
+      }
+      return;
+    }
+
+    // Show modal with video list
+    showVideoSelectionModal(videoFiles);
+
+  } catch (error) {
+    console.error('[Video Import] Failed to fetch video list:', error);
+    hideProgress();
+
+    const useLocal = confirm('S3 영상 목록을 불러오는데 실패했습니다.\n\n로컬 파일을 선택하시겠습니까?');
+    if (useLocal) {
+      const videoPath = await window.electronAPI.selectVideo();
+      if (!videoPath) return;
+      await loadVideoWithAudioCheck(videoPath);
+    }
+  }
+}
+
+// Show modal with video selection
+function showVideoSelectionModal(videoFiles) {
+  const modalOverlay = document.getElementById('modal-overlay');
+  const modalContent = document.getElementById('modal-content');
+
+  if (!modalOverlay || !modalContent) {
+    console.error('[Video Import] Modal elements not found');
+    return;
+  }
+
+  // Sort by upload date (newest first)
+  videoFiles.sort((a, b) => {
+    const dateA = new Date(a.uploadedAt || a.createdAt || 0);
+    const dateB = new Date(b.uploadedAt || b.createdAt || 0);
+    return dateB - dateA;
+  });
+
+  // Reset to first page
+  videoListCurrentPage = 1;
+
+  // Render the video list
+  renderVideoList(videoFiles, modalContent);
+
+  modalOverlay.style.display = 'flex';
+}
+
+// Pagination variables for video list
+let videoListCurrentPage = 1;
+const videoListItemsPerPage = 10;
+
+// Render video list with pagination
+function renderVideoList(videoFiles, modalContent) {
+  const totalPages = Math.ceil(videoFiles.length / videoListItemsPerPage);
+  const startIndex = (videoListCurrentPage - 1) * videoListItemsPerPage;
+  const endIndex = Math.min(startIndex + videoListItemsPerPage, videoFiles.length);
+  const currentPageItems = videoFiles.slice(startIndex, endIndex);
+
+  // Create modal HTML with table layout
+  modalContent.innerHTML = `
+    <div style="background: #2a2a2a; padding: 20px; border-radius: 8px; width: 90vw; max-width: 1400px; height: 85vh; overflow: hidden; display: flex; flex-direction: column;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+        <h2 style="margin: 0; color: #e0e0e0; font-size: 20px;">📁 S3 영상 파일 선택</h2>
+        <button onclick="closeVideoSelectionModal()" style="background: none; border: none; color: #aaa; font-size: 28px; cursor: pointer; padding: 0; width: 35px; height: 35px; line-height: 1;">&times;</button>
+      </div>
+
+      <div style="margin-bottom: 12px;">
+        <div style="color: #aaa; font-size: 13px;">
+          총 ${videoFiles.length}개의 영상 파일 (${videoListCurrentPage}/${totalPages} 페이지)
+        </div>
+      </div>
+
+      <div style="flex: 1; overflow-x: hidden; overflow-y: auto; border: 1px solid #444; border-radius: 4px;">
+        <table style="width: 100%; border-collapse: collapse; table-layout: fixed;">
+          <thead style="position: sticky; top: 0; background: #333; z-index: 1;">
+            <tr style="border-bottom: 2px solid #555;">
+              <th style="padding: 12px 8px; text-align: left; color: #e0e0e0; font-size: 13px; font-weight: 600; width: 25%;">제목</th>
+              <th style="padding: 12px 8px; text-align: left; color: #e0e0e0; font-size: 13px; font-weight: 600; width: 45%;">설명</th>
+              <th style="padding: 12px 8px; text-align: center; color: #e0e0e0; font-size: 13px; font-weight: 600; width: 70px;">분류</th>
+              <th style="padding: 12px 8px; text-align: right; color: #e0e0e0; font-size: 13px; font-weight: 600; width: 80px;">크기</th>
+              <th style="padding: 12px 8px; text-align: center; color: #e0e0e0; font-size: 13px; font-weight: 600; width: 100px;">업로드일</th>
+              <th style="padding: 12px 8px; text-align: center; color: #e0e0e0; font-size: 13px; font-weight: 600; width: 70px;">삭제</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${currentPageItems.map((video, index) => {
+              const sizeInMB = video.fileSize ? (video.fileSize / (1024 * 1024)).toFixed(2) : '?';
+              let uploadDate = '날짜 없음';
+              const dateField = video.uploadedAt || video.createdAt;
+              if (dateField) {
+                const date = new Date(dateField);
+                if (!isNaN(date.getTime())) {
+                  uploadDate = date.toLocaleDateString('ko-KR');
+                }
+              }
+              const folder = video.s3Key ? (video.s3Key.includes('videos/ai/') ? 'AI' : video.s3Key.includes('videos/uploads/') ? '업로드' : '기타') : '?';
+              const rowBg = index % 2 === 0 ? '#2d2d2d' : '#333';
+
+              return `
+                <tr style="border-bottom: 1px solid #444; background: ${rowBg}; transition: background 0.2s;"
+                    onmouseover="this.style.background='#3a3a5a'"
+                    onmouseout="this.style.background='${rowBg}'">
+                  <td style="padding: 12px 8px; color: #e0e0e0; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer;"
+                      onclick="selectVideoFromS3(${video.id}, '${video.title.replace(/'/g, "\\'")}', '${(video.description || '').replace(/'/g, "\\'").replace(/\n/g, ' ')}')">
+                    <div style="font-weight: 600;">🎬 ${video.title || video.filename}</div>
+                  </td>
+                  <td style="padding: 12px 8px; color: #aaa; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer;"
+                      onclick="selectVideoFromS3(${video.id}, '${video.title.replace(/'/g, "\\'")}', '${(video.description || '').replace(/'/g, "\\'").replace(/\n/g, ' ')}')">
+                    ${video.description || '설명 없음'}
+                  </td>
+                  <td style="padding: 12px 8px; text-align: center; cursor: pointer;"
+                      onclick="selectVideoFromS3(${video.id}, '${video.title.replace(/'/g, "\\'")}', '${(video.description || '').replace(/'/g, "\\'").replace(/\n/g, ' ')}')">
+                    <span style="background: #667eea; color: white; padding: 3px 8px; border-radius: 3px; font-size: 10px; font-weight: 600; white-space: nowrap;">
+                      ${folder}
+                    </span>
+                  </td>
+                  <td style="padding: 12px 8px; text-align: right; color: #aaa; font-size: 12px; white-space: nowrap; cursor: pointer;"
+                      onclick="selectVideoFromS3(${video.id}, '${video.title.replace(/'/g, "\\'")}', '${(video.description || '').replace(/'/g, "\\'").replace(/\n/g, ' ')}')">
+                    ${sizeInMB} MB
+                  </td>
+                  <td style="padding: 12px 8px; text-align: center; color: #aaa; font-size: 12px; white-space: nowrap; cursor: pointer;"
+                      onclick="selectVideoFromS3(${video.id}, '${video.title.replace(/'/g, "\\'")}', '${(video.description || '').replace(/'/g, "\\'").replace(/\n/g, ' ')}')">
+                    ${uploadDate}
+                  </td>
+                  <td style="padding: 12px 8px; text-align: center;">
+                    <button onclick="event.stopPropagation(); deleteVideoFromS3(${video.id}, '${video.title.replace(/'/g, "\\'")}')"
+                            style="background: #dc2626; color: white; border: none; border-radius: 4px; padding: 6px 12px; cursor: pointer; font-size: 11px; font-weight: 600; transition: background 0.2s;"
+                            onmouseover="this.style.background='#b91c1c'"
+                            onmouseout="this.style.background='#dc2626'">
+                      🗑️ 삭제
+                    </button>
+                  </td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+
+      <div style="margin-top: 20px; display: flex; justify-content: space-between; align-items: center;">
+        <div style="display: flex; gap: 10px; align-items: center;">
+          <button onclick="goToVideoListPage(1)" ${videoListCurrentPage === 1 ? 'disabled' : ''}
+                  style="padding: 8px 12px; background: ${videoListCurrentPage === 1 ? '#444' : '#667eea'}; color: white; border: none; border-radius: 4px; cursor: ${videoListCurrentPage === 1 ? 'not-allowed' : 'pointer'}; font-size: 12px;">
+            처음
+          </button>
+          <button onclick="goToVideoListPage(${videoListCurrentPage - 1})" ${videoListCurrentPage === 1 ? 'disabled' : ''}
+                  style="padding: 8px 12px; background: ${videoListCurrentPage === 1 ? '#444' : '#667eea'}; color: white; border: none; border-radius: 4px; cursor: ${videoListCurrentPage === 1 ? 'not-allowed' : 'pointer'}; font-size: 12px;">
+            이전
+          </button>
+          <span style="color: #e0e0e0; font-size: 13px;">${videoListCurrentPage} / ${totalPages}</span>
+          <button onclick="goToVideoListPage(${videoListCurrentPage + 1})" ${videoListCurrentPage === totalPages ? 'disabled' : ''}
+                  style="padding: 8px 12px; background: ${videoListCurrentPage === totalPages ? '#444' : '#667eea'}; color: white; border: none; border-radius: 4px; cursor: ${videoListCurrentPage === totalPages ? 'not-allowed' : 'pointer'}; font-size: 12px;">
+            다음
+          </button>
+          <button onclick="goToVideoListPage(${totalPages})" ${videoListCurrentPage === totalPages ? 'disabled' : ''}
+                  style="padding: 8px 12px; background: ${videoListCurrentPage === totalPages ? '#444' : '#667eea'}; color: white; border: none; border-radius: 4px; cursor: ${videoListCurrentPage === totalPages ? 'not-allowed' : 'pointer'}; font-size: 12px;">
+            마지막
+          </button>
+        </div>
+        <div style="display: flex; gap: 10px;">
+          <button onclick="selectLocalVideoFile()" style="padding: 10px 20px; background: #764ba2; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px;">
+            💾 로컬 파일 선택
+          </button>
+          <button onclick="closeVideoSelectionModal()" style="padding: 10px 20px; background: #666; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px;">
+            취소
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Store video files in window for pagination
+  window.currentVideoFilesList = videoFiles;
+}
+
+// Navigate to a specific page
+window.goToVideoListPage = function(page) {
+  if (!window.currentVideoFilesList) return;
+
+  const totalPages = Math.ceil(window.currentVideoFilesList.length / videoListItemsPerPage);
+  if (page < 1 || page > totalPages) return;
+
+  videoListCurrentPage = page;
+  const modalContent = document.getElementById('modal-content');
+  if (modalContent) {
+    renderVideoList(window.currentVideoFilesList, modalContent);
+  }
+};
+
+// Close video selection modal
+window.closeVideoSelectionModal = function() {
+  const modalOverlay = document.getElementById('modal-overlay');
+  if (modalOverlay) {
+    modalOverlay.style.display = 'none';
+  }
+};
+
+// Select local video file
+window.selectLocalVideoFile = async function() {
+  closeVideoSelectionModal();
+  const videoPath = await window.electronAPI.selectVideo();
+  if (!videoPath) return;
+  await loadVideoWithAudioCheck(videoPath);
+};
+
+// Select video from S3
+window.selectVideoFromS3 = async function(videoId, videoTitle, videoDescription = '') {
+  try {
+    closeVideoSelectionModal();
+    showProgress();
+    updateProgress(30, 'S3에서 영상 다운로드 중...');
+    updateStatus(`영상 다운로드 중: ${videoTitle}`);
+
+    console.log('[Video Import] Downloading video from S3:', videoId);
+
+    // Save metadata for later use in export
+    currentVideoMetadata = {
+      title: videoTitle || '',
+      description: videoDescription || ''
+    };
+
+    // Get download URL from backend
+    const response = await fetch(`${backendBaseUrl}/api/videos/${videoId}/download-url`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${authToken}`
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to get download URL: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const downloadUrl = data.url;
+
+    console.log('[Video Import] Got presigned URL:', downloadUrl);
+
+    updateProgress(60, '영상 파일 다운로드 중...');
+
+    // Download video file using electron API
+    const result = await window.electronAPI.downloadFile(downloadUrl, videoTitle);
+
+    if (!result.success) {
+      throw new Error(result.error || 'Download failed');
+    }
+
+    console.log('[Video Import] Downloaded to:', result.filePath);
+
+    updateProgress(90, '영상 파일 로드 중...');
+
+    // Load the downloaded video file with audio check
+    await loadVideoWithAudioCheck(result.filePath);
+
+    updateProgress(100, '영상 파일 로드 완료');
+    hideProgress();
+
+  } catch (error) {
+    console.error('[Video Import] Failed to download video from S3:', error);
+    hideProgress();
+    alert('S3에서 영상 다운로드에 실패했습니다.\n\n' + error.message);
+  }
+};
+
+// Delete video from S3
+window.deleteVideoFromS3 = async function(videoId, videoTitle) {
+  try {
+    // Confirm deletion
+    const confirmed = confirm(`영상 파일 "${videoTitle}"을(를) 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.`);
+    if (!confirmed) {
+      return;
+    }
+
+    console.log('[Video Delete] Deleting video from S3:', videoId);
+
+    // Delete from backend (which will also delete from S3)
+    const response = await fetch(`${backendBaseUrl}/api/videos/${videoId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${authToken}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to delete video: ${response.status} - ${errorText}`);
+    }
+
+    console.log('[Video Delete] Video deleted successfully');
+    alert(`영상 파일 "${videoTitle}"이(가) 삭제되었습니다.`);
+
+    // Refresh the video list
+    await showVideoListFromS3();
+
+  } catch (error) {
+    console.error('[Video Delete] Failed to delete video:', error);
+    alert('영상 삭제에 실패했습니다.\n\n' + error.message);
   }
 };
 
