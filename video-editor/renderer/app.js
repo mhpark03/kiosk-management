@@ -322,13 +322,21 @@ function showToolProperties(tool) {
       requestAnimationFrame(() => {
         const titleInput = document.getElementById('export-audio-title');
         const descriptionInput = document.getElementById('export-audio-description');
+
         if (titleInput) {
           titleInput.value = currentAudioMetadata.title || '';
-          titleInput.focus();
-          titleInput.blur(); // Remove focus to prevent auto-selection
+          // Test: Add click listener to verify input is clickable
+          titleInput.addEventListener('click', () => {
+            console.log('[DEBUG] Title input clicked');
+          }, { once: true });
         }
+
         if (descriptionInput) {
           descriptionInput.value = currentAudioMetadata.description || '';
+          // Test: Add click listener to verify textarea is clickable
+          descriptionInput.addEventListener('click', () => {
+            console.log('[DEBUG] Description textarea clicked');
+          }, { once: true });
         }
       });
       break;
