@@ -8817,6 +8817,9 @@ async function uploadImageToS3() {
     return;
   }
 
+  // Ensure description is always a string (empty string if not provided)
+  const finalDescription = description || '';
+
   // Validate image file type
   if (!imageFile.type.startsWith('image/')) {
     alert('이미지 파일만 업로드할 수 있습니다.');
@@ -8856,7 +8859,7 @@ async function uploadImageToS3() {
 
     console.log('[Upload Image S3] Uploading to S3:', {
       title,
-      description,
+      description: finalDescription,
       fileName: imageFile.name,
       size: imageFile.size,
       type: imageFile.type
@@ -8866,7 +8869,7 @@ async function uploadImageToS3() {
     const formData = new FormData();
     formData.append('file', imageFile);
     formData.append('title', title);
-    formData.append('description', description);
+    formData.append('description', finalDescription);
 
     // Upload to backend (videos endpoint handles all media types including images)
     const uploadResponse = await fetch(`${backendBaseUrl}/api/videos/upload`, {
