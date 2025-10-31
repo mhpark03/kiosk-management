@@ -7044,20 +7044,22 @@ function showLoginModal() {
     const savedServerType = localStorage.getItem('serverType') || 'local';
     selectServer(savedServerType);
 
-    // Setup event listeners
+    // Remove existing event listeners by cloning and replacing
     if (loginSubmitBtn) {
-      loginSubmitBtn.onclick = async () => {
+      const newSubmitBtn = loginSubmitBtn.cloneNode(true);
+      loginSubmitBtn.parentNode.replaceChild(newSubmitBtn, loginSubmitBtn);
+      newSubmitBtn.addEventListener('click', async () => {
         await handleLogin();
-      };
+      });
     }
 
     // Enter key in password field
     if (loginPasswordInput) {
-      loginPasswordInput.onkeypress = async (e) => {
+      loginPasswordInput.addEventListener('keypress', async (e) => {
         if (e.key === 'Enter') {
           await handleLogin();
         }
-      };
+      });
     }
   }
 }
