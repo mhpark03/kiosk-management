@@ -48,5 +48,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openPath: (path) => ipcRenderer.invoke('open-path', path),
 
   // TTS operations
-  generateTtsDirect: (params) => ipcRenderer.invoke('generate-tts-direct', params)
+  generateTtsDirect: (params) => ipcRenderer.invoke('generate-tts-direct', params),
+  selectAudioSavePath: (defaultName) => ipcRenderer.invoke('select-audio-save-path', defaultName)
 });
