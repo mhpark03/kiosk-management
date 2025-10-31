@@ -31,6 +31,9 @@ let isPreviewingRange = false;    // Flag to prevent auto-skip during range prev
 // Silent audio tracking
 let hasSilentAudio = false;  // Flag to track if current video has auto-generated silent audio
 
+// Audio preview listener tracking
+let audioPreviewListener = null;  // Store preview timeupdate listener reference for explicit removal
+
 // 공통 오류 처리 함수
 function handleError(operation, error, userMessage) {
   // 콘솔에 상세한 오류 정보 기록
@@ -5520,6 +5523,13 @@ async function loadAudioFile(audioPath) {
 
     // Load audio file into audio element
     if (audioElement) {
+      // Remove any preview listeners before cloning
+      if (audioPreviewListener) {
+        console.log('[loadAudioFile] Explicitly removing preview listener before reload');
+        audioElement.removeEventListener('timeupdate', audioPreviewListener);
+        audioPreviewListener = null;
+      }
+
       // Clone the audio element to remove ALL event listeners (including from preview)
       const newAudioElement = audioElement.cloneNode(true);
       audioElement.parentNode.replaceChild(newAudioElement, audioElement);
@@ -6419,6 +6429,12 @@ async function previewAudioTrimRange() {
   audioElement.play();
   updateStatus(`구간 미리듣기 중: ${formatTime(startTime)} ~ ${formatTime(endTime)} (${duration.toFixed(2)}초)`);
 
+  // Remove previous preview listener if it exists
+  if (audioPreviewListener) {
+    console.log('[previewAudioTrimRange] Removing previous preview listener');
+    audioElement.removeEventListener('timeupdate', audioPreviewListener);
+  }
+
   // Stop playback when reaching the end time
   const checkTime = () => {
     if (audioElement.currentTime >= endTime) {
@@ -6458,11 +6474,17 @@ async function previewAudioTrimRange() {
       }
 
       updateStatus(`구간 미리듣기 완료: ${formatTime(startTime)} ~ ${formatTime(endTime)}`);
+
+      // Remove listener and clear reference
       audioElement.removeEventListener('timeupdate', checkTime);
+      audioPreviewListener = null;
     }
   };
 
+  // Store listener reference for explicit removal later
+  audioPreviewListener = checkTime;
   audioElement.addEventListener('timeupdate', checkTime);
+  console.log('[previewAudioTrimRange] Added new preview listener');
 }
 
 // Mode switching functions
