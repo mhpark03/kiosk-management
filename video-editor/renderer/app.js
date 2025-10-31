@@ -657,6 +657,27 @@ function showToolProperties(tool) {
           <h3 style="margin-bottom: 15px; color: #667eea;">🎨 Runway 이미지 생성</h3>
 
           <div class="property-group">
+            <label>참조 이미지 (1~5개)</label>
+            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 10px;">
+              <div id="ref-image-slot-0" style="border: 2px dashed #444; border-radius: 8px; padding: 8px; aspect-ratio: 1/1; cursor: pointer; display: flex; align-items: center; justify-content: center; background: #2a2a2a;" onclick="selectReferenceImage(0)">
+                <span style="font-size: 32px;">🖼️</span>
+              </div>
+              <div id="ref-image-slot-1" style="border: 2px dashed #444; border-radius: 8px; padding: 8px; aspect-ratio: 1/1; cursor: pointer; display: flex; align-items: center; justify-content: center; background: #2a2a2a;" onclick="selectReferenceImage(1)">
+                <span style="font-size: 32px;">🖼️</span>
+              </div>
+              <div id="ref-image-slot-2" style="border: 2px dashed #444; border-radius: 8px; padding: 8px; aspect-ratio: 1/1; cursor: pointer; display: flex; align-items: center; justify-content: center; background: #2a2a2a;" onclick="selectReferenceImage(2)">
+                <span style="font-size: 32px;">🖼️</span>
+              </div>
+              <div id="ref-image-slot-3" style="border: 2px dashed #444; border-radius: 8px; padding: 8px; aspect-ratio: 1/1; cursor: pointer; display: flex; align-items: center; justify-content: center; background: #2a2a2a;" onclick="selectReferenceImage(3)">
+                <span style="font-size: 32px;">🖼️</span>
+              </div>
+              <div id="ref-image-slot-4" style="border: 2px dashed #444; border-radius: 8px; padding: 8px; aspect-ratio: 1/1; cursor: pointer; display: flex; align-items: center; justify-content: center; background: #2a2a2a;" onclick="selectReferenceImage(4)">
+                <span style="font-size: 32px;">🖼️</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="property-group">
             <label>프롬프트 *</label>
             <textarea
               id="image-prompt-runway"
@@ -674,21 +695,23 @@ function showToolProperties(tool) {
             >
               <option value="realistic">사실적 (Realistic)</option>
               <option value="anime">애니메이션 (Anime)</option>
-              <option value="digital-art">디지털 아트 (Digital Art)</option>
-              <option value="painting">회화 (Painting)</option>
-              <option value="sketch">스케치 (Sketch)</option>
+              <option value="artistic">예술적 (Artistic)</option>
+              <option value="photograph">사진 (Photograph)</option>
+              <option value="illustration">일러스트 (Illustration)</option>
             </select>
           </div>
 
           <div class="property-group">
-            <label>해상도</label>
+            <label>종횡비</label>
             <select
-              id="image-resolution-runway"
+              id="image-aspect-runway"
               style="width: 100%; padding: 10px; background: #2d2d2d; border: 1px solid #444; border-radius: 5px; color: #e0e0e0; font-size: 14px;"
             >
-              <option value="1024x1024">정사각형 (1024x1024)</option>
-              <option value="1920x1080">가로 (1920x1080)</option>
-              <option value="1080x1920">세로 (1080x1920)</option>
+              <option value="1024:1024">정사각형 (1:1)</option>
+              <option value="1920:1080">가로 (16:9)</option>
+              <option value="1080:1920">세로 (9:16)</option>
+              <option value="1440:1080">가로 (4:3)</option>
+              <option value="1080:1440">세로 (3:4)</option>
             </select>
           </div>
 
@@ -701,7 +724,7 @@ function showToolProperties(tool) {
           <div style="background: #3a3a3a; padding: 10px; border-radius: 5px; margin-top: 10px;">
             <small style="color: #aaa;">💡 Runway ML API를 사용하여 AI 이미지를 생성합니다</small>
             <br>
-            <small style="color: #888; font-size: 10px;">⚙️ 환경변수 필요: RUNWAY_API_KEY</small>
+            <small style="color: #888; font-size: 10px;">⚙️ 백엔드 서버 필요: RUNWAY_API_KEY 설정</small>
           </div>
         </div>
       `;
@@ -6505,24 +6528,259 @@ function importImageFile() {
   console.log('[Import Image] Placeholder called');
 }
 
+// ============================================================================
 // Runway Image Generation
+// ============================================================================
+
+// Global state for reference images
+let referenceImages = [null, null, null, null, null];
+
+/**
+ * Select reference image for a slot
+ */
+async function selectReferenceImage(slotIndex) {
+  console.log(`[Runway Image] Selecting reference image for slot ${slotIndex}`);
+
+  try {
+    const filePath = await window.electronAPI.selectFile({
+      title: `참조 이미지 ${slotIndex + 1} 선택`,
+      filters: [
+        { name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'] }
+      ]
+    });
+
+    if (!filePath) {
+      console.log('[Runway Image] No file selected');
+      return;
+    }
+
+    console.log(`[Runway Image] Selected file for slot ${slotIndex}:`, filePath);
+
+    // Store the file path
+    referenceImages[slotIndex] = filePath;
+
+    // Update UI to show preview
+    const slot = document.getElementById(`ref-image-slot-${slotIndex}`);
+    if (slot) {
+      slot.innerHTML = `
+        <div style="position: relative; width: 100%; height: 100%;">
+          <img src="file:///${filePath.replace(/\\/g, '/')}"
+               style="width: 100%; height: 100%; object-fit: cover; border-radius: 4px;"/>
+          <button onclick="clearReferenceImage(${slotIndex})"
+                  style="position: absolute; top: 5px; right: 5px; width: 24px; height: 24px; border-radius: 50%; border: none; background: rgba(220, 38, 38, 0.9); color: #fff; cursor: pointer; font-size: 16px; line-height: 1; padding: 0;">
+            ✕
+          </button>
+        </div>
+      `;
+    }
+
+  } catch (error) {
+    console.error('[Runway Image] Error selecting image:', error);
+    alert(`이미지 선택 중 오류가 발생했습니다: ${error.message}`);
+  }
+}
+
+/**
+ * Clear reference image from a slot
+ */
+function clearReferenceImage(slotIndex) {
+  console.log(`[Runway Image] Clearing reference image for slot ${slotIndex}`);
+
+  referenceImages[slotIndex] = null;
+
+  const slot = document.getElementById(`ref-image-slot-${slotIndex}`);
+  if (slot) {
+    slot.innerHTML = `<span style="font-size: 32px;">🖼️</span>`;
+  }
+}
+
+/**
+ * Execute Runway image generation
+ */
 async function executeGenerateImageRunway() {
   const prompt = document.getElementById('image-prompt-runway')?.value;
   const style = document.getElementById('image-style-runway')?.value;
-  const resolution = document.getElementById('image-resolution-runway')?.value;
+  const aspectRatio = document.getElementById('image-aspect-runway')?.value;
 
-  if (!prompt) {
+  console.log('[Runway Image] Starting generation', { prompt, style, aspectRatio });
+
+  // Validate inputs
+  if (!prompt || prompt.trim() === '') {
     alert('프롬프트를 입력해주세요.');
     return;
   }
 
-  alert('Runway 이미지 생성 기능은 곧 구현될 예정입니다.\n\n' +
-        `프롬프트: ${prompt}\n` +
-        `스타일: ${style}\n` +
-        `해상도: ${resolution}\n\n` +
-        '⚙️ Runway ML API 연동이 필요합니다.');
+  // Get selected images
+  const selectedImages = referenceImages.filter(img => img !== null);
 
-  console.log('[Runway Image] Placeholder called with:', { prompt, style, resolution });
+  if (selectedImages.length === 0) {
+    alert('참조 이미지를 최소 1개 이상 선택해주세요.');
+    return;
+  }
+
+  console.log(`[Runway Image] Found ${selectedImages.length} reference images`);
+
+  try {
+    // Disable generate button
+    const generateBtn = event.target;
+    if (generateBtn) {
+      generateBtn.disabled = true;
+      generateBtn.textContent = '이미지 생성 중...';
+    }
+
+    updateStatus('Runway ML API 호출 중...');
+
+    // Call Runway ML API via main process
+    const result = await window.electronAPI.generateImageRunway({
+      imagePaths: selectedImages,
+      prompt: prompt,
+      style: style,
+      aspectRatio: aspectRatio
+    });
+
+    console.log('[Runway Image] Generation started:', result);
+
+    if (!result.success || !result.taskId) {
+      throw new Error('작업 시작에 실패했습니다.');
+    }
+
+    const taskId = result.taskId;
+    updateStatus(`작업 시작됨 (Task ID: ${taskId})`);
+
+    // Poll for completion
+    const imageUrl = await pollImageGeneration(taskId);
+
+    console.log('[Runway Image] Generation completed:', imageUrl);
+
+    // Download the generated image
+    updateStatus('생성된 이미지 다운로드 중...');
+    const savePath = await window.electronAPI.selectOutput(`runway-image-${Date.now()}.png`);
+
+    if (savePath) {
+      await downloadImageFromUrl(imageUrl, savePath);
+      updateStatus(`이미지가 저장되었습니다: ${savePath}`);
+      alert(`이미지 생성 완료!\n\n저장 위치: ${savePath}`);
+
+      // Open the saved file location
+      const path = require('path');
+      await window.electronAPI.openPath(path.dirname(savePath));
+    } else {
+      updateStatus('이미지 생성 완료 (저장 취소됨)');
+      alert('이미지 생성은 완료되었으나 저장하지 않았습니다.');
+    }
+
+  } catch (error) {
+    console.error('[Runway Image] Generation failed:', error);
+    updateStatus('이미지 생성 실패');
+    alert(`이미지 생성 중 오류가 발생했습니다:\n\n${error.message}`);
+  } finally {
+    // Re-enable generate button
+    const generateBtn = event.target;
+    if (generateBtn) {
+      generateBtn.disabled = false;
+      generateBtn.textContent = '🎨 이미지 생성';
+    }
+  }
+}
+
+/**
+ * Poll for image generation completion
+ */
+async function pollImageGeneration(taskId, maxAttempts = 60, interval = 3000) {
+  console.log(`[Runway Poll] Starting to poll task ${taskId}`);
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      updateStatus(`이미지 생성 중... (${attempt}/${maxAttempts})`);
+
+      const taskStatus = await window.electronAPI.pollRunwayTask(taskId);
+
+      console.log(`[Runway Poll] Attempt ${attempt}: Status = ${taskStatus.status}`);
+
+      if (taskStatus.status === 'SUCCEEDED') {
+        // Extract image URL from output
+        const imageUrl = taskStatus.output?.[0] || taskStatus.output?.url;
+
+        if (!imageUrl) {
+          console.error('[Runway Poll] No image URL in output:', taskStatus.output);
+          throw new Error('생성된 이미지 URL을 찾을 수 없습니다.');
+        }
+
+        console.log('[Runway Poll] Image generation succeeded:', imageUrl);
+        return imageUrl;
+      }
+
+      if (taskStatus.status === 'FAILED') {
+        const errorMsg = taskStatus.failure || taskStatus.failureCode || '알 수 없는 오류';
+        throw new Error(`이미지 생성 실패: ${errorMsg}`);
+      }
+
+      if (taskStatus.status === 'CANCELLED') {
+        throw new Error('이미지 생성이 취소되었습니다.');
+      }
+
+      // Status is PENDING or RUNNING, wait before next poll
+      await new Promise(resolve => setTimeout(resolve, interval));
+
+    } catch (error) {
+      if (error.message.includes('generation')) {
+        // Re-throw generation-specific errors
+        throw error;
+      }
+      // For other errors, continue polling
+      console.warn(`[Runway Poll] Poll attempt ${attempt} failed:`, error.message);
+    }
+  }
+
+  throw new Error('이미지 생성 시간이 초과되었습니다.\n\n생성이 오래 걸리고 있습니다.');
+}
+
+/**
+ * Download image from URL to local file
+ */
+async function downloadImageFromUrl(imageUrl, savePath) {
+  console.log('[Runway Download] Downloading image from:', imageUrl);
+
+  try {
+    const https = require('https');
+    const http = require('http');
+    const fs = require('fs');
+    const url = require('url');
+
+    const parsedUrl = url.parse(imageUrl);
+    const protocol = parsedUrl.protocol === 'https:' ? https : http;
+
+    return new Promise((resolve, reject) => {
+      const file = fs.createWriteStream(savePath);
+
+      protocol.get(imageUrl, (response) => {
+        if (response.statusCode !== 200) {
+          reject(new Error(`다운로드 실패: HTTP ${response.statusCode}`));
+          return;
+        }
+
+        response.pipe(file);
+
+        file.on('finish', () => {
+          file.close();
+          console.log('[Runway Download] Download completed:', savePath);
+          resolve();
+        });
+      }).on('error', (error) => {
+        fs.unlink(savePath, () => {}); // Delete incomplete file
+        reject(error);
+      });
+
+      file.on('error', (error) => {
+        fs.unlink(savePath, () => {}); // Delete incomplete file
+        reject(error);
+      });
+    });
+
+  } catch (error) {
+    console.error('[Runway Download] Download failed:', error);
+    throw new Error(`이미지 다운로드 실패: ${error.message}`);
+  }
 }
 
 // Veo Image Generation
