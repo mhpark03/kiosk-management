@@ -1,9 +1,7 @@
 package com.kiosk.backend.service;
 
-import com.kiosk.backend.entity.Audio;
 import com.kiosk.backend.entity.User;
 import com.kiosk.backend.entity.Video;
-import com.kiosk.backend.repository.AudioRepository;
 import com.kiosk.backend.repository.KioskVideoRepository;
 import com.kiosk.backend.repository.UserRepository;
 import com.kiosk.backend.repository.VideoRepository;
@@ -27,17 +25,15 @@ public class VideoService {
     private final VideoRepository videoRepository;
     private final UserRepository userRepository;
     private final KioskVideoRepository kioskVideoRepository;
-    private final AudioRepository audioRepository;
     private final S3Service s3Service;
     private VeoService veoService; // Lazy injection to avoid circular dependency
 
     public VideoService(VideoRepository videoRepository, UserRepository userRepository,
-                       KioskVideoRepository kioskVideoRepository, AudioRepository audioRepository,
+                       KioskVideoRepository kioskVideoRepository,
                        S3Service s3Service) {
         this.videoRepository = videoRepository;
         this.userRepository = userRepository;
         this.kioskVideoRepository = kioskVideoRepository;
-        this.audioRepository = audioRepository;
         this.s3Service = s3Service;
     }
 
