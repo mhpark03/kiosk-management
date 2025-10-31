@@ -9236,12 +9236,7 @@ async function selectReferenceImage(slotIndex) {
   console.log(`[Runway Image] Selecting reference image for slot ${slotIndex}`);
 
   try {
-    const filePath = await window.electronAPI.selectFile({
-      title: `참조 이미지 ${slotIndex + 1} 선택`,
-      filters: [
-        { name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'] }
-      ]
-    });
+    const filePath = await window.electronAPI.selectMedia('image');
 
     if (!filePath) {
       console.log('[Runway Image] No file selected');

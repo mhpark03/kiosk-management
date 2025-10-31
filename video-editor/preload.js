@@ -4,6 +4,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // File selection
   selectVideo: () => ipcRenderer.invoke('select-video'),
   selectAudio: () => ipcRenderer.invoke('select-audio'),
+  selectMedia: (mediaType) => ipcRenderer.invoke('select-media', mediaType),
   selectOutput: (defaultName) => ipcRenderer.invoke('select-output', defaultName),
 
   // Video info

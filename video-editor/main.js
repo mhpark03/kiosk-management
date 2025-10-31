@@ -361,6 +361,43 @@ ipcMain.handle('select-audio', async () => {
   return null;
 });
 
+// Select media file (unified: image/video/audio)
+ipcMain.handle('select-media', async (event, mediaType) => {
+  let filters;
+
+  switch(mediaType) {
+    case 'image':
+      filters = [
+        { name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg'] }
+      ];
+      break;
+    case 'video':
+      filters = [
+        { name: 'Videos', extensions: ['mp4', 'avi', 'mov', 'mkv', 'webm'] }
+      ];
+      break;
+    case 'audio':
+      filters = [
+        { name: 'Audio', extensions: ['mp3', 'wav', 'aac', 'm4a', 'ogg'] }
+      ];
+      break;
+    default:
+      filters = [
+        { name: 'All Media', extensions: ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg', 'mp4', 'avi', 'mov', 'mkv', 'webm', 'mp3', 'wav', 'aac', 'm4a', 'ogg'] }
+      ];
+  }
+
+  const result = await dialog.showOpenDialog(mainWindow, {
+    properties: ['openFile'],
+    filters: filters
+  });
+
+  if (!result.canceled && result.filePaths.length > 0) {
+    return result.filePaths[0];
+  }
+  return null;
+});
+
 // Select output path
 ipcMain.handle('select-output', async (event, defaultName) => {
   logInfo('SELECT_OUTPUT', 'File save dialog requested', { defaultName });
