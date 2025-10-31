@@ -7030,9 +7030,6 @@ window.selectServer = selectServer;
 function showLoginModal() {
   const modal = document.getElementById('login-modal');
   const errorDiv = document.getElementById('login-error');
-  const loginSubmitBtn = document.getElementById('login-submit-btn');
-  const loginEmailInput = document.getElementById('login-email');
-  const loginPasswordInput = document.getElementById('login-password');
 
   if (modal) {
     modal.style.display = 'flex';
@@ -7043,24 +7040,6 @@ function showLoginModal() {
     // Initialize server selection
     const savedServerType = localStorage.getItem('serverType') || 'local';
     selectServer(savedServerType);
-
-    // Remove existing event listeners by cloning and replacing
-    if (loginSubmitBtn) {
-      const newSubmitBtn = loginSubmitBtn.cloneNode(true);
-      loginSubmitBtn.parentNode.replaceChild(newSubmitBtn, loginSubmitBtn);
-      newSubmitBtn.addEventListener('click', async () => {
-        await handleLogin();
-      });
-    }
-
-    // Enter key in password field
-    if (loginPasswordInput) {
-      loginPasswordInput.addEventListener('keypress', async (e) => {
-        if (e.key === 'Enter') {
-          await handleLogin();
-        }
-      });
-    }
   }
 }
 
@@ -7156,6 +7135,9 @@ function showLoginError(message) {
     errorDiv.style.display = 'block';
   }
 }
+
+// Make handleLogin globally accessible
+window.handleLogin = handleLogin;
 
 /**
  * Logout
