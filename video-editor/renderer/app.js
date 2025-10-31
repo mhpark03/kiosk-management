@@ -350,8 +350,8 @@ function showToolProperties(tool) {
           <input type="text" id="export-audio-title" placeholder="음성 파일 제목을 입력하세요" style="width: 100%; padding: 10px; background: #2d2d2d; border: 1px solid #555; border-radius: 4px; color: #e0e0e0; font-size: 14px;"/>
         </div>
         <div class="property-group">
-          <label style="pointer-events: none; user-select: none; display: block; margin-bottom: 5px; color: #aaa;">설명</label>
-          <textarea id="export-audio-description" placeholder="음성 파일 설명 (선택사항)" rows="4" style="width: 100%; padding: 10px; background: #2d2d2d; border: 1px solid #555; border-radius: 4px; color: #e0e0e0; font-size: 14px; resize: vertical;"></textarea>
+          <label style="pointer-events: none; user-select: none; display: block; margin-bottom: 5px; color: #aaa;">설명 *</label>
+          <textarea id="export-audio-description" placeholder="음성 파일 설명을 입력하세요" rows="4" style="width: 100%; padding: 10px; background: #2d2d2d; border: 1px solid #555; border-radius: 4px; color: #e0e0e0; font-size: 14px; resize: vertical;"></textarea>
         </div>
         <button class="property-btn" onclick="executeExportAudioToS3()" style="width: 100%;">☁️ S3 업로드</button>
         <div style="background: #3a3a3a; padding: 10px; border-radius: 5px; margin-top: 10px;">
@@ -518,8 +518,8 @@ function showToolProperties(tool) {
           <input type="text" id="extract-audio-title" placeholder="추출된 오디오 제목 입력" value="${extractTitle.replace(/"/g, '&quot;')}">
         </div>
         <div class="property-group">
-          <label>설명</label>
-          <textarea id="extract-audio-description" rows="3" placeholder="설명 입력 (선택사항)">${extractDescription.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</textarea>
+          <label>설명 *</label>
+          <textarea id="extract-audio-description" rows="3" placeholder="설명을 입력하세요">${extractDescription.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</textarea>
         </div>
         <button class="property-btn" onclick="executeExtractAudioToS3()">S3에 저장</button>
       `;
@@ -707,8 +707,8 @@ function showToolProperties(tool) {
           <input type="text" id="export-video-title" placeholder="영상 제목 입력" value="${exportVideoTitle.replace(/"/g, '&quot;')}">
         </div>
         <div class="property-group">
-          <label>설명</label>
-          <textarea id="export-video-description" rows="3" placeholder="설명 입력 (선택사항)">${exportVideoDescription.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</textarea>
+          <label>설명 *</label>
+          <textarea id="export-video-description" rows="3" placeholder="설명을 입력하세요">${exportVideoDescription.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</textarea>
         </div>
         <button class="property-btn" onclick="executeExportVideoToS3()">S3에 저장</button>
         <div style="background: #3a3a3a; padding: 10px; border-radius: 5px; margin-top: 10px;">
@@ -748,11 +748,11 @@ function showToolProperties(tool) {
           </div>
 
           <div class="property-group">
-            <label>설명</label>
+            <label>설명 *</label>
             <textarea
               id="import-image-description"
               rows="3"
-              placeholder="이미지 설명을 입력하세요 (선택사항)"
+              placeholder="이미지 설명을 입력하세요"
               style="width: 100%; padding: 10px; background: #2d2d2d; border: 1px solid #444; border-radius: 5px; color: #e0e0e0; font-size: 14px; resize: vertical;"
             ></textarea>
           </div>
@@ -796,11 +796,11 @@ function showToolProperties(tool) {
           </div>
 
           <div class="property-group">
-            <label>설명</label>
+            <label>설명 *</label>
             <textarea
               id="import-video-content-description"
               rows="3"
-              placeholder="영상 설명을 입력하세요 (선택사항)"
+              placeholder="영상 설명을 입력하세요"
               style="width: 100%; padding: 10px; background: #2d2d2d; border: 1px solid #444; border-radius: 5px; color: #e0e0e0; font-size: 14px; resize: vertical;"
             ></textarea>
           </div>
@@ -843,11 +843,11 @@ function showToolProperties(tool) {
           </div>
 
           <div class="property-group">
-            <label>설명</label>
+            <label>설명 *</label>
             <textarea
               id="audio-upload-description"
               rows="3"
-              placeholder="음성 설명을 입력하세요 (선택사항)"
+              placeholder="음성 설명을 입력하세요"
               style="width: 100%; padding: 10px; background: #2d2d2d; border: 1px solid #444; border-radius: 5px; color: #e0e0e0; font-size: 14px; resize: vertical;"
             ></textarea>
           </div>
@@ -926,14 +926,24 @@ function showToolProperties(tool) {
             </select>
           </div>
 
+          <div class="property-group">
+            <label>제목 *</label>
+            <input type="text" id="ai-image-title-runway" placeholder="생성될 이미지의 제목">
+          </div>
+
+          <div class="property-group">
+            <label>설명 *</label>
+            <textarea id="ai-image-description-runway" rows="2" placeholder="이미지 설명을 입력하세요"></textarea>
+          </div>
+
           <div style="background: #2a2a3e; padding: 12px; border-radius: 8px; margin-top: 10px; border-left: 4px solid #667eea;">
             <button class="property-btn" onclick="executeGenerateImageRunway()" style="width: 100%; margin: 0; background: #667eea;">
-              🎨 이미지 생성
+              🎨 이미지 생성하고 S3에 저장
             </button>
           </div>
 
           <div style="background: #3a3a3a; padding: 10px; border-radius: 5px; margin-top: 10px;">
-            <small style="color: #aaa;">💡 Runway ML API를 사용하여 AI 이미지를 생성합니다</small>
+            <small style="color: #aaa;">💡 Runway ML API를 사용하여 AI 이미지를 생성하고 S3에 저장합니다</small>
             <br>
             <small style="color: #888; font-size: 10px;">⚙️ 백엔드 서버 필요: RUNWAY_API_KEY 설정</small>
           </div>
@@ -969,14 +979,24 @@ function showToolProperties(tool) {
             </select>
           </div>
 
+          <div class="property-group">
+            <label>제목 *</label>
+            <input type="text" id="ai-image-title-veo" placeholder="생성될 이미지의 제목">
+          </div>
+
+          <div class="property-group">
+            <label>설명 *</label>
+            <textarea id="ai-image-description-veo" rows="2" placeholder="이미지 설명을 입력하세요"></textarea>
+          </div>
+
           <div style="background: #2a2a3e; padding: 12px; border-radius: 8px; margin-top: 10px; border-left: 4px solid #667eea;">
             <button class="property-btn" onclick="executeGenerateImageVeo()" style="width: 100%; margin: 0; background: #667eea;">
-              ✨ 이미지 생성
+              ✨ 이미지 생성하고 S3에 저장
             </button>
           </div>
 
           <div style="background: #3a3a3a; padding: 10px; border-radius: 5px; margin-top: 10px;">
-            <small style="color: #aaa;">💡 Google Veo API를 사용하여 AI 이미지를 생성합니다</small>
+            <small style="color: #aaa;">💡 Google Veo API를 사용하여 AI 이미지를 생성하고 S3에 저장합니다</small>
             <br>
             <small style="color: #888; font-size: 10px;">⚙️ 환경변수 필요: GOOGLE_AI_API_KEY</small>
           </div>
@@ -1025,14 +1045,24 @@ function showToolProperties(tool) {
             </div>
           </div>
 
+          <div class="property-group">
+            <label>제목 *</label>
+            <input type="text" id="ai-video-title-runway" placeholder="생성될 영상의 제목">
+          </div>
+
+          <div class="property-group">
+            <label>설명 *</label>
+            <textarea id="ai-video-description-runway" rows="2" placeholder="영상 설명을 입력하세요"></textarea>
+          </div>
+
           <div style="background: #2a2a3e; padding: 12px; border-radius: 8px; margin-top: 10px; border-left: 4px solid #667eea;">
             <button class="property-btn" onclick="executeGenerateVideoRunway()" style="width: 100%; margin: 0; background: #667eea;">
-              🎥 영상 생성
+              🎥 영상 생성하고 S3에 저장
             </button>
           </div>
 
           <div style="background: #3a3a3a; padding: 10px; border-radius: 5px; margin-top: 10px;">
-            <small style="color: #aaa;">💡 Runway ML API를 사용하여 AI 영상을 생성합니다</small>
+            <small style="color: #aaa;">💡 Runway ML API를 사용하여 AI 영상을 생성하고 S3에 저장합니다</small>
             <br>
             <small style="color: #888; font-size: 10px;">⚙️ 환경변수 필요: RUNWAY_API_KEY</small>
           </div>
@@ -1081,14 +1111,24 @@ function showToolProperties(tool) {
             </div>
           </div>
 
+          <div class="property-group">
+            <label>제목 *</label>
+            <input type="text" id="ai-video-title-veo" placeholder="생성될 영상의 제목">
+          </div>
+
+          <div class="property-group">
+            <label>설명 *</label>
+            <textarea id="ai-video-description-veo" rows="2" placeholder="영상 설명을 입력하세요"></textarea>
+          </div>
+
           <div style="background: #2a2a3e; padding: 12px; border-radius: 8px; margin-top: 10px; border-left: 4px solid #667eea;">
             <button class="property-btn" onclick="executeGenerateVideoVeo()" style="width: 100%; margin: 0; background: #667eea;">
-              🌟 영상 생성
+              🌟 영상 생성하고 S3에 저장
             </button>
           </div>
 
           <div style="background: #3a3a3a; padding: 10px; border-radius: 5px; margin-top: 10px;">
-            <small style="color: #aaa;">💡 Google Veo API를 사용하여 AI 영상을 생성합니다</small>
+            <small style="color: #aaa;">💡 Google Veo API를 사용하여 AI 영상을 생성하고 S3에 저장합니다</small>
             <br>
             <small style="color: #888; font-size: 10px;">⚙️ 환경변수 필요: GOOGLE_AI_API_KEY</small>
           </div>
@@ -1128,11 +1168,11 @@ function showToolProperties(tool) {
           </div>
 
           <div class="property-group">
-            <label>설명</label>
+            <label>설명 *</label>
             <textarea
               id="tts-description"
               rows="2"
-              placeholder="음성 설명을 입력하세요 (선택사항)"
+              placeholder="음성 설명을 입력하세요"
               style="width: 100%; padding: 10px; background: #2d2d2d; border: 1px solid #444; border-radius: 5px; color: #e0e0e0; font-size: 14px; resize: vertical;"
             ></textarea>
           </div>
@@ -4800,6 +4840,12 @@ async function executeExtractAudioToS3() {
     return;
   }
 
+  if (!description) {
+    alert('설명을 입력해주세요.');
+    if (descriptionInput) descriptionInput.focus();
+    return;
+  }
+
   showProgress();
   updateProgress(0, '제목 중복 확인 중...');
 
@@ -4858,8 +4904,8 @@ async function executeExtractAudioToS3() {
     formData.append('title', title);
     formData.append('description', description);
 
-    // Upload to backend (audios/uploads folder)
-    const uploadResponse = await fetch(`${backendBaseUrl}/api/audios/upload`, {
+    // Upload to backend
+    const uploadResponse = await fetch(`${backendBaseUrl}/api/videos/upload`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${authToken}`
@@ -7632,6 +7678,12 @@ async function executeExportAudioToS3() {
     return;
   }
 
+  if (!description) {
+    alert('설명을 입력해주세요.');
+    if (descriptionInput) descriptionInput.focus();
+    return;
+  }
+
   showProgress();
   updateProgress(0, '제목 중복 확인 중...');
 
@@ -7677,8 +7729,8 @@ async function executeExportAudioToS3() {
     formData.append('title', title);
     formData.append('description', description);
 
-    // Upload to backend (audios/uploads folder)
-    const uploadResponse = await fetch(`${backendBaseUrl}/api/audios/upload`, {
+    // Upload to backend
+    const uploadResponse = await fetch(`${backendBaseUrl}/api/videos/upload`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${authToken}`
@@ -7786,6 +7838,12 @@ async function executeExportVideoToS3() {
   if (!title) {
     alert('제목을 입력해주세요.');
     if (titleInput) titleInput.focus();
+    return;
+  }
+
+  if (!description) {
+    alert('설명을 입력해주세요.');
+    if (descriptionInput) descriptionInput.focus();
     return;
   }
 
@@ -8702,6 +8760,11 @@ async function executeGenerateTTSAndUpload() {
     return;
   }
 
+  if (!description) {
+    alert('설명을 입력해주세요.');
+    return;
+  }
+
   if (text.length > 5000) {
     alert('텍스트는 최대 5000자까지 입력 가능합니다.');
     return;
@@ -8792,8 +8855,8 @@ async function executeGenerateTTSAndUpload() {
 
     updateProgress(70, 'S3에 업로드 중...');
 
-    // Upload to backend (TTS-specific endpoint)
-    const uploadResponse = await fetch(`${backendBaseUrl}/api/audios/upload-tts`, {
+    // Upload to backend (AI-generated content endpoint)
+    const uploadResponse = await fetch(`${backendBaseUrl}/api/ai/upload`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${authToken}`
@@ -8943,8 +9006,13 @@ async function uploadVideoContentToS3() {
     return;
   }
 
-  // Ensure description is always a string (empty string if not provided)
-  const finalDescription = description || '';
+  if (!description) {
+    alert('설명을 입력해주세요.');
+    if (descriptionInput) descriptionInput.focus();
+    return;
+  }
+
+  const finalDescription = description;
 
   // Validate video file type
   if (!videoFile.type.startsWith('video/')) {
@@ -9061,8 +9129,13 @@ async function uploadImageToS3() {
     return;
   }
 
-  // Ensure description is always a string (empty string if not provided)
-  const finalDescription = description || '';
+  if (!description) {
+    alert('설명을 입력해주세요.');
+    if (descriptionInput) descriptionInput.focus();
+    return;
+  }
+
+  const finalDescription = description;
 
   // Validate image file type
   if (!imageFile.type.startsWith('image/')) {
@@ -9222,12 +9295,30 @@ async function executeGenerateImageRunway() {
   const prompt = document.getElementById('image-prompt-runway')?.value;
   const style = document.getElementById('image-style-runway')?.value;
   const aspectRatio = document.getElementById('image-aspect-runway')?.value;
+  const title = document.getElementById('ai-image-title-runway')?.value?.trim();
+  const description = document.getElementById('ai-image-description-runway')?.value?.trim();
 
-  console.log('[Runway Image] Starting generation', { prompt, style, aspectRatio });
+  console.log('[Runway Image] Starting generation', { prompt, style, aspectRatio, title, description });
 
   // Validate inputs
   if (!prompt || prompt.trim() === '') {
     alert('프롬프트를 입력해주세요.');
+    return;
+  }
+
+  if (!title) {
+    alert('제목을 입력해주세요.');
+    return;
+  }
+
+  if (!description) {
+    alert('설명을 입력해주세요.');
+    return;
+  }
+
+  // Check authentication
+  if (!authToken || !currentUser) {
+    alert('S3에 업로드하려면 로그인이 필요합니다.');
     return;
   }
 
@@ -9273,22 +9364,37 @@ async function executeGenerateImageRunway() {
 
     console.log('[Runway Image] Generation completed:', imageUrl);
 
-    // Download the generated image
+    // Download the generated image to blob
     updateStatus('생성된 이미지 다운로드 중...');
-    const savePath = await window.electronAPI.selectOutput(`runway-image-${Date.now()}.png`);
+    const imageBlob = await fetch(imageUrl).then(res => res.blob());
 
-    if (savePath) {
-      await downloadImageFromUrl(imageUrl, savePath);
-      updateStatus(`이미지가 저장되었습니다: ${savePath}`);
-      alert(`이미지 생성 완료!\n\n저장 위치: ${savePath}`);
+    const fileName = `runway-image-${Date.now()}.png`;
 
-      // Open the saved file location
-      const path = require('path');
-      await window.electronAPI.openPath(path.dirname(savePath));
-    } else {
-      updateStatus('이미지 생성 완료 (저장 취소됨)');
-      alert('이미지 생성은 완료되었으나 저장하지 않았습니다.');
+    // Upload to S3
+    updateStatus('S3에 업로드 중...');
+    const formData = new FormData();
+    formData.append('file', imageBlob, fileName);
+    formData.append('title', title);
+    formData.append('description', description);
+
+    const uploadResponse = await fetch(`${backendBaseUrl}/api/ai/upload`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${authToken}`
+      },
+      body: formData
+    });
+
+    if (!uploadResponse.ok) {
+      const errorText = await uploadResponse.text();
+      throw new Error(`S3 업로드 실패: ${uploadResponse.status} ${errorText}`);
     }
+
+    const result = await uploadResponse.json();
+    console.log('[Runway Image] Upload successful:', result);
+
+    updateStatus('AI 이미지 생성 및 S3 저장 완료!');
+    alert(`Runway AI 이미지가 성공적으로 생성되고 S3에 저장되었습니다!\n\n제목: ${title}\n설명: ${description}`);
 
   } catch (error) {
     console.error('[Runway Image] Generation failed:', error);
@@ -9299,7 +9405,7 @@ async function executeGenerateImageRunway() {
     const generateBtn = event.target;
     if (generateBtn) {
       generateBtn.disabled = false;
-      generateBtn.textContent = '🎨 이미지 생성';
+      generateBtn.textContent = '🎨 이미지 생성하고 S3에 저장';
     }
   }
 }
@@ -9408,18 +9514,39 @@ async function downloadImageFromUrl(imageUrl, savePath) {
 async function executeGenerateImageVeo() {
   const prompt = document.getElementById('image-prompt-veo')?.value;
   const aspect = document.getElementById('image-aspect-veo')?.value;
+  const title = document.getElementById('ai-image-title-veo')?.value?.trim();
+  const description = document.getElementById('ai-image-description-veo')?.value?.trim();
 
   if (!prompt) {
     alert('프롬프트를 입력해주세요.');
     return;
   }
 
+  if (!title) {
+    alert('제목을 입력해주세요.');
+    return;
+  }
+
+  if (!description) {
+    alert('설명을 입력해주세요.');
+    return;
+  }
+
+  // Check authentication
+  if (!authToken || !currentUser) {
+    alert('S3에 업로드하려면 로그인이 필요합니다.');
+    return;
+  }
+
   alert('Veo 이미지 생성 기능은 곧 구현될 예정입니다.\n\n' +
         `프롬프트: ${prompt}\n` +
-        `종횡비: ${aspect}\n\n` +
-        '⚙️ Google Veo API 연동이 필요합니다.');
+        `종횡비: ${aspect}\n` +
+        `제목: ${title}\n` +
+        `설명: ${description}\n\n` +
+        '⚙️ Google Veo API 연동이 필요합니다.\n' +
+        '구현 시 /api/ai/upload 엔드포인트로 S3에 자동 저장됩니다.');
 
-  console.log('[Veo Image] Placeholder called with:', { prompt, aspect });
+  console.log('[Veo Image] Placeholder called with:', { prompt, aspect, title, description });
 }
 
 // Runway Video Generation
@@ -9427,19 +9554,40 @@ async function executeGenerateVideoRunway() {
   const prompt = document.getElementById('video-prompt-runway')?.value;
   const duration = document.getElementById('video-duration-runway')?.value;
   const resolution = document.getElementById('video-resolution-runway')?.value;
+  const title = document.getElementById('ai-video-title-runway')?.value?.trim();
+  const description = document.getElementById('ai-video-description-runway')?.value?.trim();
 
   if (!prompt) {
     alert('프롬프트를 입력해주세요.');
     return;
   }
 
+  if (!title) {
+    alert('제목을 입력해주세요.');
+    return;
+  }
+
+  if (!description) {
+    alert('설명을 입력해주세요.');
+    return;
+  }
+
+  // Check authentication
+  if (!authToken || !currentUser) {
+    alert('S3에 업로드하려면 로그인이 필요합니다.');
+    return;
+  }
+
   alert('Runway 영상 생성 기능은 곧 구현될 예정입니다.\n\n' +
         `프롬프트: ${prompt}\n` +
         `길이: ${duration}초\n` +
-        `해상도: ${resolution}\n\n` +
-        '⚙️ Runway ML API 연동이 필요합니다.');
+        `해상도: ${resolution}\n` +
+        `제목: ${title}\n` +
+        `설명: ${description}\n\n` +
+        '⚙️ Runway ML API 연동이 필요합니다.\n' +
+        '구현 시 /api/ai/upload 엔드포인트로 S3에 자동 저장됩니다.');
 
-  console.log('[Runway Video] Placeholder called with:', { prompt, duration, resolution });
+  console.log('[Runway Video] Placeholder called with:', { prompt, duration, resolution, title, description });
 }
 
 // Veo Video Generation
@@ -9447,19 +9595,40 @@ async function executeGenerateVideoVeo() {
   const prompt = document.getElementById('video-prompt-veo')?.value;
   const duration = document.getElementById('video-duration-veo')?.value;
   const aspect = document.getElementById('video-aspect-veo')?.value;
+  const title = document.getElementById('ai-video-title-veo')?.value?.trim();
+  const description = document.getElementById('ai-video-description-veo')?.value?.trim();
 
   if (!prompt) {
     alert('프롬프트를 입력해주세요.');
     return;
   }
 
+  if (!title) {
+    alert('제목을 입력해주세요.');
+    return;
+  }
+
+  if (!description) {
+    alert('설명을 입력해주세요.');
+    return;
+  }
+
+  // Check authentication
+  if (!authToken || !currentUser) {
+    alert('S3에 업로드하려면 로그인이 필요합니다.');
+    return;
+  }
+
   alert('Veo 영상 생성 기능은 곧 구현될 예정입니다.\n\n' +
         `프롬프트: ${prompt}\n` +
         `길이: ${duration}초\n` +
-        `종횡비: ${aspect}\n\n` +
-        '⚙️ Google Veo API 연동이 필요합니다.');
+        `종횡비: ${aspect}\n` +
+        `제목: ${title}\n` +
+        `설명: ${description}\n\n` +
+        '⚙️ Google Veo API 연동이 필요합니다.\n' +
+        '구현 시 /api/ai/upload 엔드포인트로 S3에 자동 저장됩니다.');
 
-  console.log('[Veo Video] Placeholder called with:', { prompt, duration, aspect });
+  console.log('[Veo Video] Placeholder called with:', { prompt, duration, aspect, title, description });
 }
 
 // Preview TTS audio before saving
@@ -9824,7 +9993,7 @@ async function selectAudioFileForUpload() {
  */
 async function uploadAudioToS3() {
   const title = document.getElementById('audio-upload-title')?.value;
-  const description = document.getElementById('audio-upload-description')?.value || '';
+  const description = document.getElementById('audio-upload-description')?.value;
 
   // Validate inputs
   if (!selectedAudioFilePath) {
@@ -9834,6 +10003,11 @@ async function uploadAudioToS3() {
 
   if (!title || title.trim().length === 0) {
     alert('제목을 입력해주세요.');
+    return;
+  }
+
+  if (!description || description.trim().length === 0) {
+    alert('설명을 입력해주세요.');
     return;
   }
 
@@ -9865,8 +10039,8 @@ async function uploadAudioToS3() {
     formData.append('title', title);
     formData.append('description', description);
 
-    // Upload to backend (audios/uploads folder)
-    const uploadResponse = await fetch(`${backendBaseUrl}/api/audios/upload`, {
+    // Upload to backend
+    const uploadResponse = await fetch(`${backendBaseUrl}/api/videos/upload`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${authToken}`
