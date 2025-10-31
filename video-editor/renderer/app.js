@@ -306,11 +306,11 @@ function showToolProperties(tool) {
         </div>
         <div class="property-group">
           <label>제목 *</label>
-          <input type="text" id="export-audio-title" placeholder="음성 파일 제목을 입력하세요" style="width: 100%; padding: 10px; background: #2d2d2d; border: 1px solid #555; border-radius: 4px; color: #e0e0e0;">
+          <input type="text" id="export-audio-title" placeholder="음성 파일 제목을 입력하세요" style="width: 100%; padding: 10px; background: #2d2d2d; border: 1px solid #555; border-radius: 4px; color: #e0e0e0; font-size: 14px;">
         </div>
         <div class="property-group">
           <label>설명</label>
-          <textarea id="export-audio-description" placeholder="음성 파일 설명 (선택사항)" style="width: 100%; padding: 10px; background: #2d2d2d; border: 1px solid #555; border-radius: 4px; color: #e0e0e0; min-height: 80px; resize: vertical;"></textarea>
+          <textarea id="export-audio-description" placeholder="음성 파일 설명 (선택사항)" style="width: 100%; padding: 10px; background: #2d2d2d; border: 1px solid #555; border-radius: 4px; color: #e0e0e0; min-height: 80px; resize: vertical; font-size: 14px;"></textarea>
         </div>
         <button class="property-btn" onclick="executeExportAudioToS3()" style="width: 100%;">☁️ S3 업로드</button>
         <div style="background: #3a3a3a; padding: 10px; border-radius: 5px; margin-top: 10px;">
@@ -318,17 +318,19 @@ function showToolProperties(tool) {
         </div>
       `;
 
-      // Set values after HTML is rendered to avoid escaping issues
-      setTimeout(() => {
+      // Set values using requestAnimationFrame for better timing
+      requestAnimationFrame(() => {
         const titleInput = document.getElementById('export-audio-title');
         const descriptionInput = document.getElementById('export-audio-description');
-        if (titleInput && currentAudioMetadata.title) {
-          titleInput.value = currentAudioMetadata.title;
+        if (titleInput) {
+          titleInput.value = currentAudioMetadata.title || '';
+          titleInput.focus();
+          titleInput.blur(); // Remove focus to prevent auto-selection
         }
-        if (descriptionInput && currentAudioMetadata.description) {
-          descriptionInput.value = currentAudioMetadata.description;
+        if (descriptionInput) {
+          descriptionInput.value = currentAudioMetadata.description || '';
         }
-      }, 0);
+      });
       break;
 
     case 'merge':
