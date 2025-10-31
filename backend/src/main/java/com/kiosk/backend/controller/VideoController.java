@@ -768,4 +768,37 @@ public class VideoController {
         }
     }
 
+    /**
+     * Get presigned download URL for a video/audio file
+     * GET /api/videos/{id}/download-url
+     */
+    @GetMapping("/{id}/download-url")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> getDownloadUrl(@PathVariable Long id) {
+        try {
+            log.info("Getting download URL for video ID: {}", id);
+
+            Video video = videoService.getVideoById(id);
+            if (video == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(Map.of("error", "Video not found with ID: " + id));
+            }
+
+            String downloadUrl = videoService.getPresignedDownloadUrl(video.getS3Key());
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("url", downloadUrl);
+            response.put("filename", video.getOriginalFilename());
+            response.put("title", video.getTitle());
+
+            log.info("Download URL generated for video ID: {}", id);
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("Failed to get download URL for video ID: {}", id, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to generate download URL: " + e.getMessage()));
+        }
+    }
+
 }

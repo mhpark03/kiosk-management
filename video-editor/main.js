@@ -2838,6 +2838,82 @@ ipcMain.handle('backend-login', async (event, params) => {
 });
 
 // ============================================================================
+// File Download
+// ============================================================================
+
+/**
+ * Download file from URL to temp directory
+ */
+ipcMain.handle('download-file', async (event, url, filename) => {
+  logInfo('FILE_DOWNLOAD', 'Starting file download', {
+    url: url.substring(0, 100),
+    filename
+  });
+
+  try {
+    const axios = require('axios');
+    const path = require('path');
+    const os = require('os');
+
+    // Create temp directory path
+    const tempDir = path.join(os.tmpdir(), 'video-editor-downloads');
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
+
+    // Generate unique filename to avoid conflicts
+    const timestamp = Date.now();
+    const ext = path.extname(filename) || '.tmp';
+    const basename = path.basename(filename, ext);
+    const uniqueFilename = `${basename}_${timestamp}${ext}`;
+    const filePath = path.join(tempDir, uniqueFilename);
+
+    logInfo('FILE_DOWNLOAD', 'Downloading to:', { filePath });
+
+    // Download file
+    const response = await axios({
+      method: 'GET',
+      url: url,
+      responseType: 'stream',
+      timeout: 300000 // 5 minutes timeout
+    });
+
+    // Write to file
+    const writer = fs.createWriteStream(filePath);
+    response.data.pipe(writer);
+
+    // Wait for download to complete
+    await new Promise((resolve, reject) => {
+      writer.on('finish', resolve);
+      writer.on('error', reject);
+    });
+
+    logInfo('FILE_DOWNLOAD', 'Download complete', {
+      filePath,
+      size: fs.statSync(filePath).size
+    });
+
+    return {
+      success: true,
+      filePath: filePath,
+      filename: uniqueFilename
+    };
+
+  } catch (error) {
+    logError('FILE_DOWNLOAD_ERROR', 'Download failed', {
+      url: url.substring(0, 100),
+      filename,
+      error: error.message
+    });
+
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+});
+
+// ============================================================================
 // Runway ML API Integration (Image Generation)
 // ============================================================================
 

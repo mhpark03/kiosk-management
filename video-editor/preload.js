@@ -56,5 +56,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   pollRunwayTask: (taskId) => ipcRenderer.invoke('poll-runway-task', taskId),
 
   // Backend authentication
-  backendLogin: (params) => ipcRenderer.invoke('backend-login', params)
+  backendLogin: (params) => ipcRenderer.invoke('backend-login', params),
+
+  // File download
+  downloadFile: (url, filename) => ipcRenderer.invoke('download-file', url, filename)
 });
