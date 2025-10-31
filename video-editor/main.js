@@ -283,6 +283,15 @@ function createWindow() {
   logInfo('APP_START', 'Video Editor started');
 }
 
+// IPC handler to force focus webContents (workaround for input activation issue)
+ipcMain.handle('focus-webcontents', async () => {
+  if (mainWindow && mainWindow.webContents) {
+    mainWindow.webContents.focus();
+    return { success: true };
+  }
+  return { success: false };
+});
+
 // Set console encoding to UTF-8 for Windows
 if (process.platform === 'win32') {
   try {
