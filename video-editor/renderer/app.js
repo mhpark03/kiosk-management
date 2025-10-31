@@ -4709,7 +4709,10 @@ async function executeExtractAudioToS3() {
     // First, extract audio to a temporary file
     updateProgress(30, '영상에서 오디오 추출 중...');
 
-    const tempPath = await window.electronAPI.getTempFilePath('extracted_audio.mp3');
+    // Generate temporary file path using timestamp
+    const timestamp = Date.now();
+    const tempFileName = `extracted_audio_${timestamp}.mp3`;
+    const tempPath = `C:\\Users\\${process.env.USERNAME || 'aaa'}\\AppData\\Local\\Temp\\${tempFileName}`;
     console.log('[Extract Audio S3] Extracting to temp file:', tempPath);
 
     const extractResult = await window.electronAPI.extractAudio({
