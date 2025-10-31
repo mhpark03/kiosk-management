@@ -6,7 +6,10 @@ let videoLayers = [];
 let currentMode = 'video';  // 'video' or 'audio'
 let currentAudioFile = null;  // For audio editing mode
 let audioFileInfo = null;  // Audio file metadata
+let currentAudioMetadata = { title: '', description: '' };  // Audio file title and description from S3
 let textColorHistory = [];  // Color history for text mode
+let audioListCurrentPage = 1;  // Current page for audio list pagination
+let audioListItemsPerPage = 10;  // Items per page for audio list
 
 // Zoom state for audio waveform
 let zoomStart = 0;  // 0-1 (percentage of video)
@@ -290,21 +293,42 @@ function showToolProperties(tool) {
         alert('먼저 음성 파일을 가져와주세요.');
         return;
       }
+
       propertiesPanel.innerHTML = `
         <div class="property-group">
           <label>현재 음성 파일</label>
           <div style="background: #2d2d2d; padding: 15px; border-radius: 5px; margin-top: 10px;">
             <div style="color: #e0e0e0; font-size: 14px; margin-bottom: 8px;">📄 ${currentAudioFile.split('\\').pop()}</div>
             <div style="color: #888; font-size: 12px;">
-              ${audioFileInfo ? `길이: ${formatTime(parseFloat(audioFileInfo.format.duration))} | 크기: ${(parseFloat(audioFileInfo.format.size || 0) / (1024 * 1024)).toFixed(2)}MB` : ''}
+              ${audioFileInfo ? `길이: ${formatTime(parseFloat(audioFileInfo.format.duration))} | 크기: ${(parseFloat(audioFileInfo.format.size || 0) / (1024 * 1024)).toFixed(2)}MB` : '파일 정보 로드 중...'}
             </div>
           </div>
         </div>
-        <button class="property-btn" onclick="executeExportAudio()">💾 음성 내보내기</button>
+        <div class="property-group">
+          <label>제목 *</label>
+          <input type="text" id="export-audio-title" placeholder="음성 파일 제목을 입력하세요" style="width: 100%; padding: 10px; background: #2d2d2d; border: 1px solid #555; border-radius: 4px; color: #e0e0e0;">
+        </div>
+        <div class="property-group">
+          <label>설명</label>
+          <textarea id="export-audio-description" placeholder="음성 파일 설명 (선택사항)" style="width: 100%; padding: 10px; background: #2d2d2d; border: 1px solid #555; border-radius: 4px; color: #e0e0e0; min-height: 80px; resize: vertical;"></textarea>
+        </div>
+        <button class="property-btn" onclick="executeExportAudioToS3()" style="width: 100%;">☁️ S3 업로드</button>
         <div style="background: #3a3a3a; padding: 10px; border-radius: 5px; margin-top: 10px;">
-          <small style="color: #aaa;">💡 편집된 음성 파일을 원하는 위치에 저장합니다</small>
+          <small style="color: #aaa;">💡 제목과 설명을 입력하고 S3에 업로드하여 관리할 수 있습니다. (제목 필수)</small>
         </div>
       `;
+
+      // Set values after HTML is rendered to avoid escaping issues
+      setTimeout(() => {
+        const titleInput = document.getElementById('export-audio-title');
+        const descriptionInput = document.getElementById('export-audio-description');
+        if (titleInput && currentAudioMetadata.title) {
+          titleInput.value = currentAudioMetadata.title;
+        }
+        if (descriptionInput && currentAudioMetadata.description) {
+          descriptionInput.value = currentAudioMetadata.description;
+        }
+      }, 0);
       break;
 
     case 'merge':
@@ -1050,26 +1074,6 @@ function setupVideoControls() {
     if (currentMode === 'audio') {
       const audioElement = document.getElementById('preview-audio');
       if (audioElement) {
-        // 음성 자르기 모드에서는 선택 구간을 제외하고 재생
-        if (activeTool === 'trim-audio') {
-          const startInput = document.getElementById('audio-trim-start');
-          const endInput = document.getElementById('audio-trim-end');
-
-          if (startInput && endInput) {
-            const startTime = parseFloat(startInput.value) || 0;
-            const endTime = parseFloat(endInput.value) || audioElement.duration;
-
-            // 처음부터 재생 시작 (선택 구간은 timeupdate에서 스킵)
-            if (audioElement.currentTime === 0 || audioElement.currentTime >= audioElement.duration) {
-              audioElement.currentTime = 0;
-            }
-            // 선택 구간 내에 있으면 끝 시간으로 이동
-            else if (audioElement.currentTime >= startTime && audioElement.currentTime < endTime) {
-              audioElement.currentTime = endTime;
-            }
-          }
-        }
-
         audioElement.play();
         updateStatus('재생 중...');
       }
@@ -1385,8 +1389,8 @@ function setupVideoControls() {
         const startTime = startPercent * audioDuration;
         const endTime = endPercent * audioDuration;
 
-        // Only set if drag distance is significant (at least 0.5 seconds)
-        if (Math.abs(endTime - startTime) > 0.5) {
+        // Only set if drag distance is significant (at least 0.2 seconds)
+        if (Math.abs(endTime - startTime) > 0.2) {
           const startInput = document.getElementById('audio-trim-start');
           const endInput = document.getElementById('audio-trim-end');
 
@@ -5031,11 +5035,366 @@ function updateStatus(text) {
 
 // Audio file editing functions
 async function importAudioFile() {
+  // Check authentication
+  if (!authToken || !currentUser) {
+    const useLocal = confirm('로그인이 필요합니다.\n\n로컬 파일을 선택하시겠습니까?\n(취소를 누르면 로그인 화면으로 이동합니다)');
+    if (useLocal) {
+      const audioPath = await window.electronAPI.selectAudio();
+      if (!audioPath) return;
+      await loadAudioFile(audioPath);
+    } else {
+      // Show login modal
+      showLoginModal();
+    }
+    return;
+  }
+
+  // Show audio list from S3
+  await showAudioListFromS3();
+}
+
+// Show audio list modal from S3
+async function showAudioListFromS3() {
+  try {
+    showProgress();
+    updateProgress(30, 'S3에서 음성 목록 불러오는 중...');
+    updateStatus('음성 목록 로드 중...');
+
+    // Fetch audio list from backend
+    const response = await fetch(`${backendBaseUrl}/api/videos`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${authToken}`
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch audio list: ${response.status}`);
+    }
+
+    const videos = await response.json();
+
+    // Filter only audio files (check contentType starts with 'audio/')
+    const audioFiles = videos.filter(v => v.contentType && v.contentType.startsWith('audio/'));
+
+    console.log('[Audio Import] Found audio files:', audioFiles.length);
+
+    updateProgress(100, '음성 목록 로드 완료');
+    hideProgress();
+
+    if (audioFiles.length === 0) {
+      const useLocal = confirm('S3에 저장된 음성 파일이 없습니다.\n\n로컬 파일을 선택하시겠습니까?');
+      if (useLocal) {
+        const audioPath = await window.electronAPI.selectAudio();
+        if (!audioPath) return;
+        await loadAudioFile(audioPath);
+      }
+      return;
+    }
+
+    // Show modal with audio list
+    showAudioSelectionModal(audioFiles);
+
+  } catch (error) {
+    console.error('[Audio Import] Failed to fetch audio list:', error);
+    hideProgress();
+
+    const useLocal = confirm('S3 음성 목록을 불러오는데 실패했습니다.\n\n로컬 파일을 선택하시겠습니까?');
+    if (useLocal) {
+      const audioPath = await window.electronAPI.selectAudio();
+      if (!audioPath) return;
+      await loadAudioFile(audioPath);
+    }
+  }
+}
+
+// Show modal with audio selection
+function showAudioSelectionModal(audioFiles) {
+  const modalOverlay = document.getElementById('modal-overlay');
+  const modalContent = document.getElementById('modal-content');
+
+  if (!modalOverlay || !modalContent) {
+    console.error('[Audio Import] Modal elements not found');
+    return;
+  }
+
+  // Sort by upload date (newest first)
+  audioFiles.sort((a, b) => {
+    const dateA = new Date(a.uploadedAt || a.createdAt || 0);
+    const dateB = new Date(b.uploadedAt || b.createdAt || 0);
+    return dateB - dateA;
+  });
+
+  // Reset to first page
+  audioListCurrentPage = 1;
+
+  // Render the audio list
+  renderAudioList(audioFiles, modalContent);
+
+  modalOverlay.style.display = 'flex';
+}
+
+// Render audio list with pagination
+function renderAudioList(audioFiles, modalContent) {
+  const totalPages = Math.ceil(audioFiles.length / audioListItemsPerPage);
+  const startIndex = (audioListCurrentPage - 1) * audioListItemsPerPage;
+  const endIndex = Math.min(startIndex + audioListItemsPerPage, audioFiles.length);
+  const currentPageItems = audioFiles.slice(startIndex, endIndex);
+
+  // Create modal HTML with table layout
+  modalContent.innerHTML = `
+    <div style="background: #2a2a2a; padding: 20px; border-radius: 8px; width: 90vw; max-width: 1400px; height: 85vh; overflow: hidden; display: flex; flex-direction: column;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+        <h2 style="margin: 0; color: #e0e0e0; font-size: 20px;">📁 S3 음성 파일 선택</h2>
+        <button onclick="closeAudioSelectionModal()" style="background: none; border: none; color: #aaa; font-size: 28px; cursor: pointer; padding: 0; width: 35px; height: 35px; line-height: 1;">&times;</button>
+      </div>
+
+      <div style="margin-bottom: 12px;">
+        <div style="color: #aaa; font-size: 13px;">
+          총 ${audioFiles.length}개의 음성 파일 (${audioListCurrentPage}/${totalPages} 페이지)
+        </div>
+      </div>
+
+      <div style="flex: 1; overflow-x: hidden; overflow-y: auto; border: 1px solid #444; border-radius: 4px;">
+        <table style="width: 100%; border-collapse: collapse; table-layout: fixed;">
+          <thead style="position: sticky; top: 0; background: #333; z-index: 1;">
+            <tr style="border-bottom: 2px solid #555;">
+              <th style="padding: 12px 8px; text-align: left; color: #e0e0e0; font-size: 13px; font-weight: 600; width: 25%;">제목</th>
+              <th style="padding: 12px 8px; text-align: left; color: #e0e0e0; font-size: 13px; font-weight: 600; width: 45%;">설명</th>
+              <th style="padding: 12px 8px; text-align: center; color: #e0e0e0; font-size: 13px; font-weight: 600; width: 70px;">분류</th>
+              <th style="padding: 12px 8px; text-align: right; color: #e0e0e0; font-size: 13px; font-weight: 600; width: 80px;">크기</th>
+              <th style="padding: 12px 8px; text-align: center; color: #e0e0e0; font-size: 13px; font-weight: 600; width: 100px;">업로드일</th>
+              <th style="padding: 12px 8px; text-align: center; color: #e0e0e0; font-size: 13px; font-weight: 600; width: 70px;">삭제</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${currentPageItems.map((audio, index) => {
+              const sizeInMB = audio.fileSize ? (audio.fileSize / (1024 * 1024)).toFixed(2) : '?';
+              let uploadDate = '날짜 없음';
+              const dateField = audio.uploadedAt || audio.createdAt;
+              if (dateField) {
+                const date = new Date(dateField);
+                if (!isNaN(date.getTime())) {
+                  uploadDate = date.toLocaleDateString('ko-KR');
+                }
+              }
+              const folder = audio.s3Key ? (audio.s3Key.includes('audios/tts/') ? 'TTS' : audio.s3Key.includes('audios/uploads/') ? '업로드' : '기타') : '?';
+              const rowBg = index % 2 === 0 ? '#2d2d2d' : '#333';
+
+              return `
+                <tr style="border-bottom: 1px solid #444; background: ${rowBg}; transition: background 0.2s;"
+                    onmouseover="this.style.background='#3a3a5a'"
+                    onmouseout="this.style.background='${rowBg}'">
+                  <td style="padding: 12px 8px; color: #e0e0e0; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer;"
+                      onclick="selectAudioFromS3(${audio.id}, '${audio.title.replace(/'/g, "\\'")}', '${(audio.description || '').replace(/'/g, "\\'").replace(/\n/g, ' ')}')">
+                    <div style="font-weight: 600;">🎵 ${audio.title || audio.filename}</div>
+                  </td>
+                  <td style="padding: 12px 8px; color: #aaa; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer;"
+                      onclick="selectAudioFromS3(${audio.id}, '${audio.title.replace(/'/g, "\\'")}', '${(audio.description || '').replace(/'/g, "\\'").replace(/\n/g, ' ')}')">
+                    ${audio.description || '설명 없음'}
+                  </td>
+                  <td style="padding: 12px 8px; text-align: center; cursor: pointer;"
+                      onclick="selectAudioFromS3(${audio.id}, '${audio.title.replace(/'/g, "\\'")}', '${(audio.description || '').replace(/'/g, "\\'").replace(/\n/g, ' ')}')">
+                    <span style="background: #667eea; color: white; padding: 3px 8px; border-radius: 3px; font-size: 10px; font-weight: 600; white-space: nowrap;">
+                      ${folder}
+                    </span>
+                  </td>
+                  <td style="padding: 12px 8px; text-align: right; color: #aaa; font-size: 12px; white-space: nowrap; cursor: pointer;"
+                      onclick="selectAudioFromS3(${audio.id}, '${audio.title.replace(/'/g, "\\'")}', '${(audio.description || '').replace(/'/g, "\\'").replace(/\n/g, ' ')}')">
+                    ${sizeInMB} MB
+                  </td>
+                  <td style="padding: 12px 8px; text-align: center; color: #aaa; font-size: 12px; white-space: nowrap; cursor: pointer;"
+                      onclick="selectAudioFromS3(${audio.id}, '${audio.title.replace(/'/g, "\\'")}', '${(audio.description || '').replace(/'/g, "\\'").replace(/\n/g, ' ')}')">
+                    ${uploadDate}
+                  </td>
+                  <td style="padding: 12px 8px; text-align: center;">
+                    <button onclick="event.stopPropagation(); deleteAudioFromS3(${audio.id}, '${audio.title.replace(/'/g, "\\'")}')"
+                            style="background: #dc2626; color: white; border: none; border-radius: 4px; padding: 6px 12px; cursor: pointer; font-size: 11px; font-weight: 600; transition: background 0.2s;"
+                            onmouseover="this.style.background='#b91c1c'"
+                            onmouseout="this.style.background='#dc2626'">
+                      🗑️ 삭제
+                    </button>
+                  </td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+
+      <div style="margin-top: 20px; display: flex; justify-content: space-between; align-items: center;">
+        <div style="display: flex; gap: 10px; align-items: center;">
+          <button onclick="goToAudioListPage(1)" ${audioListCurrentPage === 1 ? 'disabled' : ''}
+                  style="padding: 8px 12px; background: ${audioListCurrentPage === 1 ? '#444' : '#667eea'}; color: white; border: none; border-radius: 4px; cursor: ${audioListCurrentPage === 1 ? 'not-allowed' : 'pointer'}; font-size: 12px;">
+            처음
+          </button>
+          <button onclick="goToAudioListPage(${audioListCurrentPage - 1})" ${audioListCurrentPage === 1 ? 'disabled' : ''}
+                  style="padding: 8px 12px; background: ${audioListCurrentPage === 1 ? '#444' : '#667eea'}; color: white; border: none; border-radius: 4px; cursor: ${audioListCurrentPage === 1 ? 'not-allowed' : 'pointer'}; font-size: 12px;">
+            이전
+          </button>
+          <span style="color: #e0e0e0; font-size: 13px;">${audioListCurrentPage} / ${totalPages}</span>
+          <button onclick="goToAudioListPage(${audioListCurrentPage + 1})" ${audioListCurrentPage === totalPages ? 'disabled' : ''}
+                  style="padding: 8px 12px; background: ${audioListCurrentPage === totalPages ? '#444' : '#667eea'}; color: white; border: none; border-radius: 4px; cursor: ${audioListCurrentPage === totalPages ? 'not-allowed' : 'pointer'}; font-size: 12px;">
+            다음
+          </button>
+          <button onclick="goToAudioListPage(${totalPages})" ${audioListCurrentPage === totalPages ? 'disabled' : ''}
+                  style="padding: 8px 12px; background: ${audioListCurrentPage === totalPages ? '#444' : '#667eea'}; color: white; border: none; border-radius: 4px; cursor: ${audioListCurrentPage === totalPages ? 'not-allowed' : 'pointer'}; font-size: 12px;">
+            마지막
+          </button>
+        </div>
+        <button onclick="closeAudioSelectionModal()" style="padding: 10px 20px; background: #666; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px;">
+          취소
+        </button>
+      </div>
+    </div>
+  `;
+
+  // Store audio files in window for pagination
+  window.currentAudioFilesList = audioFiles;
+}
+
+// Navigate to a specific page
+window.goToAudioListPage = function(page) {
+  if (!window.currentAudioFilesList) return;
+
+  const totalPages = Math.ceil(window.currentAudioFilesList.length / audioListItemsPerPage);
+  if (page < 1 || page > totalPages) return;
+
+  audioListCurrentPage = page;
+  const modalContent = document.getElementById('modal-content');
+  if (modalContent) {
+    renderAudioList(window.currentAudioFilesList, modalContent);
+  }
+};
+
+// Close audio selection modal
+window.closeAudioSelectionModal = function() {
+  const modalOverlay = document.getElementById('modal-overlay');
+  if (modalOverlay) {
+    modalOverlay.style.display = 'none';
+  }
+};
+
+// Select local audio file
+window.selectLocalAudioFile = async function() {
+  closeAudioSelectionModal();
   const audioPath = await window.electronAPI.selectAudio();
   if (!audioPath) return;
-
   await loadAudioFile(audioPath);
-}
+};
+
+// Select audio from S3
+window.selectAudioFromS3 = async function(audioId, audioTitle, audioDescription = '') {
+  try {
+    closeAudioSelectionModal();
+    showProgress();
+    updateProgress(30, 'S3에서 음성 다운로드 중...');
+    updateStatus(`음성 다운로드 중: ${audioTitle}`);
+
+    console.log('[Audio Import] Downloading audio from S3:', audioId);
+
+    // Save metadata for later use in export
+    currentAudioMetadata = {
+      title: audioTitle || '',
+      description: audioDescription || ''
+    };
+
+    // Get download URL from backend
+    const response = await fetch(`${backendBaseUrl}/api/videos/${audioId}/download-url`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${authToken}`
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to get download URL: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const downloadUrl = data.url;
+
+    console.log('[Audio Import] Got presigned URL:', downloadUrl);
+
+    updateProgress(60, '음성 파일 다운로드 중...');
+
+    // Download audio file using electron API
+    const result = await window.electronAPI.downloadFile(downloadUrl, audioTitle);
+
+    if (!result.success) {
+      throw new Error(result.error || 'Download failed');
+    }
+
+    console.log('[Audio Import] Downloaded to:', result.filePath);
+
+    updateProgress(90, '음성 파일 로드 중...');
+
+    // Load the downloaded audio file
+    await loadAudioFile(result.filePath);
+
+    updateProgress(100, '음성 파일 로드 완료');
+    hideProgress();
+
+  } catch (error) {
+    console.error('[Audio Import] Failed to download audio from S3:', error);
+    hideProgress();
+    alert('S3에서 음성 다운로드에 실패했습니다.\n\n' + error.message);
+  }
+};
+
+// Delete audio from S3
+window.deleteAudioFromS3 = async function(audioId, audioTitle) {
+  try {
+    // Confirm deletion
+    const confirmed = confirm(`음성 파일 "${audioTitle}"을(를) 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.`);
+    if (!confirmed) {
+      return;
+    }
+
+    console.log('[Audio Delete] Deleting audio from S3:', audioId);
+
+    // Delete from backend (which will also delete from S3)
+    const response = await fetch(`${backendBaseUrl}/api/videos/${audioId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${authToken}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to delete audio: ${response.status} - ${errorText}`);
+    }
+
+    console.log('[Audio Delete] Successfully deleted audio:', audioId);
+    alert('음성 파일이 삭제되었습니다.');
+
+    // Refresh the audio list
+    if (window.currentAudioFilesList) {
+      // Remove the deleted item from the current list
+      window.currentAudioFilesList = window.currentAudioFilesList.filter(audio => audio.id !== audioId);
+
+      // Check if current page is now empty and should go back
+      const totalPages = Math.ceil(window.currentAudioFilesList.length / audioListItemsPerPage);
+      if (audioListCurrentPage > totalPages && totalPages > 0) {
+        audioListCurrentPage = totalPages;
+      } else if (window.currentAudioFilesList.length === 0) {
+        audioListCurrentPage = 1;
+      }
+
+      // Re-render the list
+      const modalContent = document.getElementById('modal-content');
+      if (modalContent) {
+        renderAudioList(window.currentAudioFilesList, modalContent);
+      }
+    }
+
+  } catch (error) {
+    console.error('[Audio Delete] Failed to delete audio from S3:', error);
+    alert('음성 파일 삭제에 실패했습니다.\n\n' + error.message);
+  }
+};
 
 async function loadAudioFile(audioPath) {
   try {
@@ -5153,23 +5512,6 @@ async function loadAudioFile(audioPath) {
             } else {
               // Hide playhead when outside zoomed range
               playheadBar.style.display = 'none';
-            }
-          }
-
-          // 음성 자르기 모드에서는 선택 구간을 제외하고 재생 (구간 미리듣기 중이거나 사용자가 수동으로 슬라이더 조작 중에는 제외)
-          if (activeTool === 'trim-audio' && !isPreviewingRange && !isUserSeekingSlider) {
-            const startInput = document.getElementById('audio-trim-start');
-            const endInput = document.getElementById('audio-trim-end');
-
-            if (startInput && endInput) {
-              const startTime = parseFloat(startInput.value) || 0;
-              const endTime = parseFloat(endInput.value) || audioElement.duration;
-
-              // 현재 시간이 선택 구간 내에 있으면 끝 시간으로 스킵 (재생 중일 때만)
-              if (audioElement.currentTime >= startTime && audioElement.currentTime < endTime) {
-                console.log(`[Audio Trim] Skipping from ${audioElement.currentTime.toFixed(2)}s to ${endTime.toFixed(2)}s`);
-                audioElement.currentTime = endTime;
-              }
             }
           }
         }
@@ -5664,9 +6006,9 @@ async function executeAudioVolume() {
   }
 }
 
-// Export audio function
-async function executeExportAudio() {
-  console.log('[Export Audio] Function called');
+// Export audio to local file
+async function executeExportAudioLocal() {
+  console.log('[Export Audio Local] Function called');
 
   if (!currentAudioFile) {
     alert('먼저 음성 파일을 가져와주세요.');
@@ -5677,12 +6019,12 @@ async function executeExportAudio() {
   const fileName = currentAudioFile.split('\\').pop().split('/').pop();
   const defaultName = fileName.endsWith('.mp3') ? fileName : fileName.replace(/\.[^/.]+$/, '.mp3');
 
-  console.log('[Export Audio] Requesting file save dialog', { currentFile: fileName, defaultName });
+  console.log('[Export Audio Local] Requesting file save dialog', { currentFile: fileName, defaultName });
   const outputPath = await window.electronAPI.selectOutput(defaultName);
 
-  console.log('[Export Audio] Dialog returned', { outputPath });
+  console.log('[Export Audio Local] Dialog returned', { outputPath });
   if (!outputPath) {
-    console.log('[Export Audio] Export canceled by user');
+    console.log('[Export Audio Local] Export canceled by user');
     updateStatus('내보내기 취소됨');
     return;
   }
@@ -5711,6 +6053,112 @@ async function executeExportAudio() {
   } catch (error) {
     hideProgress();
     handleError('음성 내보내기', error, '음성 내보내기에 실패했습니다.');
+  }
+}
+
+// Export audio to S3
+async function executeExportAudioToS3() {
+  console.log('[Export Audio S3] Function called');
+
+  if (!currentAudioFile) {
+    alert('먼저 음성 파일을 가져와주세요.');
+    return;
+  }
+
+  // Check if user is logged in
+  if (!authToken || !currentUser) {
+    alert('S3에 업로드하려면 로그인이 필요합니다.');
+    return;
+  }
+
+  // Get title and description
+  const titleInput = document.getElementById('export-audio-title');
+  const descriptionInput = document.getElementById('export-audio-description');
+
+  const title = titleInput ? titleInput.value.trim() : '';
+  const description = descriptionInput ? descriptionInput.value.trim() : '';
+
+  if (!title) {
+    alert('제목을 입력해주세요.');
+    if (titleInput) titleInput.focus();
+    return;
+  }
+
+  showProgress();
+  updateProgress(0, '제목 중복 확인 중...');
+
+  try {
+    // Check for duplicate title
+    console.log('[Export Audio S3] Checking for duplicate title:', title);
+    const checkResponse = await fetch(`${backendBaseUrl}/api/videos`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${authToken}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!checkResponse.ok) {
+      throw new Error(`제목 확인 실패: ${checkResponse.status}`);
+    }
+
+    const allVideos = await checkResponse.json();
+    const audioFiles = allVideos.filter(v => v.contentType && v.contentType.startsWith('audio/'));
+    const duplicateTitle = audioFiles.find(audio => audio.title === title);
+
+    if (duplicateTitle) {
+      hideProgress();
+      const overwrite = confirm(`같은 제목의 음성 파일이 이미 존재합니다.\n\n제목: ${title}\n\n다른 제목을 사용해주세요.`);
+      if (titleInput) titleInput.focus();
+      return;
+    }
+
+    updateProgress(50, 'S3에 음성 파일 업로드 중...');
+
+    // Read file and create FormData
+    const fileUrl = `file:///${currentAudioFile.replace(/\\/g, '/')}`;
+    const fileResponse = await fetch(fileUrl);
+    const audioBlob = await fileResponse.blob();
+    const fileName = currentAudioFile.split('\\').pop().split('/').pop();
+
+    console.log('[Export Audio S3] Uploading to S3:', { title, description, fileName, size: audioBlob.size });
+
+    // Create FormData for multipart upload
+    const formData = new FormData();
+    formData.append('file', audioBlob, fileName);
+    formData.append('title', title);
+    formData.append('description', description);
+
+    // Upload to backend (audios/uploads folder)
+    const uploadResponse = await fetch(`${backendBaseUrl}/api/audios/upload`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${authToken}`
+      },
+      body: formData
+    });
+
+    if (!uploadResponse.ok) {
+      const errorText = await uploadResponse.text();
+      throw new Error(`Upload failed: ${uploadResponse.status} ${errorText}`);
+    }
+
+    const result = await uploadResponse.json();
+    console.log('[Export Audio S3] Upload successful:', result);
+
+    updateProgress(100, '음성 파일 업로드 완료!');
+    hideProgress();
+
+    alert(`S3 업로드 완료!\n\n제목: ${title}\n파일명: ${fileName}\n\n클라우드 (audios/uploads/)에 성공적으로 저장되었습니다.`);
+    updateStatus(`S3 업로드 완료: ${title}`);
+
+    // Clear input fields after successful upload
+    if (titleInput) titleInput.value = '';
+    if (descriptionInput) descriptionInput.value = '';
+  } catch (error) {
+    hideProgress();
+    console.error('[Export Audio S3] Error:', error);
+    handleError('S3 업로드', error, 'S3 업로드에 실패했습니다.');
   }
 }
 

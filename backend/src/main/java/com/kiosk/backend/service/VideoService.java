@@ -1047,5 +1047,12 @@ public class VideoService {
         return savedAudio;
     }
 
+    /**
+     * Generate presigned download URL for a video/audio file
+     */
+    public String getPresignedDownloadUrl(String s3Key) {
+        return s3Service.generatePresignedUrl(s3Key, 60); // 60 minutes validity
+    }
+
 
 }

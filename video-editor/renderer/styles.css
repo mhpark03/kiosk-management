@@ -743,7 +743,7 @@ body {
   padding: 30px;
   border-radius: 10px;
   min-width: 400px;
-  max-width: 600px;
+  max-width: none;
   max-height: 80vh;
   overflow-y: auto;
 }
