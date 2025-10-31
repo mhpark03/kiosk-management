@@ -324,7 +324,7 @@ function showToolProperties(tool) {
       `;
 
       // Set values and focus after DOM is ready with extended delay
-      setTimeout(() => {
+      setTimeout(async () => {
         const titleInput = document.getElementById('export-audio-title');
         const descriptionInput = document.getElementById('export-audio-description');
 
@@ -332,14 +332,17 @@ function showToolProperties(tool) {
           // Set value
           titleInput.value = currentAudioMetadata.title || '';
 
-          // Force window blur/focus cycle to activate input (Electron workaround)
-          window.blur();
+          // Force webContents focus from main process (Electron workaround)
+          try {
+            await window.electronAPI.focusWebContents();
+            console.log('[DEBUG] WebContents focused from main process');
+          } catch (err) {
+            console.error('[DEBUG] Failed to focus webContents:', err);
+          }
 
           // Wait for next animation frame to ensure rendering is complete
           requestAnimationFrame(() => {
             requestAnimationFrame(() => {
-              window.focus();
-
               // Additional delay before focusing input
               setTimeout(() => {
                 titleInput.focus();

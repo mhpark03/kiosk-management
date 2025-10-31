@@ -59,5 +59,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   backendLogin: (params) => ipcRenderer.invoke('backend-login', params),
 
   // File download
-  downloadFile: (url, filename) => ipcRenderer.invoke('download-file', url, filename)
+  downloadFile: (url, filename) => ipcRenderer.invoke('download-file', url, filename),
+
+  // Focus webContents (workaround for input activation)
+  focusWebContents: () => ipcRenderer.invoke('focus-webcontents')
 });
