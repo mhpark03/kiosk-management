@@ -24,6 +24,16 @@
 - **텍스트/자막 추가**: 위치, 크기, 색상, 시간 설정 가능
 - **속도 조절**: 슬로우모션(0.25x) ~ 배속(4x)
 
+### TTS (음성 생성) 기능 ⭐ NEW
+- **Google Cloud TTS 직접 연동**: 백엔드 서버 없이 독립 실행
+- **다국어 지원**: 한국어, 영어, 일본어 등
+- **음성 커스터마이징**:
+  - 다양한 음성 선택 (남성/여성)
+  - 속도 조절 (0.25x ~ 4.0x)
+  - 피치 조절 (-20 ~ +20)
+- **최대 5000자**: 긴 텍스트도 한 번에 변환
+- **로컬 저장**: 생성된 MP3 파일을 임시 폴더에 저장
+
 ### 트랜지션 효과
 - **없음 (이어붙이기)**: 단순 연결
 - **크로스페이드**: 부드러운 화면 전환
@@ -79,6 +89,38 @@ npm install
 # 개발 모드 실행
 npm start
 ```
+
+### TTS 기능 설정 (선택사항)
+
+TTS (음성 생성) 기능을 사용하려면 Google Cloud TTS API 키가 필요합니다.
+
+1. **API 키 발급**
+   - [Google Cloud Console](https://console.cloud.google.com/) 접속
+   - 프로젝트 생성 또는 선택
+   - "API 및 서비스" > "라이브러리"에서 "Cloud Text-to-Speech API" 활성화
+   - "사용자 인증 정보" 메뉴에서 API 키 생성
+
+2. **환경 변수 설정**
+
+   **Windows (명령 프롬프트):**
+   ```cmd
+   set GOOGLE_TTS_API_KEY=your-api-key-here
+   npm start
+   ```
+
+   **Windows (PowerShell):**
+   ```powershell
+   $env:GOOGLE_TTS_API_KEY="your-api-key-here"
+   npm start
+   ```
+
+   **또는 시스템 환경 변수로 영구 설정:**
+   - 제어판 > 시스템 > 고급 시스템 설정 > 환경 변수
+   - 사용자 변수에 `GOOGLE_TTS_API_KEY` 추가
+   - 값: 발급받은 API 키
+
+3. **대체 환경 변수**
+   - `GOOGLE_TTS_API_KEY` 또는 `GOOGLE_AI_API_KEY` 중 하나만 설정하면 됩니다
 
 ### 2. Windows 설치 파일 빌드
 
@@ -154,6 +196,31 @@ npm run build:win
 6. 저장 위치 선택
 7. 처리 완료 후 결과 확인
 ```
+
+### 예시: TTS 음성 생성 (NEW)
+
+```
+⚠️ 사전 요구사항: GOOGLE_TTS_API_KEY 환경 변수 설정 필요
+
+1. 좌측 사이드바에서 "TTS 음성 생성" 선택
+2. 텍스트 입력 (최대 5000자)
+   예: "안녕하세요. 키오스크 관리 시스템입니다."
+3. 제목 입력: "환영 메시지"
+4. 언어 선택: 한국어 (ko-KR)
+5. 음성 선택: ko-KR-Standard-A (여성)
+6. 속도 조절: 1.0x (기본값)
+7. 피치 조절: 0 (기본값)
+8. "🎵 음성 생성" 버튼 클릭
+9. 생성 완료 후 저장 위치 확인
+   - 예: C:\Users\Username\AppData\Local\Temp\tts_환영_메시지_1730345678901.mp3
+10. 생성된 MP3 파일을 영상에 배경음악으로 추가하거나 별도로 사용
+```
+
+**TTS 팁:**
+- 짧은 문장으로 나눠서 생성하면 더 자연스러운 결과
+- 속도는 0.75x~1.25x 범위가 가장 자연스러움
+- 피치는 -5~+5 범위에서 조정 권장
+- 생성된 파일은 임시 폴더에 저장되므로 필요시 복사 보관
 
 ## Backend 연동
 
@@ -286,6 +353,37 @@ Error: Unknown encoder
 **해결 방법**:
 - FFmpeg이 최신 버전인지 확인
 - 전체 기능 빌드 버전 사용 (essentials가 아닌 full 버전)
+
+### TTS API 키 오류
+```
+Error: Google TTS API key not configured
+```
+**해결 방법**:
+- 환경 변수 `GOOGLE_TTS_API_KEY` 또는 `GOOGLE_AI_API_KEY` 설정 확인
+- 명령 프롬프트/PowerShell에서 직접 설정 후 앱 실행:
+  ```cmd
+  set GOOGLE_TTS_API_KEY=your-key
+  npm start
+  ```
+- API 키가 유효한지 Google Cloud Console에서 확인
+
+### TTS API 호출 실패
+```
+Error: Google TTS API Error (403)
+```
+**해결 방법**:
+- Google Cloud Console에서 "Cloud Text-to-Speech API"가 활성화되어 있는지 확인
+- API 키의 권한 확인 (Text-to-Speech API 사용 권한 필요)
+- 무료 할당량 초과 여부 확인 (매월 100만 문자 무료)
+
+### TTS 네트워크 오류
+```
+Error: Network error
+```
+**해결 방법**:
+- 인터넷 연결 확인
+- 방화벽에서 앱의 아웃바운드 연결 허용 확인
+- 프록시 사용 시 설정 확인
 
 ## 성능 최적화 팁
 
