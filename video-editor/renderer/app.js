@@ -5690,6 +5690,7 @@ async function previewAudioTrimRange() {
 function setupModeButtons() {
   const videoModeBtn = document.getElementById('video-mode-btn');
   const audioModeBtn = document.getElementById('audio-mode-btn');
+  const ttsModeBtn = document.getElementById('tts-mode-btn');
 
   if (videoModeBtn) {
     videoModeBtn.addEventListener('click', () => {
@@ -5700,6 +5701,12 @@ function setupModeButtons() {
   if (audioModeBtn) {
     audioModeBtn.addEventListener('click', () => {
       switchMode('audio');
+    });
+  }
+
+  if (ttsModeBtn) {
+    ttsModeBtn.addEventListener('click', () => {
+      switchMode('tts');
     });
   }
 }
@@ -5715,10 +5722,10 @@ function switchMode(mode) {
 
   if (hasVideoWork || hasAudioWork) {
     const currentType = currentMode === 'video' ? '영상' : '음성';
-    const targetType = mode === 'video' ? '영상' : '음성';
+    const targetType = mode === 'video' ? '영상' : (mode === 'audio' ? '음성' : 'TTS 생성');
     const confirmed = confirm(
       `현재 ${currentType} 편집 작업이 있습니다.\n` +
-      `${targetType} 편집 모드로 전환하면 작업 내용이 초기화됩니다.\n` +
+      `${targetType} 모드로 전환하면 작업 내용이 초기화됩니다.\n` +
       `계속하시겠습니까?`
     );
 
@@ -5732,7 +5739,19 @@ function switchMode(mode) {
   currentMode = mode;
   resetWorkspace();
   updateModeUI();
-  updateStatus(`${mode === 'video' ? '영상' : '음성'} 편집 모드로 전환됨`);
+
+  // Update status message based on mode
+  let modeMessage = '';
+  if (mode === 'video') {
+    modeMessage = '영상 편집 모드로 전환됨';
+  } else if (mode === 'audio') {
+    modeMessage = '음성 편집 모드로 전환됨';
+  } else if (mode === 'tts') {
+    modeMessage = 'TTS 음성 생성 모드로 전환됨';
+    // TTS 모드로 전환 시 자동으로 TTS 패널 표시
+    showPropertyPanel('generate-tts');
+  }
+  updateStatus(modeMessage);
 }
 
 function setupModeListener() {
@@ -5835,7 +5854,35 @@ function updateModeUI() {
   const header = document.querySelector('.header h1');
   const subtitle = document.querySelector('.header .subtitle');
 
-  if (currentMode === 'audio') {
+  if (currentMode === 'tts') {
+    // TTS mode
+    header.textContent = 'TTS 음성 생성기';
+    subtitle.textContent = 'Google Cloud TTS를 사용한 음성 생성';
+    sidebar.innerHTML = `
+      <h2>TTS 음성 생성</h2>
+      <div class="tool-section">
+        <h3>정보</h3>
+        <p style="color: #aaa; font-size: 12px; padding: 10px; line-height: 1.5;">
+          Google Cloud Text-to-Speech API를 사용하여 텍스트를 자연스러운 음성으로 변환합니다.
+        </p>
+        <p style="color: #888; font-size: 11px; padding: 0 10px;">
+          ⚙️ 환경변수 필요:<br>
+          GOOGLE_TTS_API_KEY<br>
+          또는<br>
+          GOOGLE_AI_API_KEY
+        </p>
+      </div>
+      <div class="tool-section">
+        <h3>기능</h3>
+        <ul style="color: #aaa; font-size: 12px; padding: 10px 10px 10px 25px; margin: 0;">
+          <li>최대 5000자 변환</li>
+          <li>다국어 지원</li>
+          <li>속도 및 피치 조절</li>
+          <li>MP3 파일로 저장</li>
+        </ul>
+      </div>
+    `;
+  } else if (currentMode === 'audio') {
     // Audio mode
     header.textContent = 'Kiosk Audio Editor';
     subtitle.textContent = '음성 파일 편집 도구';
@@ -5946,9 +5993,13 @@ function updateModeUI() {
     if (currentMode === 'audio') {
       placeholderP.textContent = '음성 파일을 가져와주세요';
       importBtn.textContent = '🎵 음성 선택';
+    } else if (currentMode === 'tts') {
+      placeholderP.textContent = 'TTS 음성 생성 모드';
+      importBtn.style.display = 'none'; // TTS 모드에서는 가져오기 버튼 숨김
     } else {
       placeholderP.textContent = '영상을 가져와주세요';
       importBtn.textContent = '📁 영상 선택';
+      importBtn.style.display = 'block';
     }
   }
 
@@ -5959,14 +6010,21 @@ function updateModeUI() {
   // Update header mode buttons
   const videoModeBtn = document.getElementById('video-mode-btn');
   const audioModeBtn = document.getElementById('audio-mode-btn');
+  const ttsModeBtn = document.getElementById('tts-mode-btn');
 
-  if (videoModeBtn && audioModeBtn) {
+  if (videoModeBtn && audioModeBtn && ttsModeBtn) {
+    // Remove active from all
+    videoModeBtn.classList.remove('active');
+    audioModeBtn.classList.remove('active');
+    ttsModeBtn.classList.remove('active');
+
+    // Add active to current mode
     if (currentMode === 'video') {
       videoModeBtn.classList.add('active');
-      audioModeBtn.classList.remove('active');
-    } else {
-      videoModeBtn.classList.remove('active');
+    } else if (currentMode === 'audio') {
       audioModeBtn.classList.add('active');
+    } else if (currentMode === 'tts') {
+      ttsModeBtn.classList.add('active');
     }
   }
 }
