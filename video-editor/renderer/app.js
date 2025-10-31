@@ -305,12 +305,12 @@ function showToolProperties(tool) {
           </div>
         </div>
         <div class="property-group">
-          <label for="export-audio-title" style="pointer-events: none;">제목 *</label>
-          <input type="text" id="export-audio-title" placeholder="음성 파일 제목을 입력하세요" style="width: 100%; padding: 10px; background: #2d2d2d; border: 1px solid #555; border-radius: 4px; color: #e0e0e0; font-size: 14px; pointer-events: auto; cursor: text; position: relative; z-index: 10;">
+          <label for="export-audio-title" style="pointer-events: none; user-select: none;">제목 *</label>
+          <input type="text" id="export-audio-title" tabindex="0" placeholder="음성 파일 제목을 입력하세요" style="width: 100%; padding: 10px; background: #2d2d2d; border: 1px solid #555; border-radius: 4px; color: #e0e0e0; font-size: 14px; pointer-events: auto; cursor: text; position: relative; z-index: 10; user-select: text; outline: none;">
         </div>
         <div class="property-group">
-          <label for="export-audio-description" style="pointer-events: none;">설명</label>
-          <textarea id="export-audio-description" placeholder="음성 파일 설명 (선택사항)" style="width: 100%; padding: 10px; background: #2d2d2d; border: 1px solid #555; border-radius: 4px; color: #e0e0e0; min-height: 80px; resize: vertical; font-size: 14px; pointer-events: auto; cursor: text; position: relative; z-index: 10;"></textarea>
+          <label for="export-audio-description" style="pointer-events: none; user-select: none;">설명</label>
+          <textarea id="export-audio-description" tabindex="0" placeholder="음성 파일 설명 (선택사항)" style="width: 100%; padding: 10px; background: #2d2d2d; border: 1px solid #555; border-radius: 4px; color: #e0e0e0; min-height: 80px; resize: vertical; font-size: 14px; pointer-events: auto; cursor: text; position: relative; z-index: 10; user-select: text; outline: none;"></textarea>
         </div>
         <button class="property-btn" onclick="executeExportAudioToS3()" style="width: 100%;">☁️ S3 업로드</button>
         <div style="background: #3a3a3a; padding: 10px; border-radius: 5px; margin-top: 10px;">
@@ -327,21 +327,43 @@ function showToolProperties(tool) {
           // Remove any potentially blocking attributes
           titleInput.removeAttribute('readonly');
           titleInput.removeAttribute('disabled');
+          titleInput.removeAttribute('contenteditable');
 
           titleInput.value = currentAudioMetadata.title || '';
+
+          // Force focus with delay to ensure DOM is ready
+          setTimeout(() => {
+            try {
+              titleInput.focus({ preventScroll: true });
+              const focusResult = document.activeElement === titleInput;
+              console.log('[DEBUG] Title input focus attempt:', focusResult ? 'SUCCESS' : 'FAILED');
+              console.log('[DEBUG] Active element:', document.activeElement);
+            } catch (err) {
+              console.error('[DEBUG] Focus error:', err);
+            }
+          }, 100);
 
           // Test: Add various event listeners to verify input is functional
           titleInput.addEventListener('click', (e) => {
             console.log('[DEBUG] Title input clicked', e);
-            titleInput.focus();
+            e.stopPropagation();
+            titleInput.focus({ preventScroll: true });
           });
 
           titleInput.addEventListener('focus', () => {
             console.log('[DEBUG] Title input focused');
           });
 
+          titleInput.addEventListener('blur', () => {
+            console.log('[DEBUG] Title input blurred');
+          });
+
           titleInput.addEventListener('input', (e) => {
             console.log('[DEBUG] Title input changed:', e.target.value);
+          });
+
+          titleInput.addEventListener('keydown', (e) => {
+            console.log('[DEBUG] Title input keydown:', e.key);
           });
         }
 
@@ -349,21 +371,31 @@ function showToolProperties(tool) {
           // Remove any potentially blocking attributes
           descriptionInput.removeAttribute('readonly');
           descriptionInput.removeAttribute('disabled');
+          descriptionInput.removeAttribute('contenteditable');
 
           descriptionInput.value = currentAudioMetadata.description || '';
 
           // Test: Add various event listeners to verify textarea is functional
           descriptionInput.addEventListener('click', (e) => {
             console.log('[DEBUG] Description textarea clicked', e);
-            descriptionInput.focus();
+            e.stopPropagation();
+            descriptionInput.focus({ preventScroll: true });
           });
 
           descriptionInput.addEventListener('focus', () => {
             console.log('[DEBUG] Description textarea focused');
           });
 
+          descriptionInput.addEventListener('blur', () => {
+            console.log('[DEBUG] Description textarea blurred');
+          });
+
           descriptionInput.addEventListener('input', (e) => {
             console.log('[DEBUG] Description textarea changed:', e.target.value);
+          });
+
+          descriptionInput.addEventListener('keydown', (e) => {
+            console.log('[DEBUG] Description textarea keydown:', e.key);
           });
         }
       });
