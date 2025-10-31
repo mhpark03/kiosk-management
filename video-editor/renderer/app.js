@@ -721,8 +721,20 @@ function showToolProperties(tool) {
     case 'import-image':
       propertiesPanel.innerHTML = `
         <h3>이미지 가져오기</h3>
-        <p>이미지 파일을 불러오는 기능입니다.</p>
-        <button class="property-btn" onclick="importImageFile()">📁 이미지 선택</button>
+        <p>이미지 파일을 S3에 업로드합니다.</p>
+        <div class="property-group">
+          <label>이미지 파일</label>
+          <input type="file" id="import-image-file" accept="image/*" style="margin-bottom: 10px;">
+        </div>
+        <div class="property-group">
+          <label>제목</label>
+          <input type="text" id="import-image-title" placeholder="이미지 제목 입력">
+        </div>
+        <div class="property-group">
+          <label>설명</label>
+          <textarea id="import-image-description" rows="3" placeholder="설명 입력 (선택사항)"></textarea>
+        </div>
+        <button class="property-btn" onclick="uploadImageToS3()">S3에 업로드</button>
       `;
       break;
 
@@ -8775,10 +8787,119 @@ async function executeGenerateTTSAndUpload() {
   }
 }
 
-// Import Image File
-function importImageFile() {
-  alert('이미지 가져오기 기능은 곧 구현될 예정입니다.\n\n이미지 파일을 불러와서 미리보기 및 편집할 수 있습니다.');
-  console.log('[Import Image] Placeholder called');
+// Upload Image to S3
+async function uploadImageToS3() {
+  console.log('[Upload Image S3] Function called');
+
+  // Check if user is logged in
+  if (!authToken || !currentUser) {
+    alert('S3에 업로드하려면 로그인이 필요합니다.');
+    return;
+  }
+
+  // Get file input
+  const fileInput = document.getElementById('import-image-file');
+  const titleInput = document.getElementById('import-image-title');
+  const descriptionInput = document.getElementById('import-image-description');
+
+  if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+    alert('이미지 파일을 선택해주세요.');
+    return;
+  }
+
+  const imageFile = fileInput.files[0];
+  const title = titleInput ? titleInput.value.trim() : '';
+  const description = descriptionInput ? descriptionInput.value.trim() : '';
+
+  if (!title) {
+    alert('제목을 입력해주세요.');
+    if (titleInput) titleInput.focus();
+    return;
+  }
+
+  // Validate image file type
+  if (!imageFile.type.startsWith('image/')) {
+    alert('이미지 파일만 업로드할 수 있습니다.');
+    return;
+  }
+
+  showProgress();
+  updateProgress(0, '제목 중복 확인 중...');
+
+  try {
+    // Check for duplicate title
+    console.log('[Upload Image S3] Checking for duplicate title:', title);
+    const checkResponse = await fetch(`${backendBaseUrl}/api/videos`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${authToken}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!checkResponse.ok) {
+      throw new Error(`제목 확인 실패: ${checkResponse.status}`);
+    }
+
+    const allFiles = await checkResponse.json();
+    const imageFiles = allFiles.filter(f => f.contentType && f.contentType.startsWith('image/'));
+    const duplicateTitle = imageFiles.find(img => img.title === title);
+
+    if (duplicateTitle) {
+      hideProgress();
+      alert(`같은 제목의 이미지 파일이 이미 존재합니다.\n\n제목: ${title}\n\n다른 제목을 사용해주세요.`);
+      if (titleInput) titleInput.focus();
+      return;
+    }
+
+    updateProgress(50, 'S3에 이미지 파일 업로드 중...');
+
+    console.log('[Upload Image S3] Uploading to S3:', {
+      title,
+      description,
+      fileName: imageFile.name,
+      size: imageFile.size,
+      type: imageFile.type
+    });
+
+    // Create FormData for multipart upload
+    const formData = new FormData();
+    formData.append('file', imageFile);
+    formData.append('title', title);
+    formData.append('description', description);
+
+    // Upload to backend (images/uploads folder)
+    const uploadResponse = await fetch(`${backendBaseUrl}/api/images/upload`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${authToken}`
+      },
+      body: formData
+    });
+
+    if (!uploadResponse.ok) {
+      const errorText = await uploadResponse.text();
+      throw new Error(`Upload failed: ${uploadResponse.status} ${errorText}`);
+    }
+
+    const result = await uploadResponse.json();
+    console.log('[Upload Image S3] Upload successful:', result);
+
+    updateProgress(100, '이미지 파일 업로드 완료!');
+    hideProgress();
+
+    alert(`S3 업로드 완료!\n\n제목: ${title}\n파일명: ${imageFile.name}\n\n클라우드 (images/uploads/)에 성공적으로 저장되었습니다.`);
+    updateStatus(`S3 업로드 완료: ${title}`);
+
+    // Clear input fields after successful upload
+    if (fileInput) fileInput.value = '';
+    if (titleInput) titleInput.value = '';
+    if (descriptionInput) descriptionInput.value = '';
+  } catch (error) {
+    hideProgress();
+    console.error('[Upload Image S3] Error:', error);
+    handleError('이미지 S3 업로드', error, 'S3 업로드에 실패했습니다.');
+  }
 }
 
 // ============================================================================
