@@ -5520,28 +5520,33 @@ async function loadAudioFile(audioPath) {
 
     // Load audio file into audio element
     if (audioElement) {
-      audioElement.src = `file:///${audioPath.replace(/\\/g, '/')}`;
-      audioElement.load();
+      // Clone the audio element to remove ALL event listeners (including from preview)
+      const newAudioElement = audioElement.cloneNode(true);
+      audioElement.parentNode.replaceChild(newAudioElement, audioElement);
+      const audioEl = document.getElementById('preview-audio');
+
+      audioEl.src = `file:///${audioPath.replace(/\\/g, '/')}`;
+      audioEl.load();
 
       // Enable play/pause buttons for audio playback
       if (playBtn) playBtn.disabled = false;
       if (pauseBtn) pauseBtn.disabled = false;
 
       // Update slider and playhead as audio plays
-      audioElement.addEventListener('timeupdate', () => {
-        if (audioElement.duration && timelineSlider) {
-          timelineSlider.value = audioElement.currentTime;
+      audioEl.addEventListener('timeupdate', () => {
+        if (audioEl.duration && timelineSlider) {
+          timelineSlider.value = audioEl.currentTime;
 
           // Update current time display
           const currentTimeDisplay = document.getElementById('current-time');
           if (currentTimeDisplay) {
-            currentTimeDisplay.textContent = formatTime(audioElement.currentTime);
+            currentTimeDisplay.textContent = formatTime(audioEl.currentTime);
           }
 
           // Update playhead bar
           if (playheadBar) {
             // Calculate percentage relative to full duration
-            const percentage = audioElement.currentTime / audioElement.duration;
+            const percentage = audioEl.currentTime / audioEl.duration;
 
             // Check if current time is within zoomed range
             if (percentage >= zoomStart && percentage <= zoomEnd) {
@@ -5558,7 +5563,7 @@ async function loadAudioFile(audioPath) {
       });
 
       // Handle audio end
-      audioElement.addEventListener('ended', () => {
+      audioEl.addEventListener('ended', () => {
         updateStatus('재생 완료');
       });
     }
