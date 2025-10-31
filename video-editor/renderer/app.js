@@ -4629,6 +4629,21 @@ async function executeExtractAudioLocal() {
     return;
   }
 
+  // Check if video has audio stream
+  try {
+    const videoInfo = await window.electronAPI.getVideoInfo(currentVideo);
+    const hasAudio = videoInfo.streams && videoInfo.streams.some(stream => stream.codec_type === 'audio');
+
+    if (!hasAudio) {
+      alert('이 영상 파일에는 오디오가 포함되어 있지 않습니다.\n\n오디오 추출을 할 수 없습니다.');
+      return;
+    }
+  } catch (error) {
+    console.error('[Extract Audio Local] Failed to check video info:', error);
+    alert('영상 정보를 확인할 수 없습니다.');
+    return;
+  }
+
   const outputPath = await window.electronAPI.selectOutput('extracted_audio.mp3');
   if (!outputPath) return;
 
@@ -4655,6 +4670,21 @@ async function executeExtractAudioToS3() {
 
   if (!currentVideo) {
     alert('먼저 영상을 가져와주세요.');
+    return;
+  }
+
+  // Check if video has audio stream
+  try {
+    const videoInfo = await window.electronAPI.getVideoInfo(currentVideo);
+    const hasAudio = videoInfo.streams && videoInfo.streams.some(stream => stream.codec_type === 'audio');
+
+    if (!hasAudio) {
+      alert('이 영상 파일에는 오디오가 포함되어 있지 않습니다.\n\n오디오 추출을 할 수 없습니다.');
+      return;
+    }
+  } catch (error) {
+    console.error('[Extract Audio S3] Failed to check video info:', error);
+    alert('영상 정보를 확인할 수 없습니다.');
     return;
   }
 
