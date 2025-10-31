@@ -137,6 +137,16 @@ function selectTool(tool) {
   showToolProperties(tool);
 
   updateStatus(`도구 선택: ${tool}`);
+
+  // Force webContents focus when switching tools (fixes input activation issues)
+  setTimeout(async () => {
+    try {
+      await window.electronAPI.focusWebContents();
+      console.log('[selectTool] WebContents focused after tool switch to:', tool);
+    } catch (err) {
+      console.error('[selectTool] Failed to focus webContents:', err);
+    }
+  }, 100);
 }
 
 // Show tool properties panel
