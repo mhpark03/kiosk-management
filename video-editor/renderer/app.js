@@ -43,9 +43,32 @@ function handleError(operation, error, userMessage) {
   console.error('=====================');
 
   // 사용자에게는 간단한 한글 메시지 표시
-  alert(`${userMessage}\n\n상세한 오류 내용은 개발자 도구(F12)의 콘솔에서 확인해주세요.`);
+  showCustomDialog(`${userMessage}\n\n상세한 오류 내용은 개발자 도구(F12)의 콘솔에서 확인해주세요.`);
   updateStatus(`${operation} 실패`);
 }
+
+// Custom dialog that doesn't break input focus
+function showCustomDialog(message) {
+  const overlay = document.getElementById('modal-overlay');
+  const content = document.getElementById('modal-content');
+
+  content.innerHTML = `
+    <div style="background: #2a2a2a; padding: 20px; border-radius: 8px; max-width: 500px; color: #e0e0e0;">
+      <p style="margin: 0 0 20px 0; white-space: pre-wrap; line-height: 1.5;">${message}</p>
+      <button onclick="closeCustomDialog()" style="padding: 10px 20px; background: #667eea; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; font-weight: 600;">확인</button>
+    </div>
+  `;
+
+  overlay.style.display = 'flex';
+}
+
+function closeCustomDialog() {
+  const overlay = document.getElementById('modal-overlay');
+  overlay.style.display = 'none';
+}
+
+// Make closeCustomDialog global
+window.closeCustomDialog = closeCustomDialog;
 
 // Initialize app
 document.addEventListener('DOMContentLoaded', () => {
@@ -321,11 +344,11 @@ function showToolProperties(tool) {
         </div>
         <div class="property-group">
           <label style="pointer-events: none; user-select: none; display: block; margin-bottom: 5px; color: #aaa;">제목 *</label>
-          <div id="export-audio-title" contenteditable="true" spellcheck="false" data-placeholder="음성 파일 제목을 입력하세요" style="width: 100%; min-height: 40px; padding: 10px; background: #2d2d2d; border: 1px solid #555; border-radius: 4px; color: #e0e0e0; font-size: 14px; outline: none; overflow-wrap: break-word; white-space: pre-wrap;"></div>
+          <input type="text" id="export-audio-title" placeholder="음성 파일 제목을 입력하세요" style="width: 100%; padding: 10px; background: #2d2d2d; border: 1px solid #555; border-radius: 4px; color: #e0e0e0; font-size: 14px;"/>
         </div>
         <div class="property-group">
           <label style="pointer-events: none; user-select: none; display: block; margin-bottom: 5px; color: #aaa;">설명</label>
-          <div id="export-audio-description" contenteditable="true" spellcheck="false" data-placeholder="음성 파일 설명 (선택사항)" style="width: 100%; min-height: 80px; padding: 10px; background: #2d2d2d; border: 1px solid #555; border-radius: 4px; color: #e0e0e0; font-size: 14px; outline: none; overflow-wrap: break-word; white-space: pre-wrap;"></div>
+          <textarea id="export-audio-description" placeholder="음성 파일 설명 (선택사항)" rows="4" style="width: 100%; padding: 10px; background: #2d2d2d; border: 1px solid #555; border-radius: 4px; color: #e0e0e0; font-size: 14px; resize: vertical;"></textarea>
         </div>
         <button class="property-btn" onclick="executeExportAudioToS3()" style="width: 100%;">☁️ S3 업로드</button>
         <div style="background: #3a3a3a; padding: 10px; border-radius: 5px; margin-top: 10px;">
@@ -333,53 +356,25 @@ function showToolProperties(tool) {
         </div>
       `;
 
-      // Set values and focus after DOM is ready with extended delay
-      setTimeout(async () => {
+      // Set values and focus after DOM is ready with long delay to allow input recovery
+      setTimeout(() => {
         const titleInput = document.getElementById('export-audio-title');
         const descriptionInput = document.getElementById('export-audio-description');
 
         if (titleInput) {
-          // Set value for contenteditable div
-          titleInput.textContent = currentAudioMetadata.title || '';
-
-          // Force webContents focus from main process (Electron workaround)
-          try {
-            await window.electronAPI.focusWebContents();
-            console.log('[DEBUG] WebContents focused from main process');
-          } catch (err) {
-            console.error('[DEBUG] Failed to focus webContents:', err);
-          }
-
-          // Wait for next animation frame to ensure rendering is complete
-          requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-              // Additional delay before focusing contenteditable div
-              setTimeout(() => {
-                titleInput.focus();
-
-                // Move cursor to end of text for contenteditable
-                const range = document.createRange();
-                const sel = window.getSelection();
-                if (titleInput.childNodes.length > 0) {
-                  range.setStart(titleInput.childNodes[0], titleInput.textContent.length);
-                  range.collapse(true);
-                  sel.removeAllRanges();
-                  sel.addRange(range);
-                }
-
-                console.log('[DEBUG] Title contenteditable setup complete, focused:', document.activeElement === titleInput);
-                console.log('[DEBUG] Content:', titleInput.textContent);
-                console.log('[DEBUG] Current time:', new Date().toISOString());
-              }, 100);
-            });
-          });
+          titleInput.value = currentAudioMetadata.title || '';
+          // Give extra time for input to be fully ready after alert dialog
+          setTimeout(() => {
+            titleInput.focus();
+            titleInput.select();
+            console.log('[DEBUG] Title input focused and selected');
+          }, 1000);
         }
 
         if (descriptionInput) {
-          // Set value for contenteditable div
-          descriptionInput.textContent = currentAudioMetadata.description || '';
+          descriptionInput.value = currentAudioMetadata.description || '';
         }
-      }, 300);
+      }, 100);
       break;
 
     case 'merge':
@@ -5693,9 +5688,9 @@ async function executeTrimAudioFile() {
     });
 
     hideProgress();
-    alert('음성 자르기 완료!\n• 선택 구간만 남김\n\n편집된 내용은 임시 저장되었습니다.\n최종 저장하려면 "음성 내보내기"를 사용하세요.');
+    showCustomDialog('음성 자르기 완료!\n• 선택 구간만 남김\n\n편집된 내용은 임시 저장되었습니다.\n최종 저장하려면 "음성 내보내기"를 사용하세요.');
 
-    // Force webContents focus after alert (alert steals focus)
+    // Force webContents focus after dialog (not needed for custom dialog)
     try {
       await window.electronAPI.focusWebContents();
       console.log('[Trim Audio] WebContents refocused after alert');
@@ -5854,9 +5849,9 @@ async function executeDeleteAudioRange() {
     }
 
     hideProgress();
-    alert('음성 자르기 완료!\n• 선택 구간 삭제됨\n• 앞뒤 부분 연결됨\n\n편집된 내용은 임시 저장되었습니다.\n최종 저장하려면 "음성 내보내기"를 사용하세요.');
+    showCustomDialog('음성 자르기 완료!\n• 선택 구간 삭제됨\n• 앞뒤 부분 연결됨\n\n편집된 내용은 임시 저장되었습니다.\n최종 저장하려면 "음성 내보내기"를 사용하세요.');
 
-    // Force webContents focus after alert (alert steals focus)
+    // Force webContents focus after dialog (not needed for custom dialog)
     try {
       await window.electronAPI.focusWebContents();
       console.log('[Delete Audio Range] WebContents refocused after alert');
@@ -6138,12 +6133,12 @@ async function executeExportAudioToS3() {
     return;
   }
 
-  // Get title and description from contenteditable divs
+  // Get title and description from input fields
   const titleInput = document.getElementById('export-audio-title');
   const descriptionInput = document.getElementById('export-audio-description');
 
-  const title = titleInput ? titleInput.textContent.trim() : '';
-  const description = descriptionInput ? descriptionInput.textContent.trim() : '';
+  const title = titleInput ? titleInput.value.trim() : '';
+  const description = descriptionInput ? descriptionInput.value.trim() : '';
 
   if (!title) {
     alert('제목을 입력해주세요.');
