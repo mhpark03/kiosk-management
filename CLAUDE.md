@@ -126,6 +126,9 @@ videos/
 images/
   ├── uploads/        # User uploaded images
   └── runway/         # Runway ML generated images
+audios/
+  ├── uploads/        # User uploaded audio files
+  └── tts/            # Google TTS generated audio files
 thumbnails/
   ├── uploads/        # Thumbnails for uploaded content
   ├── runway/         # Thumbnails for Runway ML content

@@ -49,6 +49,8 @@ public class VideoService {
     private static final String VIDEO_RUNWAY_FOLDER = "videos/runway/";
     private static final String IMAGE_UPLOAD_FOLDER = "images/uploads/";
     private static final String IMAGE_RUNWAY_FOLDER = "images/runway/";
+    private static final String AUDIO_UPLOAD_FOLDER = "audios/uploads/";
+    private static final String AUDIO_TTS_FOLDER = "audios/tts/";
     private static final String THUMBNAIL_UPLOAD_FOLDER = "thumbnails/uploads/";
     private static final String THUMBNAIL_RUNWAY_FOLDER = "thumbnails/runway/";
     private static final long MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB
@@ -934,6 +936,115 @@ public class VideoService {
      */
     private String extractFilename(String s3Key) {
         return s3Key.substring(s3Key.lastIndexOf("/") + 1);
+    }
+
+    /**
+     * Upload audio file to S3 (audios/uploads/ folder)
+     */
+    public Video uploadAudio(MultipartFile file, Long uploadedById, String title, String description) throws IOException {
+        // Validate file
+        if (file.isEmpty()) {
+            throw new IllegalArgumentException("File is empty");
+        }
+
+        // Validate audio content type
+        String contentType = file.getContentType();
+        if (contentType == null || (!contentType.startsWith("audio/") && !contentType.equals("application/octet-stream"))) {
+            throw new IllegalArgumentException("File must be an audio file (MP3, WAV, etc.)");
+        }
+
+        // Validate file size
+        if (file.getSize() > MAX_FILE_SIZE) {
+            throw new IllegalArgumentException(String.format("File size exceeds maximum allowed size of %d MB", MAX_FILE_SIZE / (1024 * 1024)));
+        }
+
+        // Validate title
+        if (title == null || title.trim().isEmpty()) {
+            throw new IllegalArgumentException("Title is required");
+        }
+
+        // Upload audio to S3 (audios/uploads folder)
+        String s3Key = s3Service.uploadFile(file, AUDIO_UPLOAD_FOLDER);
+        String s3Url = s3Service.getFileUrl(s3Key);
+
+        log.info("Uploaded audio to S3: {}", s3Key);
+
+        // Save metadata to database
+        Video audio = Video.builder()
+                .videoType(Video.VideoType.UPLOAD)
+                .mediaType(Video.MediaType.VIDEO)
+                .filename(truncate(extractFilename(s3Key), MAX_FILENAME_LENGTH))
+                .originalFilename(truncate(file.getOriginalFilename(), MAX_FILENAME_LENGTH))
+                .fileSize(file.getSize())
+                .contentType(contentType)
+                .s3Key(s3Key)
+                .s3Url(s3Url)
+                .thumbnailS3Key(null)
+                .thumbnailUrl(null)
+                .uploadedById(uploadedById)
+                .title(truncate(title, MAX_TITLE_LENGTH))
+                .description(description)
+                .build();
+
+        Video savedAudio = videoRepository.save(audio);
+        log.info("Audio uploaded successfully: {} by user ID {}", savedAudio.getOriginalFilename(), uploadedById);
+
+        return savedAudio;
+    }
+
+    /**
+     * Upload TTS audio file to S3 (audios/tts/ folder)
+     */
+    public Video uploadAudioTts(MultipartFile file, Long uploadedById, String title, String description) throws IOException {
+        // Validate file
+        if (file.isEmpty()) {
+            throw new IllegalArgumentException("File is empty");
+        }
+
+        // Validate audio content type
+        String contentType = file.getContentType();
+        if (contentType == null || (!contentType.startsWith("audio/") && !contentType.equals("application/octet-stream"))) {
+            throw new IllegalArgumentException("File must be an audio file (MP3, WAV, etc.)");
+        }
+
+        // Validate file size
+        if (file.getSize() > MAX_FILE_SIZE) {
+            throw new IllegalArgumentException(String.format("File size exceeds maximum allowed size of %d MB", MAX_FILE_SIZE / (1024 * 1024)));
+        }
+
+        // Validate title
+        if (title == null || title.trim().isEmpty()) {
+            throw new IllegalArgumentException("Title is required");
+        }
+
+        // Upload audio to S3 (audios/tts folder)
+        String s3Key = s3Service.uploadFile(file, AUDIO_TTS_FOLDER);
+        String s3Url = s3Service.getFileUrl(s3Key);
+
+        log.info("Uploaded TTS audio to S3: {}", s3Key);
+
+        // Save metadata to database with UPLOAD type and AUDIO mediaType
+        // Note: We're reusing the Video entity to store audio files
+        Video audio = Video.builder()
+                .videoType(Video.VideoType.UPLOAD)
+                .mediaType(Video.MediaType.VIDEO) // Using VIDEO type for now, could add AUDIO type later
+                .filename(truncate(extractFilename(s3Key), MAX_FILENAME_LENGTH))
+                .originalFilename(truncate(file.getOriginalFilename(), MAX_FILENAME_LENGTH))
+                .fileSize(file.getSize())
+                .contentType(contentType)
+                .s3Key(s3Key)
+                .s3Url(s3Url)
+                .thumbnailS3Key(null) // No thumbnail for audio
+                .thumbnailUrl(null)
+                .uploadedById(uploadedById)
+                .title(truncate(title, MAX_TITLE_LENGTH))
+                .description(description) // TEXT column - no limit
+                .build();
+
+        Video savedAudio = videoRepository.save(audio);
+        log.info("TTS audio uploaded successfully: {} by user ID {}", savedAudio.getOriginalFilename(), uploadedById);
+
+        return savedAudio;
     }
 
 

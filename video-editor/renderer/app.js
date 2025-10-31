@@ -644,9 +644,48 @@ function showToolProperties(tool) {
 
     case 'import-audio-content':
       propertiesPanel.innerHTML = `
-        <h3>음성 가져오기</h3>
-        <p>음성 파일을 불러오는 기능입니다.</p>
-        <button class="property-btn" onclick="importAudioFile()">📁 음성 선택</button>
+        <div style="height: calc(100vh - 250px); overflow-y: auto; overflow-x: hidden; padding-right: 10px;">
+          <h3 style="margin-bottom: 15px; color: #667eea;">📁 음성 가져오기</h3>
+
+          <div class="property-group">
+            <label>선택된 파일</label>
+            <div id="selected-audio-info" style="padding: 10px; background: #2d2d2d; border: 1px solid #444; border-radius: 5px; color: #aaa; font-size: 13px; min-height: 40px; display: flex; align-items: center;">
+              파일이 선택되지 않았습니다
+            </div>
+          </div>
+
+          <div style="background: #2a2a3e; padding: 12px; border-radius: 8px; margin-top: 10px; border-left: 4px solid #4ade80;">
+            <button class="property-btn" onclick="selectAudioFileForUpload()" style="margin: 0; background: #4ade80; width: 100%;">
+              📁 음성 파일 선택
+            </button>
+          </div>
+
+          <div class="property-group">
+            <label>제목 *</label>
+            <input
+              type="text"
+              id="audio-upload-title"
+              placeholder="음성 제목을 입력하세요"
+              style="width: 100%; padding: 10px; background: #2d2d2d; border: 1px solid #444; border-radius: 5px; color: #e0e0e0; font-size: 14px;"
+            />
+          </div>
+
+          <div class="property-group">
+            <label>설명</label>
+            <textarea
+              id="audio-upload-description"
+              rows="3"
+              placeholder="음성 설명을 입력하세요 (선택사항)"
+              style="width: 100%; padding: 10px; background: #2d2d2d; border: 1px solid #444; border-radius: 5px; color: #e0e0e0; font-size: 14px; resize: vertical;"
+            ></textarea>
+          </div>
+
+          <div style="background: #2a2a3e; padding: 12px; border-radius: 8px; margin-top: 10px; border-left: 4px solid #667eea;">
+            <button class="property-btn" onclick="uploadAudioToS3()" style="margin: 0; background: #667eea; width: 100%;">
+              ☁️ S3에 업로드
+            </button>
+          </div>
+        </div>
       `;
       break;
 
@@ -891,7 +930,7 @@ function showToolProperties(tool) {
     case 'generate-tts':
       propertiesPanel.innerHTML = `
         <div style="height: calc(100vh - 250px); overflow-y: auto; overflow-x: hidden; padding-right: 10px;">
-          <h3 style="margin-bottom: 15px; color: #667eea;">🗣️ TTS 음성 생성</h3>
+          <h3 style="margin-bottom: 15px; color: #667eea;">🗣️ Google TTS 음성 생성</h3>
 
           <div class="property-group">
             <label>텍스트 입력 (최대 5000자) *</label>
@@ -916,79 +955,78 @@ function showToolProperties(tool) {
             />
           </div>
 
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-            <div class="property-group">
-              <label>언어</label>
-              <select
-                id="tts-language"
-                onchange="updateTtsVoiceOptions()"
-                style="width: 100%; padding: 8px; background: #2d2d2d; border: 1px solid #444; border-radius: 5px; color: #e0e0e0; font-size: 13px;"
-              >
-                <option value="ko-KR">한국어</option>
-                <option value="en-US">영어 (미국)</option>
-                <option value="ja-JP">일본어</option>
-                <option value="zh-CN">중국어</option>
-              </select>
+          <div class="property-group">
+            <label>설명</label>
+            <textarea
+              id="tts-description"
+              rows="2"
+              placeholder="음성 설명을 입력하세요 (선택사항)"
+              style="width: 100%; padding: 10px; background: #2d2d2d; border: 1px solid #444; border-radius: 5px; color: #e0e0e0; font-size: 14px; resize: vertical;"
+            ></textarea>
+          </div>
+
+          <input type="hidden" id="tts-language" value="ko-KR" />
+
+          <div class="property-group">
+            <label>음성 종류</label>
+            <select
+              id="tts-voice"
+              style="width: 100%; padding: 8px; background: #2d2d2d; border: 1px solid #444; border-radius: 5px; color: #e0e0e0; font-size: 13px;"
+            >
+              <option value="ko-KR-Neural2-A">Neural2-A (여성, 자연스러운 톤)</option>
+              <option value="ko-KR-Neural2-B">Neural2-B (여성, 부드러운 톤)</option>
+              <option value="ko-KR-Neural2-C">Neural2-C (남성, 차분한 톤)</option>
+              <option value="ko-KR-Standard-A">Standard-A (여성, 표준 음질)</option>
+              <option value="ko-KR-Standard-B">Standard-B (여성, 표준 음질)</option>
+              <option value="ko-KR-Standard-C">Standard-C (남성, 표준 음질)</option>
+              <option value="ko-KR-Standard-D">Standard-D (남성, 표준 음질)</option>
+              <option value="ko-KR-Wavenet-A">Wavenet-A (여성, 최고 음질)</option>
+              <option value="ko-KR-Wavenet-B">Wavenet-B (여성, 최고 음질)</option>
+              <option value="ko-KR-Wavenet-C">Wavenet-C (남성, 최고 음질)</option>
+              <option value="ko-KR-Wavenet-D">Wavenet-D (남성, 최고 음질)</option>
+            </select>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+            <div class="property-group" style="margin-bottom: 0;">
+              <label>속도: <span id="tts-speed-value">1.0</span>x</label>
+              <input
+                type="range"
+                id="tts-speed"
+                min="0.5"
+                max="2.0"
+                step="0.1"
+                value="1.0"
+                oninput="updateTtsSpeedDisplay()"
+                style="width: 100%;"
+              />
             </div>
 
-            <div class="property-group">
-              <label>음성</label>
-              <select
-                id="tts-voice"
-                style="width: 100%; padding: 8px; background: #2d2d2d; border: 1px solid #444; border-radius: 5px; color: #e0e0e0; font-size: 13px;"
-              >
-                <option value="ko-KR-Neural2-A">Female A</option>
-                <option value="ko-KR-Neural2-B">Female B</option>
-                <option value="ko-KR-Neural2-C">Male C</option>
-              </select>
+            <div class="property-group" style="margin-bottom: 0;">
+              <label>피치: <span id="tts-pitch-value">0</span></label>
+              <input
+                type="range"
+                id="tts-pitch"
+                min="-20"
+                max="20"
+                step="1"
+                value="0"
+                oninput="updateTtsPitchDisplay()"
+                style="width: 100%;"
+              />
             </div>
           </div>
 
-          <div class="property-group">
-            <label>속도: <span id="tts-speed-value">1.0</span>x</label>
-            <input
-              type="range"
-              id="tts-speed"
-              min="0.5"
-              max="2.0"
-              step="0.1"
-              value="1.0"
-              oninput="updateTtsSpeedDisplay()"
-              style="width: 100%;"
-            />
-            <small style="color: #888; font-size: 11px;">0.5x (느리게) - 2.0x (빠르게)</small>
-          </div>
-
-          <div class="property-group">
-            <label>피치: <span id="tts-pitch-value">0</span></label>
-            <input
-              type="range"
-              id="tts-pitch"
-              min="-20"
-              max="20"
-              step="1"
-              value="0"
-              oninput="updateTtsPitchDisplay()"
-              style="width: 100%;"
-            />
-            <small style="color: #888; font-size: 11px;">-20 (낮음) - +20 (높음)</small>
+          <div style="background: #2a2a3e; padding: 12px; border-radius: 8px; margin-top: 10px; border-left: 4px solid #4ade80;">
+            <button class="property-btn" onclick="previewTTS()" style="margin: 0; background: #4ade80; width: 100%;">
+              🎧 미리듣기
+            </button>
           </div>
 
           <div style="background: #2a2a3e; padding: 12px; border-radius: 8px; margin-top: 10px; border-left: 4px solid #667eea;">
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-              <button class="property-btn secondary" onclick="previewTTS()" id="preview-tts-btn" style="margin: 0;">
-                🎧 미리듣기
-              </button>
-              <button class="property-btn" onclick="executeGenerateTTS()" style="margin: 0; background: #667eea;">
-                🎵 음성 생성
-              </button>
-            </div>
-          </div>
-
-          <div style="background: #3a3a3a; padding: 10px; border-radius: 5px; margin-top: 10px; margin-bottom: 20px;">
-            <small style="color: #aaa;">💡 Google Cloud TTS SDK를 사용하여 음성을 생성합니다</small>
-            <br>
-            <small style="color: #888; font-size: 10px;">⚙️ 인증: google-tts-service-account.json 또는 API Key</small>
+            <button class="property-btn" onclick="executeGenerateTTSAndUpload()" style="margin: 0; background: #667eea; width: 100%;">
+              🎵 음성 생성 및 S3 저장
+            </button>
           </div>
         </div>
       `;
@@ -6454,8 +6492,18 @@ async function executeGenerateTTS() {
 
     console.log('[TTS] Starting direct Google TTS API call...');
 
-    // Determine gender from voice name
-    const gender = voiceName.includes('Male') ? 'MALE' : 'FEMALE';
+    // Determine gender from voice name (Korean voices)
+    // Female voices: A, B, D
+    // Male voices: C
+    const femaleSuffixes = ['-A', '-B', '-D'];
+    const maleSuffixes = ['-C'];
+
+    let gender = 'FEMALE'; // default
+    if (maleSuffixes.some(suffix => voiceName.endsWith(suffix))) {
+      gender = 'MALE';
+    } else if (femaleSuffixes.some(suffix => voiceName.endsWith(suffix))) {
+      gender = 'FEMALE';
+    }
 
     updateProgress(30, 'Google TTS API 호출 중...');
 
@@ -6518,6 +6566,176 @@ async function executeGenerateTTS() {
   } catch (error) {
     console.error('TTS 생성 실패:', error);
     handleError('TTS 음성 생성', error, 'TTS 음성 생성에 실패했습니다.');
+    hideProgress();
+  }
+}
+
+// Generate TTS and upload to S3 via backend
+async function executeGenerateTTSAndUpload() {
+  // Get input values
+  const text = document.getElementById('tts-text')?.value;
+  const title = document.getElementById('tts-title')?.value;
+  const description = document.getElementById('tts-description')?.value || '';
+  const languageCode = 'ko-KR'; // Always Korean as per requirement
+  const voiceName = document.getElementById('tts-voice')?.value;
+  const speakingRate = parseFloat(document.getElementById('tts-speed')?.value || 1.0);
+  const pitch = parseFloat(document.getElementById('tts-pitch')?.value || 0);
+
+  // Validate inputs
+  if (!text || !title) {
+    alert('텍스트와 제목을 입력해주세요.');
+    return;
+  }
+
+  if (text.length > 5000) {
+    alert('텍스트는 최대 5000자까지 입력 가능합니다.');
+    return;
+  }
+
+  // Check authentication
+  if (!authToken || !currentUser) {
+    alert('로그인이 필요합니다.\n먼저 로그인해주세요.');
+    return;
+  }
+
+  try {
+    showProgress();
+    updateStatus('TTS 음성 업로드 준비 중...');
+
+    console.log('[TTS Upload] Starting Google TTS generation and S3 upload...');
+
+    // Check if we can reuse preview file (same parameters)
+    let audioPath, filename;
+    let reusingPreview = false;
+
+    if (lastPreviewState &&
+        lastPreviewState.text === text &&
+        lastPreviewState.languageCode === languageCode &&
+        lastPreviewState.voiceName === voiceName &&
+        lastPreviewState.speakingRate === speakingRate &&
+        lastPreviewState.pitch === pitch) {
+
+      // Reuse preview file
+      console.log('[TTS Upload] Reusing preview file (parameters unchanged)');
+      audioPath = lastPreviewState.audioPath;
+      filename = lastPreviewState.filename;
+      reusingPreview = true;
+      updateProgress(60, '미리듣기 파일 재사용 중...');
+
+    } else {
+      // Generate new TTS audio
+      updateProgress(10, 'Google TTS API 호출 준비 중...');
+      console.log('[TTS Upload] Generating new TTS audio (parameters changed or no preview)');
+
+      // Determine gender from voice name (Korean voices)
+      // Female voices: A, B, D
+      // Male voices: C
+      const femaleSuffixes = ['-A', '-B', '-D'];
+      const maleSuffixes = ['-C'];
+
+      let gender = 'FEMALE'; // default
+      if (maleSuffixes.some(suffix => voiceName.endsWith(suffix))) {
+        gender = 'MALE';
+      } else if (femaleSuffixes.some(suffix => voiceName.endsWith(suffix))) {
+        gender = 'FEMALE';
+      }
+
+      updateProgress(30, 'Google TTS API 호출 중...');
+
+      // Generate TTS audio to temporary file (no save path = temp file)
+      const directResult = await window.electronAPI.generateTtsDirect({
+        text,
+        title,
+        languageCode,
+        voiceName,
+        gender,
+        speakingRate,
+        pitch,
+        savePath: null  // No save path = create temp file
+      });
+
+      if (!directResult.success) {
+        throw new Error('Google TTS API call failed: ' + (directResult.error || 'Unknown error'));
+      }
+
+      console.log('[TTS Upload] TTS generation successful:', directResult);
+      audioPath = directResult.audioPath;
+      filename = directResult.filename;
+      updateProgress(60, 'S3 업로드 준비 중...');
+    }
+
+    // Read the generated file using fetch API (works with file:// protocol)
+    const fileUrl = `file:///${audioPath.replace(/\\/g, '/')}`;
+    const fileResponse = await fetch(fileUrl);
+    const audioBlob = await fileResponse.blob();
+
+    // Create FormData for multipart upload
+    const formData = new FormData();
+    formData.append('file', audioBlob, filename);
+    formData.append('title', title);
+    formData.append('description', description);
+
+    updateProgress(70, 'S3에 업로드 중...');
+
+    // Upload to backend (TTS-specific endpoint)
+    const uploadResponse = await fetch(`${backendBaseUrl}/api/audios/upload-tts`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${authToken}`
+      },
+      body: formData
+    });
+
+    if (!uploadResponse.ok) {
+      const errorText = await uploadResponse.text();
+      throw new Error(`Upload failed: ${uploadResponse.status} ${errorText}`);
+    }
+
+    const uploadResult = await uploadResponse.json();
+    console.log('[TTS Upload] Upload successful:', uploadResult);
+
+    updateProgress(100, 'TTS 음성 생성 및 S3 저장 완료!');
+
+    // Show success message
+    const successMessage = reusingPreview
+      ? `TTS 음성이 성공적으로 S3에 저장되었습니다!\n(미리듣기 파일 재사용)\n\n`
+      : `TTS 음성이 성공적으로 생성되고 S3에 저장되었습니다!\n\n`;
+
+    alert(
+      successMessage +
+      `제목: ${title}\n` +
+      `음성: ${voiceName}\n` +
+      `설명: ${description || '(없음)'}\n` +
+      `속도: ${speakingRate}x\n` +
+      `피치: ${pitch}`
+    );
+
+    // Clear form
+    const textField = document.getElementById('tts-text');
+    const titleField = document.getElementById('tts-title');
+    const descField = document.getElementById('tts-description');
+
+    if (textField) textField.value = '';
+    if (titleField) titleField.value = '';
+    if (descField) descField.value = '';
+    updateTtsCharCount();
+
+    // Clear preview state after upload
+    lastPreviewState = null;
+
+    // Clean up temp file
+    try {
+      await window.electronAPI.deleteTempFile(audioPath);
+      console.log('[TTS Upload] Temp file cleaned up');
+    } catch (cleanupError) {
+      console.warn('[TTS Upload] Failed to clean up temp file:', cleanupError);
+    }
+
+    updateStatus('TTS 음성 생성 및 S3 저장 완료');
+    hideProgress();
+  } catch (error) {
+    console.error('[TTS Upload] Failed:', error);
+    handleError('TTS 음성 생성 및 S3 업로드', error, 'TTS 음성 생성 및 S3 업로드에 실패했습니다.');
     hideProgress();
   }
 }
@@ -6843,6 +7061,7 @@ async function executeGenerateVideoVeo() {
 
 // Preview TTS audio before saving
 let previewAudioElement = null;
+let lastPreviewState = null; // Track last preview parameters and file path
 
 async function previewTTS() {
   const text = document.getElementById('tts-text')?.value;
@@ -6865,14 +7084,20 @@ async function previewTTS() {
   }
 
   try {
-    const previewBtn = document.getElementById('preview-tts-btn');
-    previewBtn.disabled = true;
-    previewBtn.textContent = '🔄 생성 중...';
-
     console.log('[TTS Preview] Starting preview generation...');
 
-    // Determine gender from voice name
-    const gender = voiceName.includes('Male') ? 'MALE' : 'FEMALE';
+    // Determine gender from voice name (Korean voices)
+    // Female voices: A, B, D
+    // Male voices: C
+    const femaleSuffixes = ['-A', '-B', '-D'];
+    const maleSuffixes = ['-C'];
+
+    let gender = 'FEMALE'; // default
+    if (maleSuffixes.some(suffix => voiceName.endsWith(suffix))) {
+      gender = 'MALE';
+    } else if (femaleSuffixes.some(suffix => voiceName.endsWith(suffix))) {
+      gender = 'FEMALE';
+    }
 
     // Generate preview audio
     const result = await window.electronAPI.generateTtsDirect({
@@ -6891,6 +7116,17 @@ async function previewTTS() {
 
     console.log('[TTS Preview] Preview generated:', result.audioPath);
 
+    // Store preview state for reuse
+    lastPreviewState = {
+      text,
+      languageCode,
+      voiceName,
+      speakingRate,
+      pitch,
+      audioPath: result.audioPath,
+      filename: result.filename
+    };
+
     // Stop any existing preview
     if (previewAudioElement) {
       previewAudioElement.pause();
@@ -6903,33 +7139,22 @@ async function previewTTS() {
     previewAudioElement = new Audio(audioUrl);
 
     previewAudioElement.onended = () => {
-      previewBtn.textContent = '🎧 미리듣기';
-      previewBtn.disabled = false;
       console.log('[TTS Preview] Playback ended');
     };
 
     previewAudioElement.onerror = (error) => {
       console.error('[TTS Preview] Playback error:', error);
       alert('미리듣기 재생 중 오류가 발생했습니다.');
-      previewBtn.textContent = '🎧 미리듣기';
-      previewBtn.disabled = false;
     };
 
     await previewAudioElement.play();
-    previewBtn.textContent = '⏸️ 재생 중...';
-    previewBtn.disabled = false;
-
     console.log('[TTS Preview] Playing preview audio');
+
+    alert('미리듣기 재생 중입니다.');
 
   } catch (error) {
     console.error('[TTS Preview] Preview failed:', error);
     alert('미리듣기 생성에 실패했습니다.\n\n' + error.message);
-
-    const previewBtn = document.getElementById('preview-tts-btn');
-    if (previewBtn) {
-      previewBtn.textContent = '🎧 미리듣기';
-      previewBtn.disabled = false;
-    }
   }
 }
 
@@ -7138,6 +7363,158 @@ function showLoginError(message) {
 
 // Make handleLogin globally accessible
 window.handleLogin = handleLogin;
+
+// Make executeGenerateTTSAndUpload globally accessible
+window.executeGenerateTTSAndUpload = executeGenerateTTSAndUpload;
+
+// ============================================================================
+// Audio File Upload to S3
+// ============================================================================
+
+// Global variable to store selected audio file path
+let selectedAudioFilePath = null;
+
+/**
+ * Select audio file for upload
+ */
+async function selectAudioFileForUpload() {
+  try {
+    const audioPath = await window.electronAPI.selectAudio();
+
+    if (!audioPath) {
+      console.log('[Audio Upload] No file selected');
+      return;
+    }
+
+    selectedAudioFilePath = audioPath;
+    console.log('[Audio Upload] File selected:', audioPath);
+
+    // Extract filename from path
+    const filename = audioPath.split(/[/\\]/).pop();
+
+    // Update UI to show selected file
+    const infoDiv = document.getElementById('selected-audio-info');
+    if (infoDiv) {
+      infoDiv.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="color: #4ade80;">✓</span>
+          <span style="color: #e0e0e0;">${filename}</span>
+        </div>
+      `;
+    }
+
+    // Auto-fill title with filename (without extension)
+    const titleInput = document.getElementById('audio-upload-title');
+    if (titleInput && !titleInput.value) {
+      const nameWithoutExt = filename.replace(/\.[^/.]+$/, '');
+      titleInput.value = nameWithoutExt;
+    }
+
+  } catch (error) {
+    console.error('[Audio Upload] File selection error:', error);
+    alert('파일 선택 중 오류가 발생했습니다.');
+  }
+}
+
+/**
+ * Upload selected audio file to S3
+ */
+async function uploadAudioToS3() {
+  const title = document.getElementById('audio-upload-title')?.value;
+  const description = document.getElementById('audio-upload-description')?.value || '';
+
+  // Validate inputs
+  if (!selectedAudioFilePath) {
+    alert('먼저 음성 파일을 선택해주세요.');
+    return;
+  }
+
+  if (!title || title.trim().length === 0) {
+    alert('제목을 입력해주세요.');
+    return;
+  }
+
+  // Check authentication
+  if (!authToken || !currentUser) {
+    alert('로그인이 필요합니다.\n먼저 로그인해주세요.');
+    return;
+  }
+
+  try {
+    showProgress();
+    updateProgress(20, '파일 읽는 중...');
+    updateStatus('음성 파일 업로드 준비 중...');
+
+    console.log('[Audio Upload] Starting upload:', selectedAudioFilePath);
+
+    // Read the audio file using fetch API
+    const fileUrl = `file:///${selectedAudioFilePath.replace(/\\/g, '/')}`;
+    const fileResponse = await fetch(fileUrl);
+    const audioBlob = await fileResponse.blob();
+
+    const filename = selectedAudioFilePath.split(/[/\\]/).pop();
+
+    updateProgress(50, 'S3에 업로드 중...');
+
+    // Create FormData for multipart upload
+    const formData = new FormData();
+    formData.append('file', audioBlob, filename);
+    formData.append('title', title);
+    formData.append('description', description);
+
+    // Upload to backend (audios/uploads folder)
+    const uploadResponse = await fetch(`${backendBaseUrl}/api/audios/upload`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${authToken}`
+      },
+      body: formData
+    });
+
+    if (!uploadResponse.ok) {
+      const errorText = await uploadResponse.text();
+      throw new Error(`Upload failed: ${uploadResponse.status} ${errorText}`);
+    }
+
+    const uploadResult = await uploadResponse.json();
+    console.log('[Audio Upload] Upload successful:', uploadResult);
+
+    updateProgress(100, '음성 파일 업로드 완료!');
+
+    // Show success message
+    alert(
+      `음성 파일이 성공적으로 S3에 업로드되었습니다!\n\n` +
+      `제목: ${title}\n` +
+      `설명: ${description || '(없음)'}\n` +
+      `파일: ${filename}`
+    );
+
+    // Clear form and selected file
+    selectedAudioFilePath = null;
+    const titleInput = document.getElementById('audio-upload-title');
+    const descInput = document.getElementById('audio-upload-description');
+    const infoDiv = document.getElementById('selected-audio-info');
+
+    if (titleInput) titleInput.value = '';
+    if (descInput) descInput.value = '';
+    if (infoDiv) {
+      infoDiv.innerHTML = '파일이 선택되지 않았습니다';
+      infoDiv.style.color = '#aaa';
+    }
+
+    updateStatus('음성 파일 업로드 완료');
+    hideProgress();
+
+  } catch (error) {
+    console.error('[Audio Upload] Upload failed:', error);
+    handleError('음성 파일 업로드', error, '음성 파일 업로드에 실패했습니다.');
+    hideProgress();
+  }
+}
+
+// Make functions globally accessible
+window.selectAudioFileForUpload = selectAudioFileForUpload;
+window.uploadAudioToS3 = uploadAudioToS3;
 
 /**
  * Logout
