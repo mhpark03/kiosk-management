@@ -741,8 +741,20 @@ function showToolProperties(tool) {
     case 'import-video-content':
       propertiesPanel.innerHTML = `
         <h3>영상 가져오기</h3>
-        <p>영상 파일을 불러오는 기능입니다.</p>
-        <button class="property-btn" onclick="importVideo()">📁 영상 선택</button>
+        <p>영상 파일을 S3에 업로드합니다.</p>
+        <div class="property-group">
+          <label>영상 파일</label>
+          <input type="file" id="import-video-content-file" accept="video/*" style="margin-bottom: 10px;">
+        </div>
+        <div class="property-group">
+          <label>제목</label>
+          <input type="text" id="import-video-content-title" placeholder="영상 제목 입력">
+        </div>
+        <div class="property-group">
+          <label>설명</label>
+          <textarea id="import-video-content-description" rows="3" placeholder="설명 입력 (선택사항)"></textarea>
+        </div>
+        <button class="property-btn" onclick="uploadVideoContentToS3()">S3에 업로드</button>
       `;
       break;
 
@@ -8784,6 +8796,124 @@ async function executeGenerateTTSAndUpload() {
     console.error('[TTS Upload] Failed:', error);
     handleError('TTS 음성 생성 및 S3 업로드', error, 'TTS 음성 생성 및 S3 업로드에 실패했습니다.');
     hideProgress();
+  }
+}
+
+// Upload Video Content to S3
+async function uploadVideoContentToS3() {
+  console.log('[Upload Video Content S3] Function called');
+
+  // Check if user is logged in
+  if (!authToken || !currentUser) {
+    alert('S3에 업로드하려면 로그인이 필요합니다.');
+    return;
+  }
+
+  // Get file input
+  const fileInput = document.getElementById('import-video-content-file');
+  const titleInput = document.getElementById('import-video-content-title');
+  const descriptionInput = document.getElementById('import-video-content-description');
+
+  if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+    alert('영상 파일을 선택해주세요.');
+    return;
+  }
+
+  const videoFile = fileInput.files[0];
+  const title = titleInput ? titleInput.value.trim() : '';
+  const description = descriptionInput ? descriptionInput.value.trim() : '';
+
+  if (!title) {
+    alert('제목을 입력해주세요.');
+    if (titleInput) titleInput.focus();
+    return;
+  }
+
+  // Ensure description is always a string (empty string if not provided)
+  const finalDescription = description || '';
+
+  // Validate video file type
+  if (!videoFile.type.startsWith('video/')) {
+    alert('영상 파일만 업로드할 수 있습니다.');
+    return;
+  }
+
+  showProgress();
+  updateProgress(0, '제목 중복 확인 중...');
+
+  try {
+    // Check for duplicate title
+    console.log('[Upload Video Content S3] Checking for duplicate title:', title);
+    const checkResponse = await fetch(`${backendBaseUrl}/api/videos`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${authToken}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!checkResponse.ok) {
+      throw new Error(`제목 확인 실패: ${checkResponse.status}`);
+    }
+
+    const allFiles = await checkResponse.json();
+    const videoFiles = allFiles.filter(f => f.contentType && f.contentType.startsWith('video/'));
+    const duplicateTitle = videoFiles.find(vid => vid.title === title);
+
+    if (duplicateTitle) {
+      hideProgress();
+      alert(`같은 제목의 영상 파일이 이미 존재합니다.\n\n제목: ${title}\n\n다른 제목을 사용해주세요.`);
+      if (titleInput) titleInput.focus();
+      return;
+    }
+
+    updateProgress(50, 'S3에 영상 파일 업로드 중...');
+
+    console.log('[Upload Video Content S3] Uploading to S3:', {
+      title,
+      description: finalDescription,
+      fileName: videoFile.name,
+      size: videoFile.size,
+      type: videoFile.type
+    });
+
+    // Create FormData for multipart upload
+    const formData = new FormData();
+    formData.append('file', videoFile);
+    formData.append('title', title);
+    formData.append('description', finalDescription);
+
+    // Upload to backend
+    const uploadResponse = await fetch(`${backendBaseUrl}/api/videos/upload`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${authToken}`
+      },
+      body: formData
+    });
+
+    if (!uploadResponse.ok) {
+      const errorText = await uploadResponse.text();
+      throw new Error(`Upload failed: ${uploadResponse.status} ${errorText}`);
+    }
+
+    const result = await uploadResponse.json();
+    console.log('[Upload Video Content S3] Upload successful:', result);
+
+    updateProgress(100, '영상 파일 업로드 완료!');
+    hideProgress();
+
+    alert(`S3 업로드 완료!\n\n제목: ${title}\n파일명: ${videoFile.name}\n\n클라우드에 성공적으로 저장되었습니다.`);
+    updateStatus(`S3 업로드 완료: ${title}`);
+
+    // Clear input fields after successful upload
+    if (fileInput) fileInput.value = '';
+    if (titleInput) titleInput.value = '';
+    if (descriptionInput) descriptionInput.value = '';
+  } catch (error) {
+    hideProgress();
+    console.error('[Upload Video Content S3] Error:', error);
+    handleError('영상 S3 업로드', error, 'S3 업로드에 실패했습니다.');
   }
 }
 
