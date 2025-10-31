@@ -7175,7 +7175,7 @@ function updateAuthUI() {
     // Logged in state
     if (modeSwitchContainer) modeSwitchContainer.style.display = 'flex';
     if (userInfo) userInfo.style.display = 'block';
-    if (userEmail) userEmail.textContent = currentUser.email;
+    if (userEmail) userEmail.textContent = currentUser.name || currentUser.email;
     if (logoutBtn) logoutBtn.style.display = 'block';
     if (mainContent) mainContent.style.display = 'flex';
   } else {
