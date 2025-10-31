@@ -8868,8 +8868,8 @@ async function uploadImageToS3() {
     formData.append('title', title);
     formData.append('description', description);
 
-    // Upload to backend (images/uploads folder)
-    const uploadResponse = await fetch(`${backendBaseUrl}/api/images/upload`, {
+    // Upload to backend (videos endpoint handles all media types including images)
+    const uploadResponse = await fetch(`${backendBaseUrl}/api/videos/upload`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${authToken}`
