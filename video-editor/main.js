@@ -2145,15 +2145,15 @@ ipcMain.handle('add-text', async (event, options) => {
 ipcMain.handle('extract-audio', async (event, options) => {
   let { videoPath, outputPath } = options;
 
-  // If outputPath is null, create temp file
-  if (!outputPath) {
+  // If outputPath is null, undefined, or the string "null", create temp file
+  if (!outputPath || outputPath === 'null' || outputPath === 'undefined') {
     const timestamp = Date.now();
     const basename = path.basename(videoPath, path.extname(videoPath));
     outputPath = path.join(os.tmpdir(), `${basename}_extracted_${timestamp}.mp3`);
     logInfo('EXTRACT_AUDIO_TEMP', 'Creating temp file', { actualOutputPath: outputPath });
   }
 
-  logInfo('EXTRACT_AUDIO_START', 'Extracting audio from video', { videoPath });
+  logInfo('EXTRACT_AUDIO_START', 'Extracting audio from video', { videoPath, outputPath });
 
   return new Promise((resolve, reject) => {
     const args = [
