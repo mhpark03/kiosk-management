@@ -22,6 +22,11 @@ import java.util.Map;
 @RequestMapping("/api/tts")
 @RequiredArgsConstructor
 @Slf4j
+@org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(
+    name = "google.tts.enabled",
+    havingValue = "true",
+    matchIfMissing = false
+)
 public class TtsController {
 
     private final TtsService ttsService;
