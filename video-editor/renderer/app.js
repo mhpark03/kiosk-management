@@ -294,6 +294,11 @@ function showToolProperties(tool) {
         return;
       }
 
+      // Blur any focused element (especially sidebar buttons) to release keyboard focus
+      if (document.activeElement) {
+        document.activeElement.blur();
+      }
+
       propertiesPanel.innerHTML = `
         <div class="property-group">
           <label style="pointer-events: none;">현재 음성 파일</label>
@@ -306,11 +311,11 @@ function showToolProperties(tool) {
         </div>
         <div class="property-group">
           <label for="export-audio-title" style="pointer-events: none; user-select: none;">제목 *</label>
-          <input type="text" id="export-audio-title" tabindex="0" placeholder="음성 파일 제목을 입력하세요" style="width: 100%; padding: 10px; background: #2d2d2d; border: 1px solid #555; border-radius: 4px; color: #e0e0e0; font-size: 14px; pointer-events: auto; cursor: text; position: relative; z-index: 10; user-select: text; outline: none;">
+          <input type="text" id="export-audio-title" placeholder="음성 파일 제목을 입력하세요" style="width: 100%; padding: 10px; background: #2d2d2d; border: 1px solid #555; border-radius: 4px; color: #e0e0e0; font-size: 14px;">
         </div>
         <div class="property-group">
           <label for="export-audio-description" style="pointer-events: none; user-select: none;">설명</label>
-          <textarea id="export-audio-description" tabindex="0" placeholder="음성 파일 설명 (선택사항)" style="width: 100%; padding: 10px; background: #2d2d2d; border: 1px solid #555; border-radius: 4px; color: #e0e0e0; min-height: 80px; resize: vertical; font-size: 14px; pointer-events: auto; cursor: text; position: relative; z-index: 10; user-select: text; outline: none;"></textarea>
+          <textarea id="export-audio-description" placeholder="음성 파일 설명 (선택사항)" style="width: 100%; padding: 10px; background: #2d2d2d; border: 1px solid #555; border-radius: 4px; color: #e0e0e0; min-height: 80px; resize: vertical; font-size: 14px;"></textarea>
         </div>
         <button class="property-btn" onclick="executeExportAudioToS3()" style="width: 100%;">☁️ S3 업로드</button>
         <div style="background: #3a3a3a; padding: 10px; border-radius: 5px; margin-top: 10px;">
@@ -324,35 +329,23 @@ function showToolProperties(tool) {
         const descriptionInput = document.getElementById('export-audio-description');
 
         if (titleInput) {
-          // Remove any potentially blocking attributes
-          titleInput.removeAttribute('readonly');
-          titleInput.removeAttribute('disabled');
-          titleInput.removeAttribute('contenteditable');
-
           // Set value
           titleInput.value = currentAudioMetadata.title || '';
 
-          // Make input editable by ensuring it's not readonly
-          titleInput.readOnly = false;
-
-          // Try to focus with selection
+          // Focus and select
           titleInput.focus();
           titleInput.select();
 
           console.log('[DEBUG] Title input setup complete, focused:', document.activeElement === titleInput);
+          console.log('[DEBUG] Title input readOnly:', titleInput.readOnly);
+          console.log('[DEBUG] Title input disabled:', titleInput.disabled);
         }
 
         if (descriptionInput) {
-          // Remove any potentially blocking attributes
-          descriptionInput.removeAttribute('readonly');
-          descriptionInput.removeAttribute('disabled');
-          descriptionInput.removeAttribute('contenteditable');
-
           // Set value
           descriptionInput.value = currentAudioMetadata.description || '';
-          descriptionInput.readOnly = false;
         }
-      }, 100);
+      }, 150);
       break;
 
     case 'merge':
