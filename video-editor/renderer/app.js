@@ -323,7 +323,7 @@ function showToolProperties(tool) {
         </div>
       `;
 
-      // Set values and focus after DOM is ready
+      // Set values and focus after DOM is ready with extended delay
       setTimeout(() => {
         const titleInput = document.getElementById('export-audio-title');
         const descriptionInput = document.getElementById('export-audio-description');
@@ -334,22 +334,29 @@ function showToolProperties(tool) {
 
           // Force window blur/focus cycle to activate input (Electron workaround)
           window.blur();
-          setTimeout(() => {
-            window.focus();
 
-            // Now focus the input
-            titleInput.focus();
-            titleInput.select();
+          // Wait for next animation frame to ensure rendering is complete
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              window.focus();
 
-            console.log('[DEBUG] Title input setup complete, focused:', document.activeElement === titleInput);
-          }, 50);
+              // Additional delay before focusing input
+              setTimeout(() => {
+                titleInput.focus();
+                titleInput.select();
+
+                console.log('[DEBUG] Title input setup complete, focused:', document.activeElement === titleInput);
+                console.log('[DEBUG] Current time:', new Date().toISOString());
+              }, 100);
+            });
+          });
         }
 
         if (descriptionInput) {
           // Set value
           descriptionInput.value = currentAudioMetadata.description || '';
         }
-      }, 100);
+      }, 300);
       break;
 
     case 'merge':
