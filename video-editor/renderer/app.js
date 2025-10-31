@@ -356,25 +356,19 @@ function showToolProperties(tool) {
         </div>
       `;
 
-      // Set values and focus after DOM is ready with long delay to allow input recovery
+      // Set values immediately - no focus manipulation needed
       setTimeout(() => {
         const titleInput = document.getElementById('export-audio-title');
         const descriptionInput = document.getElementById('export-audio-description');
 
         if (titleInput) {
           titleInput.value = currentAudioMetadata.title || '';
-          // Give extra time for input to be fully ready after alert dialog
-          setTimeout(() => {
-            titleInput.focus();
-            titleInput.select();
-            console.log('[DEBUG] Title input focused and selected');
-          }, 1000);
         }
 
         if (descriptionInput) {
           descriptionInput.value = currentAudioMetadata.description || '';
         }
-      }, 100);
+      }, 50);
       break;
 
     case 'merge':
@@ -5709,25 +5703,12 @@ async function executeTrimAudioFile() {
       await window.electronAPI.deleteTempFile(previousAudioFile);
     }
 
-    // Clear the active tool to disable trim mode
-    activeTool = null;
-
-    // Hide trim range overlay
-    const trimOverlay = document.getElementById('trim-range-overlay');
-    if (trimOverlay) {
-      trimOverlay.style.display = 'none';
+    // Keep trim mode active for continuous editing
+    // Reactivate the trim-audio tool to show the UI again
+    const trimAudioBtn = document.querySelector('.tool-btn[data-tool="trim-audio"]');
+    if (trimAudioBtn) {
+      trimAudioBtn.click();
     }
-
-    // Clear properties panel
-    const propertiesPanel = document.getElementById('tool-properties');
-    if (propertiesPanel) {
-      propertiesPanel.innerHTML = '<p class="placeholder-text">음성 자르기가 완료되었습니다.<br><br>추가 편집을 원하시면 편집 도구를 선택하세요.</p>';
-    }
-
-    // Remove active state from all tool buttons
-    document.querySelectorAll('.tool-btn').forEach(btn => {
-      btn.classList.remove('active');
-    });
 
     const newDuration = parseFloat(audioFileInfo.format.duration);
     updateStatus(`음성 자르기 완료 (임시 저장): ${newDuration.toFixed(2)}초`);
@@ -5876,25 +5857,12 @@ async function executeDeleteAudioRange() {
       await window.electronAPI.deleteTempFile(secondPart.outputPath);
     }
 
-    // Clear the active tool to disable trim mode
-    activeTool = null;
-
-    // Hide trim range overlay
-    const trimOverlay = document.getElementById('trim-range-overlay');
-    if (trimOverlay) {
-      trimOverlay.style.display = 'none';
+    // Keep trim mode active for continuous editing
+    // Reactivate the trim-audio tool to show the UI again
+    const trimAudioBtn = document.querySelector('.tool-btn[data-tool="trim-audio"]');
+    if (trimAudioBtn) {
+      trimAudioBtn.click();
     }
-
-    // Clear properties panel
-    const propertiesPanel = document.getElementById('tool-properties');
-    if (propertiesPanel) {
-      propertiesPanel.innerHTML = '<p class="placeholder-text">음성 자르기가 완료되었습니다.<br><br>추가 편집을 원하시면 편집 도구를 선택하세요.</p>';
-    }
-
-    // Remove active state from all tool buttons
-    document.querySelectorAll('.tool-btn').forEach(btn => {
-      btn.classList.remove('active');
-    });
 
     const newDuration = parseFloat(audioFileInfo.format.duration);
     updateStatus(`음성 자르기 완료 (임시 저장): ${newDuration.toFixed(2)}초`);
