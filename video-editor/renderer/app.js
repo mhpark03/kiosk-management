@@ -521,10 +521,7 @@ function showToolProperties(tool) {
           <label>설명</label>
           <textarea id="extract-audio-description" rows="3" placeholder="설명 입력 (선택사항)">${extractDescription.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</textarea>
         </div>
-        <div style="display: flex; gap: 10px; margin-top: 20px;">
-          <button class="property-btn" style="flex: 1;" onclick="executeExtractAudioLocal()">로컬에 저장</button>
-          <button class="property-btn" style="flex: 1; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);" onclick="executeExtractAudioToS3()">S3에 저장</button>
-        </div>
+        <button class="property-btn" onclick="executeExtractAudioToS3()">S3에 저장</button>
       `;
       break;
 
