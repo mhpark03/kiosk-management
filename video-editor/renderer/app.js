@@ -318,105 +318,37 @@ function showToolProperties(tool) {
         </div>
       `;
 
-      // Set values using requestAnimationFrame for better timing
-      requestAnimationFrame(() => {
-        const titleInput = document.getElementById('export-audio-title');
-        const descriptionInput = document.getElementById('export-audio-description');
+      // Set values directly without requestAnimationFrame
+      const titleInput = document.getElementById('export-audio-title');
+      const descriptionInput = document.getElementById('export-audio-description');
 
-        if (titleInput) {
-          // Remove any potentially blocking attributes
-          titleInput.removeAttribute('readonly');
-          titleInput.removeAttribute('disabled');
-          titleInput.removeAttribute('contenteditable');
+      if (titleInput) {
+        // Remove any potentially blocking attributes
+        titleInput.removeAttribute('readonly');
+        titleInput.removeAttribute('disabled');
+        titleInput.removeAttribute('contenteditable');
 
-          // Add event listeners FIRST before any focus attempt
-          titleInput.addEventListener('click', (e) => {
-            console.log('[DEBUG] Title input clicked', e);
-            e.stopPropagation();
-            titleInput.focus({ preventScroll: true });
-          });
+        // Set value
+        titleInput.value = currentAudioMetadata.title || '';
+        console.log('[DEBUG] Title input value set:', titleInput.value);
 
-          titleInput.addEventListener('focus', () => {
-            console.log('[DEBUG] Title input focused - NOW IT SHOULD WORK!');
-          });
+        // Focus immediately
+        setTimeout(() => {
+          titleInput.focus();
+          console.log('[DEBUG] Title input focused, activeElement:', document.activeElement === titleInput);
+        }, 50);
+      }
 
-          titleInput.addEventListener('blur', () => {
-            console.log('[DEBUG] Title input blurred');
-          });
+      if (descriptionInput) {
+        // Remove any potentially blocking attributes
+        descriptionInput.removeAttribute('readonly');
+        descriptionInput.removeAttribute('disabled');
+        descriptionInput.removeAttribute('contenteditable');
 
-          titleInput.addEventListener('input', (e) => {
-            console.log('[DEBUG] Title input changed:', e.target.value);
-          });
-
-          titleInput.addEventListener('keydown', (e) => {
-            console.log('[DEBUG] Title input keydown:', e.key);
-          });
-
-          titleInput.addEventListener('keypress', (e) => {
-            console.log('[DEBUG] Title input keypress:', e.key, e.charCode);
-          });
-
-          titleInput.addEventListener('keyup', (e) => {
-            console.log('[DEBUG] Title input keyup:', e.key);
-          });
-
-          // Set value AFTER event listeners
-          titleInput.value = currentAudioMetadata.title || '';
-
-          // Focus LAST after everything is set up
-          setTimeout(() => {
-            try {
-              titleInput.focus({ preventScroll: true });
-              const focusResult = document.activeElement === titleInput;
-              console.log('[DEBUG] Title input focus attempt:', focusResult ? 'SUCCESS' : 'FAILED');
-              console.log('[DEBUG] Active element:', document.activeElement);
-            } catch (err) {
-              console.error('[DEBUG] Focus error:', err);
-            }
-          }, 100);
-        }
-
-        if (descriptionInput) {
-          // Remove any potentially blocking attributes
-          descriptionInput.removeAttribute('readonly');
-          descriptionInput.removeAttribute('disabled');
-          descriptionInput.removeAttribute('contenteditable');
-
-          // Add event listeners FIRST
-          descriptionInput.addEventListener('click', (e) => {
-            console.log('[DEBUG] Description textarea clicked', e);
-            e.stopPropagation();
-            descriptionInput.focus({ preventScroll: true });
-          });
-
-          descriptionInput.addEventListener('focus', () => {
-            console.log('[DEBUG] Description textarea focused');
-          });
-
-          descriptionInput.addEventListener('blur', () => {
-            console.log('[DEBUG] Description textarea blurred');
-          });
-
-          descriptionInput.addEventListener('input', (e) => {
-            console.log('[DEBUG] Description textarea changed:', e.target.value);
-          });
-
-          descriptionInput.addEventListener('keydown', (e) => {
-            console.log('[DEBUG] Description textarea keydown:', e.key);
-          });
-
-          descriptionInput.addEventListener('keypress', (e) => {
-            console.log('[DEBUG] Description textarea keypress:', e.key, e.charCode);
-          });
-
-          descriptionInput.addEventListener('keyup', (e) => {
-            console.log('[DEBUG] Description textarea keyup:', e.key);
-          });
-
-          // Set value AFTER event listeners
-          descriptionInput.value = currentAudioMetadata.description || '';
-        }
-      });
+        // Set value
+        descriptionInput.value = currentAudioMetadata.description || '';
+        console.log('[DEBUG] Description textarea value set:', descriptionInput.value);
+      }
       break;
 
     case 'merge':
