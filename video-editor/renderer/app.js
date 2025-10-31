@@ -507,15 +507,19 @@ function showToolProperties(tool) {
       break;
 
     case 'extract-audio':
+      // Use video metadata as default values if available
+      const extractTitle = currentVideoMetadata?.title || '';
+      const extractDescription = currentVideoMetadata?.description || '';
+
       propertiesPanel.innerHTML = `
         <p style="margin-bottom: 20px;">현재 영상에서 오디오를 추출합니다.</p>
         <div class="property-group">
           <label>제목</label>
-          <input type="text" id="extract-audio-title" placeholder="추출된 오디오 제목 입력">
+          <input type="text" id="extract-audio-title" placeholder="추출된 오디오 제목 입력" value="${extractTitle.replace(/"/g, '&quot;')}">
         </div>
         <div class="property-group">
           <label>설명</label>
-          <textarea id="extract-audio-description" rows="3" placeholder="설명 입력 (선택사항)"></textarea>
+          <textarea id="extract-audio-description" rows="3" placeholder="설명 입력 (선택사항)">${extractDescription.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</textarea>
         </div>
         <div style="display: flex; gap: 10px; margin-top: 20px;">
           <button class="property-btn" style="flex: 1;" onclick="executeExtractAudioLocal()">로컬에 저장</button>
