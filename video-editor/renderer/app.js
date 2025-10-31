@@ -363,6 +363,15 @@ function showToolProperties(tool) {
           titleInput.addEventListener('click', function(e) {
             console.log('[DEBUG] Title input clicked');
             this.focus();
+
+            // Move cursor to click position, or end if no specific position
+            setTimeout(() => {
+              if (this.selectionStart === this.selectionEnd) {
+                // If no selection, ensure cursor is at click position (already handled by browser)
+                console.log('[DEBUG] Cursor at position:', this.selectionStart);
+              }
+            }, 10);
+
             e.stopPropagation();
           }, { once: false });
 
@@ -425,15 +434,16 @@ function showToolProperties(tool) {
             requestAnimationFrame(() => {
               // Additional delay before focusing input
               setTimeout(() => {
-                // Dispatch a click event to simulate user interaction
-                titleInput.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-
                 titleInput.focus();
-                titleInput.select();
+
+                // Move cursor to end of text instead of selecting all
+                const len = titleInput.value.length;
+                titleInput.setSelectionRange(len, len);
 
                 console.log('[DEBUG] Title input setup complete, focused:', document.activeElement === titleInput);
                 console.log('[DEBUG] Title input disabled:', titleInput.disabled);
                 console.log('[DEBUG] Title input readonly:', titleInput.readOnly);
+                console.log('[DEBUG] Cursor position:', titleInput.selectionStart, '/', titleInput.value.length);
                 console.log('[DEBUG] Current time:', new Date().toISOString());
               }, 100);
             });
@@ -454,6 +464,14 @@ function showToolProperties(tool) {
           descriptionInput.addEventListener('click', function(e) {
             console.log('[DEBUG] Description input clicked');
             this.focus();
+
+            // Move cursor to click position
+            setTimeout(() => {
+              if (this.selectionStart === this.selectionEnd) {
+                console.log('[DEBUG] Description cursor at position:', this.selectionStart);
+              }
+            }, 10);
+
             e.stopPropagation();
           }, { once: false });
 
