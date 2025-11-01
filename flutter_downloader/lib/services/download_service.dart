@@ -17,13 +17,17 @@ class DownloadService {
     CancelToken? cancelToken,
   }) async {
     try {
+      // Normalize path separators for the current platform
+      // Android is Linux-based and requires forward slashes only
+      final normalizedSavePath = savePath.replaceAll('\\', '/');
+
       // Ensure directory exists
-      final dir = Directory(savePath);
+      final dir = Directory(normalizedSavePath);
       if (!await dir.exists()) {
         await dir.create(recursive: true);
       }
 
-      final filePath = '$savePath${Platform.pathSeparator}$filename';
+      final filePath = '$normalizedSavePath${Platform.pathSeparator}$filename';
 
       // Download file
       await _dio.download(
