@@ -1,5 +1,6 @@
 package com.kiosk.backend.controller;
 
+import com.kiosk.backend.annotation.RecordActivity;
 import com.kiosk.backend.entity.EntityHistory;
 import com.kiosk.backend.entity.User;
 import com.kiosk.backend.entity.Video;
@@ -38,6 +39,11 @@ public class VideoController {
      */
     @PostMapping("/upload")
     @PreAuthorize("hasRole('ADMIN')")
+    @RecordActivity(
+        entityType = EntityHistory.EntityType.VIDEO,
+        action = EntityHistory.ActionType.VIDEO_UPLOAD,
+        description = "영상 업로드"
+    )
     public ResponseEntity<?> uploadVideo(
             @RequestParam("file") MultipartFile file,
             @RequestParam("title") String title,
@@ -50,17 +56,10 @@ public class VideoController {
 
             Video video = videoService.uploadVideo(file, user.getId(), title, description);
 
-            // Record video upload activity to entity history
-            entityHistoryService.recordVideoActivity(
-                    video.getId(),
-                    video.getTitle(),
-                    user,
-                    EntityHistory.ActionType.VIDEO_UPLOAD,
-                    "영상 업로드: " + video.getTitle()
-            );
-
             Map<String, Object> response = new HashMap<>();
             response.put("message", "Video uploaded successfully");
+            response.put("id", video.getId());
+            response.put("title", video.getTitle());
             response.put("video", video);
 
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
@@ -280,6 +279,12 @@ public class VideoController {
      */
     @GetMapping("/{id}/presigned-url")
     @PreAuthorize("hasRole('ADMIN')")
+    @RecordActivity(
+        entityType = EntityHistory.EntityType.VIDEO,
+        action = EntityHistory.ActionType.VIDEO_PLAY,
+        description = "영상 재생",
+        entityIdParam = "id"
+    )
     public ResponseEntity<?> getPresignedUrl(
             @PathVariable Long id,
             @RequestParam(value = "duration", defaultValue = "60") int durationMinutes,
@@ -292,16 +297,12 @@ public class VideoController {
             Video video = videoService.getVideoById(id);
             String presignedUrl = videoService.generatePresignedUrl(id, durationMinutes);
 
-            // Record video play activity to entity history
-            entityHistoryService.recordVideoActivity(
-                    video.getId(),
-                    video.getTitle(),
-                    user,
-                    EntityHistory.ActionType.VIDEO_PLAY,
-                    "영상 재생: " + video.getTitle()
-            );
-
-            return ResponseEntity.ok(Map.of("url", presignedUrl, "expiresIn", durationMinutes + " minutes"));
+            return ResponseEntity.ok(Map.of(
+                    "id", video.getId(),
+                    "title", video.getTitle(),
+                    "url", presignedUrl,
+                    "expiresIn", durationMinutes + " minutes"
+            ));
         } catch (RuntimeException e) {
             log.error("Failed to generate presigned URL for video: {}", id, e);
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
@@ -468,6 +469,12 @@ public class VideoController {
      */
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
+    @RecordActivity(
+        entityType = EntityHistory.EntityType.VIDEO,
+        action = EntityHistory.ActionType.VIDEO_DELETE,
+        description = "영상 삭제",
+        entityIdParam = "id"
+    )
     public ResponseEntity<?> deleteVideo(@PathVariable Long id, Authentication authentication) {
         try {
             String userEmail = authentication.getName();
@@ -479,16 +486,11 @@ public class VideoController {
 
             videoService.deleteVideo(id, user.getId());
 
-            // Record video delete activity to entity history
-            entityHistoryService.recordVideoActivity(
-                    video.getId(),
-                    video.getTitle(),
-                    user,
-                    EntityHistory.ActionType.VIDEO_DELETE,
-                    "영상 삭제: " + video.getTitle()
-            );
-
-            return ResponseEntity.ok(Map.of("message", "Video deleted successfully"));
+            return ResponseEntity.ok(Map.of(
+                    "message", "Video deleted successfully",
+                    "id", video.getId(),
+                    "title", video.getTitle()
+            ));
         } catch (RuntimeException e) {
             log.error("Failed to delete video: {}", id, e);
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
@@ -507,6 +509,11 @@ public class VideoController {
      */
     @PostMapping("/save-veo-video")
     // @PreAuthorize("hasRole('ADMIN')") // Temporarily disabled for debugging
+    @RecordActivity(
+        entityType = EntityHistory.EntityType.VIDEO,
+        action = EntityHistory.ActionType.VIDEO_UPLOAD,
+        description = "Google Veo 영상 생성"
+    )
     public ResponseEntity<?> saveVeoGeneratedVideo(
             @RequestBody Map<String, String> request,
             Authentication authentication) {
@@ -566,21 +573,12 @@ public class VideoController {
             );
             log.info("✅ Video saved successfully: {}", video.getId());
 
-            // Record video upload activity to entity history (if user is available)
-            if (user != null) {
-                entityHistoryService.recordVideoActivity(
-                        video.getId(),
-                        video.getTitle(),
-                        user,
-                        EntityHistory.ActionType.VIDEO_UPLOAD,
-                        "Google Veo 영상 생성: " + video.getTitle()
-                );
-            } else {
-                log.info("Skipping entity history record (no user authentication)");
-            }
+            // Event recording is automatic via @RecordActivity annotation
 
             Map<String, Object> response = new HashMap<>();
             response.put("message", "Google Veo generated video saved successfully");
+            response.put("id", video.getId());
+            response.put("title", video.getTitle());
             response.put("video", video);
 
             return ResponseEntity.status(HttpStatus.CREATED).body(response);

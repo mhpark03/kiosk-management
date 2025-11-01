@@ -1,5 +1,6 @@
 package com.kiosk.backend.controller;
 
+import com.kiosk.backend.annotation.RecordActivity;
 import com.kiosk.backend.entity.EntityHistory;
 import com.kiosk.backend.entity.User;
 import com.kiosk.backend.entity.Video;
@@ -41,6 +42,11 @@ public class AudioController {
      */
     @PostMapping("/upload")
     @PreAuthorize("hasRole('ADMIN')")
+    @RecordActivity(
+        entityType = EntityHistory.EntityType.VIDEO,
+        action = EntityHistory.ActionType.VIDEO_UPLOAD,
+        description = "음성 업로드"
+    )
     public ResponseEntity<?> uploadAudio(
             @RequestParam("file") MultipartFile file,
             @RequestParam("title") String title,
@@ -55,17 +61,12 @@ public class AudioController {
 
             Video audio = videoService.uploadAudio(file, user.getId(), title, description);
 
-            // Record audio upload activity to entity history
-            entityHistoryService.recordVideoActivity(
-                    audio.getId(),
-                    audio.getTitle(),
-                    user,
-                    EntityHistory.ActionType.VIDEO_UPLOAD,
-                    "음성 업로드: " + audio.getTitle()
-            );
+            // Event recording is automatic via @RecordActivity annotation
 
             Map<String, Object> response = new HashMap<>();
             response.put("message", "Audio uploaded successfully");
+            response.put("id", audio.getId());
+            response.put("title", audio.getTitle());
             response.put("audio", audio);
 
             log.info("Audio uploaded successfully: ID={}, Title={}", audio.getId(), audio.getTitle());
@@ -93,6 +94,11 @@ public class AudioController {
      */
     @PostMapping("/upload-tts")
     @PreAuthorize("hasRole('ADMIN')")
+    @RecordActivity(
+        entityType = EntityHistory.EntityType.VIDEO,
+        action = EntityHistory.ActionType.VIDEO_UPLOAD,
+        description = "TTS 음성 업로드"
+    )
     public ResponseEntity<?> uploadTtsAudio(
             @RequestParam("file") MultipartFile file,
             @RequestParam("title") String title,
@@ -107,17 +113,12 @@ public class AudioController {
 
             Video audio = videoService.uploadAudioTts(file, user.getId(), title, description);
 
-            // Record TTS audio upload activity to entity history
-            entityHistoryService.recordVideoActivity(
-                    audio.getId(),
-                    audio.getTitle(),
-                    user,
-                    EntityHistory.ActionType.VIDEO_UPLOAD,
-                    "TTS 음성 업로드: " + audio.getTitle()
-            );
+            // Event recording is automatic via @RecordActivity annotation
 
             Map<String, Object> response = new HashMap<>();
             response.put("message", "TTS audio uploaded successfully");
+            response.put("id", audio.getId());
+            response.put("title", audio.getTitle());
             response.put("audio", audio);
 
             log.info("TTS audio uploaded successfully: ID={}, Title={}", audio.getId(), audio.getTitle());

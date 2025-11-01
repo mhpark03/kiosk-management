@@ -1,5 +1,6 @@
 package com.kiosk.backend.controller;
 
+import com.kiosk.backend.annotation.RecordActivity;
 import com.kiosk.backend.entity.EntityHistory;
 import com.kiosk.backend.entity.User;
 import com.kiosk.backend.entity.Video;
@@ -45,6 +46,11 @@ public class AIContentController {
      */
     @PostMapping("/upload")
     @PreAuthorize("hasRole('ADMIN')")
+    @RecordActivity(
+        entityType = EntityHistory.EntityType.VIDEO,
+        action = EntityHistory.ActionType.VIDEO_UPLOAD,
+        description = "AI 콘텐츠 업로드"
+    )
     public ResponseEntity<?> uploadAIContent(
             @RequestParam("file") MultipartFile file,
             @RequestParam("title") String title,
@@ -86,32 +92,12 @@ public class AIContentController {
             // Upload using VideoService with AI_GENERATED type
             Video video = videoService.uploadAIContent(file, user.getId(), title, description, mediaType);
 
-            // Record activity
-            EntityHistory.ActionType actionType;
-            switch (mediaType) {
-                case IMAGE:
-                    actionType = EntityHistory.ActionType.VIDEO_UPLOAD; // Reusing VIDEO_UPLOAD for images
-                    break;
-                case VIDEO:
-                    actionType = EntityHistory.ActionType.VIDEO_UPLOAD;
-                    break;
-                case AUDIO:
-                    actionType = EntityHistory.ActionType.VIDEO_UPLOAD; // Reusing for audio
-                    break;
-                default:
-                    actionType = EntityHistory.ActionType.VIDEO_UPLOAD;
-            }
-
-            entityHistoryService.recordVideoActivity(
-                    video.getId(),
-                    video.getTitle(),
-                    user,
-                    actionType,
-                    actionDescription + ": " + video.getTitle()
-            );
+            // Event recording is automatic via @RecordActivity annotation
 
             Map<String, Object> response = new HashMap<>();
             response.put("message", "AI content uploaded successfully");
+            response.put("id", video.getId());
+            response.put("title", video.getTitle());
             response.put("mediaType", mediaType.toString());
             response.put("video", video);
 
