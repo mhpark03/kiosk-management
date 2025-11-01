@@ -864,7 +864,7 @@ function showToolProperties(tool) {
     // Runway Image Generation
     case 'generate-image-runway':
       propertiesPanel.innerHTML = `
-        <div style="max-height: 60vh; overflow-y: auto; padding-right: 10px;">
+        <div style="height: calc(100vh - 250px); overflow-y: auto; overflow-x: hidden; padding-right: 10px;">
           <h3 style="margin-bottom: 15px; color: #667eea;">🎨 Runway 이미지 생성</h3>
 
           <div class="property-group">
@@ -904,8 +904,8 @@ function showToolProperties(tool) {
               id="image-style-runway"
               style="width: 100%; padding: 10px; background: #2d2d2d; border: 1px solid #444; border-radius: 5px; color: #e0e0e0; font-size: 14px;"
             >
+              <option value="anime" selected>애니메이션 (Anime)</option>
               <option value="realistic">사실적 (Realistic)</option>
-              <option value="anime">애니메이션 (Anime)</option>
               <option value="artistic">예술적 (Artistic)</option>
               <option value="photograph">사진 (Photograph)</option>
               <option value="illustration">일러스트 (Illustration)</option>
@@ -913,13 +913,13 @@ function showToolProperties(tool) {
           </div>
 
           <div class="property-group">
-            <label>종횡비</label>
+            <label>화면 비율</label>
             <select
               id="image-aspect-runway"
               style="width: 100%; padding: 10px; background: #2d2d2d; border: 1px solid #444; border-radius: 5px; color: #e0e0e0; font-size: 14px;"
             >
+              <option value="1920:1080" selected>가로 (16:9)</option>
               <option value="1024:1024">정사각형 (1:1)</option>
-              <option value="1920:1080">가로 (16:9)</option>
               <option value="1080:1920">세로 (9:16)</option>
               <option value="1440:1080">가로 (4:3)</option>
               <option value="1080:1440">세로 (3:4)</option>
@@ -947,12 +947,6 @@ function showToolProperties(tool) {
               💾 S3에 저장
             </button>
           </div>
-
-          <div style="background: #3a3a3a; padding: 10px; border-radius: 5px; margin-top: 10px;">
-            <small style="color: #aaa;">💡 Runway ML API를 사용하여 AI 이미지를 생성하고 S3에 저장합니다</small>
-            <br>
-            <small style="color: #888; font-size: 10px;">⚙️ 백엔드 서버 필요: RUNWAY_API_KEY 설정</small>
-          </div>
         </div>
       `;
       break;
@@ -960,7 +954,7 @@ function showToolProperties(tool) {
     // Veo Image Generation
     case 'generate-image-veo':
       propertiesPanel.innerHTML = `
-        <div style="max-height: 60vh; overflow-y: auto; padding-right: 10px;">
+        <div style="height: calc(100vh - 250px); overflow-y: auto; overflow-x: hidden; padding-right: 10px;">
           <h3 style="margin-bottom: 15px; color: #667eea;">✨ Veo 이미지 생성</h3>
 
           <div class="property-group">
@@ -974,7 +968,7 @@ function showToolProperties(tool) {
           </div>
 
           <div class="property-group">
-            <label>종횡비</label>
+            <label>화면 비율</label>
             <select
               id="image-aspect-veo"
               style="width: 100%; padding: 10px; background: #2d2d2d; border: 1px solid #444; border-radius: 5px; color: #e0e0e0; font-size: 14px;"
@@ -1000,12 +994,6 @@ function showToolProperties(tool) {
               ✨ 이미지 생성하고 S3에 저장
             </button>
           </div>
-
-          <div style="background: #3a3a3a; padding: 10px; border-radius: 5px; margin-top: 10px;">
-            <small style="color: #aaa;">💡 Google Veo API를 사용하여 AI 이미지를 생성하고 S3에 저장합니다</small>
-            <br>
-            <small style="color: #888; font-size: 10px;">⚙️ 환경변수 필요: GOOGLE_AI_API_KEY</small>
-          </div>
         </div>
       `;
       break;
@@ -1013,7 +1001,7 @@ function showToolProperties(tool) {
     // Runway Video Generation
     case 'generate-video-runway':
       propertiesPanel.innerHTML = `
-        <div style="max-height: 60vh; overflow-y: auto; padding-right: 10px;">
+        <div style="height: calc(100vh - 250px); overflow-y: auto; overflow-x: hidden; padding-right: 10px;">
           <h3 style="margin-bottom: 15px; color: #667eea;">🎥 Runway 영상 생성</h3>
 
           <div class="property-group">
@@ -1066,12 +1054,6 @@ function showToolProperties(tool) {
               🎥 영상 생성하고 S3에 저장
             </button>
           </div>
-
-          <div style="background: #3a3a3a; padding: 10px; border-radius: 5px; margin-top: 10px;">
-            <small style="color: #aaa;">💡 Runway ML API를 사용하여 AI 영상을 생성하고 S3에 저장합니다</small>
-            <br>
-            <small style="color: #888; font-size: 10px;">⚙️ 환경변수 필요: RUNWAY_API_KEY</small>
-          </div>
         </div>
       `;
       break;
@@ -1079,7 +1061,7 @@ function showToolProperties(tool) {
     // Veo Video Generation
     case 'generate-video-veo':
       propertiesPanel.innerHTML = `
-        <div style="max-height: 60vh; overflow-y: auto; padding-right: 10px;">
+        <div style="height: calc(100vh - 250px); overflow-y: auto; overflow-x: hidden; padding-right: 10px;">
           <h3 style="margin-bottom: 15px; color: #667eea;">🌟 Veo 영상 생성</h3>
 
           <div class="property-group">
@@ -1106,7 +1088,7 @@ function showToolProperties(tool) {
             </div>
 
             <div class="property-group">
-              <label>종횡비</label>
+              <label>화면 비율</label>
               <select
                 id="video-aspect-veo"
                 style="width: 100%; padding: 10px; background: #2d2d2d; border: 1px solid #444; border-radius: 5px; color: #e0e0e0; font-size: 14px;"
@@ -1131,12 +1113,6 @@ function showToolProperties(tool) {
             <button class="property-btn" onclick="executeGenerateVideoVeo()" style="width: 100%; margin: 0; background: #667eea;">
               🌟 영상 생성하고 S3에 저장
             </button>
-          </div>
-
-          <div style="background: #3a3a3a; padding: 10px; border-radius: 5px; margin-top: 10px;">
-            <small style="color: #aaa;">💡 Google Veo API를 사용하여 AI 영상을 생성하고 S3에 저장합니다</small>
-            <br>
-            <small style="color: #888; font-size: 10px;">⚙️ 환경변수 필요: GOOGLE_AI_API_KEY</small>
           </div>
         </div>
       `;
@@ -9551,22 +9527,6 @@ async function executeGenerateImageRunway() {
     return;
   }
 
-  if (!title) {
-    alert('제목을 입력해주세요.');
-    return;
-  }
-
-  if (!description) {
-    alert('설명을 입력해주세요.');
-    return;
-  }
-
-  // Check authentication
-  if (!authToken || !currentUser) {
-    alert('S3에 업로드하려면 로그인이 필요합니다.');
-    return;
-  }
-
   // Get selected images
   const selectedImages = referenceImages.filter(img => img !== null);
 
@@ -9686,6 +9646,23 @@ async function saveGeneratedImageToS3() {
 
   if (!data) {
     alert('저장할 이미지 데이터가 없습니다.');
+    return;
+  }
+
+  // Validate title and description
+  if (!data.title || data.title.trim() === '') {
+    alert('제목을 입력해주세요.');
+    return;
+  }
+
+  if (!data.description || data.description.trim() === '') {
+    alert('설명을 입력해주세요.');
+    return;
+  }
+
+  // Check authentication
+  if (!authToken || !currentUser) {
+    alert('S3에 업로드하려면 로그인이 필요합니다.');
     return;
   }
 
@@ -9872,22 +9849,6 @@ async function executeGenerateImageVeo() {
     return;
   }
 
-  if (!title) {
-    alert('제목을 입력해주세요.');
-    return;
-  }
-
-  if (!description) {
-    alert('설명을 입력해주세요.');
-    return;
-  }
-
-  // Check authentication
-  if (!authToken || !currentUser) {
-    alert('S3에 업로드하려면 로그인이 필요합니다.');
-    return;
-  }
-
   alert('Veo 이미지 생성 기능은 곧 구현될 예정입니다.\n\n' +
         `프롬프트: ${prompt}\n` +
         `종횡비: ${aspect}\n` +
@@ -9909,22 +9870,6 @@ async function executeGenerateVideoRunway() {
 
   if (!prompt) {
     alert('프롬프트를 입력해주세요.');
-    return;
-  }
-
-  if (!title) {
-    alert('제목을 입력해주세요.');
-    return;
-  }
-
-  if (!description) {
-    alert('설명을 입력해주세요.');
-    return;
-  }
-
-  // Check authentication
-  if (!authToken || !currentUser) {
-    alert('S3에 업로드하려면 로그인이 필요합니다.');
     return;
   }
 
@@ -9950,22 +9895,6 @@ async function executeGenerateVideoVeo() {
 
   if (!prompt) {
     alert('프롬프트를 입력해주세요.');
-    return;
-  }
-
-  if (!title) {
-    alert('제목을 입력해주세요.');
-    return;
-  }
-
-  if (!description) {
-    alert('설명을 입력해주세요.');
-    return;
-  }
-
-  // Check authentication
-  if (!authToken || !currentUser) {
-    alert('S3에 업로드하려면 로그인이 필요합니다.');
     return;
   }
 
