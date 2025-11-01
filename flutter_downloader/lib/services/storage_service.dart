@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../models/user.dart';
@@ -55,17 +56,54 @@ class StorageService {
   // Config management
   Future<void> saveConfig(KioskConfig config) async {
     final json = jsonEncode(config.toJson());
+
+    // Save to SharedPreferences
     await _prefs.setString(_keyConfig, json);
+
+    // Also save to file in download path for easy access
+    try {
+      final configFile = File('${config.downloadPath}/kiosk_config.json');
+      await configFile.writeAsString(jsonEncode(config.toJson()));
+      print('[CONFIG] Saved to file: ${configFile.path}');
+    } catch (e) {
+      print('[CONFIG] Failed to save config file: $e');
+      // Don't throw error - SharedPreferences save already succeeded
+    }
   }
 
   KioskConfig? getConfig() {
+    // Try SharedPreferences first
     final json = _prefs.getString(_keyConfig);
-    if (json == null) return null;
-    return KioskConfig.fromJson(jsonDecode(json));
+    if (json != null) {
+      return KioskConfig.fromJson(jsonDecode(json));
+    }
+
+    // If not in SharedPreferences, try to load from file
+    // Look for kiosk_config.json in common locations
+    print('[CONFIG] No config in SharedPreferences, checking files...');
+    return null;
   }
 
   Future<void> deleteConfig() async {
+    // Get config first to know where the file is
+    final config = getConfig();
+
+    // Delete from SharedPreferences
     await _prefs.remove(_keyConfig);
+
+    // Delete file if config exists
+    if (config != null) {
+      try {
+        final configFile = File('${config.downloadPath}/kiosk_config.json');
+        if (await configFile.exists()) {
+          await configFile.delete();
+          print('[CONFIG] Deleted config file: ${configFile.path}');
+        }
+      } catch (e) {
+        print('[CONFIG] Failed to delete config file: $e');
+        // Don't throw error
+      }
+    }
   }
 
   // Update last sync time
