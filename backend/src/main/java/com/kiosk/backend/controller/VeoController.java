@@ -1,6 +1,5 @@
 package com.kiosk.backend.controller;
 
-import com.kiosk.backend.dto.RunwayVideoResponse;
 import com.kiosk.backend.service.VeoService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -14,6 +13,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.InputStream;
 import java.net.URL;
 import java.net.URLConnection;
+import java.util.Map;
 
 /**
  * Controller for Google Veo 3.1 video generation.
@@ -37,7 +37,7 @@ public class VeoController {
      * @return Response containing task ID and status
      */
     @PostMapping("/generate-from-prompt")
-    public ResponseEntity<RunwayVideoResponse> generateVideoFromPrompt(
+    public ResponseEntity<Map<String, Object>> generateVideoFromPrompt(
             @RequestParam("prompt") String prompt,
             @RequestParam(value = "duration", required = false, defaultValue = "4") String duration,
             @RequestParam(value = "resolution", required = false, defaultValue = "720p") String resolution,
@@ -49,28 +49,28 @@ public class VeoController {
             log.info("Duration: {}s, Resolution: {}, AspectRatio: {}", duration, resolution, aspectRatio);
 
             if (prompt == null || prompt.trim().isEmpty()) {
-                return ResponseEntity.badRequest().body(RunwayVideoResponse.builder()
-                        .success(false)
-                        .message("Prompt is required")
-                        .build());
+                return ResponseEntity.badRequest().body(Map.of(
+                        "success", false,
+                        "message", "Prompt is required"
+                ));
             }
 
             VeoService.VeoVideoResult result = veoService.generateVideoFromPrompt(prompt, duration, resolution, aspectRatio);
 
-            return ResponseEntity.ok(RunwayVideoResponse.builder()
-                    .success(result.isSuccess())
-                    .taskId(result.getTaskId())
-                    .videoUrl(result.getVideoUrl())
-                    .status(result.isSuccess() ? "COMPLETED" : "FAILED")
-                    .message(result.getMessage())
-                    .build());
+            return ResponseEntity.ok(Map.of(
+                    "success", result.isSuccess(),
+                    "taskId", result.getTaskId() != null ? result.getTaskId() : "",
+                    "videoUrl", result.getVideoUrl() != null ? result.getVideoUrl() : "",
+                    "status", result.isSuccess() ? "COMPLETED" : "FAILED",
+                    "message", result.getMessage() != null ? result.getMessage() : ""
+            ));
 
         } catch (Exception e) {
             log.error("Error generating video from prompt", e);
-            return ResponseEntity.ok(RunwayVideoResponse.builder()
-                    .success(false)
-                    .message("Failed to generate video: " + e.getMessage())
-                    .build());
+            return ResponseEntity.ok(Map.of(
+                    "success", false,
+                    "message", "Failed to generate video: " + e.getMessage()
+            ));
         }
     }
 
@@ -84,7 +84,7 @@ public class VeoController {
      * @return Response containing task ID and status
      */
     @PostMapping("/generate-with-first-frame")
-    public ResponseEntity<RunwayVideoResponse> generateVideoWithFirstFrame(
+    public ResponseEntity<Map<String, Object>> generateVideoWithFirstFrame(
             @RequestParam("prompt") String prompt,
             @RequestParam("firstFrame") MultipartFile firstFrame,
             @RequestParam(value = "duration", required = false, defaultValue = "4") String duration,
@@ -98,35 +98,35 @@ public class VeoController {
             log.info("Duration: {}s, Resolution: {}, AspectRatio: {}", duration, resolution, aspectRatio);
 
             if (prompt == null || prompt.trim().isEmpty()) {
-                return ResponseEntity.badRequest().body(RunwayVideoResponse.builder()
-                        .success(false)
-                        .message("Prompt is required")
-                        .build());
+                return ResponseEntity.badRequest().body(Map.of(
+                        "success", false,
+                        "message", "Prompt is required"
+                ));
             }
 
             if (firstFrame == null || firstFrame.isEmpty()) {
-                return ResponseEntity.badRequest().body(RunwayVideoResponse.builder()
-                        .success(false)
-                        .message("First frame image is required")
-                        .build());
+                return ResponseEntity.badRequest().body(Map.of(
+                        "success", false,
+                        "message", "First frame image is required"
+                ));
             }
 
             VeoService.VeoVideoResult result = veoService.generateVideoWithFirstFrame(prompt, firstFrame, duration, resolution, aspectRatio);
 
-            return ResponseEntity.ok(RunwayVideoResponse.builder()
-                    .success(result.isSuccess())
-                    .taskId(result.getTaskId())
-                    .videoUrl(result.getVideoUrl())
-                    .status(result.isSuccess() ? "COMPLETED" : "FAILED")
-                    .message(result.getMessage())
-                    .build());
+            return ResponseEntity.ok(Map.of(
+                    "success", result.isSuccess(),
+                    "taskId", result.getTaskId() != null ? result.getTaskId() : "",
+                    "videoUrl", result.getVideoUrl() != null ? result.getVideoUrl() : "",
+                    "status", result.isSuccess() ? "COMPLETED" : "FAILED",
+                    "message", result.getMessage() != null ? result.getMessage() : ""
+            ));
 
         } catch (Exception e) {
             log.error("Error generating video with first frame", e);
-            return ResponseEntity.ok(RunwayVideoResponse.builder()
-                    .success(false)
-                    .message("Failed to generate video: " + e.getMessage())
-                    .build());
+            return ResponseEntity.ok(Map.of(
+                    "success", false,
+                    "message", "Failed to generate video: " + e.getMessage()
+            ));
         }
     }
 
@@ -141,7 +141,7 @@ public class VeoController {
      * @return Response containing task ID and status
      */
     @PostMapping("/generate-with-interpolation")
-    public ResponseEntity<RunwayVideoResponse> generateVideoWithInterpolation(
+    public ResponseEntity<Map<String, Object>> generateVideoWithInterpolation(
             @RequestParam("prompt") String prompt,
             @RequestParam("firstFrame") MultipartFile firstFrame,
             @RequestParam("lastFrame") MultipartFile lastFrame,
@@ -157,43 +157,43 @@ public class VeoController {
             log.info("Duration: {}s, Resolution: {}, AspectRatio: {}", duration, resolution, aspectRatio);
 
             if (prompt == null || prompt.trim().isEmpty()) {
-                return ResponseEntity.badRequest().body(RunwayVideoResponse.builder()
-                        .success(false)
-                        .message("Prompt is required")
-                        .build());
+                return ResponseEntity.badRequest().body(Map.of(
+                        "success", false,
+                        "message", "Prompt is required"
+                ));
             }
 
             if (firstFrame == null || firstFrame.isEmpty()) {
-                return ResponseEntity.badRequest().body(RunwayVideoResponse.builder()
-                        .success(false)
-                        .message("First frame image is required")
-                        .build());
+                return ResponseEntity.badRequest().body(Map.of(
+                        "success", false,
+                        "message", "First frame image is required"
+                ));
             }
 
             if (lastFrame == null || lastFrame.isEmpty()) {
-                return ResponseEntity.badRequest().body(RunwayVideoResponse.builder()
-                        .success(false)
-                        .message("Last frame image is required")
-                        .build());
+                return ResponseEntity.badRequest().body(Map.of(
+                        "success", false,
+                        "message", "Last frame image is required"
+                ));
             }
 
             VeoService.VeoVideoResult result = veoService.generateVideoWithInterpolation(
                     prompt, firstFrame, lastFrame, duration, resolution, aspectRatio);
 
-            return ResponseEntity.ok(RunwayVideoResponse.builder()
-                    .success(result.isSuccess())
-                    .taskId(result.getTaskId())
-                    .videoUrl(result.getVideoUrl())
-                    .status(result.isSuccess() ? "COMPLETED" : "FAILED")
-                    .message(result.getMessage())
-                    .build());
+            return ResponseEntity.ok(Map.of(
+                    "success", result.isSuccess(),
+                    "taskId", result.getTaskId() != null ? result.getTaskId() : "",
+                    "videoUrl", result.getVideoUrl() != null ? result.getVideoUrl() : "",
+                    "status", result.isSuccess() ? "COMPLETED" : "FAILED",
+                    "message", result.getMessage() != null ? result.getMessage() : ""
+            ));
 
         } catch (Exception e) {
             log.error("Error generating video with interpolation", e);
-            return ResponseEntity.ok(RunwayVideoResponse.builder()
-                    .success(false)
-                    .message("Failed to generate video: " + e.getMessage())
-                    .build());
+            return ResponseEntity.ok(Map.of(
+                    "success", false,
+                    "message", "Failed to generate video: " + e.getMessage()
+            ));
         }
     }
 
