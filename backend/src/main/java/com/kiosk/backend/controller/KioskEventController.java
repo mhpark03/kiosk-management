@@ -27,7 +27,12 @@ public class KioskEventController {
     /**
      * Record a new kiosk event.
      * POST /api/kiosk-events
+     *
+     * @deprecated Events are now automatically recorded by the backend when kiosk operations occur.
+     * This endpoint is kept for backward compatibility but should not be used by new code.
+     * Use the appropriate kiosk API endpoints instead (e.g., /api/kiosks/by-kioskid/{kioskid}/videos/{videoId}/status)
      */
+    @Deprecated
     @PostMapping
     public ResponseEntity<KioskEventDTO> recordEvent(
             @RequestBody RecordKioskEventRequest request,
