@@ -11,7 +11,9 @@ class EventLogger {
 
   /// Initialize logger with download path
   void initialize(String downloadPath) {
-    _logDirectory = path.join(downloadPath, 'logs');
+    // Normalize path separators for the current platform
+    final normalizedPath = downloadPath.replaceAll('\\', '/');
+    _logDirectory = path.join(normalizedPath, 'logs');
     _ensureLogDirectoryExists();
   }
 
