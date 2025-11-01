@@ -364,7 +364,13 @@ class _VideoListScreenState extends State<VideoListScreen> {
     try {
       final config = widget.storageService.getConfig();
       if (config == null || !config.isValid) {
-        throw Exception('설정이 올바르지 않습니다');
+        // 설정이 없으면 영상 목록 clear
+        setState(() {
+          _videos = [];
+          _isLoading = false;
+          _errorMessage = null;
+        });
+        return;
       }
 
       // Record sync started event
