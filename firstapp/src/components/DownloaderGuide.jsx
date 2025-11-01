@@ -5,11 +5,11 @@ function DownloaderGuide() {
     <div className="downloader-guide">
       <div className="guide-container">
         <h1>키오스크 다운로더 앱 사용설명서</h1>
-        <p className="subtitle">Kiosk Video Downloader v1.1.0</p>
+        <p className="subtitle">Flutter Kiosk Downloader v2.0.0</p>
 
         <section className="guide-section">
           <h2>📱 앱 소개</h2>
-          <p>키오스크 다운로더는 웹 대시보드에서 할당한 영상을 키오스크 장치로 다운로드하는 데스크톱 애플리케이션입니다.</p>
+          <p>키오스크 다운로더는 웹 대시보드에서 할당한 영상을 키오스크 장치로 다운로드하는 크로스 플랫폼 애플리케이션입니다 (Windows, Android 지원).</p>
 
           <div className="feature-grid">
             <div className="feature-card">
@@ -44,17 +44,19 @@ function DownloaderGuide() {
 
             <div className="download-box">
               <div className="download-item">
-                <strong>📦 파일명</strong>
-                <code>Kiosk Video Downloader Setup 1.1.0.exe</code>
+                <strong>🪟 Windows 버전</strong>
+                <code>flutter_downloader_v2.0.0_windows.zip</code>
+                <span style={{marginLeft: '10px', color: '#666'}}>약 12MB</span>
               </div>
               <div className="download-item">
-                <strong>📏 파일 크기</strong>
-                <span>약 74MB</span>
+                <strong>📱 Android 버전</strong>
+                <code>flutter_downloader_v2.0.0.apk</code>
+                <span style={{marginLeft: '10px', color: '#666'}}>약 50MB</span>
               </div>
               <div className="download-item">
                 <strong>🔗 다운로드 링크</strong>
-                <a href="https://github.com/mhpark03/kiosk-management/tags" target="_blank" rel="noopener noreferrer">
-                  GitHub Tags 페이지 →
+                <a href="https://github.com/mhpark03/kiosk-management/releases/latest" target="_blank" rel="noopener noreferrer">
+                  GitHub 릴리스 페이지 →
                 </a>
               </div>
             </div>
@@ -62,29 +64,45 @@ function DownloaderGuide() {
 
           <div className="step-card">
             <h3>2단계: 앱 설치</h3>
+
+            <h4>🪟 Windows 설치 방법</h4>
             <ol>
-              <li>다운로드한 <code>.exe</code> 파일 더블클릭</li>
+              <li>다운로드한 <code>flutter_downloader_v2.0.0_windows.zip</code> 파일을 압축 해제</li>
+              <li>압축 해제된 폴더 안의 <code>flutter_downloader.exe</code> 파일을 실행</li>
               <li>Windows Defender 경고가 나타나면:
                 <ul>
                   <li>"추가 정보" 클릭</li>
                   <li>"실행" 버튼 클릭</li>
                 </ul>
               </li>
-              <li>설치 마법사 시작</li>
-              <li>설치 위치 선택 (기본값 권장): <code>C:\Program Files\Kiosk Video Downloader</code></li>
-              <li>"Next" 클릭하여 설치 진행</li>
-              <li>설치 완료 후 "Finish" 클릭</li>
+              <li>앱이 실행됩니다 (별도 설치 과정 불필요)</li>
             </ol>
             <div className="alert alert-info">
-              💡 <strong>팁</strong>: "바탕화면 바로가기 만들기" 옵션을 선택하면 편리합니다.
+              💡 <strong>팁</strong>: 압축 해제 폴더를 <code>C:\Kiosk\Downloader</code> 같은 고정 위치에 보관하세요.
+            </div>
+
+            <h4>📱 Android 설치 방법</h4>
+            <ol>
+              <li>다운로드한 <code>flutter_downloader_v2.0.0.apk</code> 파일을 탭</li>
+              <li>"출처를 알 수 없는 앱" 경고가 나타나면:
+                <ul>
+                  <li>"설정" 버튼 탭</li>
+                  <li>"이 출처 허용" 활성화</li>
+                </ul>
+              </li>
+              <li>"설치" 버튼 탭하여 설치 진행</li>
+              <li>설치 완료 후 "열기" 탭</li>
+            </ol>
+            <div className="alert alert-info">
+              💡 <strong>Android 참고</strong>: Android 6.0 (API 23) 이상 기기에서 작동합니다.
             </div>
           </div>
 
           <div className="step-card">
             <h3>3단계: 앱 실행</h3>
             <ul>
-              <li>바탕화면 바로가기 더블클릭 또는</li>
-              <li>시작 메뉴에서 "Kiosk Video Downloader" 검색 후 실행</li>
+              <li><strong>Windows</strong>: 압축 해제 폴더에서 <code>flutter_downloader.exe</code> 실행</li>
+              <li><strong>Android</strong>: 앱 드로어에서 "Flutter Downloader" 아이콘 탭</li>
             </ul>
           </div>
         </section>
@@ -128,17 +146,22 @@ function DownloaderGuide() {
               <div className="server-option">
                 <input type="radio" readOnly />
                 <div>
-                  <strong>로컬 서버</strong>
-                  <p>개발 테스트용 로컬 서버 (localhost:8080)</p>
+                  <strong>로컬 서버 (Windows)</strong>
+                  <p>개발 테스트용 로컬 서버</p>
+                  <code>http://localhost:8080/api</code>
                 </div>
               </div>
               <div className="server-option">
                 <input type="radio" readOnly />
                 <div>
-                  <strong>직접 입력</strong>
-                  <p>사용자 지정 서버 URL 입력</p>
+                  <strong>로컬 서버 (Android Emulator)</strong>
+                  <p>Android 에뮬레이터에서 호스트 PC에 접근</p>
+                  <code>http://10.0.2.2:8080/api</code>
                 </div>
               </div>
+            </div>
+            <div className="alert alert-info">
+              💡 <strong>Android 에뮬레이터 참고</strong>: Android 에뮬레이터는 localhost 대신 10.0.2.2를 사용해야 호스트 PC의 서버에 접근할 수 있습니다.
             </div>
           </div>
 
@@ -196,8 +219,12 @@ function DownloaderGuide() {
               <ul>
                 <li>충분한 여유 공간이 있는 드라이브 선택</li>
                 <li>키오스크 재생 앱과 같은 폴더 또는 연결된 폴더</li>
-                <li>예: <code>C:\Videos\Kiosk</code> 또는 <code>D:\Kiosk\Videos</code></li>
+                <li><strong>Windows 예</strong>: <code>C:\Videos\Kiosk</code> 또는 <code>D:\Kiosk\Videos</code></li>
+                <li><strong>Android 예</strong>: <code>/storage/emulated/0/Download/KioskVideos</code></li>
               </ul>
+            </div>
+            <div className="alert alert-info">
+              💡 <strong>Android 권한</strong>: 파일 접근 권한을 요청할 수 있습니다. 허용해주세요.
             </div>
           </div>
 
@@ -430,7 +457,19 @@ function DownloaderGuide() {
               <li>자동 동기화 체크박스가 선택되어 있는지 확인</li>
               <li>설정 저장 버튼을 눌렀는지 확인</li>
               <li>앱이 백그라운드에서 실행 중인지 확인</li>
-              <li>앱을 완전히 종료하지 않고 최소화만 해야 함</li>
+              <li>Windows: 앱을 완전히 종료하지 않고 최소화만 해야 함</li>
+              <li>Android: 배터리 최적화 설정에서 앱 제외 필요 (WorkManager 백그라운드 작업)</li>
+            </ol>
+          </div>
+
+          <div className="troubleshooting">
+            <h3>Android APK 설치 불가</h3>
+            <p><strong>증상</strong>: APK 파일을 설치할 수 없음</p>
+            <p><strong>해결방법</strong>:</p>
+            <ol>
+              <li>Android 설정 → 보안 → "알 수 없는 출처" 허용 확인</li>
+              <li>또는 설정 → 앱 → 특수 앱 접근 → "알 수 없는 앱 설치" 허용</li>
+              <li>파일 관리자에 설치 권한이 있는지 확인</li>
             </ol>
           </div>
         </section>
@@ -483,8 +522,11 @@ function DownloaderGuide() {
 
           <div className="advanced-settings">
             <h3>설정 파일 위치</h3>
-            <p>앱 설정은 다음 파일에 저장됩니다:</p>
-            <code className="file-path">C:\Users\[사용자명]\AppData\Roaming\kiosk-downloader\config.json</code>
+            <p>앱 설정은 플랫폼별로 다음 위치에 저장됩니다:</p>
+            <p><strong>Windows</strong>:</p>
+            <code className="file-path">C:\Users\[사용자명]\AppData\Roaming\com.example\flutter_downloader\shared_preferences.json</code>
+            <p><strong>Android</strong>:</p>
+            <code className="file-path">/data/data/com.example.flutter_downloader/shared_prefs/FlutterSharedPreferences.xml</code>
 
             <div className="alert alert-warning">
               ⚠️ <strong>주의</strong>: 설정 파일을 직접 수정하지 마세요. 앱 내에서 설정을 변경하세요.
@@ -492,10 +534,8 @@ function DownloaderGuide() {
           </div>
 
           <div className="advanced-settings">
-            <h3>로그 파일 위치</h3>
-            <p>다운로드 로그는 다음 폴더에 저장됩니다:</p>
-            <code className="file-path">C:\Users\[사용자명]\AppData\Roaming\kiosk-downloader\logs\</code>
-            <p className="help-text">문제 발생 시 로그 파일을 관리자에게 전달하면 도움이 됩니다.</p>
+            <h3>보안 토큰 저장</h3>
+            <p>JWT 토큰은 Flutter Secure Storage를 통해 암호화되어 안전하게 저장됩니다.</p>
           </div>
         </section>
 
@@ -556,13 +596,21 @@ function DownloaderGuide() {
 
           <div className="version-info">
             <h3>버전 정보</h3>
-            <p><strong>현재 버전</strong>: 1.1.0</p>
-            <p><strong>최신 업데이트</strong>: 2025-10-30</p>
+            <p><strong>현재 버전</strong>: 2.0.0</p>
+            <p><strong>최신 업데이트</strong>: 2025-11-01</p>
             <p><strong>주요 변경사항</strong>:</p>
             <ul>
-              <li>AWS 개발 서버를 기본 서버로 설정</li>
-              <li>UI 및 기능 개선</li>
+              <li>Flutter 기반 크로스 플랫폼 앱으로 전환 (Windows, Android 지원)</li>
+              <li>Material Design 3 기반 현대적인 UI</li>
+              <li>WebSocket/STOMP 실시간 동기화</li>
+              <li>WorkManager 백그라운드 작업 지원 (Android)</li>
+              <li>Flutter Secure Storage로 보안 강화</li>
+              <li>내장 비디오 플레이어 추가</li>
             </ul>
+            <p><strong>다운로드</strong>:</p>
+            <a href="https://github.com/mhpark03/kiosk-management/releases/latest" target="_blank" rel="noopener noreferrer">
+              GitHub 릴리스 페이지 →
+            </a>
           </div>
         </section>
 
