@@ -90,6 +90,44 @@ npm install
 npm start
 ```
 
+### 2. 환경 변수 설정 (.env 파일)
+
+Runway ML 이미지 생성 기능을 사용하려면 환경 변수 설정이 필요합니다.
+
+#### 방법 1: S3에서 환경 변수 파일 다운로드 (권장)
+
+팀에서 공유하는 환경 변수 파일을 S3에서 다운로드하여 사용할 수 있습니다.
+
+```bash
+# video-editor 폴더로 이동
+cd video-editor
+
+# S3에서 .env 파일 다운로드
+aws s3 cp s3://kiosk-video-bucket/credentials/video-editor.env ./.env --region ap-northeast-2
+
+# 다운로드 확인
+cat .env
+```
+
+#### 방법 2: 수동으로 .env 파일 생성
+
+```bash
+# video-editor 폴더에 .env 파일 생성
+cd video-editor
+```
+
+`.env` 파일 내용:
+```env
+# Runway ML API Configuration
+RUNWAY_API_KEY=your-runway-api-key-here
+RUNWAY_API_URL=https://api.dev.runwayml.com
+
+# Database Configuration
+DB_PASSWORD=aioztesting
+```
+
+**주의**: `.env` 파일은 Git에 커밋되지 않으며, 각 개발자가 로컬에서 직접 설정해야 합니다.
+
 ### TTS 기능 설정 (선택사항)
 
 TTS (음성 생성) 기능을 사용하려면 Google Cloud TTS API 키가 필요합니다.
