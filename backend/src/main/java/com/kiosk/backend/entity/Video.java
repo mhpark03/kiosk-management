@@ -19,7 +19,6 @@ public class Video {
 
     public enum VideoType {
         UPLOAD,           // Regular uploaded video/image
-        RUNWAY_GENERATED, // AI-generated video/image from Runway ML
         VEO_GENERATED,    // AI-generated video from Google Veo
         AI_GENERATED      // AI-generated content (unified)
     }
@@ -82,23 +81,6 @@ public class Video {
 
     @Column
     private Integer duration; // Video duration in seconds
-
-    // Runway ML specific fields
-    @Column(length = 100)
-    private String runwayTaskId; // Runway ML task ID
-
-    @Column(length = 50)
-    private String runwayModel; // Model used (gen3a_turbo, gen4_turbo, veo3, etc.)
-
-    @Column(length = 50)
-    private String runwayResolution; // Resolution used (e.g., "1280:768")
-
-    @Column(columnDefinition = "TEXT")
-    private String runwayPrompt; // Prompt used for generation
-
-    // Image generation specific fields
-    @Column(length = 50)
-    private String imageStyle; // Style used for image generation (e.g., "anime", "realistic")
 
     // Kiosk download flag
     @Column(nullable = false)

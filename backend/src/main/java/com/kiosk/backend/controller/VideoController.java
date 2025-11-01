@@ -77,7 +77,7 @@ public class VideoController {
     /**
      * Get all videos (Admin only)
      * GET /api/videos
-     * Optional query param: type (UPLOAD or RUNWAY_GENERATED)
+     * Optional query param: type (e.g., UPLOAD, VEO_GENERATED, AI_GENERATED)
      */
     @GetMapping
     @PreAuthorize("hasRole('ADMIN')")
@@ -94,7 +94,7 @@ public class VideoController {
                     videos = videoService.getVideosByType(videoType);
                 } catch (IllegalArgumentException e) {
                     return ResponseEntity.badRequest()
-                            .body(Map.of("error", "Invalid video type. Use UPLOAD or RUNWAY_GENERATED"));
+                            .body(Map.of("error", "Invalid video type"));
                 }
             } else {
                 videos = videoService.getAllVideos();
@@ -140,14 +140,6 @@ public class VideoController {
                 videoMap.put("downloadable", video.getDownloadable());
                 videoMap.put("uploadedById", video.getUploadedById());
 
-                // Add Runway ML specific fields if applicable
-                if (video.getVideoType() == Video.VideoType.RUNWAY_GENERATED) {
-                    videoMap.put("runwayTaskId", video.getRunwayTaskId());
-                    videoMap.put("runwayModel", video.getRunwayModel());
-                    videoMap.put("runwayResolution", video.getRunwayResolution());
-                    videoMap.put("runwayPrompt", video.getRunwayPrompt());
-                }
-
                 // Get user information
                 userRepository.findById(video.getUploadedById()).ifPresent(user -> {
                     videoMap.put("uploadedByEmail", user.getEmail());
@@ -168,7 +160,7 @@ public class VideoController {
     /**
      * Get videos uploaded by current user
      * GET /api/videos/my-videos
-     * Optional query param: type (UPLOAD or RUNWAY_GENERATED)
+     * Optional query param: type (e.g., UPLOAD, VEO_GENERATED, AI_GENERATED)
      */
     @GetMapping("/my-videos")
     public ResponseEntity<?> getMyVideos(
@@ -188,7 +180,7 @@ public class VideoController {
                     videos = videoService.getVideosByUserAndType(user.getId(), videoType);
                 } catch (IllegalArgumentException e) {
                     return ResponseEntity.badRequest()
-                            .body(Map.of("error", "Invalid video type. Use UPLOAD or RUNWAY_GENERATED"));
+                            .body(Map.of("error", "Invalid video type"));
                 }
             } else {
                 videos = videoService.getVideosByUser(user.getId());
@@ -222,14 +214,6 @@ public class VideoController {
                 videoMap.put("uploadedById", video.getUploadedById());
                 videoMap.put("uploadedByEmail", user.getEmail());
                 videoMap.put("uploadedByName", user.getDisplayName());
-
-                // Add Runway ML specific fields if applicable
-                if (video.getVideoType() == Video.VideoType.RUNWAY_GENERATED) {
-                    videoMap.put("runwayTaskId", video.getRunwayTaskId());
-                    videoMap.put("runwayModel", video.getRunwayModel());
-                    videoMap.put("runwayResolution", video.getRunwayResolution());
-                    videoMap.put("runwayPrompt", video.getRunwayPrompt());
-                }
 
                 return videoMap;
             }).toList();
@@ -277,14 +261,6 @@ public class VideoController {
             response.put("description", video.getDescription());
             response.put("duration", video.getDuration());
             response.put("uploadedById", video.getUploadedById());
-
-            // Add Runway ML specific fields if applicable
-            if (video.getVideoType() == Video.VideoType.RUNWAY_GENERATED) {
-                response.put("runwayTaskId", video.getRunwayTaskId());
-                response.put("runwayModel", video.getRunwayModel());
-                response.put("runwayResolution", video.getRunwayResolution());
-                response.put("runwayPrompt", video.getRunwayPrompt());
-            }
 
             return ResponseEntity.ok(response);
         } catch (RuntimeException e) {
@@ -521,156 +497,6 @@ public class VideoController {
             log.error("Failed to delete video", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "Failed to delete video: " + e.getMessage()));
-        }
-    }
-
-    /**
-     * Save Runway ML generated video from URL to S3 and database (Admin only)
-     * POST /api/videos/save-runway-video
-     * TODO: Re-enable @PreAuthorize("hasRole('ADMIN')") after debugging
-     */
-    @PostMapping("/save-runway-video")
-    // @PreAuthorize("hasRole('ADMIN')") // Temporarily disabled for debugging
-    public ResponseEntity<?> saveRunwayGeneratedVideo(
-            @RequestBody Map<String, String> request,
-            Authentication authentication) {
-        try {
-            // Get user from authentication or use null
-            Long userId = null;
-            User user = null;
-            if (authentication != null) {
-                String userEmail = authentication.getName();
-                user = userRepository.findByEmail(userEmail).orElse(null);
-                if (user != null) {
-                    userId = user.getId();
-                }
-            } else {
-                log.warn("⚠️ No authentication, saving Runway video without user association");
-            }
-
-            String videoUrl = request.get("videoUrl");
-            String title = request.get("title");
-            String description = request.get("description");
-            String runwayTaskId = request.get("runwayTaskId");
-            String runwayModel = request.get("runwayModel");
-            String runwayResolution = request.get("runwayResolution");
-            String runwayPrompt = request.get("runwayPrompt");
-
-            // Validate required fields
-            if (videoUrl == null || videoUrl.trim().isEmpty()) {
-                return ResponseEntity.badRequest().body(Map.of("error", "Video URL is required"));
-            }
-            if (title == null || title.trim().isEmpty()) {
-                return ResponseEntity.badRequest().body(Map.of("error", "Title is required"));
-            }
-            if (description == null || description.trim().isEmpty()) {
-                return ResponseEntity.badRequest().body(Map.of("error", "Description is required"));
-            }
-
-            Video video = videoService.saveRunwayGeneratedVideo(
-                    videoUrl,
-                    userId,
-                    title,
-                    description,
-                    runwayTaskId,
-                    runwayModel,
-                    runwayResolution,
-                    runwayPrompt
-            );
-
-            // Record video upload activity to entity history (if user is available)
-            if (user != null) {
-                entityHistoryService.recordVideoActivity(
-                        video.getId(),
-                        video.getTitle(),
-                        user,
-                        EntityHistory.ActionType.VIDEO_UPLOAD,
-                        "Runway ML 영상 생성: " + video.getTitle()
-                );
-            } else {
-                log.info("Skipping entity history record - no user authentication");
-            }
-
-            Map<String, Object> response = new HashMap<>();
-            response.put("message", "Runway ML generated video saved successfully");
-            response.put("video", video);
-
-            return ResponseEntity.status(HttpStatus.CREATED).body(response);
-        } catch (IllegalArgumentException e) {
-            log.error("Invalid save runway video request: {}", e.getMessage());
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        } catch (Exception e) {
-            log.error("Failed to save Runway ML generated video", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", "Failed to save video: " + e.getMessage()));
-        }
-    }
-
-    /**
-     * Save Runway ML generated image from URL to S3 and database (Admin only)
-     * POST /api/videos/save-runway-image
-     */
-    @PostMapping("/save-runway-image")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<?> saveRunwayGeneratedImage(
-            @RequestBody Map<String, String> request,
-            Authentication authentication) {
-        try {
-            String userEmail = authentication.getName();
-            User user = userRepository.findByEmail(userEmail)
-                    .orElseThrow(() -> new RuntimeException("User not found: " + userEmail));
-
-            String imageUrl = request.get("imageUrl");
-            String title = request.get("title");
-            String description = request.get("description");
-            String runwayTaskId = request.get("runwayTaskId");
-            String runwayResolution = request.get("runwayResolution");
-            String runwayPrompt = request.get("runwayPrompt");
-            String imageStyle = request.get("imageStyle");
-
-            // Validate required fields
-            if (imageUrl == null || imageUrl.trim().isEmpty()) {
-                return ResponseEntity.badRequest().body(Map.of("error", "Image URL is required"));
-            }
-            if (title == null || title.trim().isEmpty()) {
-                return ResponseEntity.badRequest().body(Map.of("error", "Title is required"));
-            }
-            if (description == null || description.trim().isEmpty()) {
-                return ResponseEntity.badRequest().body(Map.of("error", "Description is required"));
-            }
-
-            Video video = videoService.saveRunwayGeneratedImage(
-                    imageUrl,
-                    user.getId(),
-                    title,
-                    description,
-                    runwayTaskId,
-                    runwayResolution,
-                    runwayPrompt,
-                    imageStyle
-            );
-
-            // Record image upload activity to entity history
-            entityHistoryService.recordVideoActivity(
-                    video.getId(),
-                    video.getTitle(),
-                    user,
-                    EntityHistory.ActionType.VIDEO_UPLOAD,
-                    "Runway ML 이미지 생성: " + video.getTitle()
-            );
-
-            Map<String, Object> response = new HashMap<>();
-            response.put("message", "Runway ML generated image saved successfully");
-            response.put("image", video);
-
-            return ResponseEntity.status(HttpStatus.CREATED).body(response);
-        } catch (IllegalArgumentException e) {
-            log.error("Invalid save runway image request: {}", e.getMessage());
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        } catch (Exception e) {
-            log.error("Failed to save Runway ML generated image", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", "Failed to save image: " + e.getMessage()));
         }
     }
 

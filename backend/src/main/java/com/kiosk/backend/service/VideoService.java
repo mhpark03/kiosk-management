@@ -62,10 +62,6 @@ public class VideoService {
     // Database column length limits
     private static final int MAX_TITLE_LENGTH = 255;
     private static final int MAX_FILENAME_LENGTH = 255;
-    private static final int MAX_RUNWAY_TASK_ID_LENGTH = 100;
-    private static final int MAX_RUNWAY_MODEL_LENGTH = 50;
-    private static final int MAX_RUNWAY_RESOLUTION_LENGTH = 50;
-    private static final int MAX_IMAGE_STYLE_LENGTH = 50;
 
     /**
      * Truncate string to maximum length if needed
@@ -803,12 +799,7 @@ public class VideoService {
                 : filenameWithExt;
             String thumbnailFilename = filenameWithoutExt + "_thumb.jpg";
 
-            // Use appropriate thumbnail folder based on video type
-            String thumbnailFolder = (video.getVideoType() == Video.VideoType.RUNWAY_GENERATED)
-                ? THUMBNAIL_RUNWAY_FOLDER
-                : THUMBNAIL_UPLOAD_FOLDER;
-
-            String thumbnailS3Key = s3Service.uploadBytes(thumbnailBytes, thumbnailFolder, thumbnailFilename, "image/jpeg");
+            String thumbnailS3Key = s3Service.uploadBytes(thumbnailBytes, THUMBNAIL_UPLOAD_FOLDER, thumbnailFilename, "image/jpeg");
             String thumbnailUrl = s3Service.getFileUrl(thumbnailS3Key);
 
             // Update video entity
@@ -856,216 +847,6 @@ public class VideoService {
         String originalFilename = file.getOriginalFilename();
         if (originalFilename == null || originalFilename.trim().isEmpty()) {
             throw new IllegalArgumentException("File name is required");
-        }
-    }
-
-    /**
-     * Save a Runway ML generated video from URL to S3 and database
-     * @param videoUrl URL of the generated video
-     * @param uploadedById User ID of the user who requested video generation
-     * @param title Title of the video
-     * @param description Description of the video
-     * @param runwayTaskId Runway ML task ID
-     * @param runwayModel Model used for generation
-     * @param runwayResolution Resolution of the generated video
-     * @param runwayPrompt Prompt used for generation
-     * @return Saved Video entity
-     */
-    @Transactional
-    public Video saveRunwayGeneratedVideo(String videoUrl, Long uploadedById, String title, String description,
-                                          String runwayTaskId, String runwayModel, String runwayResolution, String runwayPrompt) throws IOException {
-        log.info("Downloading Runway ML generated video from: {}", videoUrl);
-
-        // Validate inputs
-        if (title == null || title.trim().isEmpty()) {
-            throw new IllegalArgumentException("Title is required");
-        }
-        if (description == null || description.trim().isEmpty()) {
-            throw new IllegalArgumentException("Description is required");
-        }
-
-        Path tempVideoPath = null;
-        try {
-            // Download video from URL to temporary file
-            tempVideoPath = Files.createTempFile("runway_video_", ".mp4");
-            java.net.URL url = new java.net.URL(videoUrl);
-            try (java.io.InputStream in = url.openStream()) {
-                Files.copy(in, tempVideoPath, StandardCopyOption.REPLACE_EXISTING);
-            }
-
-            long fileSize = Files.size(tempVideoPath);
-            log.info("Downloaded video file, size: {} bytes", fileSize);
-
-            // Upload video to S3 (runway folder)
-            String filename = "runway_" + java.util.UUID.randomUUID().toString() + ".mp4";
-
-            byte[] videoBytes = Files.readAllBytes(tempVideoPath);
-            String uploadedS3Key = s3Service.uploadBytes(videoBytes, VIDEO_RUNWAY_FOLDER, filename, "video/mp4");
-            String s3Url = s3Service.getFileUrl(uploadedS3Key);
-
-            log.info("Uploaded Runway video to S3: {}", uploadedS3Key);
-
-            // Generate thumbnail
-            String thumbnailS3Key = null;
-            String thumbnailUrl = null;
-            try {
-                Path tempThumbnailPath = Files.createTempFile("thumbnail_", ".jpg");
-
-                ProcessBuilder processBuilder = new ProcessBuilder(
-                    "ffmpeg",
-                    "-i", tempVideoPath.toString(),
-                    "-ss", "00:00:01.000",
-                    "-vframes", "1",
-                    "-vf", "scale=320:-1",
-                    "-y",
-                    tempThumbnailPath.toString()
-                );
-
-                processBuilder.redirectErrorStream(true);
-                Process process = processBuilder.start();
-                int exitCode = process.waitFor();
-
-                if (exitCode == 0 && Files.exists(tempThumbnailPath)) {
-                    byte[] thumbnailBytes = Files.readAllBytes(tempThumbnailPath);
-                    String thumbnailFilename = filename.replace(".mp4", "_thumb.jpg");
-                    thumbnailS3Key = s3Service.uploadBytes(thumbnailBytes, THUMBNAIL_RUNWAY_FOLDER, thumbnailFilename, "image/jpeg");
-                    thumbnailUrl = s3Service.getFileUrl(thumbnailS3Key);
-                    log.info("Thumbnail uploaded successfully: {}", thumbnailS3Key);
-
-                    Files.deleteIfExists(tempThumbnailPath);
-                }
-            } catch (Exception e) {
-                log.error("Failed to generate/upload thumbnail: {}", e.getMessage());
-                // Continue without thumbnail
-            }
-
-            // Save metadata to database with Runway ML info and RUNWAY_GENERATED type
-            Video video = Video.builder()
-                    .videoType(Video.VideoType.RUNWAY_GENERATED)
-                    .filename(truncate(filename, MAX_FILENAME_LENGTH))
-                    .originalFilename(truncate("runway_generated_" + runwayTaskId + ".mp4", MAX_FILENAME_LENGTH))
-                    .fileSize(fileSize)
-                    .contentType("video/mp4")
-                    .s3Key(uploadedS3Key)
-                    .s3Url(s3Url)
-                    .thumbnailS3Key(thumbnailS3Key)
-                    .thumbnailUrl(thumbnailUrl)
-                    .uploadedById(uploadedById)
-                    .title(truncate(title, MAX_TITLE_LENGTH))
-                    .description(description) // TEXT column - no limit
-                    .runwayTaskId(truncate(runwayTaskId, MAX_RUNWAY_TASK_ID_LENGTH))
-                    .runwayModel(truncate(runwayModel, MAX_RUNWAY_MODEL_LENGTH))
-                    .runwayResolution(truncate(runwayResolution, MAX_RUNWAY_RESOLUTION_LENGTH))
-                    .runwayPrompt(runwayPrompt) // TEXT column - no limit
-                    .build();
-
-            Video savedVideo = videoRepository.save(video);
-            log.info("Runway ML generated video saved successfully: {} by user ID {}", savedVideo.getTitle(), uploadedById);
-
-            return savedVideo;
-        } catch (Exception e) {
-            log.error("Failed to save Runway ML generated video", e);
-            throw new IOException("Failed to save Runway ML generated video: " + e.getMessage(), e);
-        } finally {
-            // Clean up temporary file
-            if (tempVideoPath != null && Files.exists(tempVideoPath)) {
-                try {
-                    Files.delete(tempVideoPath);
-                } catch (IOException e) {
-                    log.error("Failed to delete temporary video file: {}", e.getMessage());
-                }
-            }
-        }
-    }
-
-    /**
-     * Save Runway ML generated image to S3 and database
-     * Downloads image from URL, uploads to S3, and saves metadata
-     */
-    public Video saveRunwayGeneratedImage(String imageUrl, Long uploadedById, String title, String description,
-                                          String runwayTaskId, String runwayResolution, String runwayPrompt, String imageStyle) throws IOException {
-        log.info("Downloading Runway ML generated image from: {}", imageUrl);
-
-        // Validate inputs
-        if (title == null || title.trim().isEmpty()) {
-            throw new IllegalArgumentException("Title is required");
-        }
-        if (description == null || description.trim().isEmpty()) {
-            throw new IllegalArgumentException("Description is required");
-        }
-
-        Path tempImagePath = null;
-        try {
-            // Download image from URL to temporary file
-            tempImagePath = Files.createTempFile("runway_image_", ".png");
-            java.net.URL url = new java.net.URL(imageUrl);
-            try (java.io.InputStream in = url.openStream()) {
-                Files.copy(in, tempImagePath, StandardCopyOption.REPLACE_EXISTING);
-            }
-
-            long fileSize = Files.size(tempImagePath);
-            log.info("Downloaded image file, size: {} bytes", fileSize);
-
-            // Upload image to S3 (runway images folder)
-            String filename = "runway_image_" + java.util.UUID.randomUUID().toString() + ".png";
-
-            byte[] imageBytes = Files.readAllBytes(tempImagePath);
-            String uploadedS3Key = s3Service.uploadBytes(imageBytes, IMAGE_RUNWAY_FOLDER, filename, "image/png");
-            String s3Url = s3Service.getFileUrl(uploadedS3Key);
-
-            log.info("Uploaded Runway image to S3: {}", uploadedS3Key);
-
-            // For images, use the same image as thumbnail (just copy to thumbnails folder)
-            String thumbnailS3Key = null;
-            String thumbnailUrl = null;
-            try {
-                String thumbnailFilename = filename.replace(".png", "_thumb.png");
-                thumbnailS3Key = s3Service.uploadBytes(imageBytes, THUMBNAIL_RUNWAY_FOLDER, thumbnailFilename, "image/png");
-                thumbnailUrl = s3Service.getFileUrl(thumbnailS3Key);
-                log.info("Thumbnail uploaded successfully: {}", thumbnailS3Key);
-            } catch (Exception e) {
-                log.error("Failed to upload thumbnail: {}", e.getMessage());
-                // Continue without thumbnail
-            }
-
-            // Save metadata to database with Runway ML info and RUNWAY_GENERATED type
-            Video video = Video.builder()
-                    .videoType(Video.VideoType.RUNWAY_GENERATED)
-                    .mediaType(Video.MediaType.IMAGE)
-                    .filename(truncate(filename, MAX_FILENAME_LENGTH))
-                    .originalFilename(truncate("runway_generated_image_" + runwayTaskId + ".png", MAX_FILENAME_LENGTH))
-                    .fileSize(fileSize)
-                    .contentType("image/png")
-                    .s3Key(uploadedS3Key)
-                    .s3Url(s3Url)
-                    .thumbnailS3Key(thumbnailS3Key)
-                    .thumbnailUrl(thumbnailUrl)
-                    .uploadedById(uploadedById)
-                    .title(truncate(title, MAX_TITLE_LENGTH))
-                    .description(description) // TEXT column - no limit
-                    .runwayTaskId(truncate(runwayTaskId, MAX_RUNWAY_TASK_ID_LENGTH))
-                    .runwayModel("gen4_image") // Fixed string, no truncation needed
-                    .runwayResolution(truncate(runwayResolution, MAX_RUNWAY_RESOLUTION_LENGTH))
-                    .runwayPrompt(runwayPrompt) // TEXT column - no limit
-                    .imageStyle(truncate(imageStyle, MAX_IMAGE_STYLE_LENGTH))
-                    .build();
-
-            Video savedVideo = videoRepository.save(video);
-            log.info("Runway ML generated image saved successfully: {} by user ID {}", savedVideo.getTitle(), uploadedById);
-
-            return savedVideo;
-        } catch (Exception e) {
-            log.error("Failed to save Runway ML generated image", e);
-            throw new IOException("Failed to save Runway ML generated image: " + e.getMessage(), e);
-        } finally {
-            // Clean up temporary file
-            if (tempImagePath != null && Files.exists(tempImagePath)) {
-                try {
-                    Files.delete(tempImagePath);
-                } catch (IOException e) {
-                    log.error("Failed to delete temporary image file: {}", e.getMessage());
-                }
-            }
         }
     }
 
@@ -1167,7 +948,6 @@ public class VideoService {
             }
 
             // Save metadata to database with Veo info and VEO_GENERATED type
-            // Note: We reuse runway fields for Veo data (runwayTaskId stores veoTaskId, etc.)
             Video video = Video.builder()
                     .videoType(Video.VideoType.VEO_GENERATED)
                     .filename(truncate(filename, MAX_FILENAME_LENGTH))
@@ -1181,9 +961,6 @@ public class VideoService {
                     .uploadedById(uploadedById)
                     .title(truncate(title, MAX_TITLE_LENGTH))
                     .description(description) // TEXT column - no limit
-                    .runwayTaskId(truncate(veoTaskId, MAX_RUNWAY_TASK_ID_LENGTH))  // Reusing runway field for Veo task ID
-                    .runwayModel(truncate("veo-3.1-generate-preview", MAX_RUNWAY_MODEL_LENGTH))  // Veo model name
-                    .runwayPrompt(veoPrompt)  // TEXT column - no limit, reusing runway field for Veo prompt
                     .build();
 
             Video savedVideo = videoRepository.save(video);
