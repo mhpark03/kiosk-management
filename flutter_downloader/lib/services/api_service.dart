@@ -192,32 +192,6 @@ class ApiService {
     }
   }
 
-  // Record event
-  Future<void> recordEvent(
-    String kioskId,
-    String eventType,
-    String message, {
-    String? metadata,
-  }) async {
-    try {
-      await _dio.post(
-        '/kiosk-events',
-        data: {
-          'kioskid': kioskId,
-          'eventType': eventType,
-          'userEmail': null,  // Not sent for security
-          'userName': null,   // Not sent for security
-          'message': message,
-          'metadata': metadata,
-        },
-      );
-      print('[EVENT] Recorded: $eventType - $message');
-    } catch (e) {
-      // Ignore event recording errors (background operation)
-      print('[EVENT] Failed to record event: $e');
-    }
-  }
-
   // Connect kiosk and get session token (6 months validity, auto-renewed every 7 days)
   Future<Map<String, dynamic>> connectKiosk(String kioskId, String posId, int kioskNo) async {
     try {

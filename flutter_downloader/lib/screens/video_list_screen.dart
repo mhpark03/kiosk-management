@@ -5,6 +5,7 @@ import '../services/api_service.dart';
 import '../services/storage_service.dart';
 import '../services/download_service.dart';
 import '../services/websocket_service.dart';
+import '../services/event_logger.dart';
 import '../models/video.dart';
 import '../models/kiosk.dart';
 import 'settings_screen.dart';
@@ -373,11 +374,13 @@ class _VideoListScreenState extends State<VideoListScreen> {
         return;
       }
 
-      // Record sync started event
-      await widget.apiService.recordEvent(
-        config.kioskId,
-        'SYNC_STARTED',
-        '영상 동기화 시작',
+      // Initialize EventLogger with download path
+      EventLogger().initialize(config.downloadPath);
+
+      // Log sync started event
+      await EventLogger().logEvent(
+        eventType: 'SYNC_STARTED',
+        message: '영상 동기화 시작',
       );
 
       // Fetch kiosk info if not already loaded
@@ -404,11 +407,10 @@ class _VideoListScreenState extends State<VideoListScreen> {
         _isLoading = false;
       });
 
-      // Record sync completed event
-      await widget.apiService.recordEvent(
-        config.kioskId,
-        'SYNC_COMPLETED',
-        '영상 파일 ${videos.length} 개 동기완료',
+      // Log sync completed event
+      await EventLogger().logEvent(
+        eventType: 'SYNC_COMPLETED',
+        message: '영상 파일 ${videos.length} 개 동기완료',
         metadata: '{"videoCount": ${videos.length}}',
       );
 
@@ -417,11 +419,10 @@ class _VideoListScreenState extends State<VideoListScreen> {
     } catch (e) {
       final config = widget.storageService.getConfig();
       if (config != null) {
-        // Record sync failed event
-        await widget.apiService.recordEvent(
-          config.kioskId,
-          'SYNC_FAILED',
-          '동기화 실패: ${e.toString()}',
+        // Log sync failed event
+        await EventLogger().logEvent(
+          eventType: 'SYNC_FAILED',
+          message: '동기화 실패: ${e.toString()}',
           metadata: '{"error": "${e.toString()}"}',
         );
       }
@@ -512,11 +513,10 @@ class _VideoListScreenState extends State<VideoListScreen> {
         throw Exception('영상 다운로드 URL이 없습니다');
       }
 
-      // Record download started event
-      await widget.apiService.recordEvent(
-        config.kioskId,
-        'DOWNLOAD_STARTED',
-        '다운로드 시작: ${video.title}',
+      // Log download started event
+      await EventLogger().logEvent(
+        eventType: 'DOWNLOAD_STARTED',
+        message: '다운로드 시작: ${video.title}',
         metadata: '{"videoId": ${video.id}, "title": "${video.title}"}',
       );
 
@@ -558,11 +558,10 @@ class _VideoListScreenState extends State<VideoListScreen> {
         video.downloadProgress = 1.0;
       });
 
-      // Record download completed event
-      await widget.apiService.recordEvent(
-        config.kioskId,
-        'DOWNLOAD_COMPLETED',
-        '다운로드 완료: ${video.title}',
+      // Log download completed event
+      await EventLogger().logEvent(
+        eventType: 'DOWNLOAD_COMPLETED',
+        message: '다운로드 완료: ${video.title}',
         metadata: '{"videoId": ${video.id}, "title": "${video.title}", "fileSize": ${video.fileSizeBytes}}',
       );
 
@@ -583,11 +582,10 @@ class _VideoListScreenState extends State<VideoListScreen> {
 
       final config = widget.storageService.getConfig();
       if (config != null) {
-        // Record download failed event
-        await widget.apiService.recordEvent(
-          config.kioskId,
-          'DOWNLOAD_FAILED',
-          '다운로드 실패: ${video.title}',
+        // Log download failed event
+        await EventLogger().logEvent(
+          eventType: 'DOWNLOAD_FAILED',
+          message: '다운로드 실패: ${video.title}',
           metadata: '{"videoId": ${video.id}, "title": "${video.title}", "error": "${e.toString()}"}',
         );
 
