@@ -5,6 +5,7 @@ import com.kiosk.backend.entity.EntityHistory;
 import com.kiosk.backend.entity.User;
 import com.kiosk.backend.repository.EntityHistoryRepository;
 import com.kiosk.backend.repository.UserRepository;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
@@ -18,6 +19,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.lang.reflect.Method;
 import java.time.LocalDateTime;
@@ -105,6 +108,9 @@ public class ActivityRecordingAspect {
             // Extract additional info from result if available
             String newValue = extractNewValue(result);
 
+            // Extract client IP from HttpServletRequest
+            String clientIp = extractClientIp(joinPoint);
+
             // Create history record
             EntityHistory history = EntityHistory.builder()
                     .entityType(annotation.entityType())
@@ -119,6 +125,7 @@ public class ActivityRecordingAspect {
                     .newValue(newValue)
                     .description(description)
                     .detail(error != null ? error.getMessage() : null)
+                    .clientIp(clientIp)
                     .build();
 
             entityHistoryRepository.save(history);
@@ -229,5 +236,58 @@ public class ActivityRecordingAspect {
         }
 
         return null;
+    }
+
+    /**
+     * Extracts client IP address from HTTP request.
+     * Checks various proxy headers before falling back to remote address.
+     * Uses RequestContextHolder to get the current HTTP request in AOP context.
+     */
+    private String extractClientIp(ProceedingJoinPoint joinPoint) {
+        try {
+            // Try to get HttpServletRequest from RequestContextHolder
+            ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+            if (attributes == null) {
+                log.debug("No request attributes available for IP extraction");
+                return null;
+            }
+
+            HttpServletRequest request = attributes.getRequest();
+
+            // Check X-Forwarded-For (for proxies/load balancers)
+            String ip = request.getHeader("X-Forwarded-For");
+            if (ip != null && !ip.isEmpty() && !"unknown".equalsIgnoreCase(ip)) {
+                // X-Forwarded-For can contain multiple IPs, take the first one
+                int commaIndex = ip.indexOf(',');
+                if (commaIndex != -1) {
+                    ip = ip.substring(0, commaIndex).trim();
+                }
+                return ip;
+            }
+
+            // Check X-Real-IP
+            ip = request.getHeader("X-Real-IP");
+            if (ip != null && !ip.isEmpty() && !"unknown".equalsIgnoreCase(ip)) {
+                return ip;
+            }
+
+            // Check Proxy-Client-IP
+            ip = request.getHeader("Proxy-Client-IP");
+            if (ip != null && !ip.isEmpty() && !"unknown".equalsIgnoreCase(ip)) {
+                return ip;
+            }
+
+            // Check WL-Proxy-Client-IP (WebLogic)
+            ip = request.getHeader("WL-Proxy-Client-IP");
+            if (ip != null && !ip.isEmpty() && !"unknown".equalsIgnoreCase(ip)) {
+                return ip;
+            }
+
+            // Fallback to remote address
+            return request.getRemoteAddr();
+        } catch (Exception e) {
+            log.debug("Failed to extract client IP: {}", e.getMessage());
+            return null;
+        }
     }
 }

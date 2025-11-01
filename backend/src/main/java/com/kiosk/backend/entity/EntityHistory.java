@@ -58,6 +58,9 @@ public class EntityHistory {
     @Column(columnDefinition = "TEXT")
     private String detail; // Additional detailed information (mainly for kiosk)
 
+    @Column(length = 45)
+    private String clientIp; // IP address of the client that made the API call
+
     public enum EntityType {
         KIOSK,  // Kiosk entity
         STORE,  // Store entity
