@@ -218,6 +218,59 @@ class ApiService {
     }
   }
 
+  // Connect kiosk and get session token (6 months validity, auto-renewed every 7 days)
+  Future<Map<String, dynamic>> connectKiosk(String kioskId, String posId, int kioskNo) async {
+    try {
+      final response = await _dio.post(
+        '/kiosks/$kioskId/connect',
+        options: Options(
+          headers: {
+            'X-Kiosk-PosId': posId,
+            'X-Kiosk-No': kioskNo.toString(),
+          },
+        ),
+      );
+
+      if (response.statusCode == 200) {
+        // Response: { token, sessionVersion, expiresIn, renewalInterval, message }
+        final data = response.data as Map<String, dynamic>;
+        final token = data['token'] as String;
+        final sessionVersion = data['sessionVersion'] as int;
+        final expiresIn = data['expiresIn'] as int;
+        final renewalInterval = data['renewalInterval'] as int?;
+
+        print('[CONNECT] Kiosk connected successfully');
+        print('[CONNECT] Session version: $sessionVersion');
+        print('[CONNECT] Token expires in: ${expiresIn / 86400} days');
+        print('[CONNECT] Renewal interval: ${renewalInterval != null ? renewalInterval / 86400 : 0} days');
+
+        // Set the token to be used in Authorization header for future requests
+        setAuthToken(token);
+
+        return {
+          'token': token,
+          'sessionVersion': sessionVersion,
+          'expiresIn': expiresIn,
+          'renewalInterval': renewalInterval ?? (7 * 24 * 60 * 60), // Default 7 days
+        };
+      } else {
+        throw Exception('Connection failed: ${response.statusCode}');
+      }
+    } on DioException catch (e) {
+      print('[CONNECT] Failed to connect kiosk: ${e.message}');
+      if (e.response?.statusCode == 401) {
+        throw Exception('키오스크 인증 실패: 키오스크 정보를 확인해주세요');
+      } else if (e.response?.data != null && e.response?.data['error'] != null) {
+        throw Exception(e.response?.data['error']);
+      } else {
+        throw Exception('서버 연결에 실패했습니다: ${e.message}');
+      }
+    } catch (e) {
+      print('[CONNECT] Exception: $e');
+      throw Exception('키오스크 연결 중 오류가 발생했습니다: $e');
+    }
+  }
+
   // Get kiosk authentication token for WebSocket
   Future<String> getKioskToken(String kioskId, String posId, int kioskNo) async {
     try {

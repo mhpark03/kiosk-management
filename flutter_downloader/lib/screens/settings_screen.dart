@@ -209,6 +209,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
         // Don't show error to user, this is a background operation
       });
 
+      // Connect kiosk and renew session token after config change
+      try {
+        final kiosk = await widget.apiService.getKiosk(config.kioskId);
+        if (kiosk.kioskNumber != null) {
+          print('[SETTINGS] Calling /connect after config change...');
+          await widget.apiService.connectKiosk(
+            config.kioskId,
+            posId,
+            kiosk.kioskNumber!,
+          );
+          print('[SETTINGS] Token renewed after config change');
+        }
+      } catch (e) {
+        print('[SETTINGS] Failed to renew token after config change: $e');
+        // Don't show error to user, this is a background operation
+      }
+
       // Update original values after successful save
       setState(() {
         _hasExistingConfig = true;

@@ -61,6 +61,12 @@ public class Kiosk {
     @Builder.Default
     private Boolean configModifiedByWeb = false; // Flag: admin modified config via web
 
+    @Column(nullable = false)
+    @Builder.Default
+    private Long sessionVersion = 0L; // Session version for duplicate connection prevention
+
+    private LocalDateTime lastConnectedAt; // Last connection timestamp
+
     private LocalDateTime regdate; // Registration date
 
     private LocalDateTime setdate; // Setup date

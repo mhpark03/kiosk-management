@@ -33,6 +33,7 @@ class _VideoListScreenState extends State<VideoListScreen> {
   String? _errorMessage;
   bool _wsConnected = false;
   Timer? _autoLogoutTimer;
+  Timer? _tokenRenewalTimer;
   bool _isLoggedIn = false;
   Kiosk? _kiosk; // Store kiosk info for display
 
@@ -40,6 +41,7 @@ class _VideoListScreenState extends State<VideoListScreen> {
   void initState() {
     super.initState();
     _checkLoginStatus();
+    _connectKiosk(); // Connect kiosk and get session token
     _loadVideos();
     _initWebSocket();
     _startAutoLogoutTimer();
@@ -49,6 +51,7 @@ class _VideoListScreenState extends State<VideoListScreen> {
   void dispose() {
     _webSocketService.dispose();
     _autoLogoutTimer?.cancel();
+    _tokenRenewalTimer?.cancel();
     super.dispose();
   }
 
@@ -115,6 +118,87 @@ class _VideoListScreenState extends State<VideoListScreen> {
     }
   }
 
+  // Connect kiosk and get session token (6-month validity, renewed every 7 days)
+  Future<void> _connectKiosk() async {
+    final config = widget.storageService.getConfig();
+
+    // 설정이 없거나 유효하지 않으면 연결 안 함
+    if (config == null || !config.isValid) {
+      print('[CONNECT] 설정이 없어 키오스크 연결하지 않습니다');
+      return;
+    }
+
+    // kioskId가 없으면 연결 안 함
+    if (config.kioskId.isEmpty) {
+      print('[CONNECT] kioskId가 없어 연결하지 않습니다');
+      return;
+    }
+
+    // posId가 없으면 연결 안 함
+    if (config.posId == null || config.posId!.isEmpty) {
+      print('[CONNECT] posId가 없어 연결하지 않습니다');
+      return;
+    }
+
+    try {
+      // Get kiosk info to obtain kiosk number
+      print('[CONNECT] Fetching kiosk info for ${config.kioskId}...');
+      final kiosk = await widget.apiService.getKiosk(config.kioskId);
+
+      // kioskNumber가 없으면 연결 안 함
+      if (kiosk.kioskNumber == null) {
+        print('[CONNECT] kioskNumber가 설정되지 않아 연결하지 않습니다');
+        return;
+      }
+
+      // Store kiosk info for display
+      if (mounted) {
+        setState(() {
+          _kiosk = kiosk;
+        });
+      }
+
+      // Set kiosk authentication headers for API requests (for unattended operation)
+      widget.apiService.setKioskAuth(
+        config.posId,
+        config.kioskId,
+        kiosk.kioskNumber,
+      );
+
+      // Call /connect endpoint to get session token
+      print('[CONNECT] Calling /connect endpoint...');
+      final connectResponse = await widget.apiService.connectKiosk(
+        config.kioskId,
+        config.posId!,
+        kiosk.kioskNumber!,
+      );
+
+      // Token is automatically set in ApiService by connectKiosk()
+      final renewalInterval = connectResponse['renewalInterval'] as int;
+      print('[CONNECT] Connection successful, token will be renewed every ${renewalInterval / 86400} days');
+
+      // Start token renewal timer (renew every 7 days)
+      _startTokenRenewalTimer(renewalInterval);
+
+    } catch (e) {
+      print('[CONNECT] Failed to connect kiosk: $e');
+      // 연결 실패는 치명적이지 않음 - 조용히 실패하고 기존 인증 방식 사용
+    }
+  }
+
+  // Start timer to renew token every 7 days
+  void _startTokenRenewalTimer(int renewalIntervalSeconds) {
+    _tokenRenewalTimer?.cancel();
+
+    final renewalDuration = Duration(seconds: renewalIntervalSeconds);
+    print('[TOKEN RENEWAL] Setting up renewal timer: ${renewalDuration.inDays} days');
+
+    _tokenRenewalTimer = Timer.periodic(renewalDuration, (timer) {
+      print('[TOKEN RENEWAL] Timer triggered, renewing token...');
+      _connectKiosk(); // Renew token by calling connect again
+    });
+  }
+
   Future<void> _initWebSocket() async {
     final config = widget.storageService.getConfig();
 
@@ -135,19 +219,22 @@ class _VideoListScreenState extends State<VideoListScreen> {
       print('WebSocket: Fetching kiosk info for ${config.kioskId}...');
       final kiosk = await widget.apiService.getKiosk(config.kioskId);
 
-      // Store kiosk info for display
-      if (mounted) {
+      // Store kiosk info for display (if not already set by _connectKiosk)
+      if (mounted && _kiosk == null) {
         setState(() {
           _kiosk = kiosk;
         });
       }
 
       // Set kiosk authentication headers for API requests (for unattended operation)
-      widget.apiService.setKioskAuth(
-        config.posId,
-        config.kioskId,
-        kiosk.kioskNumber,
-      );
+      // (if not already set by _connectKiosk)
+      if (config.posId != null && config.posId!.isNotEmpty && kiosk.kioskNumber != null) {
+        widget.apiService.setKioskAuth(
+          config.posId,
+          config.kioskId,
+          kiosk.kioskNumber,
+        );
+      }
 
       // kioskNumber가 없으면 WebSocket 연결 안 함
       if (kiosk.kioskNumber == null) {
