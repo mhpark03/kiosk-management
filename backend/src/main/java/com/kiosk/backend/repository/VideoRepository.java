@@ -14,4 +14,7 @@ public interface VideoRepository extends JpaRepository<Video, Long> {
     // Filter by video type
     List<Video> findByVideoTypeOrderByUploadedAtDesc(Video.VideoType videoType);
     List<Video> findByUploadedByIdAndVideoTypeOrderByUploadedAtDesc(Long uploadedById, Video.VideoType videoType);
+
+    // Duplicate check method - only check by original filename
+    boolean existsByOriginalFilename(String originalFilename);
 }

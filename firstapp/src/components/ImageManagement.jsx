@@ -142,6 +142,15 @@ export default function ImageManagement() {
     setSuccess('');
 
     try {
+      // Check for duplicate filename before upload
+      const isDuplicate = await videoService.checkDuplicateFilename(uploadFile.name);
+      if (isDuplicate) {
+        setError(`같은 파일명의 이미지가 이미 존재합니다: ${uploadFile.name}`);
+        setUploading(false);
+        setTimeout(() => setError(''), 5000);
+        return;
+      }
+
       const data = await videoService.uploadImage(
         uploadFile,
         uploadTitle || uploadFile.name,

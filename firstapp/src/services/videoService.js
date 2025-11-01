@@ -202,6 +202,20 @@ export const videoService = {
     }
   },
 
+  // Check if filename already exists
+  async checkDuplicateFilename(filename) {
+    try {
+      const response = await api.get('/videos');
+      const allVideos = response.data;
+      const duplicate = allVideos.find(v => v.originalFilename === filename);
+      return !!duplicate; // Return true if duplicate exists
+    } catch (error) {
+      console.error('Check duplicate filename error:', error);
+      // If error occurs, allow upload to proceed (backend will catch it)
+      return false;
+    }
+  },
+
   // Validate file before upload
   validateFile(file) {
     const MAX_SIZE = 100 * 1024 * 1024; // 100MB

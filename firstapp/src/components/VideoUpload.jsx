@@ -53,6 +53,14 @@ function VideoUpload() {
       setSuccess('');
       setUploadProgress(0);
 
+      // Check for duplicate filename before upload
+      const isDuplicate = await videoService.checkDuplicateFilename(selectedFile.name);
+      if (isDuplicate) {
+        setError(`같은 파일명의 영상이 이미 존재합니다: ${selectedFile.name}`);
+        setUploading(false);
+        return;
+      }
+
       // Simulate progress (since we don't have real progress from backend)
       const progressInterval = setInterval(() => {
         setUploadProgress((prev) => {

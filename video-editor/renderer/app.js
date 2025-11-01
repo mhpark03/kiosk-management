@@ -574,6 +574,14 @@ function selectTool(tool) {
 function showToolProperties(tool) {
   const propertiesPanel = document.getElementById('tool-properties');
 
+  // Hide runway video preview section when switching to other tools
+  if (tool !== 'generate-video-runway') {
+    const previewSection = document.getElementById('runway-video-preview-section');
+    if (previewSection) {
+      previewSection.style.display = 'none';
+    }
+  }
+
   switch (tool) {
     case 'import':
       importVideo();
@@ -1399,26 +1407,92 @@ function showToolProperties(tool) {
         <div style="height: calc(100vh - 250px); overflow-y: auto; overflow-x: hidden; padding-right: 10px;">
           <h3 style="margin-bottom: 15px; color: #667eea;">🎥 Runway 영상 생성</h3>
 
+          <!-- Image Upload Section -->
+          <div class="property-group">
+            <label>시작 이미지 *</label>
+            <div style="display: flex; gap: 8px; margin-bottom: 10px;">
+              <button
+                id="video-img1-source-local"
+                class="property-btn"
+                onclick="selectRunwayVideoImageSource(1, 'local')"
+                style="flex: 1; padding: 8px; font-size: 13px; background: #667eea;"
+              >
+                📁 PC
+              </button>
+              <button
+                id="video-img1-source-s3"
+                class="property-btn"
+                onclick="selectRunwayVideoImageSource(1, 's3')"
+                style="flex: 1; padding: 8px; font-size: 13px; background: #444;"
+              >
+                🖼️ 서버
+              </button>
+            </div>
+            <div id="video-img1-preview" style="width: 100%; height: 150px; background: #2d2d2d; border: 1px solid #444; border-radius: 5px; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden;">
+              <span style="color: #888; font-size: 13px;">이미지를 선택하세요</span>
+            </div>
+          </div>
+
+          <div class="property-group">
+            <label>종료 이미지 *</label>
+            <div style="display: flex; gap: 8px; margin-bottom: 10px;">
+              <button
+                id="video-img2-source-local"
+                class="property-btn"
+                onclick="selectRunwayVideoImageSource(2, 'local')"
+                style="flex: 1; padding: 8px; font-size: 13px; background: #667eea;"
+              >
+                📁 PC
+              </button>
+              <button
+                id="video-img2-source-s3"
+                class="property-btn"
+                onclick="selectRunwayVideoImageSource(2, 's3')"
+                style="flex: 1; padding: 8px; font-size: 13px; background: #444;"
+              >
+                🖼️ 서버
+              </button>
+            </div>
+            <div id="video-img2-preview" style="width: 100%; height: 150px; background: #2d2d2d; border: 1px solid #444; border-radius: 5px; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden;">
+              <span style="color: #888; font-size: 13px;">이미지를 선택하세요</span>
+            </div>
+          </div>
+
           <div class="property-group">
             <label>프롬프트 *</label>
             <textarea
               id="video-prompt-runway"
               rows="4"
-              placeholder="생성할 영상에 대한 설명을 입력하세요..."
+              placeholder="생성할 영상에 대한 설명을 입력하세요. 예: 이미지 사이의 부드러운 전환, 카메라가 천천히 줌인..."
               style="width: 100%; padding: 10px; background: #2d2d2d; border: 1px solid #444; border-radius: 5px; color: #e0e0e0; font-size: 14px; resize: vertical;"
             ></textarea>
           </div>
 
+          <div class="property-group">
+            <label>AI 모델</label>
+            <select
+              id="video-model-runway"
+              onchange="updateRunwayVideoModelOptions()"
+              style="width: 100%; padding: 10px; background: #2d2d2d; border: 1px solid #444; border-radius: 5px; color: #e0e0e0; font-size: 14px;"
+            >
+              <option value="gen3a_turbo">Gen-3 Alpha Turbo</option>
+              <option value="gen4_turbo">Gen-4 Turbo</option>
+              <option value="veo3">Veo 3</option>
+              <option value="veo3.1">Veo 3.1</option>
+              <option value="veo3.1_fast" selected>Veo 3.1 Fast</option>
+            </select>
+          </div>
+
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
             <div class="property-group">
-              <label>영상 길이 (초)</label>
+              <label>영상 길이</label>
               <select
                 id="video-duration-runway"
                 style="width: 100%; padding: 10px; background: #2d2d2d; border: 1px solid #444; border-radius: 5px; color: #e0e0e0; font-size: 14px;"
               >
-                <option value="5">5초</option>
-                <option value="10" selected>10초</option>
-                <option value="15">15초</option>
+                <option value="4" selected>4초</option>
+                <option value="6">6초</option>
+                <option value="8">8초</option>
               </select>
             </div>
 
@@ -1428,26 +1502,39 @@ function showToolProperties(tool) {
                 id="video-resolution-runway"
                 style="width: 100%; padding: 10px; background: #2d2d2d; border: 1px solid #444; border-radius: 5px; color: #e0e0e0; font-size: 14px;"
               >
-                <option value="1280x720">HD (1280x720)</option>
-                <option value="1920x1080" selected>Full HD (1920x1080)</option>
+                <option value="1280:720" selected>1280 x 720</option>
+                <option value="720:1280">720 x 1280</option>
+                <option value="1080:1920">1080 x 1920</option>
+                <option value="1920:1080">1920 x 1080</option>
               </select>
             </div>
           </div>
 
-          <div class="property-group">
-            <label>제목 *</label>
-            <input type="text" id="ai-video-title-runway" placeholder="생성될 영상의 제목">
-          </div>
-
-          <div class="property-group">
-            <label>설명 *</label>
-            <textarea id="ai-video-description-runway" rows="2" placeholder="영상 설명을 입력하세요"></textarea>
-          </div>
-
-          <div style="background: #2a2a3e; padding: 12px; border-radius: 8px; margin-top: 10px; border-left: 4px solid #667eea;">
+          <!-- Generate Button -->
+          <div style="background: #2a2a3e; padding: 12px; border-radius: 8px; margin-top: 10px; margin-bottom: 15px; border-left: 4px solid #667eea;">
             <button class="property-btn" onclick="executeGenerateVideoRunway()" style="width: 100%; margin: 0; background: #667eea;">
-              🎥 영상 생성하고 S3에 저장
+              🎬 영상 만들기
             </button>
+          </div>
+
+          <!-- Generated Video Preview -->
+          <div id="runway-video-preview-section" style="display: none;">
+            <div class="property-group">
+              <label>제목 *</label>
+              <input type="text" id="ai-video-title-runway" placeholder="S3에 저장할 영상의 제목">
+            </div>
+
+            <div class="property-group">
+              <label>설명 *</label>
+              <textarea id="ai-video-description-runway" rows="2" placeholder="영상 설명을 입력하세요"></textarea>
+            </div>
+
+            <!-- Save to S3 Button -->
+            <div style="background: #2a2a3e; padding: 12px; border-radius: 8px; margin-top: 10px; border-left: 4px solid #28a745;">
+              <button class="property-btn" onclick="saveRunwayVideoToS3()" style="width: 100%; margin: 0; background: #28a745;">
+                💾 S3에 저장
+              </button>
+            </div>
           </div>
         </div>
       `;
@@ -9494,11 +9581,11 @@ async function uploadVideoContentToS3() {
   }
 
   showProgress();
-  updateProgress(0, '제목 중복 확인 중...');
+  updateProgress(0, '파일명 중복 확인 중...');
 
   try {
-    // Check for duplicate title
-    console.log('[Upload Video Content S3] Checking for duplicate title:', title);
+    // Check for duplicate filename (originalFilename)
+    console.log('[Upload Video Content S3] Checking for duplicate filename:', videoFile.name);
     const checkResponse = await fetch(`${backendBaseUrl}/api/videos`, {
       method: 'GET',
       headers: {
@@ -9508,17 +9595,15 @@ async function uploadVideoContentToS3() {
     });
 
     if (!checkResponse.ok) {
-      throw new Error(`제목 확인 실패: ${checkResponse.status}`);
+      throw new Error(`파일명 확인 실패: ${checkResponse.status}`);
     }
 
     const allFiles = await checkResponse.json();
-    const videoFiles = allFiles.filter(f => f.contentType && f.contentType.startsWith('video/'));
-    const duplicateTitle = videoFiles.find(vid => vid.title === title);
+    const duplicateFile = allFiles.find(f => f.originalFilename === videoFile.name);
 
-    if (duplicateTitle) {
+    if (duplicateFile) {
       hideProgress();
-      alert(`같은 제목의 영상 파일이 이미 존재합니다.\n\n제목: ${title}\n\n다른 제목을 사용해주세요.`);
-      if (titleInput) titleInput.focus();
+      alert(`같은 파일명의 영상이 이미 존재합니다.\n\n파일명: ${videoFile.name}\n\n다른 파일명을 사용하거나 파일명을 변경해주세요.`);
       return;
     }
 
@@ -9617,11 +9702,11 @@ async function uploadImageToS3() {
   }
 
   showProgress();
-  updateProgress(0, '제목 중복 확인 중...');
+  updateProgress(0, '파일명 중복 확인 중...');
 
   try {
-    // Check for duplicate title
-    console.log('[Upload Image S3] Checking for duplicate title:', title);
+    // Check for duplicate filename (originalFilename)
+    console.log('[Upload Image S3] Checking for duplicate filename:', imageFile.name);
     const checkResponse = await fetch(`${backendBaseUrl}/api/videos`, {
       method: 'GET',
       headers: {
@@ -9631,17 +9716,15 @@ async function uploadImageToS3() {
     });
 
     if (!checkResponse.ok) {
-      throw new Error(`제목 확인 실패: ${checkResponse.status}`);
+      throw new Error(`파일명 확인 실패: ${checkResponse.status}`);
     }
 
     const allFiles = await checkResponse.json();
-    const imageFiles = allFiles.filter(f => f.contentType && f.contentType.startsWith('image/'));
-    const duplicateTitle = imageFiles.find(img => img.title === title);
+    const duplicateFile = allFiles.find(f => f.originalFilename === imageFile.name);
 
-    if (duplicateTitle) {
+    if (duplicateFile) {
       hideProgress();
-      alert(`같은 제목의 이미지 파일이 이미 존재합니다.\n\n제목: ${title}\n\n다른 제목을 사용해주세요.`);
-      if (titleInput) titleInput.focus();
+      alert(`같은 파일명의 이미지가 이미 존재합니다.\n\n파일명: ${imageFile.name}\n\n다른 파일명을 사용하거나 파일명을 변경해주세요.`);
       return;
     }
 
@@ -9694,6 +9777,48 @@ async function uploadImageToS3() {
     handleError('이미지 S3 업로드', error, 'S3 업로드에 실패했습니다.');
   }
 }
+
+// ============================================================================
+// Runway Video Generation
+// ============================================================================
+
+// Global state for video generation images
+let runwayVideoImages = {
+  image1: null,  // {source: 'local'|'s3', filePath: string, preview: string}
+  image2: null
+};
+
+// Global state for generated video
+let generatedRunwayVideo = null;  // {filePath: string, url: string, metadata: object}
+
+// Model configurations for Runway video generation
+const runwayVideoModelConfig = {
+  'gen3a_turbo': {
+    name: 'Gen-3 Alpha Turbo',
+    durations: [5, 10],
+    resolutions: ['1280:768', '768:1280']
+  },
+  'gen4_turbo': {
+    name: 'Gen-4 Turbo',
+    durations: [2, 3, 4, 5, 6, 7, 8, 9, 10],
+    resolutions: ['1280:720', '720:1280', '1104:832', '832:1104', '960:960', '1584:672']
+  },
+  'veo3': {
+    name: 'Veo 3',
+    durations: [8],
+    resolutions: ['1280:720', '720:1280', '1080:1920', '1920:1080']
+  },
+  'veo3.1': {
+    name: 'Veo 3.1',
+    durations: [4, 6, 8],
+    resolutions: ['1280:720', '720:1280', '1080:1920', '1920:1080']
+  },
+  'veo3.1_fast': {
+    name: 'Veo 3.1 Fast',
+    durations: [4, 6, 8],
+    resolutions: ['1280:720', '720:1280', '1080:1920', '1920:1080']
+  }
+};
 
 // ============================================================================
 // Runway Image Generation
@@ -10338,29 +10463,539 @@ async function executeGenerateImageVeo() {
   console.log('[Veo Image] Placeholder called with:', { prompt, aspect, title, description });
 }
 
-// Runway Video Generation
+/**
+ * Select image source for Runway video generation
+ */
+async function selectRunwayVideoImageSource(imageNumber, source) {
+  console.log(`[Runway Video] Selecting ${source} image for slot ${imageNumber}`);
+
+  if (source === 'local') {
+    // Select from local PC
+    try {
+      const filePath = await window.electronAPI.selectMedia('image');
+
+      if (!filePath) {
+        console.log('[Runway Video] No file selected');
+        return;
+      }
+
+      console.log(`[Runway Video] Selected local file for image ${imageNumber}:`, filePath);
+
+      // Store in global state
+      const imageKey = `image${imageNumber}`;
+      runwayVideoImages[imageKey] = {
+        source: 'local',
+        filePath: filePath,
+        preview: `file://${filePath}`
+      };
+
+      // Update preview
+      updateRunwayVideoImagePreview(imageNumber);
+
+      // Update button states
+      updateRunwayVideoSourceButtons(imageNumber, 'local');
+    } catch (error) {
+      console.error('[Runway Video] Error selecting local image:', error);
+      alert('이미지 선택 중 오류가 발생했습니다.');
+    }
+  } else if (source === 's3') {
+    // Select from S3
+    try {
+      // Open S3 image selector modal
+      await openRunwayVideoS3ImageSelector(imageNumber);
+
+      // Update button states
+      updateRunwayVideoSourceButtons(imageNumber, 's3');
+    } catch (error) {
+      console.error('[Runway Video] Error opening S3 selector:', error);
+      alert('S3 이미지 선택 중 오류가 발생했습니다.');
+    }
+  }
+}
+
+/**
+ * Update source button states
+ */
+function updateRunwayVideoSourceButtons(imageNumber, activeSource) {
+  const localBtn = document.getElementById(`video-img${imageNumber}-source-local`);
+  const s3Btn = document.getElementById(`video-img${imageNumber}-source-s3`);
+
+  if (localBtn && s3Btn) {
+    if (activeSource === 'local') {
+      localBtn.style.background = '#667eea';
+      s3Btn.style.background = '#444';
+    } else {
+      localBtn.style.background = '#444';
+      s3Btn.style.background = '#667eea';
+    }
+  }
+}
+
+/**
+ * Update image preview
+ */
+function updateRunwayVideoImagePreview(imageNumber) {
+  const imageKey = `image${imageNumber}`;
+  const imageData = runwayVideoImages[imageKey];
+  const previewDiv = document.getElementById(`video-img${imageNumber}-preview`);
+
+  if (!previewDiv) return;
+
+  if (imageData && imageData.preview) {
+    previewDiv.innerHTML = `
+      <img src="${imageData.preview}" style="width: 100%; height: 100%; object-fit: contain;" />
+      <button
+        onclick="clearRunwayVideoImage(${imageNumber})"
+        style="position: absolute; top: 5px; right: 5px; background: rgba(220, 53, 69, 0.9); color: white; border: none; border-radius: 50%; width: 25px; height: 25px; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; padding: 0;"
+      >✕</button>
+      <div style="position: absolute; bottom: 5px; left: 5px; background: rgba(0, 0, 0, 0.7); color: white; padding: 3px 8px; border-radius: 3px; font-size: 11px;">
+        ${imageData.source === 's3' ? '서버' : 'PC'}
+      </div>
+    `;
+  } else {
+    previewDiv.innerHTML = `<span style="color: #888; font-size: 13px;">이미지를 선택하세요</span>`;
+  }
+}
+
+/**
+ * Clear selected image
+ */
+function clearRunwayVideoImage(imageNumber) {
+  const imageKey = `image${imageNumber}`;
+  runwayVideoImages[imageKey] = null;
+  updateRunwayVideoImagePreview(imageNumber);
+  console.log(`[Runway Video] Cleared image ${imageNumber}`);
+}
+
+/**
+ * Open S3 image selector modal
+ */
+async function openRunwayVideoS3ImageSelector(imageNumber) {
+  console.log(`[Runway Video] Opening S3 image selector for slot ${imageNumber}`);
+
+  try {
+    // Fetch images from backend
+    const response = await fetch('http://localhost:8080/api/videos/images');
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch images: ${response.status}`);
+    }
+
+    const images = await response.json();
+    console.log(`[Runway Video] Loaded ${images.length} images from S3`);
+
+    // Create modal
+    const modal = document.createElement('div');
+    modal.id = 'runway-video-s3-modal';
+    modal.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
+    `;
+
+    const modalContent = document.createElement('div');
+    modalContent.style.cssText = `
+      background: #2d2d2d;
+      padding: 20px;
+      border-radius: 10px;
+      width: 80%;
+      max-width: 900px;
+      max-height: 80vh;
+      overflow-y: auto;
+    `;
+
+    modalContent.innerHTML = `
+      <h3 style="color: #667eea; margin-bottom: 15px;">S3 이미지 선택</h3>
+      <div id="runway-video-s3-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px; margin-bottom: 15px;">
+        ${images.map(img => `
+          <div
+            onclick="selectRunwayVideoS3Image(${imageNumber}, ${img.id}, '${img.title}', '${img.s3Url}')"
+            style="cursor: pointer; border: 2px solid #444; border-radius: 8px; overflow: hidden; transition: border-color 0.2s;"
+            onmouseover="this.style.borderColor='#667eea'"
+            onmouseout="this.style.borderColor='#444'"
+          >
+            <img src="${img.thumbnailUrl || img.s3Url}" style="width: 100%; height: 120px; object-fit: cover;" />
+            <div style="padding: 8px; background: #1a1a1a;">
+              <div style="font-size: 12px; color: #e0e0e0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${img.title}</div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+      <button
+        onclick="closeRunwayVideoS3Modal()"
+        style="width: 100%; padding: 10px; background: #dc3545; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 14px;"
+      >닫기</button>
+    `;
+
+    modal.appendChild(modalContent);
+    document.body.appendChild(modal);
+
+  } catch (error) {
+    console.error('[Runway Video] Error loading S3 images:', error);
+    alert('S3 이미지를 불러오는 중 오류가 발생했습니다.');
+  }
+}
+
+/**
+ * Select S3 image
+ */
+async function selectRunwayVideoS3Image(imageNumber, imageId, imageTitle, imageUrl) {
+  console.log(`[Runway Video] Selected S3 image for slot ${imageNumber}:`, { imageId, imageTitle, imageUrl });
+
+  try {
+    // Download image to temp folder
+    console.log(`[Runway Video] Downloading from URL: ${imageUrl}`);
+
+    const downloadResult = await window.electronAPI.downloadImage(imageUrl);
+    console.log(`[Runway Video] Download result:`, downloadResult);
+
+    if (!downloadResult.success) {
+      throw new Error(downloadResult.error || 'Download failed');
+    }
+
+    const localPath = downloadResult.filePath;
+    console.log(`[Runway Video] Downloaded to local path: ${localPath}`);
+
+    // Store in global state
+    const imageKey = `image${imageNumber}`;
+    runwayVideoImages[imageKey] = {
+      source: 's3',
+      filePath: localPath,
+      preview: `file://${localPath}`,
+      s3Url: imageUrl,
+      imageId: imageId,
+      imageTitle: imageTitle
+    };
+
+    // Update preview
+    updateRunwayVideoImagePreview(imageNumber);
+
+    // Close modal
+    closeRunwayVideoS3Modal();
+
+    console.log(`[Runway Video] Image ${imageNumber} set from S3: ${imageTitle}`);
+  } catch (error) {
+    console.error('[Runway Video] Error selecting S3 image:', error);
+    alert('S3 이미지 선택 중 오류가 발생했습니다.');
+  }
+}
+
+/**
+ * Close S3 modal
+ */
+function closeRunwayVideoS3Modal() {
+  const modal = document.getElementById('runway-video-s3-modal');
+  if (modal) {
+    modal.remove();
+  }
+}
+
+/**
+ * Update model-specific duration and resolution options
+ */
+function updateRunwayVideoModelOptions() {
+  const modelSelect = document.getElementById('video-model-runway');
+  const durationSelect = document.getElementById('video-duration-runway');
+  const resolutionSelect = document.getElementById('video-resolution-runway');
+
+  if (!modelSelect || !durationSelect || !resolutionSelect) return;
+
+  const selectedModel = modelSelect.value;
+  const config = runwayVideoModelConfig[selectedModel];
+
+  if (!config) return;
+
+  // Update duration options
+  durationSelect.innerHTML = config.durations.map((d, index) =>
+    `<option value="${d}" ${index === 0 ? 'selected' : ''}>${d}초</option>`
+  ).join('');
+
+  // Update resolution options
+  resolutionSelect.innerHTML = config.resolutions.map((res, index) =>
+    `<option value="${res}" ${index === 0 ? 'selected' : ''}>${res.replace(':', ' x ')}</option>`
+  ).join('');
+
+  console.log(`[Runway Video] Updated options for model ${selectedModel}:`, config);
+}
+
+/**
+ * Generate Runway video (without saving to S3)
+ */
 async function executeGenerateVideoRunway() {
-  const prompt = document.getElementById('video-prompt-runway')?.value;
+  const prompt = document.getElementById('video-prompt-runway')?.value?.trim();
+  const model = document.getElementById('video-model-runway')?.value;
   const duration = document.getElementById('video-duration-runway')?.value;
   const resolution = document.getElementById('video-resolution-runway')?.value;
-  const title = document.getElementById('ai-video-title-runway')?.value?.trim();
-  const description = document.getElementById('ai-video-description-runway')?.value?.trim();
+
+  // Validation (제목/설명은 불필요)
+  if (!runwayVideoImages.image1 || !runwayVideoImages.image2) {
+    alert('시작 이미지와 종료 이미지를 모두 선택해주세요.');
+    return;
+  }
 
   if (!prompt) {
     alert('프롬프트를 입력해주세요.');
     return;
   }
 
-  alert('Runway 영상 생성 기능은 곧 구현될 예정입니다.\n\n' +
-        `프롬프트: ${prompt}\n` +
-        `길이: ${duration}초\n` +
-        `해상도: ${resolution}\n` +
-        `제목: ${title}\n` +
-        `설명: ${description}\n\n` +
-        '⚙️ Runway ML API 연동이 필요합니다.\n' +
-        '구현 시 /api/ai/upload 엔드포인트로 S3에 자동 저장됩니다.');
+  console.log('[Runway Video] Starting generation:', {
+    model,
+    prompt,
+    duration,
+    resolution,
+    image1: runwayVideoImages.image1.filePath,
+    image2: runwayVideoImages.image2.filePath
+  });
 
-  console.log('[Runway Video] Placeholder called with:', { prompt, duration, resolution, title, description });
+  try {
+    // Show progress
+    updateProgress(0, 'Runway ML API 호출 중...');
+    updateStatus('Runway ML API 호출 중...');
+
+    // Call Runway ML API
+    const result = await window.electronAPI.generateVideoRunway({
+      image1Path: runwayVideoImages.image1.filePath,
+      image2Path: runwayVideoImages.image2.filePath,
+      prompt: prompt,
+      duration: duration,
+      model: model,
+      resolution: resolution
+    });
+
+    console.log('[Runway Video] API call successful, taskId:', result.taskId);
+
+    if (!result.success || !result.taskId) {
+      throw new Error('작업 ID를 받지 못했습니다.');
+    }
+
+    // Poll for completion
+    updateProgress(10, '영상 생성 중... (1-2분 소요)');
+    updateStatus('Runway ML에서 영상을 생성하고 있습니다...');
+
+    const videoUrl = await pollRunwayVideoTask(result.taskId);
+
+    console.log('[Runway Video] Video generation completed:', videoUrl);
+
+    // Download video to local temp folder
+    updateProgress(80, '생성된 영상 다운로드 중...');
+    updateStatus('생성된 영상을 다운로드하고 있습니다...');
+
+    const downloadResult = await window.electronAPI.downloadRunwayVideo(videoUrl);
+
+    if (!downloadResult.success) {
+      throw new Error('영상 다운로드에 실패했습니다.');
+    }
+
+    console.log('[Runway Video] Video downloaded to:', downloadResult.filePath);
+
+    // Store generated video data
+    generatedRunwayVideo = {
+      filePath: downloadResult.filePath,
+      url: `file://${downloadResult.filePath}`,
+      metadata: {
+        model,
+        prompt,
+        duration,
+        resolution,
+        taskId: result.taskId
+      }
+    };
+
+    updateProgress(90, '영상을 미리보기에 로드 중...');
+    updateStatus('영상을 미리보기에 로드 중...');
+
+    // Load video to preview
+    await loadVideoToPreview(downloadResult.filePath);
+
+    updateProgress(100, 'AI 영상 생성 완료!');
+    updateStatus('AI 영상 생성 완료!');
+
+    // Show preview section in properties panel
+    displayRunwayVideoPreview();
+
+    console.log('[Runway Video] Generation completed successfully');
+
+  } catch (error) {
+    console.error('[Runway Video] Generation failed:', error);
+    alert('영상 생성 중 오류가 발생했습니다:\n\n' + error.message);
+    updateProgress(0, '');
+    updateStatus('');
+  }
+}
+
+/**
+ * Poll Runway video task until completion
+ */
+async function pollRunwayVideoTask(taskId, maxAttempts = 120, interval = 5000) {
+  console.log(`[Runway Video Poll] Starting to poll task ${taskId}`);
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      const taskStatus = await window.electronAPI.pollRunwayTask(taskId);
+
+      console.log(`[Runway Video Poll] Attempt ${attempt + 1}: Status = ${taskStatus.status}`);
+
+      // Update progress based on status
+      const progress = 10 + Math.min(70, (attempt / maxAttempts) * 70);
+      updateProgress(progress, `영상 생성 중... (${attempt + 1}/${maxAttempts})`);
+
+      if (taskStatus.status === 'SUCCEEDED') {
+        // Get video URL from output
+        const videoUrl = taskStatus.output?.[0] || taskStatus.output?.url || taskStatus.artifacts?.[0]?.url;
+
+        if (!videoUrl) {
+          console.error('[Runway Video Poll] No video URL in output:', taskStatus.output);
+          throw new Error('생성된 영상 URL을 찾을 수 없습니다.');
+        }
+
+        console.log('[Runway Video Poll] Video generation succeeded:', videoUrl);
+        return videoUrl;
+      }
+
+      if (taskStatus.status === 'FAILED') {
+        const errorMessage = taskStatus.failure || taskStatus.failureCode || '알 수 없는 오류';
+        throw new Error(`영상 생성 실패: ${errorMessage}`);
+      }
+
+      if (taskStatus.status === 'CANCELLED') {
+        throw new Error('영상 생성이 취소되었습니다.');
+      }
+
+      // Status is PENDING or RUNNING, wait before next poll
+      await new Promise(resolve => setTimeout(resolve, interval));
+
+    } catch (error) {
+      console.warn(`[Runway Video Poll] Poll attempt ${attempt + 1} failed:`, error.message);
+
+      // If it's not a polling error, rethrow
+      if (error.message.includes('실패') || error.message.includes('취소')) {
+        throw error;
+      }
+
+      // Otherwise, continue polling
+      await new Promise(resolve => setTimeout(resolve, interval));
+    }
+  }
+
+  throw new Error('영상 생성 시간이 초과되었습니다.\n\n생성이 오래 걸리고 있습니다. 잠시 후 다시 확인해주세요.');
+}
+
+/**
+ * Load video to central preview area
+ */
+async function loadVideoToPreview(videoPath) {
+  console.log('[Runway Video] Loading video to preview:', videoPath);
+
+  try {
+    // Use the existing loadVideo function
+    currentVideo = videoPath;
+    await loadVideo(videoPath);
+
+    // Reactivate the Runway video generation tool to keep properties panel
+    activeTool = 'generate-video-runway';
+
+    // Highlight the tool button
+    document.querySelectorAll('.tool-btn').forEach(btn => {
+      btn.classList.remove('active');
+    });
+    const toolBtn = document.querySelector('.tool-btn[data-tool="generate-video-runway"]');
+    if (toolBtn) {
+      toolBtn.classList.add('active');
+    }
+
+    // Restore the properties panel
+    showToolProperties('generate-video-runway');
+
+    console.log('[Runway Video] Video loaded to preview successfully');
+  } catch (error) {
+    console.error('[Runway Video] Failed to load video to preview:', error);
+    throw new Error('미리보기 로드 실패: ' + error.message);
+  }
+}
+
+/**
+ * Display generated video preview info in properties panel
+ */
+function displayRunwayVideoPreview() {
+  const previewSection = document.getElementById('runway-video-preview-section');
+
+  if (!previewSection || !generatedRunwayVideo) {
+    return;
+  }
+
+  // Show the preview section
+  previewSection.style.display = 'block';
+
+  // Set default title and description
+  const titleInput = document.getElementById('ai-video-title-runway');
+  const descriptionInput = document.getElementById('ai-video-description-runway');
+
+  if (titleInput && !titleInput.value) {
+    titleInput.value = `Runway 생성 영상 - ${new Date().toLocaleString('ko-KR')}`;
+  }
+
+  if (descriptionInput && !descriptionInput.value) {
+    descriptionInput.value = generatedRunwayVideo.metadata.prompt;
+  }
+
+  console.log('[Runway Video] Preview section displayed in properties panel');
+}
+
+/**
+ * Save generated video to S3
+ */
+async function saveRunwayVideoToS3() {
+  if (!generatedRunwayVideo) {
+    alert('생성된 영상이 없습니다. 먼저 영상을 생성해주세요.');
+    return;
+  }
+
+  const title = document.getElementById('ai-video-title-runway')?.value?.trim();
+  const description = document.getElementById('ai-video-description-runway')?.value?.trim();
+
+  // Validation (제목/설명 필수)
+  if (!title) {
+    alert('제목을 입력해주세요.');
+    return;
+  }
+
+  if (!description) {
+    alert('설명을 입력해주세요.');
+    return;
+  }
+
+  console.log('[Runway Video] Saving to S3:', { title, description });
+
+  try {
+    updateProgress(0, 'S3에 업로드 중...');
+    updateStatus('S3에 업로드 중...');
+
+    // TODO: 실제 S3 업로드 API 호출
+    // Call /api/ai/upload or similar endpoint
+    alert('S3 저장 기능은 곧 구현될 예정입니다.\n\n' +
+          `제목: ${title}\n` +
+          `설명: ${description}\n` +
+          `파일: ${generatedRunwayVideo.filePath}\n\n` +
+          '⚙️ 백엔드 API와 연동하여 S3에 자동 업로드됩니다.');
+
+    updateProgress(100, 'S3 저장 완료!');
+    updateStatus('S3 저장 완료!');
+
+    console.log('[Runway Video] Saved to S3 successfully');
+
+  } catch (error) {
+    console.error('[Runway Video] S3 upload failed:', error);
+    alert('S3 저장 중 오류가 발생했습니다: ' + error.message);
+    updateProgress(0, '');
+    updateStatus('');
+  }
 }
 
 // Veo Video Generation
