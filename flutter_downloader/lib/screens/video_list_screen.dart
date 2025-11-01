@@ -620,6 +620,8 @@ class _VideoListScreenState extends State<VideoListScreen> {
     final config = widget.storageService.getConfig();
     final hasConfig = config != null && config.isValid;
     final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isLargeScreen = screenWidth >= 600; // 태블릿 크기 (600dp 이상)
 
     return Scaffold(
       appBar: AppBar(
@@ -642,7 +644,7 @@ class _VideoListScreenState extends State<VideoListScreen> {
             ),
             if (_isLoggedIn) ...[
               const SizedBox(width: 2),
-              if (isLandscape)
+              if (isLargeScreen) // 태블릿 이상 크기에서는 항상 이름 표시
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
