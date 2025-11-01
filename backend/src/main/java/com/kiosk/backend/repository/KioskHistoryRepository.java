@@ -6,6 +6,11 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 
+/**
+ * @deprecated Use {@link com.kiosk.backend.repository.KioskEventRepository} instead.
+ * This repository is kept for backward compatibility but will be removed in a future version.
+ */
+@Deprecated(since = "1.1.0", forRemoval = true)
 @Repository
 public interface KioskHistoryRepository extends JpaRepository<KioskHistory, Long> {
 
