@@ -186,27 +186,37 @@ function UserGuide() {
 
           <div className="step-card">
             <h3>8단계: 다운로드 앱에서 영상 다운로드</h3>
-            <p>키오스크 현장에서 다운로더 앱을 사용하여 영상을 받습니다.</p>
+            <p>키오스크 현장에서 Flutter 다운로더 앱을 사용하여 영상을 받습니다.</p>
 
             <h4>다운로더 앱 설치</h4>
             <ol>
-              <li>GitHub 릴리즈 페이지에서 설치 파일 다운로드:
+              <li><a href="https://github.com/mhpark03/kiosk-management/releases/latest" target="_blank" rel="noopener noreferrer">GitHub 릴리즈 페이지</a>에서 플랫폼별 설치 파일 다운로드:
                 <ul>
-                  <li><code>Kiosk Video Downloader Setup 1.1.0.exe</code></li>
+                  <li><strong>Windows</strong>: <code>flutter_downloader_v2.0.0_windows.zip</code> (12MB)</li>
+                  <li><strong>Android</strong>: <code>flutter_downloader_v2.0.0.apk</code> (50MB)</li>
                 </ul>
               </li>
-              <li>설치 파일 실행</li>
-              <li>설치 마법사 따라 진행</li>
-              <li>설치 완료 후 앱 실행</li>
+              <li><strong>Windows</strong>: ZIP 파일 압축 해제 후 <code>flutter_downloader.exe</code> 실행</li>
+              <li><strong>Android</strong>: APK 파일 탭하여 설치 (알 수 없는 출처 허용 필요)</li>
             </ol>
 
             <h4>다운로더 앱 설정</h4>
             <ol>
               <li>앱 실행 시 초기 설정 화면 표시</li>
-              <li><strong>서버 선택</strong>: 기본값 AWS 개발 서버 (자동 선택됨)</li>
+              <li><strong>서버 선택</strong>: 기본값 AWS 개발 서버 (자동 선택됨)
+                <ul>
+                  <li>Android 에뮬레이터: <code>http://10.0.2.2:8080/api</code> 사용</li>
+                </ul>
+              </li>
               <li><strong>키오스크 ID 입력</strong>: 5단계에서 생성된 키오스크 ID 입력 (예: <code>000000000001</code>)</li>
-              <li><strong>다운로드 경로 설정</strong>: 영상을 저장할 폴더 선택</li>
-              <li><strong>자동 동기화 설정</strong> (선택사항): 주기적 자동 다운로드</li>
+              <li><strong>POS ID 입력</strong>: 매장 ID 입력 (예: <code>00000001</code>)</li>
+              <li><strong>다운로드 경로 설정</strong>: 영상을 저장할 폴더 선택
+                <ul>
+                  <li>Windows: <code>C:\Videos\Kiosk</code></li>
+                  <li>Android: <code>/storage/emulated/0/Download/KioskVideos</code></li>
+                </ul>
+              </li>
+              <li><strong>자동 동기화 설정</strong> (선택사항): 주기적 자동 다운로드 (WorkManager 백그라운드 작업)</li>
               <li><strong>설정 저장</strong> 버튼 클릭</li>
             </ol>
 
@@ -214,9 +224,12 @@ function UserGuide() {
             <ol>
               <li><strong>동기화</strong> 버튼 클릭</li>
               <li>서버에서 할당된 영상 목록 가져오기</li>
-              <li>각 영상별로 다운로드 진행</li>
+              <li>각 영상별로 다운로드 진행 (진행률 표시)</li>
               <li>모든 영상 다운로드 완료 확인</li>
             </ol>
+            <div className="alert alert-info">
+              💡 <strong>참고</strong>: 자세한 사용법은 <a href="/#/downloader-guide">다운로더 앱 사용설명서</a>를 참조하세요.
+            </div>
             <div className="alert alert-success">
               ✅ <strong>완료</strong>: 키오스크에서 영상이 재생되고 있습니다!
             </div>
