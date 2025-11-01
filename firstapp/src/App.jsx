@@ -17,7 +17,6 @@ import VideoManagement from './components/VideoManagement';
 import VideoUpload from './components/VideoUpload';
 import VideoGenerator from './components/VideoGenerator';
 import VeoGenerator from './components/VeoGenerator';
-import ImageGenerator from './components/ImageGenerator';
 import ImageManagement from './components/ImageManagement';
 import ImageEdit from './components/ImageEdit';
 import AIVideoManagement from './components/AIVideoManagement';
