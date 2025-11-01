@@ -158,6 +158,7 @@ class PreviewManager {
     this.currentMediaElement = this.elements.video;
 
     this.enableControls();
+    this.setAudioTrackInteractive(true); // Enable audio track interaction
 
     console.log('[PreviewManager] Video preview activated');
   }
@@ -188,6 +189,7 @@ class PreviewManager {
     this.currentMediaElement = this.elements.audio;
 
     this.enableControls();
+    this.setAudioTrackInteractive(true); // Enable audio track interaction
 
     console.log('[PreviewManager] Audio preview activated:', filename);
   }
@@ -213,6 +215,7 @@ class PreviewManager {
     this.currentMediaElement = null; // Images are not playable
 
     this.disableControls();
+    this.setAudioTrackInteractive(false); // Disable audio track interaction for images
 
     console.log('[PreviewManager] Image preview activated');
   }
@@ -235,6 +238,7 @@ class PreviewManager {
     this.currentMediaElement = null;
 
     this.disableControls();
+    this.setAudioTrackInteractive(false);
 
     console.log('[PreviewManager] Placeholder shown');
   }
@@ -365,6 +369,20 @@ class PreviewManager {
   isPlaying() {
     if (!this.currentMediaElement) return false;
     return !this.currentMediaElement.paused;
+  }
+
+  // Enable/disable audio track interaction
+  setAudioTrackInteractive(enabled) {
+    const audioTrack = document.getElementById('audio-track');
+    if (!audioTrack) return;
+
+    if (enabled) {
+      audioTrack.style.pointerEvents = 'auto';
+      audioTrack.style.cursor = 'pointer';
+    } else {
+      audioTrack.style.pointerEvents = 'none';
+      audioTrack.style.cursor = 'default';
+    }
   }
 }
 
