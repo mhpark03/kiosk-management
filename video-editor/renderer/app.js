@@ -129,6 +129,16 @@ function selectTool(tool) {
 
   activeTool = tool;
 
+  // Pause video and audio when switching tools
+  const videoElement = document.getElementById('preview-video');
+  const audioElement = document.getElementById('preview-audio');
+  if (videoElement && !videoElement.paused) {
+    videoElement.pause();
+  }
+  if (audioElement && !audioElement.paused) {
+    audioElement.pause();
+  }
+
   // Update active button
   document.querySelectorAll('.tool-btn').forEach(btn => {
     btn.classList.remove('active');
@@ -1240,6 +1250,30 @@ function setupVideoControls() {
   const currentTimeDisplay = document.getElementById('current-time');
 
   playBtn.addEventListener('click', () => {
+    // Content mode: check if audio or video
+    if (currentMode === 'content') {
+      const audioElement = document.getElementById('preview-audio');
+      const audioPlaceholder = document.getElementById('audio-placeholder');
+
+      // If audio placeholder is visible, play audio
+      if (audioPlaceholder && audioPlaceholder.style.display === 'flex' && audioElement) {
+        if (audioElement.readyState >= 2) {
+          audioElement.play().catch(err => {
+            console.error('Audio play error:', err);
+            updateStatus('재생 실패: ' + err.message);
+          });
+          updateStatus('재생 중...');
+        } else {
+          console.log('[Play] Audio not ready, readyState:', audioElement.readyState);
+          updateStatus('음성 파일 로딩 중... 잠시 후 다시 시도해주세요.');
+        }
+        return;
+      }
+      // Otherwise play video
+      video.play();
+      return;
+    }
+
     // Audio mode: play audio file
     if (currentMode === 'audio') {
       const audioElement = document.getElementById('preview-audio');
@@ -1316,6 +1350,22 @@ function setupVideoControls() {
   });
 
   pauseBtn.addEventListener('click', () => {
+    // Content mode: check if audio or video
+    if (currentMode === 'content') {
+      const audioElement = document.getElementById('preview-audio');
+      const audioPlaceholder = document.getElementById('audio-placeholder');
+
+      // If audio placeholder is visible, pause audio
+      if (audioPlaceholder && audioPlaceholder.style.display === 'flex' && audioElement) {
+        audioElement.pause();
+        updateStatus('일시정지');
+        return;
+      }
+      // Otherwise pause video
+      video.pause();
+      return;
+    }
+
     // Audio mode: pause audio file
     if (currentMode === 'audio') {
       const audioElement = document.getElementById('preview-audio');
@@ -1660,10 +1710,74 @@ function setupVideoControls() {
     }
   });
 
+  // Add general slider input handler for all modes
+  slider.addEventListener('input', () => {
+    const isVideoTrim = activeTool === 'trim' && currentMode === 'video' && video.duration;
+    const isAudioTrim = activeTool === 'trim-audio' && currentMode === 'audio' && audioFileInfo;
+    const isTextMode = activeTool === 'text' && currentMode === 'video' && video.duration;
+
+    // Skip if in special modes (they handle their own seeking)
+    if (isVideoTrim || isAudioTrim || isTextMode) {
+      return;
+    }
+
+    // For normal video playback (including content mode)
+    if (currentMode === 'video' || currentMode === 'content') {
+      // Check if audio is playing in content mode
+      if (currentMode === 'content') {
+        const audioElement = document.getElementById('preview-audio');
+        const audioPlaceholder = document.getElementById('audio-placeholder');
+
+        if (audioPlaceholder && audioPlaceholder.style.display === 'flex' && audioElement && audioElement.duration) {
+          const percent = parseFloat(slider.value) / 100;
+          const targetTime = percent * audioElement.duration;
+          audioElement.currentTime = Math.max(0, Math.min(targetTime, audioElement.duration));
+          return;
+        }
+      }
+
+      // Video seeking
+      if (video && video.duration) {
+        const percent = parseFloat(slider.value) / 100;
+        const targetTime = percent * video.duration;
+        video.currentTime = Math.max(0, Math.min(targetTime, video.duration));
+      }
+    }
+    // For audio mode
+    else if (currentMode === 'audio') {
+      const audioElement = document.getElementById('preview-audio');
+      if (audioElement && audioFileInfo) {
+        const audioDuration = parseFloat(audioFileInfo.format.duration);
+        const targetTime = parseFloat(slider.value);
+        audioElement.currentTime = Math.max(0, Math.min(targetTime, audioDuration));
+      }
+    }
+  });
+
   video.addEventListener('loadedmetadata', () => {
     playBtn.disabled = false;
     pauseBtn.disabled = false;
     slider.disabled = false;
+  });
+
+  // Audio element event handlers for content mode
+  const audio = document.getElementById('preview-audio');
+
+  audio.addEventListener('timeupdate', () => {
+    if (audio.duration && currentMode === 'content') {
+      const progress = (audio.currentTime / audio.duration) * 100;
+      slider.value = progress;
+      currentTimeDisplay.textContent = formatTime(audio.currentTime);
+    }
+  });
+
+  audio.addEventListener('loadedmetadata', () => {
+    if (currentMode === 'content') {
+      playBtn.disabled = false;
+      pauseBtn.disabled = false;
+      slider.disabled = false;
+      slider.max = 100;
+    }
   });
 }
 
@@ -8989,6 +9103,53 @@ function updateSelectedVideoContentInfo() {
       </div>
     `;
   }
+
+  // Display video in preview area
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const videoUrl = e.target.result;
+
+    // Get preview elements
+    const videoPreview = document.getElementById('preview-video');
+    const audioPreview = document.getElementById('preview-audio');
+    const previewPlaceholder = document.getElementById('preview-placeholder');
+    const imagePreviewEl = document.getElementById('generated-image-preview');
+    const playBtn = document.getElementById('play-btn');
+    const pauseBtn = document.getElementById('pause-btn');
+    const timelineSlider = document.getElementById('timeline-slider');
+
+    // Hide audio, image, and placeholder
+    if (audioPreview) {
+      audioPreview.style.display = 'none';
+      audioPreview.pause();
+      audioPreview.src = '';
+    }
+    if (imagePreviewEl) {
+      imagePreviewEl.style.display = 'none';
+      imagePreviewEl.src = '';
+    }
+    if (previewPlaceholder) {
+      previewPlaceholder.style.display = 'none';
+    }
+
+    // Show and load video in preview
+    if (videoPreview) {
+      videoPreview.style.display = 'block';
+      videoPreview.style.width = '100%';
+      videoPreview.style.height = '100%';
+      videoPreview.style.objectFit = 'contain';
+      videoPreview.src = videoUrl;
+      videoPreview.load();
+
+      // Enable playback controls
+      if (playBtn) playBtn.disabled = false;
+      if (pauseBtn) pauseBtn.disabled = false;
+      if (timelineSlider) timelineSlider.disabled = false;
+
+      console.log('[Import Video Content] Video displayed in preview:', filename);
+    }
+  };
+  reader.readAsDataURL(file);
 }
 
 // Upload Video Content to S3
@@ -10327,6 +10488,55 @@ async function selectAudioFileForUpload() {
     if (titleInput && !titleInput.value) {
       const nameWithoutExt = filename.replace(/\.[^/.]+$/, '');
       titleInput.value = nameWithoutExt;
+    }
+
+    // Display audio in preview area for playback
+    const fileUrl = `file:///${audioPath.replace(/\\/g, '/')}`;
+
+    // Get preview elements
+    const videoPreview = document.getElementById('preview-video');
+    const audioPreview = document.getElementById('preview-audio');
+    const previewPlaceholder = document.getElementById('preview-placeholder');
+    const imagePreviewEl = document.getElementById('generated-image-preview');
+    const audioPlaceholder = document.getElementById('audio-placeholder');
+    const audioFilenameEl = document.getElementById('audio-filename');
+    const playBtn = document.getElementById('play-btn');
+    const pauseBtn = document.getElementById('pause-btn');
+    const timelineSlider = document.getElementById('timeline-slider');
+
+    // Hide video, image, and placeholder
+    if (videoPreview) {
+      videoPreview.style.display = 'none';
+      videoPreview.pause();
+      videoPreview.src = '';
+    }
+    if (imagePreviewEl) {
+      imagePreviewEl.style.display = 'none';
+      imagePreviewEl.src = '';
+    }
+    if (previewPlaceholder) {
+      previewPlaceholder.style.display = 'none';
+    }
+
+    // Load audio file (hidden element)
+    if (audioPreview) {
+      audioPreview.src = fileUrl;
+      audioPreview.load();
+
+      // Enable playback controls
+      if (playBtn) playBtn.disabled = false;
+      if (pauseBtn) pauseBtn.disabled = false;
+      if (timelineSlider) timelineSlider.disabled = false;
+
+      console.log('[Audio Upload] Audio loaded in preview:', filename);
+    }
+
+    // Show audio placeholder UI
+    if (audioPlaceholder) {
+      audioPlaceholder.style.display = 'flex';
+      if (audioFilenameEl) {
+        audioFilenameEl.textContent = filename;
+      }
     }
 
   } catch (error) {
