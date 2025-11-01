@@ -4,7 +4,7 @@
 [![Security](https://img.shields.io/badge/security-secured-blue)](https://github.com/mhpark03/kiosk-management)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-키오스크 관리 시스템 - Spring Boot 백엔드, React 웹 프론트엔드, Electron 데스크톱 앱으로 구성된 풀스택 솔루션
+키오스크 관리 시스템 - Spring Boot 백엔드, React 웹 프론트엔드, Flutter 모바일/데스크톱 앱으로 구성된 풀스택 솔루션
 
 ## 📋 프로젝트 개요
 
@@ -24,8 +24,8 @@ Port 5173/80                  Port 8080                    Port 3306            
      │                             │                             │                     │
      │                             │◄─── 파일 업로드/다운로드 ───────────────────────────│
      │                             │                             │                     │
-Electron Kiosk App            │                             │                     │
-(Desktop Application)         │                             │                     │
+Flutter Kiosk App             │                             │                     │
+(Windows/Android)             │                             │                     │
      │                             │                             │                     │
      │──── 영상 목록 조회 ──────────│                             │                     │
      │                             │                             │                     │
@@ -56,12 +56,15 @@ Electron Kiosk App            │                             │               
 - **Charts**: Recharts
 - **Icons**: React Icons
 
-### Desktop Application
-- **Framework**: Electron 28.0
-- **Runtime**: Node.js
-- **UI**: HTML5 + CSS3 + Vanilla JavaScript
-- **File System**: Electron IPC
-- **Video Management**: Local storage + S3 integration
+### Mobile/Desktop Application
+- **Framework**: Flutter 3.9+
+- **Language**: Dart
+- **Platforms**: Windows, Android
+- **State Management**: Provider
+- **Storage**: SharedPreferences + Secure Storage
+- **Real-time Sync**: WebSocket/STOMP
+- **Video Player**: video_player package
+- **Background Tasks**: WorkManager
 
 ### DevOps & Cloud
 - **CI/CD**: GitHub Actions
@@ -112,13 +115,16 @@ Electron Kiosk App            │                             │               
 - ✅ 영상 통계 (할당된 키오스크 수)
 - ✅ Electron 앱으로 자동 다운로드
 
-### 키오스크 다운로더 앱 (Desktop Application)
-- ✅ Electron 기반 크로스 플랫폼 지원
+### 키오스크 다운로더 앱 (Flutter App)
+- ✅ Flutter 기반 크로스 플랫폼 지원 (Windows, Android)
+- ✅ 이중 인증: 사용자 로그인 + 키오스크 헤더
 - ✅ 할당된 영상 목록 자동 조회
 - ✅ 영상 로컬 다운로드 및 관리
 - ✅ 다운로드 진행률 표시
-- ✅ 오프라인 모드 지원
-- ✅ 반응형 UI (가로/세로 레이아웃)
+- ✅ WebSocket/STOMP 실시간 동기화
+- ✅ 백그라운드 자동 동기화 (WorkManager)
+- ✅ 내장 비디오 플레이어
+- ✅ 반응형 Material Design UI
 
 ### 대시보드 (Dashboard)
 - ✅ 월별 키오스크 설치 현황 차트
@@ -176,20 +182,37 @@ npm run dev
 
 ### 4. 키오스크 다운로더 앱 설정 및 실행
 
+#### GitHub 릴리스에서 다운로드 (권장)
+
+최신 릴리스에서 플랫폼별 앱을 다운로드할 수 있습니다:
+
+https://github.com/mhpark03/kiosk-management/releases/latest
+
+- **Windows**: `flutter_downloader_v2.0.0_windows.zip` 다운로드 및 압축 해제
+- **Android**: `flutter_downloader_v2.0.0.apk` 다운로드 및 설치
+
+#### 소스코드로 빌드
+
 ```bash
-cd kiosk-downloader
+cd flutter_downloader
 
 # 의존성 설치
-npm install
+flutter pub get
 
-# 개발 모드 실행
-npm start
+# Windows에서 실행
+flutter run -d windows
 
-# 프로덕션 빌드 (설치 파일 생성)
-npm run build
+# Android 에뮬레이터에서 실행
+flutter run -d <device-id>
+
+# Windows 릴리스 빌드
+flutter build windows --release
+
+# Android APK 빌드
+flutter build apk --release
 ```
 
-Electron 앱이 데스크톱 윈도우로 실행됩니다.
+자세한 내용은 [flutter_downloader/CLAUDE.md](flutter_downloader/CLAUDE.md)를 참조하세요.
 
 ## 🌐 배포
 
@@ -257,14 +280,17 @@ kiosk-management/
 │   │   └── App.jsx
 │   └── .env.production
 │
-├── kiosk-downloader/      # Electron 데스크톱 앱
-│   ├── main.js            # Electron 메인 프로세스
-│   ├── preload.js         # Preload 스크립트
-│   ├── renderer/          # 렌더러 프로세스 (UI)
-│   │   ├── app.js         # 프론트엔드 로직
-│   │   ├── index.html     # 메인 화면
-│   │   └── styles.css     # 스타일시트
-│   └── package.json
+├── flutter_downloader/    # Flutter 모바일/데스크톱 앱
+│   ├── lib/
+│   │   ├── main.dart       # 앱 진입점
+│   │   ├── models/         # 데이터 모델
+│   │   ├── services/       # API 및 스토리지 서비스
+│   │   ├── screens/        # UI 화면
+│   │   └── widgets/        # 재사용 가능한 위젯
+│   ├── android/            # Android 빌드 설정
+│   ├── windows/            # Windows 빌드 설정
+│   ├── pubspec.yaml        # Flutter 의존성
+│   └── CLAUDE.md           # 개발 가이드
 │
 └── .github/
     └── workflows/         # GitHub Actions CI/CD
