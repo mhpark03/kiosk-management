@@ -351,11 +351,13 @@ class PreviewManager {
     if (!btn) return;
 
     if (isPlaying) {
-      btn.textContent = '⏸️ 일시정지';
+      btn.textContent = '⏸️';
       btn.setAttribute('data-state', 'playing');
+      btn.setAttribute('title', '일시정지');
     } else {
-      btn.textContent = '▶️ 재생';
+      btn.textContent = '▶️';
       btn.setAttribute('data-state', 'paused');
+      btn.setAttribute('title', '재생');
     }
   }
 

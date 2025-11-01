@@ -276,6 +276,21 @@ body {
   cursor: not-allowed;
 }
 
+/* Icon-only button style for play/pause */
+.timeline-btn-icon {
+  padding: 8px 12px;
+  min-width: 42px;
+  font-size: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.timeline-btn-icon:hover:not(:disabled) {
+  background: #4a4a4a;
+  transform: scale(1.05);
+}
+
 .time-display {
   font-family: 'Courier New', monospace;
   font-size: 14px;
