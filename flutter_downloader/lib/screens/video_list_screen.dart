@@ -483,7 +483,7 @@ class _VideoListScreenState extends State<VideoListScreen> {
       for (final video in pendingVideos) {
         try {
           print('[AUTO DOWNLOAD] Starting download: ${video.title}');
-          await _downloadVideo(video);
+          await _downloadVideo(video, isBackgroundDownload: true);
           // Small delay between downloads
           await Future.delayed(const Duration(milliseconds: 500));
         } catch (e) {
@@ -495,7 +495,7 @@ class _VideoListScreenState extends State<VideoListScreen> {
     });
   }
 
-  Future<void> _downloadVideo(Video video) async {
+  Future<void> _downloadVideo(Video video, {bool isBackgroundDownload = false}) async {
     // 사용자 활동으로 타이머 리셋
     _resetAutoLogoutTimer();
 
@@ -572,7 +572,8 @@ class _VideoListScreenState extends State<VideoListScreen> {
         'COMPLETED',
       );
 
-      if (mounted) {
+      // Only show SnackBar for manual downloads (not background auto-downloads)
+      if (mounted && !isBackgroundDownload) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('${video.title} 다운로드 완료')),
         );
@@ -601,7 +602,8 @@ class _VideoListScreenState extends State<VideoListScreen> {
         video.downloadStatus = 'failed';
       });
 
-      if (mounted) {
+      // Only show SnackBar for manual downloads (not background auto-downloads)
+      if (mounted && !isBackgroundDownload) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('다운로드 실패: ${e.toString()}'),
