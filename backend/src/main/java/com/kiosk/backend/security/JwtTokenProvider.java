@@ -39,12 +39,39 @@ public class JwtTokenProvider {
                 .compact();
     }
 
+    public String generateToken(Authentication authentication, Long tokenVersion) {
+        UserDetails userDetails = (UserDetails) authentication.getPrincipal();
+        Date now = new Date();
+        Date expiryDate = new Date(now.getTime() + jwtExpirationMs);
+
+        return Jwts.builder()
+                .subject(userDetails.getUsername())
+                .claim("tokenVersion", tokenVersion)
+                .issuedAt(now)
+                .expiration(expiryDate)
+                .signWith(getSigningKey())
+                .compact();
+    }
+
     public String generateToken(String email) {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + jwtExpirationMs);
 
         return Jwts.builder()
                 .subject(email)
+                .issuedAt(now)
+                .expiration(expiryDate)
+                .signWith(getSigningKey())
+                .compact();
+    }
+
+    public String generateToken(String email, Long tokenVersion) {
+        Date now = new Date();
+        Date expiryDate = new Date(now.getTime() + jwtExpirationMs);
+
+        return Jwts.builder()
+                .subject(email)
+                .claim("tokenVersion", tokenVersion)
                 .issuedAt(now)
                 .expiration(expiryDate)
                 .signWith(getSigningKey())
@@ -101,6 +128,36 @@ public class JwtTokenProvider {
                 .getPayload();
 
         return claims.getSubject();
+    }
+
+    /**
+     * Extract token version from JWT token
+     */
+    public Long getTokenVersionFromToken(String token) {
+        try {
+            Claims claims = Jwts.parser()
+                    .verifyWith(getSigningKey())
+                    .build()
+                    .parseSignedClaims(token)
+                    .getPayload();
+
+            Object versionObj = claims.get("tokenVersion");
+            if (versionObj == null) {
+                return null; // Old tokens without version
+            }
+
+            // Handle both Integer and Long types
+            if (versionObj instanceof Integer) {
+                return ((Integer) versionObj).longValue();
+            } else if (versionObj instanceof Long) {
+                return (Long) versionObj;
+            } else {
+                return Long.parseLong(versionObj.toString());
+            }
+        } catch (Exception e) {
+            log.error("Failed to extract token version: {}", e.getMessage());
+            return null;
+        }
     }
 
     public boolean validateToken(String authToken) {

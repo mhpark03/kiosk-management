@@ -47,6 +47,10 @@ public class User {
     private String phoneNumber;
 
     @Builder.Default
+    @Column(nullable = false)
+    private Long tokenVersion = 0L;
+
+    @Builder.Default
     @Column(nullable = false, length = 20)
     @Enumerated(EnumType.STRING)
     private UserStatus status = UserStatus.ACTIVE;
