@@ -32,7 +32,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     try {
       _controller = VideoPlayerController.file(File(widget.videoPath));
       await _controller.initialize();
-      await _controller.setLooping(true);
+      await _controller.setLooping(false);
       await _controller.play();
 
       setState(() {
