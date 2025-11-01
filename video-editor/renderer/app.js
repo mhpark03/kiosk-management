@@ -34,6 +34,348 @@ let hasSilentAudio = false;  // Flag to track if current video has auto-generate
 // Audio preview listener tracking
 let audioPreviewListener = null;  // Store preview timeupdate listener reference for explicit removal
 
+// ============================================================================
+// PreviewManager - Unified Preview Management System
+// ============================================================================
+class PreviewManager {
+  constructor() {
+    this.elements = {
+      video: null,
+      audio: null,
+      audioPlaceholder: null,
+      audioFilename: null,
+      image: null,
+      placeholder: null,
+      textOverlay: null,
+      videoInfo: null,
+      playBtn: null,
+      pauseBtn: null,
+      timelineSlider: null,
+      currentTimeDisplay: null
+    };
+
+    this.currentPreviewType = 'none'; // 'video', 'audio', 'image', 'none'
+    this.currentMediaElement = null; // Current playable media element
+    this.initialized = false;
+  }
+
+  // Initialize - must be called after DOM is ready
+  init() {
+    if (this.initialized) return;
+
+    this.elements.video = document.getElementById('preview-video');
+    this.elements.audio = document.getElementById('preview-audio');
+    this.elements.audioPlaceholder = document.getElementById('audio-placeholder');
+    this.elements.audioFilename = document.getElementById('audio-filename');
+    this.elements.image = document.getElementById('generated-image-preview');
+    this.elements.placeholder = document.getElementById('preview-placeholder');
+    this.elements.textOverlay = document.getElementById('text-overlay');
+    this.elements.videoInfo = document.getElementById('video-info');
+    this.elements.playBtn = document.getElementById('play-btn');
+    this.elements.pauseBtn = document.getElementById('pause-btn');
+    this.elements.timelineSlider = document.getElementById('timeline-slider');
+    this.elements.currentTimeDisplay = document.getElementById('current-time');
+
+    this.initialized = true;
+    console.log('[PreviewManager] Initialized');
+  }
+
+  // Hide all preview elements
+  hideAll() {
+    if (!this.initialized) this.init();
+
+    // Hide and clear video
+    if (this.elements.video) {
+      this.elements.video.style.display = 'none';
+      this.elements.video.pause();
+      this.elements.video.src = '';
+    }
+
+    // Hide and clear audio
+    if (this.elements.audio) {
+      this.elements.audio.style.display = 'none';
+      this.elements.audio.pause();
+      this.elements.audio.src = '';
+    }
+
+    // Hide audio placeholder
+    if (this.elements.audioPlaceholder) {
+      this.elements.audioPlaceholder.style.display = 'none';
+    }
+
+    // Hide and clear image
+    if (this.elements.image) {
+      this.elements.image.style.display = 'none';
+      this.elements.image.src = '';
+    }
+
+    // Hide text overlay
+    if (this.elements.textOverlay) {
+      this.elements.textOverlay.style.display = 'none';
+    }
+
+    // Hide video info
+    if (this.elements.videoInfo) {
+      this.elements.videoInfo.style.display = 'none';
+    }
+
+    // Hide placeholder
+    if (this.elements.placeholder) {
+      this.elements.placeholder.style.display = 'none';
+    }
+
+    this.currentPreviewType = 'none';
+    this.currentMediaElement = null;
+  }
+
+  // Show video preview
+  showVideo(src, options = {}) {
+    if (!this.initialized) this.init();
+
+    this.hideAll();
+
+    if (!this.elements.video) {
+      console.error('[PreviewManager] Video element not found');
+      return;
+    }
+
+    this.elements.video.style.display = 'block';
+    this.elements.video.style.width = '100%';
+    this.elements.video.style.height = '100%';
+    this.elements.video.style.objectFit = options.objectFit || 'contain';
+    this.elements.video.src = src;
+    this.elements.video.load();
+
+    // Show video info if requested
+    if (options.showInfo !== false && this.elements.videoInfo) {
+      this.elements.videoInfo.style.display = 'flex';
+    }
+
+    this.currentPreviewType = 'video';
+    this.currentMediaElement = this.elements.video;
+
+    this.enableControls();
+
+    console.log('[PreviewManager] Video preview activated');
+  }
+
+  // Show audio preview
+  showAudio(src, filename = '', options = {}) {
+    if (!this.initialized) this.init();
+
+    this.hideAll();
+
+    if (!this.elements.audio) {
+      console.error('[PreviewManager] Audio element not found');
+      return;
+    }
+
+    this.elements.audio.src = src;
+    this.elements.audio.load();
+
+    // Show audio placeholder UI
+    if (this.elements.audioPlaceholder) {
+      this.elements.audioPlaceholder.style.display = 'flex';
+      if (filename && this.elements.audioFilename) {
+        this.elements.audioFilename.textContent = filename;
+      }
+    }
+
+    this.currentPreviewType = 'audio';
+    this.currentMediaElement = this.elements.audio;
+
+    this.enableControls();
+
+    console.log('[PreviewManager] Audio preview activated:', filename);
+  }
+
+  // Show image preview
+  showImage(src, options = {}) {
+    if (!this.initialized) this.init();
+
+    this.hideAll();
+
+    if (!this.elements.image) {
+      console.error('[PreviewManager] Image element not found');
+      return;
+    }
+
+    this.elements.image.style.display = 'block';
+    this.elements.image.style.width = '100%';
+    this.elements.image.style.height = '100%';
+    this.elements.image.style.objectFit = options.objectFit || 'contain';
+    this.elements.image.src = src;
+
+    this.currentPreviewType = 'image';
+    this.currentMediaElement = null; // Images are not playable
+
+    this.disableControls();
+
+    console.log('[PreviewManager] Image preview activated');
+  }
+
+  // Show placeholder
+  showPlaceholder(message = '영상을 가져와주세요') {
+    if (!this.initialized) this.init();
+
+    this.hideAll();
+
+    if (this.elements.placeholder) {
+      this.elements.placeholder.style.display = 'flex';
+      const placeholderText = this.elements.placeholder.querySelector('p');
+      if (placeholderText) {
+        placeholderText.textContent = message;
+      }
+    }
+
+    this.currentPreviewType = 'none';
+    this.currentMediaElement = null;
+
+    this.disableControls();
+
+    console.log('[PreviewManager] Placeholder shown');
+  }
+
+  // Show text overlay (only works with video)
+  showTextOverlay(text, styles = {}) {
+    if (this.currentPreviewType !== 'video') return;
+
+    if (this.elements.textOverlay) {
+      this.elements.textOverlay.textContent = text;
+      this.elements.textOverlay.style.display = 'block';
+
+      // Apply styles
+      Object.assign(this.elements.textOverlay.style, styles);
+    }
+  }
+
+  // Hide text overlay
+  hideTextOverlay() {
+    if (this.elements.textOverlay) {
+      this.elements.textOverlay.style.display = 'none';
+    }
+  }
+
+  // Playback control - play
+  play() {
+    if (!this.currentMediaElement) {
+      console.warn('[PreviewManager] No playable media element');
+      return Promise.reject(new Error('No media to play'));
+    }
+
+    return this.currentMediaElement.play();
+  }
+
+  // Playback control - pause
+  pause() {
+    if (!this.currentMediaElement) {
+      console.warn('[PreviewManager] No playable media element');
+      return;
+    }
+
+    this.currentMediaElement.pause();
+  }
+
+  // Playback control - seek
+  seek(time) {
+    if (!this.currentMediaElement || !this.currentMediaElement.duration) {
+      console.warn('[PreviewManager] Cannot seek: no media or duration');
+      return;
+    }
+
+    this.currentMediaElement.currentTime = Math.max(0, Math.min(time, this.currentMediaElement.duration));
+  }
+
+  // Get current time
+  getCurrentTime() {
+    return this.currentMediaElement?.currentTime || 0;
+  }
+
+  // Get duration
+  getDuration() {
+    return this.currentMediaElement?.duration || 0;
+  }
+
+  // Check if media can play
+  canPlay() {
+    return this.currentMediaElement !== null && this.currentMediaElement.readyState >= 2;
+  }
+
+  // Get current preview type
+  getPreviewType() {
+    return this.currentPreviewType;
+  }
+
+  // Get current media element
+  getMediaElement() {
+    return this.currentMediaElement;
+  }
+
+  // Enable playback controls
+  enableControls() {
+    if (this.elements.playBtn) this.elements.playBtn.disabled = false;
+    if (this.elements.pauseBtn) this.elements.pauseBtn.disabled = false;
+    if (this.elements.timelineSlider) this.elements.timelineSlider.disabled = false;
+  }
+
+  // Disable playback controls
+  disableControls() {
+    if (this.elements.playBtn) this.elements.playBtn.disabled = true;
+    if (this.elements.pauseBtn) this.elements.pauseBtn.disabled = true;
+    if (this.elements.timelineSlider) this.elements.timelineSlider.disabled = true;
+  }
+
+  // Update video info display
+  updateVideoInfo(info) {
+    if (this.currentPreviewType !== 'video' || !this.elements.videoInfo) return;
+
+    const durationEl = document.getElementById('info-duration');
+    const resolutionEl = document.getElementById('info-resolution');
+    const fpsEl = document.getElementById('info-fps');
+    const sizeEl = document.getElementById('info-size');
+
+    if (durationEl && info.duration) durationEl.textContent = info.duration;
+    if (resolutionEl && info.resolution) resolutionEl.textContent = info.resolution;
+    if (fpsEl && info.fps) fpsEl.textContent = info.fps + ' fps';
+    if (sizeEl && info.size) sizeEl.textContent = info.size + ' MB';
+
+    this.elements.videoInfo.style.display = 'flex';
+  }
+}
+
+// Create global instance
+const previewManager = new PreviewManager();
+
+// ============================================================================
+// Preview Helper Functions - Wrapper functions for backwards compatibility
+// ============================================================================
+
+// Helper: Load audio file in content mode
+function loadAudioPreview(src, filename) {
+  previewManager.showAudio(src, filename);
+}
+
+// Helper: Load image in content mode
+function loadImagePreview(src) {
+  previewManager.showImage(src);
+}
+
+// Helper: Load video in content mode
+function loadVideoPreview(src) {
+  previewManager.showVideo(src, { showInfo: false });
+}
+
+// Helper: Show placeholder
+function showPreviewPlaceholder(message) {
+  previewManager.showPlaceholder(message);
+}
+
+// Helper: Reset preview area
+function resetPreviewArea() {
+  previewManager.hideAll();
+  previewManager.showPlaceholder();
+}
+
 // 공통 오류 처리 함수
 function handleError(operation, error, userMessage) {
   // 콘솔에 상세한 오류 정보 기록
@@ -1839,9 +2181,6 @@ async function loadVideoWithAudioCheck(videoPath) {
 // Load video
 async function loadVideo(path) {
   try {
-    const video = document.getElementById('preview-video');
-    const placeholder = document.getElementById('preview-placeholder');
-
     // Reset volume preview button if exists
     const previewBtn = document.getElementById('preview-video-volume-btn');
     if (previewBtn) {
@@ -1849,11 +2188,15 @@ async function loadVideo(path) {
       previewBtn.classList.remove('active');
     }
 
-    // Load video
-    video.src = `file:///${path.replace(/\\/g, '/')}`;
-    video.style.display = 'block';
-    placeholder.style.display = 'none';
-    video.volume = 1.0; // Reset volume to original
+    // Load video using PreviewManager
+    const videoUrl = `file:///${path.replace(/\\/g, '/')}`;
+    previewManager.showVideo(videoUrl, { showInfo: true });
+
+    // Reset volume to original
+    const video = previewManager.getMediaElement();
+    if (video) {
+      video.volume = 1.0;
+    }
 
     // Get video info
     videoInfo = await window.electronAPI.getVideoInfo(path);
@@ -1917,28 +2260,28 @@ function displayVideoInfo(info) {
   const duration = parseFloat(info.format.duration) || 0;
   const size = (parseFloat(info.format.size || 0) / (1024 * 1024)).toFixed(2);
 
-  document.getElementById('info-duration').textContent = formatTime(duration);
+  let fps = 'N/A';
+  let resolution = 'N/A';
 
   if (videoStream && videoStream.width && videoStream.height) {
-    document.getElementById('info-resolution').textContent = `${videoStream.width}x${videoStream.height}`;
+    resolution = `${videoStream.width}x${videoStream.height}`;
 
     if (videoStream.r_frame_rate) {
       try {
-        const fps = eval(videoStream.r_frame_rate);
-        document.getElementById('info-fps').textContent = `${fps.toFixed(2)} fps`;
+        fps = eval(videoStream.r_frame_rate).toFixed(2);
       } catch (e) {
-        document.getElementById('info-fps').textContent = 'N/A fps';
+        fps = 'N/A';
       }
-    } else {
-      document.getElementById('info-fps').textContent = 'N/A fps';
     }
-  } else {
-    document.getElementById('info-resolution').textContent = 'N/A';
-    document.getElementById('info-fps').textContent = 'N/A fps';
   }
 
-  document.getElementById('info-size').textContent = `${size} MB`;
-  document.getElementById('video-info').style.display = 'flex';
+  // Use PreviewManager to update video info
+  previewManager.updateVideoInfo({
+    duration: formatTime(duration),
+    resolution: resolution,
+    fps: fps,
+    size: size
+  });
 }
 
 // Display timeline tracks
@@ -8382,12 +8725,8 @@ function resetWorkspace() {
   const videoInfoDiv = document.getElementById('video-info');
   if (videoInfoDiv) videoInfoDiv.style.display = 'none';
 
-  // Show placeholder
-  const placeholder = document.getElementById('preview-placeholder');
-  const videoPreview = document.getElementById('preview-video');
-
-  if (placeholder) placeholder.style.display = 'flex';
-  if (videoPreview) videoPreview.style.display = 'none';
+  // Reset preview area using PreviewManager
+  resetPreviewArea();
 
   // Reset current time display
   const currentTimeDisplay = document.getElementById('current-time');
@@ -9047,29 +9386,8 @@ function updateSelectedImageInfo() {
   reader.onload = function(e) {
     const previewUrl = e.target.result;
 
-    // Get preview elements
-    const videoPreview = document.getElementById('preview-video');
-    const previewPlaceholder = document.getElementById('preview-placeholder');
-    const imagePreviewEl = document.getElementById('generated-image-preview');
-
-    // Hide video and placeholder
-    if (videoPreview) {
-      videoPreview.style.display = 'none';
-      videoPreview.pause();
-      videoPreview.src = '';
-    }
-    if (previewPlaceholder) {
-      previewPlaceholder.style.display = 'none';
-    }
-
-    // Show image in preview
-    if (imagePreviewEl) {
-      imagePreviewEl.src = previewUrl;
-      imagePreviewEl.style.display = 'block';
-      imagePreviewEl.style.maxWidth = '100%';
-      imagePreviewEl.style.maxHeight = '100%';
-      imagePreviewEl.style.objectFit = 'contain';
-    }
+    // Load image preview using PreviewManager
+    loadImagePreview(previewUrl);
 
     console.log('[Import Image] Image displayed in preview:', filename);
   };
@@ -9104,50 +9422,12 @@ function updateSelectedVideoContentInfo() {
     `;
   }
 
-  // Display video in preview area
+  // Display video in preview area using PreviewManager
   const reader = new FileReader();
   reader.onload = function(e) {
     const videoUrl = e.target.result;
-
-    // Get preview elements
-    const videoPreview = document.getElementById('preview-video');
-    const audioPreview = document.getElementById('preview-audio');
-    const previewPlaceholder = document.getElementById('preview-placeholder');
-    const imagePreviewEl = document.getElementById('generated-image-preview');
-    const playBtn = document.getElementById('play-btn');
-    const pauseBtn = document.getElementById('pause-btn');
-    const timelineSlider = document.getElementById('timeline-slider');
-
-    // Hide audio, image, and placeholder
-    if (audioPreview) {
-      audioPreview.style.display = 'none';
-      audioPreview.pause();
-      audioPreview.src = '';
-    }
-    if (imagePreviewEl) {
-      imagePreviewEl.style.display = 'none';
-      imagePreviewEl.src = '';
-    }
-    if (previewPlaceholder) {
-      previewPlaceholder.style.display = 'none';
-    }
-
-    // Show and load video in preview
-    if (videoPreview) {
-      videoPreview.style.display = 'block';
-      videoPreview.style.width = '100%';
-      videoPreview.style.height = '100%';
-      videoPreview.style.objectFit = 'contain';
-      videoPreview.src = videoUrl;
-      videoPreview.load();
-
-      // Enable playback controls
-      if (playBtn) playBtn.disabled = false;
-      if (pauseBtn) pauseBtn.disabled = false;
-      if (timelineSlider) timelineSlider.disabled = false;
-
-      console.log('[Import Video Content] Video displayed in preview:', filename);
-    }
+    loadVideoPreview(videoUrl);
+    console.log('[Import Video Content] Video displayed in preview:', filename);
   };
   reader.readAsDataURL(file);
 }
@@ -9689,36 +9969,9 @@ async function selectS3ImageForSlot(slotIndex, imageId, imageTitle, imageUrl) {
       `;
     }
 
-    // Display image in center preview area
-    const videoPreview = document.getElementById('preview-video');
-    const audioPreview = document.getElementById('preview-audio');
-    const previewPlaceholder = document.getElementById('preview-placeholder');
-    const imagePreviewEl = document.getElementById('generated-image-preview');
-
-    // Hide video, audio, and placeholder
-    if (videoPreview) {
-      videoPreview.style.display = 'none';
-      videoPreview.pause();
-      videoPreview.src = '';
-    }
-    if (audioPreview) {
-      audioPreview.style.display = 'none';
-      audioPreview.pause();
-      audioPreview.src = '';
-    }
-    if (previewPlaceholder) {
-      previewPlaceholder.style.display = 'none';
-    }
-
-    // Show image in center preview
-    if (imagePreviewEl) {
-      imagePreviewEl.src = imageUrl;
-      imagePreviewEl.style.display = 'block';
-      imagePreviewEl.style.width = '100%';
-      imagePreviewEl.style.height = '100%';
-      imagePreviewEl.style.objectFit = 'contain';
-      console.log(`[Runway Image] Image displayed in center preview: ${imageTitle}`);
-    }
+    // Display image in center preview area using PreviewManager
+    loadImagePreview(imageUrl);
+    console.log(`[Runway Image] Image displayed in center preview: ${imageTitle}`);
 
     // Close modal
     closeCustomDialog();
@@ -9819,29 +10072,8 @@ function showGeneratedImagePreview(imageBlob, imageUrl, fileName, title, descrip
 
   const previewUrl = URL.createObjectURL(imageBlob);
 
-  // Get preview elements
-  const videoPreview = document.getElementById('preview-video');
-  const previewAudio = document.getElementById('preview-audio');
-  const previewPlaceholder = document.getElementById('preview-placeholder');
-  const videoInfo = document.getElementById('video-info');
-
-  // Hide video/audio elements
-  if (videoPreview) videoPreview.style.display = 'none';
-  if (previewAudio) previewAudio.style.display = 'none';
-  if (videoInfo) videoInfo.style.display = 'none';
-  if (previewPlaceholder) previewPlaceholder.style.display = 'none';
-
-  // Create or update image preview
-  let imagePreviewEl = document.getElementById('generated-image-preview');
-  if (!imagePreviewEl) {
-    imagePreviewEl = document.createElement('img');
-    imagePreviewEl.id = 'generated-image-preview';
-    imagePreviewEl.style.cssText = 'width: 100%; height: 100%; object-fit: contain; border-radius: 8px;';
-    document.getElementById('video-preview').appendChild(imagePreviewEl);
-  }
-
-  imagePreviewEl.src = previewUrl;
-  imagePreviewEl.style.display = 'block';
+  // Load image preview using PreviewManager
+  loadImagePreview(previewUrl);
 
   // Show save button in properties panel
   const saveSection = document.getElementById('runway-save-section');
@@ -10493,51 +10725,10 @@ async function selectAudioFileForUpload() {
     // Display audio in preview area for playback
     const fileUrl = `file:///${audioPath.replace(/\\/g, '/')}`;
 
-    // Get preview elements
-    const videoPreview = document.getElementById('preview-video');
-    const audioPreview = document.getElementById('preview-audio');
-    const previewPlaceholder = document.getElementById('preview-placeholder');
-    const imagePreviewEl = document.getElementById('generated-image-preview');
-    const audioPlaceholder = document.getElementById('audio-placeholder');
-    const audioFilenameEl = document.getElementById('audio-filename');
-    const playBtn = document.getElementById('play-btn');
-    const pauseBtn = document.getElementById('pause-btn');
-    const timelineSlider = document.getElementById('timeline-slider');
+    // Load audio preview using PreviewManager
+    loadAudioPreview(fileUrl, filename);
 
-    // Hide video, image, and placeholder
-    if (videoPreview) {
-      videoPreview.style.display = 'none';
-      videoPreview.pause();
-      videoPreview.src = '';
-    }
-    if (imagePreviewEl) {
-      imagePreviewEl.style.display = 'none';
-      imagePreviewEl.src = '';
-    }
-    if (previewPlaceholder) {
-      previewPlaceholder.style.display = 'none';
-    }
-
-    // Load audio file (hidden element)
-    if (audioPreview) {
-      audioPreview.src = fileUrl;
-      audioPreview.load();
-
-      // Enable playback controls
-      if (playBtn) playBtn.disabled = false;
-      if (pauseBtn) pauseBtn.disabled = false;
-      if (timelineSlider) timelineSlider.disabled = false;
-
-      console.log('[Audio Upload] Audio loaded in preview:', filename);
-    }
-
-    // Show audio placeholder UI
-    if (audioPlaceholder) {
-      audioPlaceholder.style.display = 'flex';
-      if (audioFilenameEl) {
-        audioFilenameEl.textContent = filename;
-      }
-    }
+    console.log('[Audio Upload] Audio loaded in preview:', filename);
 
   } catch (error) {
     console.error('[Audio Upload] File selection error:', error);
