@@ -258,10 +258,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('설정'),
-        actions: [
+    return WillPopScope(
+      onWillPop: () async {
+        // 뒤로가기 시 항상 새로운 VideoListScreen으로 이동 (목록 초기화)
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (_) => VideoListScreen(
+              apiService: widget.apiService,
+              storageService: widget.storageService,
+            ),
+          ),
+        );
+        return false; // 기본 뒤로가기 동작 방지
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('설정'),
+          actions: [
           TextButton.icon(
             onPressed: () async {
               // 사용자만 로그아웃 (설정은 유지하여 무인 동작 가능)
@@ -534,7 +547,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ),
       ),
-    );
+    ),
+    ); // WillPopScope 닫는 괄호
   }
 
   void _showLoginRequiredDialog() {
