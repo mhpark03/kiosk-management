@@ -1,11 +1,13 @@
 package com.kiosk.backend.controller;
 
+import com.kiosk.backend.annotation.RecordActivity;
 import com.kiosk.backend.dto.AuthResponse;
 import com.kiosk.backend.dto.LoginRequest;
 import com.kiosk.backend.dto.PasswordChangeRequest;
 import com.kiosk.backend.dto.PasswordResetRequest;
 import com.kiosk.backend.dto.ProfileUpdateRequest;
 import com.kiosk.backend.dto.SignupRequest;
+import com.kiosk.backend.entity.EntityHistory;
 import com.kiosk.backend.entity.User;
 import com.kiosk.backend.service.UserService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -43,15 +45,35 @@ public class AuthController {
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<Map<String, String>> logout(HttpServletRequest httpRequest) {
+    @RecordActivity(
+        entityType = EntityHistory.EntityType.USER,
+        action = EntityHistory.ActionType.LOGOUT,
+        description = "로그아웃"
+    )
+    public ResponseEntity<Map<String, Object>> logout(HttpServletRequest httpRequest) {
         String kioskId = httpRequest.getHeader("X-Kiosk-Id");
         String clientIp = extractClientIp(httpRequest);
         String userEmail = httpRequest.getHeader("X-User-Email");
 
+        // Get user info before logout for event recording
+        User currentUser = null;
+        try {
+            currentUser = userService.getCurrentUser();
+        } catch (Exception e) {
+            // If user retrieval fails, still proceed with logout
+        }
+
         userService.logout(kioskId, userEmail, clientIp);
 
-        Map<String, String> response = new HashMap<>();
+        Map<String, Object> response = new HashMap<>();
         response.put("message", "Logged out successfully");
+
+        // Include user info for automatic event recording
+        if (currentUser != null) {
+            response.put("id", currentUser.getId());
+            response.put("email", currentUser.getEmail());
+        }
+
         return ResponseEntity.ok(response);
     }
 
