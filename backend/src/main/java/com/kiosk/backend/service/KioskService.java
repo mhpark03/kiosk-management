@@ -698,6 +698,10 @@ public class KioskService {
             throw new RuntimeException("Video " + videoId + " is not assigned to kiosk " + kioskid);
         }
 
+        // Get video info for event message
+        var video = videoRepository.findById(videoId).orElse(null);
+        String videoTitle = video != null ? video.getTitle() : "Unknown";
+
         String oldStatus = kioskVideo.getDownloadStatus();
         kioskVideo.setDownloadStatus(status);
         kioskVideoRepository.save(kioskVideo);
@@ -709,6 +713,40 @@ public class KioskService {
         logHistory(kiosk.getKioskid(), kiosk.getPosid(), userEmail, userEmail, "UPDATE",
             "video_download_status", oldStatus, status,
             String.format("Updated download status for video %d to %s", videoId, status));
+
+        // Record event based on status
+        KioskEvent.EventType eventType = mapStatusToEventType(status);
+        if (eventType != null) {
+            String eventMessage = String.format("영상 '%s' (ID: %d) 다운로드 상태: %s", videoTitle, videoId, status);
+            kioskEventService.recordEvent(
+                kioskid,
+                eventType,
+                eventMessage,
+                String.format("videoId=%d, oldStatus=%s, newStatus=%s", videoId, oldStatus, status)
+            );
+            log.info("Recorded {} event for kiosk {} video {}", eventType, kioskid, videoId);
+        }
+    }
+
+    /**
+     * Map download status to event type
+     */
+    private KioskEvent.EventType mapStatusToEventType(String status) {
+        if (status == null) {
+            return null;
+        }
+
+        switch (status.toUpperCase()) {
+            case "DOWNLOADING":
+                return KioskEvent.EventType.DOWNLOAD_STARTED;
+            case "DOWNLOADED":
+                return KioskEvent.EventType.DOWNLOAD_COMPLETED;
+            case "FAILED":
+                return KioskEvent.EventType.DOWNLOAD_FAILED;
+            default:
+                // For other statuses like PENDING, NOT_DOWNLOADED, etc., don't record event
+                return null;
+        }
     }
 
     /**

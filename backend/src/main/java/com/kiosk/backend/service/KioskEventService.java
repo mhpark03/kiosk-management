@@ -91,6 +91,20 @@ public class KioskEventService {
     }
 
     /**
+     * Records a kiosk event with message and metadata.
+     *
+     * @param kioskid 12-digit kiosk ID
+     * @param eventType Type of event
+     * @param message Event message
+     * @param metadata Additional metadata (JSON or text)
+     * @return The saved event
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public KioskEvent recordEvent(String kioskid, KioskEvent.EventType eventType, String message, String metadata) {
+        return recordEvent(kioskid, eventType, null, null, message, metadata, null);
+    }
+
+    /**
      * Get all events ordered by timestamp descending.
      *
      * @return List of all events
