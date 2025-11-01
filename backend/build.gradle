@@ -28,6 +28,7 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-security'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
     implementation 'org.springframework.boot:spring-boot-starter-websocket'
+    implementation 'org.springframework.boot:spring-boot-starter-aop'
 
     // Actuator for health checks (AWS Elastic Beanstalk)
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
