@@ -9364,6 +9364,7 @@ function updateSelectedVideoContentInfo() {
   const file = fileInput.files[0];
   const filename = file.name;
   const fileSize = (file.size / (1024 * 1024)).toFixed(2);
+  const filePath = file.path; // Electron provides the actual file path
 
   if (infoDiv) {
     infoDiv.innerHTML = `
@@ -9377,14 +9378,75 @@ function updateSelectedVideoContentInfo() {
     `;
   }
 
-  // Display video in preview area using PreviewManager
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    const videoUrl = e.target.result;
-    loadVideoPreview(videoUrl);
-    console.log('[Import Video Content] Video displayed in preview:', filename);
-  };
-  reader.readAsDataURL(file);
+  // Check if file path is available (Electron environment)
+  if (filePath) {
+    // Use file path directly - load video with waveform generation
+    loadVideoWithWaveform(filePath);
+    console.log('[Import Video Content] Video loaded with path:', filePath);
+  } else {
+    // Fallback for non-Electron environment (use base64)
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const videoUrl = e.target.result;
+      loadVideoPreview(videoUrl);
+      console.log('[Import Video Content] Video displayed in preview (base64):', filename);
+    };
+    reader.readAsDataURL(file);
+  }
+}
+
+// Helper function to load video with waveform in content mode
+async function loadVideoWithWaveform(filePath) {
+  try {
+    // Convert to file URL for preview
+    const videoUrl = `file:///${filePath.replace(/\\/g, '/')}`;
+
+    // Load video in preview using PreviewManager
+    previewManager.showVideo(videoUrl, { showInfo: false });
+
+    // Get video info
+    const info = await window.electronAPI.getVideoInfo(filePath);
+    if (info) {
+      videoInfo = info; // Store globally for waveform generation
+    }
+
+    // Generate and display waveform
+    await generateAndDisplayWaveform(filePath);
+
+    console.log('[Import Video Content] Video loaded with waveform');
+  } catch (error) {
+    console.error('[Import Video Content] Failed to load video with waveform:', error);
+    // Fallback to basic preview
+    const videoUrl = `file:///${filePath.replace(/\\/g, '/')}`;
+    previewManager.showVideo(videoUrl, { showInfo: false });
+  }
+}
+
+// Helper function to load audio with waveform in content mode
+async function loadAudioWithWaveform(filePath, filename) {
+  try {
+    // Convert to file URL for preview
+    const audioUrl = `file:///${filePath.replace(/\\/g, '/')}`;
+
+    // Load audio in preview using PreviewManager
+    previewManager.showAudio(audioUrl, filename);
+
+    // Get audio file info
+    const info = await window.electronAPI.getVideoInfo(filePath);
+    if (info) {
+      audioFileInfo = info; // Store globally for waveform generation
+    }
+
+    // Generate and display waveform
+    await generateAndDisplayWaveform(filePath);
+
+    console.log('[Import Audio Content] Audio loaded with waveform');
+  } catch (error) {
+    console.error('[Import Audio Content] Failed to load audio with waveform:', error);
+    // Fallback to basic preview
+    const audioUrl = `file:///${filePath.replace(/\\/g, '/')}`;
+    previewManager.showAudio(audioUrl, filename);
+  }
 }
 
 // Upload Video Content to S3
@@ -10677,13 +10739,13 @@ async function selectAudioFileForUpload() {
       titleInput.value = nameWithoutExt;
     }
 
-    // Display audio in preview area for playback
+    // Display audio in preview area for playback with waveform
     const fileUrl = `file:///${audioPath.replace(/\\/g, '/')}`;
 
-    // Load audio preview using PreviewManager
-    loadAudioPreview(fileUrl, filename);
+    // Load audio with waveform generation
+    await loadAudioWithWaveform(audioPath, filename);
 
-    console.log('[Audio Upload] Audio loaded in preview:', filename);
+    console.log('[Audio Upload] Audio loaded in preview with waveform:', filename);
 
   } catch (error) {
     console.error('[Audio Upload] File selection error:', error);
