@@ -1,3 +1,6 @@
+// Load environment variables from .env file
+require('dotenv').config();
+
 const { app, BrowserWindow, ipcMain, dialog, Menu, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
@@ -3037,14 +3040,14 @@ ipcMain.handle('generate-image-runway', async (event, params) => {
 
     // Prepare API request payload
     const requestBody = {
+      model: 'gen4_image',
       promptText: enhancedPrompt,
       referenceImages: imageDataArray,
-      outputFormat: 'png',
-      aspectRatio: aspectRatio || '1024:1024'
+      ratio: aspectRatio || '1024:1024'
     };
 
     logInfo('RUNWAY_IMAGE', 'Calling Runway ML API', {
-      url: 'https://api.runwayml.com/v1/text_to_image',
+      url: 'https://api.dev.runwayml.com/v1/text_to_image',
       promptLength: enhancedPrompt.length,
       imageCount: imageDataArray.length
     });
@@ -3054,7 +3057,7 @@ ipcMain.handle('generate-image-runway', async (event, params) => {
     const axios = require('axios');
 
     const response = await axios.post(
-      'https://api.runwayml.com/v1/text_to_image',
+      'https://api.dev.runwayml.com/v1/text_to_image',
       requestBody,
       {
         headers: {
@@ -3130,7 +3133,7 @@ ipcMain.handle('poll-runway-task', async (event, taskId) => {
     const axios = require('axios');
 
     const response = await axios.get(
-      `https://api.runwayml.com/v1/tasks/${taskId}`,
+      `https://api.dev.runwayml.com/v1/tasks/${taskId}`,
       {
         headers: {
           'Authorization': `Bearer ${RUNWAY_API_KEY}`,

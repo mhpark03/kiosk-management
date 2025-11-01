@@ -938,7 +938,13 @@ function showToolProperties(tool) {
 
           <div style="background: #2a2a3e; padding: 12px; border-radius: 8px; margin-top: 10px; border-left: 4px solid #667eea;">
             <button class="property-btn" onclick="executeGenerateImageRunway()" style="width: 100%; margin: 0; background: #667eea;">
-              🎨 이미지 생성하고 S3에 저장
+              🎨 이미지 생성
+            </button>
+          </div>
+
+          <div id="runway-save-section" style="background: #2a3e2a; padding: 12px; border-radius: 8px; margin-top: 10px; border-left: 4px solid #4ade80; display: none;">
+            <button class="property-btn" onclick="saveGeneratedImageToS3()" style="width: 100%; margin: 0; background: #4ade80;">
+              💾 S3에 저장
             </button>
           </div>
 
@@ -9476,15 +9482,21 @@ window.goToImageListPage = function(page) {
  * Select S3 image for a specific slot
  */
 async function selectS3ImageForSlot(slotIndex, imageId, imageTitle, imageUrl) {
-  console.log(`[Runway Image] Selected S3 image for slot ${slotIndex}:`, { imageId, imageTitle });
+  console.log(`[Runway Image] Selected S3 image for slot ${slotIndex}:`, { imageId, imageTitle, imageUrl });
 
   try {
     // Download the image to local temp file
-    const localPath = await window.electronAPI.downloadFile(imageUrl, `runway-ref-${slotIndex}-${Date.now()}.jpg`);
+    console.log(`[Runway Image] Downloading from URL: ${imageUrl}`);
+    const downloadResult = await window.electronAPI.downloadFile(imageUrl, `runway-ref-${slotIndex}-${Date.now()}.jpg`);
 
-    if (!localPath) {
-      throw new Error('이미지 다운로드 실패');
+    console.log(`[Runway Image] Download result:`, downloadResult);
+
+    if (!downloadResult || !downloadResult.success) {
+      throw new Error(`이미지 다운로드 실패: ${downloadResult?.error || 'Unknown error'}`);
     }
+
+    const localPath = downloadResult.filePath;
+    console.log(`[Runway Image] Downloaded to local path: ${localPath}`);
 
     // Store the local file path
     referenceImages[slotIndex] = localPath;
@@ -9566,13 +9578,9 @@ async function executeGenerateImageRunway() {
   console.log(`[Runway Image] Found ${selectedImages.length} reference images`);
 
   try {
-    // Disable generate button
-    const generateBtn = event.target;
-    if (generateBtn) {
-      generateBtn.disabled = true;
-      generateBtn.textContent = '이미지 생성 중...';
-    }
-
+    // Show progress
+    showProgress();
+    updateProgress(0, 'Runway ML API 호출 중...');
     updateStatus('Runway ML API 호출 중...');
 
     // Call Runway ML API via main process
@@ -9603,12 +9611,99 @@ async function executeGenerateImageRunway() {
 
     const fileName = `runway-image-${Date.now()}.png`;
 
-    // Upload to S3
+    updateProgress(100, 'AI 이미지 생성 완료!');
+    updateStatus('AI 이미지 생성 완료!');
+    hideProgress();
+
+    // Show preview modal with save option
+    showGeneratedImagePreview(imageBlob, imageUrl, fileName, title, description);
+
+  } catch (error) {
+    console.error('[Runway Image] Generation failed:', error);
+    hideProgress();
+    updateStatus('이미지 생성 실패');
+    alert(`이미지 생성 중 오류가 발생했습니다:\n\n${error.message}`);
+  }
+}
+
+/**
+ * Show generated image preview with save option
+ */
+function showGeneratedImagePreview(imageBlob, imageUrl, fileName, title, description) {
+  console.log('[Runway Image] Showing image in preview area');
+
+  const previewUrl = URL.createObjectURL(imageBlob);
+
+  // Get preview elements
+  const videoPreview = document.getElementById('preview-video');
+  const previewAudio = document.getElementById('preview-audio');
+  const previewPlaceholder = document.getElementById('preview-placeholder');
+  const videoInfo = document.getElementById('video-info');
+
+  // Hide video/audio elements
+  if (videoPreview) videoPreview.style.display = 'none';
+  if (previewAudio) previewAudio.style.display = 'none';
+  if (videoInfo) videoInfo.style.display = 'none';
+  if (previewPlaceholder) previewPlaceholder.style.display = 'none';
+
+  // Create or update image preview
+  let imagePreviewEl = document.getElementById('generated-image-preview');
+  if (!imagePreviewEl) {
+    imagePreviewEl = document.createElement('img');
+    imagePreviewEl.id = 'generated-image-preview';
+    imagePreviewEl.style.cssText = 'width: 100%; height: 100%; object-fit: contain; border-radius: 8px;';
+    document.getElementById('video-preview').appendChild(imagePreviewEl);
+  }
+
+  imagePreviewEl.src = previewUrl;
+  imagePreviewEl.style.display = 'block';
+
+  // Show save button in properties panel
+  const saveSection = document.getElementById('runway-save-section');
+  if (saveSection) {
+    saveSection.style.display = 'block';
+  }
+
+  // Store data for save function
+  window.generatedImageData = {
+    blob: imageBlob,
+    url: imageUrl,
+    fileName: fileName,
+    title: title,
+    description: description,
+    previewUrl: previewUrl
+  };
+
+  updateStatus(`이미지 생성 완료: ${title}`);
+  console.log('[Runway Image] Image displayed in preview');
+}
+
+/**
+ * Save generated image to S3
+ */
+async function saveGeneratedImageToS3() {
+  const data = window.generatedImageData;
+
+  if (!data) {
+    alert('저장할 이미지 데이터가 없습니다.');
+    return;
+  }
+
+  const saveBtn = document.getElementById('save-generated-image-btn');
+  if (saveBtn) {
+    saveBtn.disabled = true;
+    saveBtn.textContent = '저장 중...';
+  }
+
+  try {
+    showProgress();
+    updateProgress(0, 'S3에 업로드 중...');
     updateStatus('S3에 업로드 중...');
+
     const formData = new FormData();
-    formData.append('file', imageBlob, fileName);
-    formData.append('title', title);
-    formData.append('description', description);
+    formData.append('file', data.blob, data.fileName);
+    formData.append('title', data.title);
+    formData.append('description', data.description);
 
     const uploadResponse = await fetch(`${backendBaseUrl}/api/ai/upload`, {
       method: 'POST',
@@ -9626,19 +9721,41 @@ async function executeGenerateImageRunway() {
     const uploadResult = await uploadResponse.json();
     console.log('[Runway Image] Upload successful:', uploadResult);
 
-    updateStatus('AI 이미지 생성 및 S3 저장 완료!');
-    alert(`Runway AI 이미지가 성공적으로 생성되고 S3에 저장되었습니다!\n\n제목: ${title}\n설명: ${description}`);
+    updateProgress(100, 'S3 저장 완료!');
+    updateStatus('S3 저장 완료!');
+    hideProgress();
+
+    // Hide the generated image and show placeholder
+    const imagePreviewEl = document.getElementById('generated-image-preview');
+    if (imagePreviewEl) {
+      imagePreviewEl.style.display = 'none';
+    }
+
+    const previewPlaceholder = document.getElementById('preview-placeholder');
+    if (previewPlaceholder) {
+      previewPlaceholder.style.display = 'flex';
+    }
+
+    // Hide save button
+    const saveSection = document.getElementById('runway-save-section');
+    if (saveSection) {
+      saveSection.style.display = 'none';
+    }
+
+    URL.revokeObjectURL(data.previewUrl);
+    window.generatedImageData = null;
+
+    alert(`Runway AI 이미지가 S3에 성공적으로 저장되었습니다!\n\n제목: ${data.title}\n설명: ${data.description}`);
 
   } catch (error) {
-    console.error('[Runway Image] Generation failed:', error);
-    updateStatus('이미지 생성 실패');
-    alert(`이미지 생성 중 오류가 발생했습니다:\n\n${error.message}`);
-  } finally {
-    // Re-enable generate button
-    const generateBtn = event.target;
-    if (generateBtn) {
-      generateBtn.disabled = false;
-      generateBtn.textContent = '🎨 이미지 생성하고 S3에 저장';
+    console.error('[Runway Image] Upload failed:', error);
+    hideProgress();
+    updateStatus('S3 저장 실패');
+    alert(`S3 저장 중 오류가 발생했습니다:\n\n${error.message}`);
+
+    if (saveBtn) {
+      saveBtn.disabled = false;
+      saveBtn.textContent = '💾 S3에 저장';
     }
   }
 }
