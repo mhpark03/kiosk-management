@@ -32,7 +32,9 @@ class Kiosk {
       kioskid: json['kioskid'] as String,
       posid: json['posid'] as String?,
       posname: json['posname'] as String?,
-      kioskNumber: (json['kiosk_number'] ?? json['kioskno']) as int?,
+      kioskNumber: json['kiosk_number'] != null
+          ? json['kiosk_number'] as int
+          : (json['kioskno'] != null ? json['kioskno'] as int : null),
       location: json['location'] as String?,
       status: json['status'] as String?,
       downloadPath: json['download_path'] as String?,
