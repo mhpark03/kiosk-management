@@ -4,6 +4,9 @@ import com.kiosk.backend.dto.CreateKioskRequest;
 import com.kiosk.backend.dto.KioskConfigDTO;
 import com.kiosk.backend.dto.KioskDTO;
 import com.kiosk.backend.dto.UpdateKioskRequest;
+import com.kiosk.backend.entity.Kiosk;
+import com.kiosk.backend.repository.KioskRepository;
+import com.kiosk.backend.security.JwtTokenProvider;
 import com.kiosk.backend.service.KioskService;
 import com.kiosk.backend.websocket.KioskWebSocketController;
 import jakarta.validation.Valid;
@@ -28,6 +31,8 @@ public class KioskController {
 
     private final KioskService kioskService;
     private final KioskWebSocketController webSocketController;
+    private final KioskRepository kioskRepository;
+    private final JwtTokenProvider jwtTokenProvider;
 
     /**
      * Get all kiosks
@@ -390,6 +395,60 @@ public class KioskController {
         log.info("GET /api/kiosks/by-kioskid/{}/config", kioskid);
         KioskConfigDTO config = kioskService.getKioskConfig(kioskid);
         return ResponseEntity.ok(config);
+    }
+
+    /**
+     * Connect kiosk and get session token
+     * POST /api/kiosks/{kioskId}/connect
+     */
+    @PostMapping("/{kioskId}/connect")
+    public ResponseEntity<Map<String, Object>> connectKiosk(
+            @PathVariable String kioskId,
+            @RequestHeader("X-Kiosk-PosId") String posId,
+            @RequestHeader("X-Kiosk-No") Integer kioskNo) {
+
+        log.info("POST /api/kiosks/{}/connect - Kiosk connecting", kioskId);
+
+        try {
+            // Verify kiosk exists and credentials match
+            Kiosk kiosk = kioskRepository.findByKioskid(kioskId)
+                .orElseThrow(() -> new RuntimeException("Kiosk not found: " + kioskId));
+
+            if (!kiosk.getPosid().equals(posId) || !kiosk.getKioskno().equals(kioskNo)) {
+                throw new RuntimeException("Kiosk credentials mismatch");
+            }
+
+            // Increment session version (invalidates previous sessions)
+            kiosk.setSessionVersion(kiosk.getSessionVersion() + 1);
+            kiosk.setLastConnectedAt(java.time.LocalDateTime.now());
+            kiosk = kioskRepository.save(kiosk);
+
+            // Generate long-lived token with session version (6 months, auto-renewed every 7 days)
+            long sixMonthsInMs = 180L * 24 * 60 * 60 * 1000; // 180 days = 6 months
+            String token = jwtTokenProvider.generateKioskToken(
+                kioskId,
+                posId,
+                kioskNo,
+                kiosk.getSessionVersion(),
+                sixMonthsInMs
+            );
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("token", token);
+            response.put("sessionVersion", kiosk.getSessionVersion());
+            response.put("expiresIn", 180 * 24 * 60 * 60); // seconds (6 months)
+            response.put("renewalInterval", 7 * 24 * 60 * 60); // seconds (renew every 7 days)
+            response.put("message", "키오스크 연결 성공");
+
+            log.info("Kiosk {} connected successfully with session version {}", kioskId, kiosk.getSessionVersion());
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            log.error("Failed to connect kiosk {}: {}", kioskId, e.getMessage());
+            Map<String, Object> response = new HashMap<>();
+            response.put("error", "키오스크 연결 실패: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
+        }
     }
 
     /**

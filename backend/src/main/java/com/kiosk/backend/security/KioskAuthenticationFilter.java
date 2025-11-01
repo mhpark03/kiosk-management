@@ -26,6 +26,7 @@ import java.util.Optional;
 public class KioskAuthenticationFilter extends OncePerRequestFilter {
 
     private final KioskRepository kioskRepository;
+    private final JwtTokenProvider jwtTokenProvider;
 
     @Override
     protected void doFilterInternal(
@@ -33,7 +34,18 @@ public class KioskAuthenticationFilter extends OncePerRequestFilter {
             @NonNull HttpServletResponse response,
             @NonNull FilterChain filterChain) throws ServletException, IOException {
 
-        // Check for kiosk authentication headers
+        // Priority 1: Check for JWT token (Authorization: Bearer)
+        String authHeader = request.getHeader("Authorization");
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            String token = authHeader.substring(7);
+
+            if (authenticateWithJWT(request, token)) {
+                filterChain.doFilter(request, response);
+                return;
+            }
+        }
+
+        // Priority 2: Fall back to header-based authentication (legacy support)
         String posId = request.getHeader("X-Kiosk-PosId");
         String kioskId = request.getHeader("X-Kiosk-Id");
         String kioskNoStr = request.getHeader("X-Kiosk-No");
@@ -53,7 +65,7 @@ public class KioskAuthenticationFilter extends OncePerRequestFilter {
 
                     // Verify kioskId matches
                     if (kiosk.getKioskid() != null && kiosk.getKioskid().equals(kioskId)) {
-                        log.info("Kiosk authenticated: PosId={}, KioskId={}, KioskNo={}", posId, kioskId, kioskNo);
+                        log.info("Kiosk authenticated via headers: PosId={}, KioskId={}, KioskNo={}", posId, kioskId, kioskNo);
 
                         // Create authentication token for kiosk
                         UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
@@ -78,5 +90,70 @@ public class KioskAuthenticationFilter extends OncePerRequestFilter {
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    /**
+     * Authenticate kiosk using JWT token with sessionVersion validation
+     */
+    private boolean authenticateWithJWT(HttpServletRequest request, String token) {
+        try {
+            // Validate token signature and expiration
+            if (!jwtTokenProvider.validateToken(token)) {
+                log.warn("Kiosk JWT validation failed: Invalid or expired token");
+                return false;
+            }
+
+            // Extract kiosk information from token
+            String kioskId = jwtTokenProvider.getKioskIdFromToken(token);
+            Long tokenSessionVersion = jwtTokenProvider.getKioskSessionVersionFromToken(token);
+
+            if (kioskId == null) {
+                log.warn("Kiosk JWT validation failed: No kioskId in token");
+                return false;
+            }
+
+            // For legacy tokens without sessionVersion, allow authentication
+            if (tokenSessionVersion == null) {
+                log.debug("Kiosk JWT: Legacy token without sessionVersion for kioskId={}", kioskId);
+                return authenticateKiosk(request, kioskId);
+            }
+
+            // Verify sessionVersion matches database
+            Optional<Kiosk> kioskOpt = kioskRepository.findByKioskid(kioskId);
+            if (kioskOpt.isEmpty()) {
+                log.warn("Kiosk JWT validation failed: Kiosk not found for kioskId={}", kioskId);
+                return false;
+            }
+
+            Kiosk kiosk = kioskOpt.get();
+            Long dbSessionVersion = kiosk.getSessionVersion();
+
+            if (!tokenSessionVersion.equals(dbSessionVersion)) {
+                log.warn("Kiosk JWT validation failed: SessionVersion mismatch for kioskId={}. Token version: {}, DB version: {}",
+                        kioskId, tokenSessionVersion, dbSessionVersion);
+                return false;
+            }
+
+            log.info("Kiosk authenticated via JWT: kioskId={}, sessionVersion={}", kioskId, tokenSessionVersion);
+            return authenticateKiosk(request, kioskId);
+
+        } catch (Exception e) {
+            log.error("Kiosk JWT authentication error: {}", e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Set authentication in security context
+     */
+    private boolean authenticateKiosk(HttpServletRequest request, String kioskId) {
+        UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
+                "KIOSK_" + kioskId,
+                null,
+                Collections.singletonList(new SimpleGrantedAuthority("ROLE_KIOSK"))
+        );
+        authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+        SecurityContextHolder.getContext().setAuthentication(authToken);
+        return true;
     }
 }

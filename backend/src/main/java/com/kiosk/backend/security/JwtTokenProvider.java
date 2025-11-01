@@ -1,5 +1,6 @@
 package com.kiosk.backend.security;
 
+import com.kiosk.backend.entity.AppType;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
 import lombok.extern.slf4j.Slf4j;
@@ -53,6 +54,21 @@ public class JwtTokenProvider {
                 .compact();
     }
 
+    public String generateToken(Authentication authentication, Long tokenVersion, AppType appType) {
+        UserDetails userDetails = (UserDetails) authentication.getPrincipal();
+        Date now = new Date();
+        Date expiryDate = new Date(now.getTime() + jwtExpirationMs);
+
+        return Jwts.builder()
+                .subject(userDetails.getUsername())
+                .claim("tokenVersion", tokenVersion)
+                .claim("appType", appType.name())
+                .issuedAt(now)
+                .expiration(expiryDate)
+                .signWith(getSigningKey())
+                .compact();
+    }
+
     public String generateToken(String email) {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + jwtExpirationMs);
@@ -78,6 +94,20 @@ public class JwtTokenProvider {
                 .compact();
     }
 
+    public String generateToken(String email, Long tokenVersion, AppType appType) {
+        Date now = new Date();
+        Date expiryDate = new Date(now.getTime() + jwtExpirationMs);
+
+        return Jwts.builder()
+                .subject(email)
+                .claim("tokenVersion", tokenVersion)
+                .claim("appType", appType.name())
+                .issuedAt(now)
+                .expiration(expiryDate)
+                .signWith(getSigningKey())
+                .compact();
+    }
+
     /**
      * Generate JWT token for kiosk WebSocket authentication
      */
@@ -90,6 +120,25 @@ public class JwtTokenProvider {
                 .claim("posId", posId)
                 .claim("kioskNo", kioskNo)
                 .claim("type", "kiosk")
+                .issuedAt(now)
+                .expiration(expiryDate)
+                .signWith(getSigningKey())
+                .compact();
+    }
+
+    /**
+     * Generate JWT token for kiosk with session version and custom expiration
+     */
+    public String generateKioskToken(String kioskId, String posId, Integer kioskNo, Long sessionVersion, long expirationMs) {
+        Date now = new Date();
+        Date expiryDate = new Date(now.getTime() + expirationMs);
+
+        return Jwts.builder()
+                .subject(kioskId)
+                .claim("posId", posId)
+                .claim("kioskNo", kioskNo)
+                .claim("type", "kiosk")
+                .claim("sessionVersion", sessionVersion)
                 .issuedAt(now)
                 .expiration(expiryDate)
                 .signWith(getSigningKey())
@@ -118,6 +167,36 @@ public class JwtTokenProvider {
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();
+    }
+
+    /**
+     * Extract kiosk session version from token
+     */
+    public Long getKioskSessionVersionFromToken(String token) {
+        try {
+            Claims claims = Jwts.parser()
+                    .verifyWith(getSigningKey())
+                    .build()
+                    .parseSignedClaims(token)
+                    .getPayload();
+
+            Object versionObj = claims.get("sessionVersion");
+            if (versionObj == null) {
+                return null; // Old tokens without session version
+            }
+
+            // Handle both Integer and Long types
+            if (versionObj instanceof Integer) {
+                return ((Integer) versionObj).longValue();
+            } else if (versionObj instanceof Long) {
+                return (Long) versionObj;
+            } else {
+                return Long.parseLong(versionObj.toString());
+            }
+        } catch (Exception e) {
+            log.error("Failed to extract kiosk session version: {}", e.getMessage());
+            return null;
+        }
     }
 
     public String getUserEmailFromToken(String token) {
@@ -156,6 +235,29 @@ public class JwtTokenProvider {
             }
         } catch (Exception e) {
             log.error("Failed to extract token version: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Extract app type from JWT token
+     */
+    public AppType getAppTypeFromToken(String token) {
+        try {
+            Claims claims = Jwts.parser()
+                    .verifyWith(getSigningKey())
+                    .build()
+                    .parseSignedClaims(token)
+                    .getPayload();
+
+            String appTypeStr = claims.get("appType", String.class);
+            if (appTypeStr == null) {
+                return null; // Old tokens without appType
+            }
+
+            return AppType.valueOf(appTypeStr);
+        } catch (Exception e) {
+            log.error("Failed to extract app type from token: {}", e.getMessage());
             return null;
         }
     }
