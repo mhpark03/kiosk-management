@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.security.SecureRandom;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -33,6 +34,10 @@ public class KioskController {
     private final KioskWebSocketController webSocketController;
     private final KioskRepository kioskRepository;
     private final JwtTokenProvider jwtTokenProvider;
+    private final com.kiosk.backend.service.KioskEventService kioskEventService;
+
+    // SecureRandom for generating unpredictable session versions
+    private static final SecureRandom secureRandom = new SecureRandom();
 
     /**
      * Get all kiosks
@@ -353,7 +358,7 @@ public class KioskController {
      * PATCH /api/kiosks/by-kioskid/{kioskid}/config
      */
     @PatchMapping("/by-kioskid/{kioskid}/config")
-    public ResponseEntity<Map<String, String>> updateKioskConfig(
+    public ResponseEntity<Map<String, Object>> updateKioskConfig(
             @PathVariable String kioskid,
             @RequestBody KioskConfigDTO configDTO,
             @RequestHeader(value = "X-Kiosk-Id", required = false) String kioskIdHeader) {
@@ -381,8 +386,56 @@ public class KioskController {
             log.info("Skipping CONFIG_UPDATE notification for kiosk {} (config was not modified by web)", kioskid);
         }
 
-        Map<String, String> response = new HashMap<>();
+        // Renew session token after config update
+        Map<String, Object> response = new HashMap<>();
         response.put("message", "Kiosk configuration updated successfully");
+
+        try {
+            // Fetch kiosk to get posId and kioskNo
+            Kiosk kiosk = kioskRepository.findByKioskid(kioskid)
+                    .orElseThrow(() -> new RuntimeException("Kiosk not found: " + kioskid));
+
+            if (kiosk.getKioskno() != null) {
+                // Generate new random session version (invalidates previous sessions)
+                // Using SecureRandom to prevent prediction attacks
+                long newSessionVersion = (long) secureRandom.nextInt(Integer.MAX_VALUE);
+                kiosk.setSessionVersion(newSessionVersion);
+                kiosk.setLastConnectedAt(java.time.LocalDateTime.now());
+                kiosk = kioskRepository.save(kiosk);
+
+                // Generate new token with updated session version
+                long sixMonthsInMs = 180L * 24 * 60 * 60 * 1000; // 180 days = 6 months
+                String token = jwtTokenProvider.generateKioskToken(
+                    kioskid,
+                    kiosk.getPosid(),
+                    kiosk.getKioskno(),
+                    kiosk.getSessionVersion(),
+                    sixMonthsInMs
+                );
+
+                // Record KIOSK_CONNECTED event
+                try {
+                    String eventMessage = String.format("설정 저장 후 세션 토큰 갱신 (세션 버전: %d)", kiosk.getSessionVersion());
+                    String eventMetadata = String.format("posId=%s, kioskNo=%d, sessionVersion=%d, trigger=CONFIG_UPDATE",
+                        kiosk.getPosid(), kiosk.getKioskno(), kiosk.getSessionVersion());
+                    kioskEventService.recordEvent(kioskid, com.kiosk.backend.entity.KioskEvent.EventType.KIOSK_CONNECTED,
+                        eventMessage, eventMetadata);
+                } catch (Exception e) {
+                    log.error("Failed to record KIOSK_CONNECTED event: {}", e.getMessage());
+                }
+
+                // Include token in response
+                response.put("token", token);
+                response.put("sessionVersion", kiosk.getSessionVersion());
+                log.info("Config updated and token renewed for kiosk {} with session version {}",
+                    kioskid, kiosk.getSessionVersion());
+            }
+        } catch (Exception e) {
+            log.error("Failed to renew token after config update for kiosk {}: {}", kioskid, e.getMessage());
+            // Don't fail the request, token renewal is optional
+            response.put("tokenRenewalFailed", true);
+        }
+
         return ResponseEntity.ok(response);
     }
 
@@ -418,8 +471,10 @@ public class KioskController {
                 throw new RuntimeException("Kiosk credentials mismatch");
             }
 
-            // Increment session version (invalidates previous sessions)
-            kiosk.setSessionVersion(kiosk.getSessionVersion() + 1);
+            // Generate new random session version (invalidates previous sessions)
+            // Using SecureRandom to prevent prediction attacks
+            long newSessionVersion = (long) secureRandom.nextInt(Integer.MAX_VALUE);
+            kiosk.setSessionVersion(newSessionVersion);
             kiosk.setLastConnectedAt(java.time.LocalDateTime.now());
             kiosk = kioskRepository.save(kiosk);
 
@@ -432,6 +487,19 @@ public class KioskController {
                 kiosk.getSessionVersion(),
                 sixMonthsInMs
             );
+
+            // Record KIOSK_CONNECTED event to kiosk_events
+            try {
+                String eventMessage = String.format("키오스크 연결 성공 (세션 버전: %d)", kiosk.getSessionVersion());
+                String eventMetadata = String.format("posId=%s, kioskNo=%d, sessionVersion=%d, expiresIn=%d days",
+                    posId, kioskNo, kiosk.getSessionVersion(), 180);
+                kioskEventService.recordEvent(kioskId, com.kiosk.backend.entity.KioskEvent.EventType.KIOSK_CONNECTED,
+                    eventMessage, eventMetadata);
+                log.info("Recorded KIOSK_CONNECTED event for kiosk {}", kioskId);
+            } catch (Exception e) {
+                log.error("Failed to record KIOSK_CONNECTED event for kiosk {}: {}", kioskId, e.getMessage());
+                // Don't fail the request if event recording fails
+            }
 
             Map<String, Object> response = new HashMap<>();
             response.put("token", token);

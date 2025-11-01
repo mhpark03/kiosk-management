@@ -274,7 +274,8 @@ class ApiService {
   }
 
   // Update kiosk configuration on server
-  Future<void> updateKioskConfig(
+  // Returns the new session token from the response (null if token renewal failed)
+  Future<String?> updateKioskConfig(
     String kioskId,
     String downloadPath,
     String apiUrl,
@@ -302,12 +303,26 @@ class ApiService {
       }
 
       print('[CONFIG SYNC] Configuration synced to server successfully');
+
+      // Extract and return the new session token if available
+      final token = response.data['token'] as String?;
+      if (token != null) {
+        print('[CONFIG SYNC] Received new session token, sessionVersion: ${response.data['sessionVersion']}');
+        // Automatically set the new token for future requests
+        setAuthToken(token);
+        return token;
+      } else {
+        print('[CONFIG SYNC] No token in response (token renewal may have failed)');
+        return null;
+      }
     } on DioException catch (e) {
       print('[CONFIG SYNC] Failed to sync configuration to server: ${e.message}');
       // Don't throw error, just log it (background operation)
+      return null;
     } catch (e) {
       print('[CONFIG SYNC] Error syncing configuration to server: $e');
       // Don't throw error, just log it (background operation)
+      return null;
     }
   }
 

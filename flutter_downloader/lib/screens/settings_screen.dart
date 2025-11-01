@@ -198,32 +198,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
       // Save config locally
       await widget.storageService.saveConfig(config);
 
-      // Sync config to server (background operation, don't wait)
-      widget.apiService.updateKioskConfig(
-        config.kioskId,
-        config.downloadPath,
-        config.serverUrl,
-        config.autoSync,
-        config.syncIntervalHours,
-      ).catchError((e) {
-        print('[CONFIG SYNC] Failed to sync to server: $e');
-        // Don't show error to user, this is a background operation
-      });
-
-      // Connect kiosk and renew session token after config change
+      // Sync config to server and renew session token
       try {
-        final kiosk = await widget.apiService.getKiosk(config.kioskId);
-        if (kiosk.kioskNumber != null) {
-          print('[SETTINGS] Calling /connect after config change...');
-          await widget.apiService.connectKiosk(
-            config.kioskId,
-            posId,
-            kiosk.kioskNumber!,
-          );
-          print('[SETTINGS] Token renewed after config change');
+        print('[SETTINGS] Syncing config to server and renewing session token...');
+        final token = await widget.apiService.updateKioskConfig(
+          config.kioskId,
+          config.downloadPath,
+          config.serverUrl,
+          config.autoSync,
+          config.syncIntervalHours,
+        );
+
+        // Save the new session token to secure storage
+        if (token != null) {
+          await widget.storageService.saveToken(token);
+          print('[SETTINGS] Session token renewed and saved after config update');
+        } else {
+          print('[SETTINGS] Config synced but token renewal failed (missing token in response)');
         }
       } catch (e) {
-        print('[SETTINGS] Failed to renew token after config change: $e');
+        print('[SETTINGS] Failed to sync config or renew token: $e');
         // Don't show error to user, this is a background operation
       }
 
