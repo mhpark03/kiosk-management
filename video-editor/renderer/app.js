@@ -71,10 +71,13 @@ class PreviewManager {
     this.elements.placeholder = document.getElementById('preview-placeholder');
     this.elements.textOverlay = document.getElementById('text-overlay');
     this.elements.videoInfo = document.getElementById('video-info');
-    this.elements.playBtn = document.getElementById('play-btn');
-    this.elements.pauseBtn = document.getElementById('pause-btn');
+    this.elements.playPauseBtn = document.getElementById('play-pause-btn');
     this.elements.timelineSlider = document.getElementById('timeline-slider');
     this.elements.currentTimeDisplay = document.getElementById('current-time');
+
+    // Backward compatibility: keep references to old separate buttons if they exist
+    this.elements.playBtn = document.getElementById('play-btn') || this.elements.playPauseBtn;
+    this.elements.pauseBtn = document.getElementById('pause-btn') || this.elements.playPauseBtn;
 
     this.initialized = true;
     console.log('[PreviewManager] Initialized');
@@ -340,6 +343,26 @@ class PreviewManager {
     if (sizeEl && info.size) sizeEl.textContent = info.size + ' MB';
 
     this.elements.videoInfo.style.display = 'flex';
+  }
+
+  // Update play/pause button state
+  updatePlayPauseButton(isPlaying) {
+    const btn = this.elements.playPauseBtn;
+    if (!btn) return;
+
+    if (isPlaying) {
+      btn.textContent = '⏸️ 일시정지';
+      btn.setAttribute('data-state', 'playing');
+    } else {
+      btn.textContent = '▶️ 재생';
+      btn.setAttribute('data-state', 'paused');
+    }
+  }
+
+  // Check if currently playing
+  isPlaying() {
+    if (!this.currentMediaElement) return false;
+    return !this.currentMediaElement.paused;
   }
 }
 
@@ -1586,145 +1609,51 @@ function showToolProperties(tool) {
 // Setup video controls
 function setupVideoControls() {
   const video = document.getElementById('preview-video');
-  const playBtn = document.getElementById('play-btn');
-  const pauseBtn = document.getElementById('pause-btn');
+  const playPauseBtn = document.getElementById('play-pause-btn');
+  // Fallback for backward compatibility
+  const playBtn = playPauseBtn || document.getElementById('play-btn');
+  const pauseBtn = playPauseBtn || document.getElementById('pause-btn');
   const slider = document.getElementById('timeline-slider');
   const currentTimeDisplay = document.getElementById('current-time');
 
-  playBtn.addEventListener('click', () => {
-    // Content mode: check if audio or video
-    if (currentMode === 'content') {
-      const audioElement = document.getElementById('preview-audio');
-      const audioPlaceholder = document.getElementById('audio-placeholder');
+  if (playPauseBtn) {
+    playPauseBtn.addEventListener('click', () => {
+      const isCurrentlyPlaying = previewManager.isPlaying();
 
-      // If audio placeholder is visible, play audio
-      if (audioPlaceholder && audioPlaceholder.style.display === 'flex' && audioElement) {
-        if (audioElement.readyState >= 2) {
-          audioElement.play().catch(err => {
-            console.error('Audio play error:', err);
-            updateStatus('재생 실패: ' + err.message);
-          });
-          updateStatus('재생 중...');
-        } else {
-          console.log('[Play] Audio not ready, readyState:', audioElement.readyState);
-          updateStatus('음성 파일 로딩 중... 잠시 후 다시 시도해주세요.');
-        }
-        return;
-      }
-      // Otherwise play video
-      video.play();
-      return;
-    }
-
-    // Audio mode: play audio file
-    if (currentMode === 'audio') {
-      const audioElement = document.getElementById('preview-audio');
-      if (audioElement) {
-        // Check if audio is ready to play
-        if (audioElement.readyState >= 2) { // HAVE_CURRENT_DATA or better
-          audioElement.play().catch(err => {
-            console.error('Audio play error:', err);
-            updateStatus('재생 실패: ' + err.message);
-          });
-          updateStatus('재생 중...');
-        } else {
-          console.log('[Play] Audio not ready, readyState:', audioElement.readyState);
-          updateStatus('음성 파일 로딩 중... 잠시 후 다시 시도해주세요.');
-        }
-      }
-      return;
-    }
-
-    // Video mode: existing video playback logic
-    // 영상 자르기 모드에서는 처음부터 재생 (선택 구간 제외)
-    if (activeTool === 'trim') {
-      const startInput = document.getElementById('trim-start');
-      if (startInput) {
-        const startTime = parseFloat(startInput.value) || 0;
-        const endInput = document.getElementById('trim-end');
-        const endTime = endInput ? (parseFloat(endInput.value) || video.duration) : video.duration;
-
-        // 처음부터 재생 시작 (선택 구간은 timeupdate에서 스킵)
-        if (video.currentTime === 0 || video.currentTime >= video.duration) {
-          video.currentTime = 0;
-        }
-        // 선택 구간 내에 있으면 끝 시간으로 이동
-        else if (video.currentTime >= startTime && video.currentTime < endTime) {
-          video.currentTime = endTime;
-        }
-      }
-    }
-
-    // 오디오 삽입 모드에서는 오디오 시작 시간부터 재생
-    if (activeTool === 'add-audio') {
-      const audioStartInput = document.getElementById('audio-start-time');
-      const sourceType = document.getElementById('audio-source-type');
-
-      if (audioStartInput) {
-        let audioDuration = 0;
-
-        // Determine duration based on source type
-        if (sourceType && sourceType.value === 'silence') {
-          const silenceDurationInput = document.getElementById('silence-duration');
-          audioDuration = silenceDurationInput ? parseFloat(silenceDurationInput.value) || 0 : 0;
-        } else if (selectedAudioFile && selectedAudioDuration > 0) {
-          audioDuration = selectedAudioDuration;
-        }
-
-        if (audioDuration > 0) {
-          const audioStartTime = parseFloat(audioStartInput.value) || 0;
-          const endTime = Math.min(audioStartTime + audioDuration, video.duration);
-
-          // 현재 시간이 오디오 범위 밖이면 시작 시간으로 이동
-          if (video.currentTime < audioStartTime || video.currentTime >= endTime) {
-            video.currentTime = audioStartTime;
-          }
-
-          // Play audio synchronized with video (only for file mode, not silence)
-          if (sourceType && sourceType.value !== 'silence' && selectedAudioFile) {
-            playAudioPreview(audioStartTime);
-          }
-        }
-      }
-    }
-
-    video.play();
-  });
-
-  pauseBtn.addEventListener('click', () => {
-    // Content mode: check if audio or video
-    if (currentMode === 'content') {
-      const audioElement = document.getElementById('preview-audio');
-      const audioPlaceholder = document.getElementById('audio-placeholder');
-
-      // If audio placeholder is visible, pause audio
-      if (audioPlaceholder && audioPlaceholder.style.display === 'flex' && audioElement) {
-        audioElement.pause();
+      if (isCurrentlyPlaying) {
+        // Pause
+        previewManager.pause();
+        previewManager.updatePlayPauseButton(false);
         updateStatus('일시정지');
-        return;
+      } else {
+        // Play
+        previewManager.play()
+          .then(() => {
+            previewManager.updatePlayPauseButton(true);
+            updateStatus('재생 중...');
+          })
+          .catch(err => {
+            console.error('재생 오류:', err);
+            updateStatus('재생 실패: ' + err.message);
+            previewManager.updatePlayPauseButton(false);
+          });
       }
-      // Otherwise pause video
-      video.pause();
-      return;
-    }
+    });
+  }
 
-    // Audio mode: pause audio file
-    if (currentMode === 'audio') {
-      const audioElement = document.getElementById('preview-audio');
-      if (audioElement) {
-        audioElement.pause();
-        updateStatus('일시정지');
-      }
-      return;
-    }
+  // Auto-update button state on play/pause events
+  if (video) {
+    video.addEventListener('play', () => previewManager.updatePlayPauseButton(true));
+    video.addEventListener('pause', () => previewManager.updatePlayPauseButton(false));
+    video.addEventListener('ended', () => previewManager.updatePlayPauseButton(false));
+  }
 
-    // Video mode: existing video pause logic
-    video.pause();
-    // Stop audio preview when pausing
-    if (audioPreviewElement) {
-      audioPreviewElement.pause();
-    }
-  });
+  const audio = document.getElementById('preview-audio');
+  if (audio) {
+    audio.addEventListener('play', () => previewManager.updatePlayPauseButton(true));
+    audio.addEventListener('pause', () => previewManager.updatePlayPauseButton(false));
+    audio.addEventListener('ended', () => previewManager.updatePlayPauseButton(false));
+  }
 
   video.addEventListener('timeupdate', () => {
     if (video.duration) {
@@ -2097,14 +2026,16 @@ function setupVideoControls() {
   });
 
   video.addEventListener('loadedmetadata', () => {
-    playBtn.disabled = false;
-    pauseBtn.disabled = false;
+    if (playPauseBtn) {
+      playPauseBtn.disabled = false;
+    } else {
+      playBtn.disabled = false;
+      pauseBtn.disabled = false;
+    }
     slider.disabled = false;
   });
 
   // Audio element event handlers for content mode
-  const audio = document.getElementById('preview-audio');
-
   audio.addEventListener('timeupdate', () => {
     if (audio.duration && currentMode === 'content') {
       const progress = (audio.currentTime / audio.duration) * 100;
@@ -2115,8 +2046,12 @@ function setupVideoControls() {
 
   audio.addEventListener('loadedmetadata', () => {
     if (currentMode === 'content') {
-      playBtn.disabled = false;
-      pauseBtn.disabled = false;
+      if (playPauseBtn) {
+        playPauseBtn.disabled = false;
+      } else {
+        playBtn.disabled = false;
+        pauseBtn.disabled = false;
+      }
       slider.disabled = false;
       slider.max = 100;
     }
