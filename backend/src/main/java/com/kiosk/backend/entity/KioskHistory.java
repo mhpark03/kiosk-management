@@ -8,6 +8,11 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 
+/**
+ * @deprecated Use {@link KioskEvent} instead. This class is kept for backward compatibility
+ * but will be removed in a future version. All event tracking is now handled by KioskEvent.
+ */
+@Deprecated(since = "1.1.0", forRemoval = true)
 @Entity
 @Table(name = "kiosk_history")
 @Data

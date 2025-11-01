@@ -7,11 +7,9 @@ import com.kiosk.backend.dto.UpdateKioskRequest;
 import com.kiosk.backend.entity.EntityHistory;
 import com.kiosk.backend.entity.Kiosk;
 import com.kiosk.backend.entity.KioskEvent;
-import com.kiosk.backend.entity.KioskHistory;
 import com.kiosk.backend.entity.KioskVideo;
 import com.kiosk.backend.entity.Store;
 import com.kiosk.backend.repository.EntityHistoryRepository;
-import com.kiosk.backend.repository.KioskHistoryRepository;
 import com.kiosk.backend.repository.KioskRepository;
 import com.kiosk.backend.repository.KioskVideoRepository;
 import com.kiosk.backend.repository.StoreRepository;
@@ -34,7 +32,6 @@ public class KioskService {
 
     private final KioskRepository kioskRepository;
     private final EntityHistoryRepository entityHistoryRepository;
-    private final KioskHistoryRepository kioskHistoryRepository;
     private final StoreRepository storeRepository;
     private final KioskVideoRepository kioskVideoRepository;
     private final VideoRepository videoRepository;
@@ -826,20 +823,16 @@ public class KioskService {
             kioskRepository.save(kiosk);
         }
 
-        // Save to kiosk_history (kiosk app read config)
-        KioskHistory kioskHistory = KioskHistory.builder()
-                .kioskid(kioskid)
-                .posid(kiosk.getPosid())
-                .action(KioskHistory.ActionType.CONFIG_READ)
-                .timestamp(LocalDateTime.now())
-                .description("키오스크 앱이 설정 정보를 조회함")
-                .detail(String.format("downloadPath=%s, apiUrl=%s, autoSync=%s, syncInterval=%s",
+        // Record config read event
+        kioskEventService.recordEvent(
+                kioskid,
+                KioskEvent.EventType.CONFIG_READ,
+                "키오스크 앱이 설정 정보를 조회함",
+                String.format("downloadPath=%s, apiUrl=%s, autoSync=%s, syncInterval=%s",
                         kiosk.getDownloadPath(), kiosk.getApiUrl(),
-                        kiosk.getAutoSync(), kiosk.getSyncInterval()))
-                .build();
-
-        kioskHistoryRepository.save(kioskHistory);
-        log.info("Saved config read to kiosk_history for kiosk {}", kioskid);
+                        kiosk.getAutoSync(), kiosk.getSyncInterval())
+        );
+        log.info("Recorded CONFIG_READ event for kiosk {}", kioskid);
 
         return KioskConfigDTO.builder()
                 .downloadPath(kiosk.getDownloadPath())

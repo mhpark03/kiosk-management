@@ -75,6 +75,7 @@ public class KioskEvent {
         USER_LOGOUT,            // User logged out
 
         // Configuration events
+        CONFIG_READ,            // Configuration read by kiosk app
         CONFIG_SAVED,           // Configuration saved
         CONFIG_DELETED,         // Configuration deleted
         CONFIG_SYNCED_FROM_SERVER, // Configuration synced from server via WebSocket
