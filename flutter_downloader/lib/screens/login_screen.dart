@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../services/storage_service.dart';
+import '../services/event_logger.dart';
 import '../models/user.dart';
 import '../models/kiosk_config.dart';
 import 'settings_screen.dart';
@@ -103,18 +104,18 @@ class _LoginScreenState extends State<LoginScreen> {
         await widget.storageService.deleteConfig();
       }
 
-      // Record login event if config exists (kiosk is already configured)
+      // Log login event if config exists (kiosk is already configured)
       final config = widget.storageService.getConfig();
       if (config != null) {
         try {
-          await widget.apiService.recordEvent(
-            config.kioskId,
-            'USER_LOGIN',
-            '사용자 로그인: ${user.email}',
+          EventLogger().initialize(config.downloadPath);
+          await EventLogger().logEvent(
+            eventType: 'USER_LOGIN',
+            message: '사용자 로그인: ${user.email}',
             metadata: '{"userEmail": "${user.email}", "userName": "${user.name}", "role": "${user.role}"}',
           );
         } catch (e) {
-          print('[LOGIN EVENT] Failed to record login event: $e');
+          print('[LOGIN EVENT] Failed to log login event: $e');
         }
       }
 

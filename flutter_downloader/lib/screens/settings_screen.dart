@@ -4,6 +4,7 @@ import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import '../services/api_service.dart';
 import '../services/storage_service.dart';
+import '../services/event_logger.dart';
 import '../models/kiosk_config.dart';
 import 'video_list_screen.dart';
 import 'login_screen.dart';
@@ -285,19 +286,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
               await widget.storageService.deleteToken();
               widget.apiService.setAuthToken(null);
 
-              // Record logout event if config exists
+              // Log logout event if config exists
               if (config != null) {
                 try {
-                  await widget.apiService.recordEvent(
-                    config.kioskId,
-                    'USER_LOGOUT',
-                    '사용자 로그아웃: ${user?.email ?? "unknown"}',
+                  EventLogger().initialize(config.downloadPath);
+                  await EventLogger().logEvent(
+                    eventType: 'USER_LOGOUT',
+                    message: '사용자 로그아웃: ${user?.email ?? "unknown"}',
                     metadata: user != null
                         ? '{"userEmail": "${user.email}", "userName": "${user.name}"}'
                         : null,
                   );
                 } catch (e) {
-                  print('[LOGOUT EVENT] Failed to record logout event: $e');
+                  print('[LOGOUT EVENT] Failed to log logout event: $e');
                 }
               }
 
