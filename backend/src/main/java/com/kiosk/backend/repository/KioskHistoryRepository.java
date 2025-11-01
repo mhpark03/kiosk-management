@@ -11,6 +11,7 @@ import java.util.List;
  * This repository is kept for backward compatibility but will be removed in a future version.
  */
 @Deprecated(since = "1.1.0", forRemoval = true)
+@SuppressWarnings("removal")
 @Repository
 public interface KioskHistoryRepository extends JpaRepository<KioskHistory, Long> {
 
