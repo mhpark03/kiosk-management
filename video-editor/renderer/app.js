@@ -8927,6 +8927,39 @@ function updateSelectedImageInfo() {
       </div>
     `;
   }
+
+  // Display image in preview area
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const previewUrl = e.target.result;
+
+    // Get preview elements
+    const videoPreview = document.getElementById('preview-video');
+    const previewPlaceholder = document.getElementById('preview-placeholder');
+    const imagePreviewEl = document.getElementById('generated-image-preview');
+
+    // Hide video and placeholder
+    if (videoPreview) {
+      videoPreview.style.display = 'none';
+      videoPreview.pause();
+      videoPreview.src = '';
+    }
+    if (previewPlaceholder) {
+      previewPlaceholder.style.display = 'none';
+    }
+
+    // Show image in preview
+    if (imagePreviewEl) {
+      imagePreviewEl.src = previewUrl;
+      imagePreviewEl.style.display = 'block';
+      imagePreviewEl.style.maxWidth = '100%';
+      imagePreviewEl.style.maxHeight = '100%';
+      imagePreviewEl.style.objectFit = 'contain';
+    }
+
+    console.log('[Import Image] Image displayed in preview:', filename);
+  };
+  reader.readAsDataURL(file);
 }
 
 // Update selected video content info display
@@ -9477,7 +9510,7 @@ async function selectS3ImageForSlot(slotIndex, imageId, imageTitle, imageUrl) {
     // Store the local file path
     referenceImages[slotIndex] = localPath;
 
-    // Update UI to show preview
+    // Update UI to show preview in slot
     const slot = document.getElementById(`ref-image-slot-${slotIndex}`);
     if (slot) {
       slot.innerHTML = `
@@ -9493,6 +9526,37 @@ async function selectS3ImageForSlot(slotIndex, imageId, imageTitle, imageUrl) {
           </div>
         </div>
       `;
+    }
+
+    // Display image in center preview area
+    const videoPreview = document.getElementById('preview-video');
+    const audioPreview = document.getElementById('preview-audio');
+    const previewPlaceholder = document.getElementById('preview-placeholder');
+    const imagePreviewEl = document.getElementById('generated-image-preview');
+
+    // Hide video, audio, and placeholder
+    if (videoPreview) {
+      videoPreview.style.display = 'none';
+      videoPreview.pause();
+      videoPreview.src = '';
+    }
+    if (audioPreview) {
+      audioPreview.style.display = 'none';
+      audioPreview.pause();
+      audioPreview.src = '';
+    }
+    if (previewPlaceholder) {
+      previewPlaceholder.style.display = 'none';
+    }
+
+    // Show image in center preview
+    if (imagePreviewEl) {
+      imagePreviewEl.src = imageUrl;
+      imagePreviewEl.style.display = 'block';
+      imagePreviewEl.style.width = '100%';
+      imagePreviewEl.style.height = '100%';
+      imagePreviewEl.style.objectFit = 'contain';
+      console.log(`[Runway Image] Image displayed in center preview: ${imageTitle}`);
     }
 
     // Close modal
@@ -9649,13 +9713,17 @@ async function saveGeneratedImageToS3() {
     return;
   }
 
+  // Get current values from input fields
+  const title = document.getElementById('ai-image-title-runway')?.value?.trim();
+  const description = document.getElementById('ai-image-description-runway')?.value?.trim();
+
   // Validate title and description
-  if (!data.title || data.title.trim() === '') {
+  if (!title || title === '') {
     alert('제목을 입력해주세요.');
     return;
   }
 
-  if (!data.description || data.description.trim() === '') {
+  if (!description || description === '') {
     alert('설명을 입력해주세요.');
     return;
   }
@@ -9679,8 +9747,8 @@ async function saveGeneratedImageToS3() {
 
     const formData = new FormData();
     formData.append('file', data.blob, data.fileName);
-    formData.append('title', data.title);
-    formData.append('description', data.description);
+    formData.append('title', title);
+    formData.append('description', description);
 
     const uploadResponse = await fetch(`${backendBaseUrl}/api/ai/upload`, {
       method: 'POST',
