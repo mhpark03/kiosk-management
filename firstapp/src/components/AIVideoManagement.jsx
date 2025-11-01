@@ -120,16 +120,16 @@ function AIVideoManagement() {
 
   const getVideoTypeLabel = (videoType) => {
     const labels = {
-      'RUNWAY_GENERATED': 'Runway ML',
-      'VEO_GENERATED': 'Google Veo'
+      'VEO_GENERATED': 'Google Veo',
+      'AI_GENERATED': 'AI Generated'
     };
     return labels[videoType] || videoType;
   };
 
   const getVideoTypeBadgeColor = (videoType) => {
     const colors = {
-      'RUNWAY_GENERATED': '#667eea',
-      'VEO_GENERATED': '#48bb78'
+      'VEO_GENERATED': '#48bb78',
+      'AI_GENERATED': '#667eea'
     };
     return colors[videoType] || '#718096';
   };

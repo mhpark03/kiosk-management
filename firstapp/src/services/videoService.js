@@ -95,7 +95,7 @@ export const videoService = {
     }
   },
 
-  // Get all AI-generated videos (RUNWAY_GENERATED and VEO_GENERATED)
+  // Get all AI-generated videos (VEO_GENERATED and AI_GENERATED)
   async getAIVideos(aiModelFilter = null) {
     try {
       const response = await api.get('/videos', {
@@ -105,7 +105,7 @@ export const videoService = {
       });
       // Filter for AI-generated videos only
       let aiVideos = response.data.filter(v =>
-        v.videoType === 'RUNWAY_GENERATED' || v.videoType === 'VEO_GENERATED'
+        v.videoType === 'VEO_GENERATED' || v.videoType === 'AI_GENERATED'
       );
 
       // Apply additional AI model filter if specified
