@@ -73,6 +73,7 @@ public class KioskEvent {
         APP_SHUTDOWN,           // Kiosk downloader app shutdown
         USER_LOGIN,             // User logged in
         USER_LOGOUT,            // User logged out
+        KIOSK_CONNECTED,        // Kiosk connected and received session token
 
         // Configuration events
         CONFIG_READ,            // Configuration read by kiosk app
