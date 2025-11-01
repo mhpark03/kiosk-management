@@ -2,11 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import videoService from '../services/videoService';
-import { generateImage, saveGeneratedImageToBackend } from '../services/imageService';
 import { FiTrash2, FiDownload, FiImage, FiEdit } from 'react-icons/fi';
-import S3ImageSelector from './S3ImageSelector';
 import './VideoManagement.css';
-import './ImageGenerator.css';
 
 export default function ImageManagement() {
   const { user } = useAuth();
@@ -20,9 +17,6 @@ export default function ImageManagement() {
   const [filteredImages, setFilteredImages] = useState([]);
   const itemsPerPage = 10;
 
-  // Image Generation Modal State
-  const [showGenerateModal, setShowGenerateModal] = useState(false);
-
   // Image Upload Modal State
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploadFile, setUploadFile] = useState(null);
@@ -30,39 +24,6 @@ export default function ImageManagement() {
   const [uploadTitle, setUploadTitle] = useState('');
   const [uploadDescription, setUploadDescription] = useState('');
   const [uploading, setUploading] = useState(false);
-  const [referenceImages, setReferenceImages] = useState([
-    {source: 's3', file: null, url: null, preview: null},
-    {source: 's3', file: null, url: null, preview: null},
-    {source: 's3', file: null, url: null, preview: null},
-    {source: 's3', file: null, url: null, preview: null},
-    {source: 's3', file: null, url: null, preview: null}
-  ]);
-  const [prompt, setPrompt] = useState('');
-  const [style, setStyle] = useState('anime');
-  const [aspectRatio, setAspectRatio] = useState('1920:1080');
-  const [generating, setGenerating] = useState(false);
-  const [s3SelectorOpen, setS3SelectorOpen] = useState(false);
-  const [currentSlot, setCurrentSlot] = useState(null);
-
-  const MAX_IMAGES = 5;
-
-  // Style options
-  const styleOptions = [
-    { value: 'realistic', label: '사실적' },
-    { value: 'anime', label: '애니메이션' },
-    { value: 'artistic', label: '예술적' },
-    { value: 'photograph', label: '사진' },
-    { value: 'illustration', label: '일러스트' }
-  ];
-
-  // Aspect ratio options
-  const aspectRatioOptions = [
-    { value: '1024:1024', label: '정사각형 (1:1)' },
-    { value: '1920:1080', label: '가로 (16:9)' },
-    { value: '1080:1920', label: '세로 (9:16)' },
-    { value: '1440:1080', label: '가로 (4:3)' },
-    { value: '1080:1440', label: '세로 (3:4)' }
-  ];
 
   useEffect(() => {
     loadImages();
@@ -207,175 +168,6 @@ export default function ImageManagement() {
     }
   };
 
-  const handleGenerateClick = () => {
-    setShowGenerateModal(true);
-    // Reset form
-    setReferenceImages([
-      {source: 's3', file: null, url: null, preview: null},
-      {source: 's3', file: null, url: null, preview: null},
-      {source: 's3', file: null, url: null, preview: null},
-      {source: 's3', file: null, url: null, preview: null},
-      {source: 's3', file: null, url: null, preview: null}
-    ]);
-    setPrompt('');
-    setStyle('anime');
-    setAspectRatio('1920:1080');
-    setError('');
-  };
-
-  const adjustImageAspectRatio = (imgSrc) => {
-    return new Promise((resolve, reject) => {
-      const image = new Image();
-      image.onload = () => {
-        const aspectRatio = image.width / image.height;
-
-        if (aspectRatio >= 0.5 && aspectRatio <= 2.0) {
-          resolve(imgSrc);
-          return;
-        }
-
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-
-        let canvasWidth, canvasHeight, drawX, drawY, drawWidth, drawHeight;
-
-        if (aspectRatio < 0.5) {
-          const targetRatio = 0.7;
-          canvasHeight = image.height;
-          canvasWidth = canvasHeight * targetRatio;
-          drawWidth = image.width;
-          drawHeight = image.height;
-          drawX = (canvasWidth - drawWidth) / 2;
-          drawY = 0;
-        } else {
-          const targetRatio = 1.5;
-          canvasWidth = image.width;
-          canvasHeight = canvasWidth / targetRatio;
-          drawWidth = image.width;
-          drawHeight = image.height;
-          drawX = 0;
-          drawY = (canvasHeight - drawHeight) / 2;
-        }
-
-        canvas.width = canvasWidth;
-        canvas.height = canvasHeight;
-        ctx.fillStyle = '#000000';
-        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
-        ctx.drawImage(image, drawX, drawY, drawWidth, drawHeight);
-
-        const adjustedImageUrl = canvas.toDataURL('image/png');
-        console.log(`이미지 비율 자동 조정: ${aspectRatio.toFixed(2)} → ${(canvasWidth / canvasHeight).toFixed(2)}`);
-        resolve(adjustedImageUrl);
-      };
-      image.onerror = () => reject(new Error('이미지를 로드할 수 없습니다.'));
-      image.src = imgSrc;
-    });
-  };
-
-  const handleRemoveImage = (index) => {
-    const newImages = [...referenceImages];
-    newImages[index] = {source: 's3', file: null, url: null, preview: null};
-    setReferenceImages(newImages);
-  };
-
-  const handleOpenS3Selector = (index) => {
-    setCurrentSlot(index);
-    setS3SelectorOpen(true);
-  };
-
-  const handleS3ImageSelect = async (s3Image) => {
-    if (currentSlot !== null) {
-      try {
-        const imageUrl = s3Image.thumbnailUrl || s3Image.s3Url;
-        const adjustedImageUrl = await adjustImageAspectRatio(imageUrl);
-
-        const newImages = [...referenceImages];
-        newImages[currentSlot] = {
-          source: 's3',
-          file: null,
-          url: s3Image.s3Url,
-          preview: adjustedImageUrl
-        };
-        setReferenceImages(newImages);
-        setError('');
-      } catch (err) {
-        setError(err.message);
-        setTimeout(() => setError(''), 3000);
-      }
-    }
-  };
-
-  const getUploadedImageCount = () => {
-    return referenceImages.filter(img => img.file !== null || img.url !== null).length;
-  };
-
-  const handleGenerateImage = async (e) => {
-    e.preventDefault();
-
-    const uploadedCount = getUploadedImageCount();
-    if (uploadedCount === 0) {
-      setError('최소 1개의 이미지를 업로드해주세요.');
-      setTimeout(() => setError(''), 3000);
-      return;
-    }
-
-    if (!prompt.trim()) {
-      setError('프롬프트를 입력해주세요.');
-      setTimeout(() => setError(''), 3000);
-      return;
-    }
-
-    try {
-      setGenerating(true);
-      setError('');
-
-      const imageData = referenceImages.map(img => {
-        if (img.source === 'local' && img.file) {
-          return img.file;
-        } else if (img.source === 's3' && img.url) {
-          return img.url;
-        }
-        return null;
-      });
-
-      const result = await generateImage(imageData, prompt, style, aspectRatio);
-
-      if (result.success) {
-        // Auto-save to S3 and database
-        const title = `AI 생성 이미지 - ${new Date().toLocaleString('ko-KR')}`;
-        const description = result.metadata.prompt || '편집이 필요합니다';
-
-        await saveGeneratedImageToBackend(
-          result.imageUrl,
-          title,
-          description,
-          result.taskId,
-          result.metadata.aspectRatio,
-          result.metadata.prompt,
-          result.metadata.style
-        );
-
-        setSuccess('이미지가 성공적으로 생성되어 저장되었습니다!');
-
-        // Reload images and close modal
-        await loadImages();
-        setTimeout(() => {
-          setShowGenerateModal(false);
-          setSuccess('');
-        }, 1500);
-      } else {
-        throw new Error('이미지 생성에 실패했습니다.');
-      }
-
-    } catch (err) {
-      console.error('Image generation error:', err);
-      setError(err.message || '이미지 생성 중 오류가 발생했습니다.');
-      setTimeout(() => setError(''), 5000);
-    } finally {
-      setGenerating(false);
-    }
-  };
-
 
   const formatDate = (timestamp) => {
     if (!timestamp) return '';
@@ -482,11 +274,8 @@ export default function ImageManagement() {
         </div>
 
         <div className="header-actions">
-          <button onClick={handleUploadClick} className="btn-secondary" style={{marginRight: '10px'}}>
+          <button onClick={handleUploadClick} className="btn-add">
             + 이미지 업로드
-          </button>
-          <button onClick={handleGenerateClick} className="btn-add">
-            + 이미지 생성
           </button>
         </div>
       </div>
@@ -648,207 +437,6 @@ export default function ImageManagement() {
       }}>
         전체 {filteredImages.length}개 이미지 {filteredImages.length > 0 && `(${currentPage} / ${totalPages} 페이지)`}
       </div>
-
-      {/* Image Generation Modal */}
-      {showGenerateModal && (
-        <div className="video-modal" onClick={() => !generating && setShowGenerateModal(false)}>
-          <div className="video-modal-content" style={{maxWidth: '900px', maxHeight: '90vh', overflow: 'auto'}} onClick={(e) => e.stopPropagation()}>
-            <button className="modal-close" onClick={() => !generating && setShowGenerateModal(false)} disabled={generating}>×</button>
-            <h3>AI 이미지 생성</h3>
-
-            <form onSubmit={handleGenerateImage}>
-              {/* Image Upload Section */}
-              <div className="upload-section" style={{marginTop: '20px'}}>
-                <h4>참조 이미지 선택 ({getUploadedImageCount()}/{MAX_IMAGES})</h4>
-                <div style={{fontSize: '13px', color: '#718096', marginBottom: '10px'}}>
-                  서버에 업로드된 이미지 중에서 선택하세요
-                </div>
-                <div className="image-grid" style={{display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '10px', marginTop: '15px'}}>
-                  {referenceImages.map((image, index) => (
-                    <div key={index} className="image-upload-slot" style={{border: '2px dashed #cbd5e0', borderRadius: '8px', padding: '8px', aspectRatio: '1/1'}}>
-                      {!image.preview ? (
-                        <button
-                          type="button"
-                          onClick={() => handleOpenS3Selector(index)}
-                          disabled={generating}
-                          style={{
-                            width: '100%',
-                            height: '100%',
-                            border: 'none',
-                            background: 'transparent',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontSize: '14px'
-                          }}
-                        >
-                          <div style={{fontSize: '32px'}}>🖼️</div>
-                          <div style={{fontWeight: 'bold', marginTop: '5px', fontSize: '16px'}}>{index + 1}</div>
-                          <div style={{fontSize: '11px', color: '#718096', marginTop: '5px'}}>서버에서 선택</div>
-                        </button>
-                      ) : (
-                        <div style={{position: 'relative', width: '100%', height: '100%'}}>
-                          <img src={image.preview} alt={`Preview ${index + 1}`} style={{width: '100%', height: '100%', objectFit: 'cover', borderRadius: '4px'}} />
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveImage(index)}
-                            style={{
-                              position: 'absolute',
-                              top: '5px',
-                              right: '5px',
-                              width: '24px',
-                              height: '24px',
-                              borderRadius: '50%',
-                              border: 'none',
-                              background: 'rgba(220, 38, 38, 0.9)',
-                              color: '#fff',
-                              cursor: 'pointer',
-                              fontSize: '16px',
-                              lineHeight: '1',
-                              padding: 0
-                            }}
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Prompt Section */}
-              <div style={{marginTop: '20px'}}>
-                <label style={{display: 'block', fontWeight: '600', marginBottom: '8px'}}>프롬프트</label>
-                <textarea
-                  value={prompt}
-                  onChange={(e) => setPrompt(e.target.value)}
-                  placeholder="생성하고 싶은 이미지에 대해 자세히 설명하세요..."
-                  rows="4"
-                  disabled={generating}
-                  style={{
-                    width: '100%',
-                    padding: '10px',
-                    border: '1px solid #cbd5e0',
-                    borderRadius: '6px',
-                    fontSize: '14px',
-                    resize: 'vertical'
-                  }}
-                />
-              </div>
-
-              {/* Settings */}
-              <div style={{marginTop: '20px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px'}}>
-                <div>
-                  <label style={{display: 'block', fontWeight: '600', marginBottom: '8px'}}>스타일</label>
-                  <select
-                    value={style}
-                    onChange={(e) => setStyle(e.target.value)}
-                    disabled={generating}
-                    style={{
-                      width: '100%',
-                      padding: '10px',
-                      border: '1px solid #cbd5e0',
-                      borderRadius: '6px',
-                      fontSize: '14px'
-                    }}
-                  >
-                    {styleOptions.map(option => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label style={{display: 'block', fontWeight: '600', marginBottom: '8px'}}>비율</label>
-                  <select
-                    value={aspectRatio}
-                    onChange={(e) => setAspectRatio(e.target.value)}
-                    disabled={generating}
-                    style={{
-                      width: '100%',
-                      padding: '10px',
-                      border: '1px solid #cbd5e0',
-                      borderRadius: '6px',
-                      fontSize: '14px'
-                    }}
-                  >
-                    {aspectRatioOptions.map(option => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div style={{marginTop: '20px', display: 'flex', gap: '10px'}}>
-                <button
-                  type="submit"
-                  disabled={generating || getUploadedImageCount() === 0 || !prompt.trim()}
-                  style={{
-                    flex: 1,
-                    padding: '12px',
-                    background: generating ? '#a0aec0' : '#667eea',
-                    color: '#fff',
-                    border: 'none',
-                    borderRadius: '6px',
-                    fontSize: '16px',
-                    fontWeight: '600',
-                    cursor: generating ? 'not-allowed' : 'pointer'
-                  }}
-                >
-                  {generating ? '이미지 생성 중...' : '이미지 생성'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowGenerateModal(false)}
-                  disabled={generating}
-                  style={{
-                    padding: '12px 24px',
-                    background: '#fff',
-                    color: '#2d3748',
-                    border: '1px solid #cbd5e0',
-                    borderRadius: '6px',
-                    fontSize: '16px',
-                    fontWeight: '600',
-                    cursor: generating ? 'not-allowed' : 'pointer'
-                  }}
-                >
-                  닫기
-                </button>
-              </div>
-            </form>
-
-            {/* Loading Indicator */}
-            {generating && (
-              <div style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                background: 'rgba(255, 255, 255, 0.95)',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                borderRadius: '8px',
-                zIndex: 10
-              }}>
-                <div className="loading-spinner"></div>
-                <p style={{marginTop: '20px', fontSize: '16px', fontWeight: '600'}}>AI가 이미지를 생성하는 중입니다...</p>
-                <p style={{color: '#718096', fontSize: '14px'}}>잠시만 기다려주세요.</p>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
 
       {/* Image Upload Modal */}
       {showUploadModal && (
@@ -1015,14 +603,6 @@ export default function ImageManagement() {
             </form>
           </div>
         </div>
-      )}
-
-      {/* S3 Image Selector Modal */}
-      {s3SelectorOpen && (
-        <S3ImageSelector
-          onSelect={handleS3ImageSelect}
-          onClose={() => setS3SelectorOpen(false)}
-        />
       )}
     </div>
   );
