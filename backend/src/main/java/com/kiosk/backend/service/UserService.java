@@ -112,10 +112,15 @@ public class UserService {
 
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
-        String token = tokenProvider.generateToken(authentication);
-
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new RuntimeException("User not found"));
+
+        // Increment token version to invalidate all previous tokens
+        user.setTokenVersion(user.getTokenVersion() + 1);
+        user = userRepository.save(user);
+
+        // Generate new token with updated version
+        String token = tokenProvider.generateToken(authentication, user.getTokenVersion());
 
         // Log login event
         logUserActivity(user.getEmail(), user.getDisplayName(), "LOGIN", "User logged in successfully");
