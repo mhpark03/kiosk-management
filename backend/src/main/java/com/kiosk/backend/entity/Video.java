@@ -20,12 +20,14 @@ public class Video {
     public enum VideoType {
         UPLOAD,           // Regular uploaded video/image
         RUNWAY_GENERATED, // AI-generated video/image from Runway ML
-        VEO_GENERATED     // AI-generated video from Google Veo
+        VEO_GENERATED,    // AI-generated video from Google Veo
+        AI_GENERATED      // AI-generated content (unified)
     }
 
     public enum MediaType {
         VIDEO,            // Video file
-        IMAGE             // Image file
+        IMAGE,            // Image file
+        AUDIO             // Audio file
     }
 
     @Id

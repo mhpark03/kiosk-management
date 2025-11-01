@@ -47,12 +47,16 @@ public class VideoService {
     // S3 folder structure
     private static final String VIDEO_UPLOAD_FOLDER = "videos/uploads/";
     private static final String VIDEO_RUNWAY_FOLDER = "videos/runway/";
+    private static final String VIDEO_AI_FOLDER = "videos/ai/";
     private static final String IMAGE_UPLOAD_FOLDER = "images/uploads/";
     private static final String IMAGE_RUNWAY_FOLDER = "images/runway/";
+    private static final String IMAGE_AI_FOLDER = "images/ai/";
     private static final String AUDIO_UPLOAD_FOLDER = "audios/uploads/";
     private static final String AUDIO_TTS_FOLDER = "audios/tts/";
+    private static final String AUDIO_AI_FOLDER = "audios/ai/";
     private static final String THUMBNAIL_UPLOAD_FOLDER = "thumbnails/uploads/";
     private static final String THUMBNAIL_RUNWAY_FOLDER = "thumbnails/runway/";
+    private static final String THUMBNAIL_AI_FOLDER = "thumbnails/ai/";
     private static final long MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB
 
     // Database column length limits
@@ -244,6 +248,115 @@ public class VideoService {
 
         Video savedVideo = videoRepository.save(video);
         log.info("Video uploaded successfully: {} by user ID {}", savedVideo.getOriginalFilename(), uploadedById);
+
+        return savedVideo;
+    }
+
+    /**
+     * Upload AI-generated content (image, video, or audio) to S3
+     * @param file AI-generated content file
+     * @param uploadedById User ID who uploaded the content
+     * @param title Title of the content
+     * @param description Description of the content
+     * @param mediaType Media type (IMAGE, VIDEO, or AUDIO)
+     * @return Saved Video entity with AI_GENERATED type
+     * @throws IOException if upload fails
+     */
+    public Video uploadAIContent(MultipartFile file, Long uploadedById, String title, String description, Video.MediaType mediaType) throws IOException {
+        // Validate file
+        validateFile(file);
+
+        // Validate title and description
+        if (title == null || title.trim().isEmpty()) {
+            throw new IllegalArgumentException("Title is required");
+        }
+        if (description == null || description.trim().isEmpty()) {
+            throw new IllegalArgumentException("Description is required");
+        }
+
+        // Determine S3 folder based on media type
+        String s3Folder;
+        String thumbnailFolder;
+        switch (mediaType) {
+            case IMAGE:
+                s3Folder = IMAGE_AI_FOLDER;
+                thumbnailFolder = THUMBNAIL_AI_FOLDER;
+                break;
+            case VIDEO:
+                s3Folder = VIDEO_AI_FOLDER;
+                thumbnailFolder = THUMBNAIL_AI_FOLDER;
+                break;
+            case AUDIO:
+                s3Folder = AUDIO_AI_FOLDER;
+                thumbnailFolder = null; // No thumbnails for audio
+                break;
+            default:
+                throw new IllegalArgumentException("Unsupported media type: " + mediaType);
+        }
+
+        // Upload content to S3
+        String s3Key = s3Service.uploadFile(file, s3Folder);
+        String s3Url = s3Service.getFileUrl(s3Key);
+
+        // Generate and upload thumbnail (for images and videos only)
+        String thumbnailS3Key = null;
+        String thumbnailUrl = null;
+        if (thumbnailFolder != null) {
+            try {
+                byte[] thumbnailBytes = null;
+
+                // For images, use the original image as thumbnail
+                if (mediaType == Video.MediaType.IMAGE) {
+                    thumbnailBytes = file.getBytes();
+                } else if (mediaType == Video.MediaType.VIDEO) {
+                    // For videos, generate thumbnail using FFmpeg
+                    thumbnailBytes = generateThumbnail(file);
+                }
+
+                if (thumbnailBytes != null) {
+                    // Remove file extension and add _thumb with appropriate extension
+                    String filenameWithExt = extractFilename(s3Key);
+                    int lastDotIndex = filenameWithExt.lastIndexOf(".");
+                    String filenameWithoutExt = (lastDotIndex > 0)
+                        ? filenameWithExt.substring(0, lastDotIndex)
+                        : filenameWithExt;
+                    String extension = (mediaType == Video.MediaType.IMAGE)
+                        ? filenameWithExt.substring(lastDotIndex)
+                        : ".jpg";
+                    String thumbnailFilename = filenameWithoutExt + "_thumb" + extension;
+
+                    String thumbContentType = (mediaType == Video.MediaType.IMAGE)
+                        ? file.getContentType()
+                        : "image/jpeg";
+                    thumbnailS3Key = s3Service.uploadBytes(thumbnailBytes, thumbnailFolder, thumbnailFilename, thumbContentType);
+                    thumbnailUrl = s3Service.getFileUrl(thumbnailS3Key);
+                    log.info("Thumbnail uploaded successfully: {}", thumbnailS3Key);
+                }
+            } catch (Exception e) {
+                log.error("Failed to generate/upload thumbnail, continuing without thumbnail: {}", e.getMessage());
+                // Continue without thumbnail - not critical
+            }
+        }
+
+        // Save metadata to database with AI_GENERATED type
+        Video video = Video.builder()
+                .videoType(Video.VideoType.AI_GENERATED)
+                .mediaType(mediaType)
+                .filename(truncate(extractFilename(s3Key), MAX_FILENAME_LENGTH))
+                .originalFilename(truncate(file.getOriginalFilename(), MAX_FILENAME_LENGTH))
+                .fileSize(file.getSize())
+                .contentType(file.getContentType())
+                .s3Key(s3Key)
+                .s3Url(s3Url)
+                .thumbnailS3Key(thumbnailS3Key)
+                .thumbnailUrl(thumbnailUrl)
+                .uploadedById(uploadedById)
+                .title(truncate(title, MAX_TITLE_LENGTH))
+                .description(description) // TEXT column - no limit
+                .build();
+
+        Video savedVideo = videoRepository.save(video);
+        log.info("AI-generated {} uploaded successfully: {} by user ID {}", mediaType, savedVideo.getOriginalFilename(), uploadedById);
 
         return savedVideo;
     }
