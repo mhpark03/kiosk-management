@@ -35,6 +35,7 @@ public class KioskController {
     private final KioskRepository kioskRepository;
     private final JwtTokenProvider jwtTokenProvider;
     private final com.kiosk.backend.service.KioskEventService kioskEventService;
+    private final com.kiosk.backend.websocket.WebSocketSessionManager webSocketSessionManager;
 
     // SecureRandom for generating unpredictable session versions
     private static final SecureRandom secureRandom = new SecureRandom();
@@ -396,6 +397,10 @@ public class KioskController {
                     .orElseThrow(() -> new RuntimeException("Kiosk not found: " + kioskid));
 
             if (kiosk.getKioskno() != null) {
+                // Disconnect existing WebSocket session (if any) before issuing new token
+                // This ensures old sessions cannot continue operating after new token is issued
+                webSocketSessionManager.disconnectExistingSession(kioskid);
+
                 // Generate new random session version (invalidates previous sessions)
                 // Using SecureRandom to prevent prediction attacks
                 long newSessionVersion = (long) secureRandom.nextInt(Integer.MAX_VALUE);
@@ -470,6 +475,10 @@ public class KioskController {
             if (!kiosk.getPosid().equals(posId) || !kiosk.getKioskno().equals(kioskNo)) {
                 throw new RuntimeException("Kiosk credentials mismatch");
             }
+
+            // Disconnect existing WebSocket session (if any) before issuing new token
+            // This ensures old sessions cannot continue operating after new token is issued
+            webSocketSessionManager.disconnectExistingSession(kioskId);
 
             // Generate new random session version (invalidates previous sessions)
             // Using SecureRandom to prevent prediction attacks
