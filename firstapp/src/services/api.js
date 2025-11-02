@@ -42,7 +42,23 @@ api.interceptors.response.use(
   },
   (error) => {
     if (error.response) {
-      // Server responded with error status
+      // Handle 401 Unauthorized - Token expired or invalid (including version mismatch)
+      if (error.response.status === 401) {
+        console.warn('Authentication failed: Token expired or invalid. Logging out...');
+
+        // Clear all authentication data
+        localStorage.removeItem('jwtToken');
+        localStorage.removeItem('userEmail');
+        localStorage.removeItem('displayName');
+        localStorage.removeItem('roles');
+
+        // Redirect to login page
+        window.location.href = '/login';
+
+        throw new Error('인증이 만료되었습니다. 다시 로그인해주세요.');
+      }
+
+      // Server responded with other error status
       console.error('API Error:', error.response.data);
       throw new Error(error.response.data.message || 'An error occurred');
     } else if (error.request) {
