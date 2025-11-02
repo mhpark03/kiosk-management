@@ -26,6 +26,11 @@ public class KioskEventDTO {
     private String metadata;
     private LocalDateTime timestamp;
 
+    // Device information from Kiosk
+    private String osType; // Operating system type (e.g., Windows, Android)
+    private String osVersion; // Operating system version (e.g., Windows 10, Android 12)
+    private String deviceName; // Device name/hostname
+
     // Convert Entity to DTO
     public static KioskEventDTO fromEntity(KioskEvent entity) {
         if (entity == null) {
@@ -44,6 +49,14 @@ public class KioskEventDTO {
         dto.setMessage(entity.getMessage());
         dto.setMetadata(entity.getMetadata());
         dto.setTimestamp(entity.getTimestamp());
+
+        // Add device information from Kiosk entity if available
+        if (entity.getKiosk() != null) {
+            dto.setOsType(entity.getKiosk().getOsType());
+            dto.setOsVersion(entity.getKiosk().getOsVersion());
+            dto.setDeviceName(entity.getKiosk().getDeviceName());
+        }
+
         return dto;
     }
 

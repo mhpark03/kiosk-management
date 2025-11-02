@@ -195,6 +195,12 @@ function KioskEventHistory() {
     return kioskid.replace(/^0+/, '') || '0';
   };
 
+  const formatDeviceInfo = (osType, osVersion) => {
+    if (!osType && !osVersion) return '-';
+    if (osType && osVersion) return `${osType} ${osVersion}`;
+    return osType || osVersion || '-';
+  };
+
   // Get unique users from events
   const uniqueUsers = [...new Set(events.map(e => e.userEmail).filter(Boolean))].sort();
 
@@ -422,6 +428,7 @@ function KioskEventHistory() {
                 <th>매장</th>
                 <th>키오스크 ID</th>
                 <th>키오스크 번호</th>
+                <th>디바이스</th>
                 <th>사용자</th>
                 <th>메시지</th>
                 <th>메타데이터</th>
@@ -430,7 +437,7 @@ function KioskEventHistory() {
             <tbody>
               {currentEvents.length === 0 ? (
                 <tr>
-                  <td colSpan="8" className="no-data">이벤트가 없습니다</td>
+                  <td colSpan="9" className="no-data">이벤트가 없습니다</td>
                 </tr>
               ) : (
                 currentEvents.map((event) => (
@@ -444,6 +451,16 @@ function KioskEventHistory() {
                     <td>{getStoreName(event.posid)}</td>
                     <td style={{textAlign: 'center'}}>{formatKioskId(event.kioskid)}</td>
                     <td style={{textAlign: 'center'}}>{event.kioskno || '-'}</td>
+                    <td title={event.deviceName || '-'}>
+                      <div style={{fontSize: '13px'}}>
+                        {formatDeviceInfo(event.osType, event.osVersion)}
+                      </div>
+                      {event.deviceName && (
+                        <div style={{fontSize: '11px', color: '#666', marginTop: '2px'}}>
+                          {event.deviceName}
+                        </div>
+                      )}
+                    </td>
                     <td>{event.userName || formatUserEmail(event.userEmail)}</td>
                     <td className="description-cell">{event.message || '-'}</td>
                     <td className="value-cell" title={event.metadata || '-'}>
