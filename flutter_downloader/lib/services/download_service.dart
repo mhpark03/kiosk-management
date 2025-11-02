@@ -76,8 +76,9 @@ class DownloadService {
       final dir = await getApplicationDocumentsDirectory();
       return '${dir.path}${Platform.pathSeparator}KioskVideos';
     } else if (Platform.isAndroid) {
-      final dir = await getExternalStorageDirectory();
-      return dir?.path ?? '/storage/emulated/0/KioskVideos';
+      // Use public Download folder for Android
+      // This requires WRITE_EXTERNAL_STORAGE or MANAGE_EXTERNAL_STORAGE permission
+      return '/storage/emulated/0/Download/KioskVideos';
     } else {
       final dir = await getApplicationDocumentsDirectory();
       return dir.path;

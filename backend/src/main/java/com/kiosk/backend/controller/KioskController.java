@@ -273,11 +273,35 @@ public class KioskController {
     /**
      * Get videos assigned to a kiosk by kioskid with download status
      * GET /api/kiosks/by-kioskid/{kioskid}/videos-with-status
+     * Automatically records SYNC_STARTED and SYNC_COMPLETED events
      */
     @GetMapping("/by-kioskid/{kioskid}/videos-with-status")
     public ResponseEntity<List<com.kiosk.backend.dto.KioskVideoDTO>> getKioskVideosWithStatusByKioskId(@PathVariable String kioskid) {
         log.info("GET /api/kiosks/by-kioskid/{}/videos-with-status", kioskid);
+
+        // Record SYNC_STARTED event
+        try {
+            kioskEventService.recordEvent(kioskid, com.kiosk.backend.entity.KioskEvent.EventType.SYNC_STARTED,
+                "영상 동기화 시작");
+            log.info("Recorded SYNC_STARTED event for kiosk: {}", kioskid);
+        } catch (Exception e) {
+            log.error("Failed to record SYNC_STARTED event for kiosk: {}", kioskid, e);
+        }
+
+        // Fetch videos
         List<com.kiosk.backend.dto.KioskVideoDTO> videos = kioskService.getKioskVideosWithStatusByKioskId(kioskid);
+
+        // Record SYNC_COMPLETED event
+        try {
+            String eventMessage = String.format("영상 파일 %d 개 동기완료", videos.size());
+            String eventMetadata = String.format("{\"videoCount\": %d}", videos.size());
+            kioskEventService.recordEvent(kioskid, com.kiosk.backend.entity.KioskEvent.EventType.SYNC_COMPLETED,
+                eventMessage, eventMetadata);
+            log.info("Recorded SYNC_COMPLETED event for kiosk: {} with {} videos", kioskid, videos.size());
+        } catch (Exception e) {
+            log.error("Failed to record SYNC_COMPLETED event for kiosk: {}", kioskid, e);
+        }
+
         return ResponseEntity.ok(videos);
     }
 
@@ -328,14 +352,29 @@ public class KioskController {
     @PutMapping("/{id}/config")
     public ResponseEntity<Map<String, String>> updateKioskConfigFromWeb(
             @PathVariable Long id,
-            @RequestBody KioskConfigDTO configDTO) {
-        log.info("PUT /api/kiosks/{}/config - updating config from admin web", id);
+            @RequestBody KioskConfigDTO configDTO,
+            @RequestHeader(value = "X-User-Email", defaultValue = "admin@kiosk.com") String userEmail) {
+        String decodedEmail = URLDecoder.decode(userEmail, StandardCharsets.UTF_8);
+        log.info("PUT /api/kiosks/{}/config - updating config from admin web by {}", id, decodedEmail);
 
         // Get kiosk by ID to retrieve kioskid
         KioskDTO kiosk = kioskService.getKioskById(id);
 
         // Update config and set configModifiedByWeb flag
         kioskService.updateKioskConfigFromWeb(kiosk.getKioskid(), configDTO);
+
+        // Record CONFIG_UPDATED_BY_WEB event
+        try {
+            String eventMessage = String.format("관리자(%s)가 키오스크 설정을 웹에서 업데이트함", decodedEmail);
+            String eventMetadata = String.format("updatedBy=%s, apiUrl=%s, downloadPath=%s",
+                decodedEmail, configDTO.getApiUrl(), configDTO.getDownloadPath());
+            kioskEventService.recordEvent(kiosk.getKioskid(),
+                com.kiosk.backend.entity.KioskEvent.EventType.CONFIG_UPDATED_BY_WEB,
+                eventMessage, eventMetadata);
+            log.info("Recorded CONFIG_UPDATED_BY_WEB event for kiosk {} by {}", kiosk.getKioskid(), decodedEmail);
+        } catch (Exception e) {
+            log.error("Failed to record CONFIG_UPDATED_BY_WEB event for kiosk {}: {}", kiosk.getKioskid(), e.getMessage());
+        }
 
         // Send WebSocket notification to the kiosk
         try {
@@ -369,6 +408,33 @@ public class KioskController {
                 configDTO.getAutoSync(), configDTO.getSyncInterval());
 
         boolean wasModifiedByWeb = kioskService.updateKioskConfig(kioskid, configDTO);
+
+        // Record appropriate event based on whether config was modified by web or kiosk app
+        try {
+            if (wasModifiedByWeb) {
+                // Config was modified by web admin, now kiosk is syncing it
+                String eventMessage = "키오스크가 웹에서 수정된 설정을 서버로부터 동기화함";
+                String eventMetadata = String.format("apiUrl=%s, downloadPath=%s, autoSync=%s, syncInterval=%d",
+                    configDTO.getApiUrl(), configDTO.getDownloadPath(),
+                    configDTO.getAutoSync(), configDTO.getSyncInterval());
+                kioskEventService.recordEvent(kioskid,
+                    com.kiosk.backend.entity.KioskEvent.EventType.CONFIG_SYNCED_FROM_SERVER,
+                    eventMessage, eventMetadata);
+                log.info("Recorded CONFIG_SYNCED_FROM_SERVER event for kiosk {}", kioskid);
+            } else {
+                // Config was modified directly by kiosk app
+                String eventMessage = "키오스크 앱에서 설정을 저장함";
+                String eventMetadata = String.format("apiUrl=%s, downloadPath=%s, autoSync=%s, syncInterval=%d",
+                    configDTO.getApiUrl(), configDTO.getDownloadPath(),
+                    configDTO.getAutoSync(), configDTO.getSyncInterval());
+                kioskEventService.recordEvent(kioskid,
+                    com.kiosk.backend.entity.KioskEvent.EventType.CONFIG_SAVED,
+                    eventMessage, eventMetadata);
+                log.info("Recorded CONFIG_SAVED event for kiosk {}", kioskid);
+            }
+        } catch (Exception e) {
+            log.error("Failed to record config event for kiosk {}: {}", kioskid, e.getMessage());
+        }
 
         // Send WebSocket notification only if config was modified by web (admin)
         if (wasModifiedByWeb) {
@@ -452,6 +518,21 @@ public class KioskController {
     public ResponseEntity<KioskConfigDTO> getKioskConfig(@PathVariable String kioskid) {
         log.info("GET /api/kiosks/by-kioskid/{}/config", kioskid);
         KioskConfigDTO config = kioskService.getKioskConfig(kioskid);
+
+        // Record CONFIG_READ event
+        try {
+            String eventMessage = "키오스크 앱에서 설정을 조회함";
+            String eventMetadata = String.format("apiUrl=%s, downloadPath=%s, autoSync=%s, syncInterval=%d",
+                config.getApiUrl(), config.getDownloadPath(),
+                config.getAutoSync(), config.getSyncInterval());
+            kioskEventService.recordEvent(kioskid,
+                com.kiosk.backend.entity.KioskEvent.EventType.CONFIG_READ,
+                eventMessage, eventMetadata);
+            log.info("Recorded CONFIG_READ event for kiosk {}", kioskid);
+        } catch (Exception e) {
+            log.error("Failed to record CONFIG_READ event for kiosk {}: {}", kioskid, e.getMessage());
+        }
+
         return ResponseEntity.ok(config);
     }
 
@@ -463,9 +544,12 @@ public class KioskController {
     public ResponseEntity<Map<String, Object>> connectKiosk(
             @PathVariable String kioskId,
             @RequestHeader("X-Kiosk-PosId") String posId,
-            @RequestHeader("X-Kiosk-No") Integer kioskNo) {
+            @RequestHeader("X-Kiosk-No") Integer kioskNo,
+            @RequestHeader(value = "X-Device-OS", required = false) String osType,
+            @RequestHeader(value = "X-Device-Version", required = false) String osVersion,
+            @RequestHeader(value = "X-Device-Name", required = false) String deviceName) {
 
-        log.info("POST /api/kiosks/{}/connect - Kiosk connecting", kioskId);
+        log.info("POST /api/kiosks/{}/connect - Kiosk connecting (OS: {}, Device: {})", kioskId, osType, deviceName);
 
         try {
             // Verify kiosk exists and credentials match
@@ -485,6 +569,18 @@ public class KioskController {
             long newSessionVersion = (long) secureRandom.nextInt(Integer.MAX_VALUE);
             kiosk.setSessionVersion(newSessionVersion);
             kiosk.setLastConnectedAt(java.time.LocalDateTime.now());
+
+            // Update device information if provided
+            if (osType != null) {
+                kiosk.setOsType(osType);
+            }
+            if (osVersion != null) {
+                kiosk.setOsVersion(osVersion);
+            }
+            if (deviceName != null) {
+                kiosk.setDeviceName(deviceName);
+            }
+
             kiosk = kioskRepository.save(kiosk);
 
             // Generate long-lived token with session version (6 months, auto-renewed every 7 days)
@@ -500,8 +596,19 @@ public class KioskController {
             // Record KIOSK_CONNECTED event to kiosk_events
             try {
                 String eventMessage = String.format("키오스크 연결 성공 (세션 버전: %d)", kiosk.getSessionVersion());
-                String eventMetadata = String.format("posId=%s, kioskNo=%d, sessionVersion=%d, expiresIn=%d days",
-                    posId, kioskNo, kiosk.getSessionVersion(), 180);
+                StringBuilder metadataBuilder = new StringBuilder();
+                metadataBuilder.append(String.format("posId=%s, kioskNo=%d, sessionVersion=%d, expiresIn=%d days",
+                    posId, kioskNo, kiosk.getSessionVersion(), 180));
+                if (osType != null) {
+                    metadataBuilder.append(String.format(", osType=%s", osType));
+                }
+                if (osVersion != null) {
+                    metadataBuilder.append(String.format(", osVersion=%s", osVersion));
+                }
+                if (deviceName != null) {
+                    metadataBuilder.append(String.format(", deviceName=%s", deviceName));
+                }
+                String eventMetadata = metadataBuilder.toString();
                 kioskEventService.recordEvent(kioskId, com.kiosk.backend.entity.KioskEvent.EventType.KIOSK_CONNECTED,
                     eventMessage, eventMetadata);
                 log.info("Recorded KIOSK_CONNECTED event for kiosk {}", kioskId);
@@ -533,16 +640,31 @@ public class KioskController {
      * POST /api/kiosks/{id}/sync
      */
     @PostMapping("/{id}/sync")
-    public ResponseEntity<Map<String, String>> sendSyncCommand(@PathVariable Long id) {
-        log.info("POST /api/kiosks/{}/sync - sending sync command via WebSocket", id);
+    public ResponseEntity<Map<String, String>> sendSyncCommand(
+            @PathVariable Long id,
+            @RequestHeader(value = "X-User-Email", defaultValue = "admin@kiosk.com") String userEmail) {
+        String decodedEmail = URLDecoder.decode(userEmail, StandardCharsets.UTF_8);
+        log.info("POST /api/kiosks/{}/sync - sending sync command via WebSocket by {}", id, decodedEmail);
 
         try {
             // Get kiosk by ID to retrieve kioskid
             KioskDTO kiosk = kioskService.getKioskById(id);
 
+            // Record MANUAL_ACTION event (admin manually triggered sync)
+            try {
+                String eventMessage = String.format("관리자(%s)가 웹에서 수동으로 동기화 명령을 전송함", decodedEmail);
+                String eventMetadata = String.format("triggeredBy=%s, method=WebSocket", decodedEmail);
+                kioskEventService.recordEvent(kiosk.getKioskid(),
+                    com.kiosk.backend.entity.KioskEvent.EventType.MANUAL_ACTION,
+                    eventMessage, eventMetadata);
+                log.info("Recorded MANUAL_ACTION event for kiosk {} by {}", kiosk.getKioskid(), decodedEmail);
+            } catch (Exception e) {
+                log.error("Failed to record MANUAL_ACTION event for kiosk {}: {}", kiosk.getKioskid(), e.getMessage());
+            }
+
             // Send WebSocket notification to the kiosk
             webSocketController.sendSyncCommandToKiosk(kiosk.getKioskid());
-            log.info("Sent SYNC_COMMAND to kiosk {} (kioskid: {})", id, kiosk.getKioskid());
+            log.info("Sent SYNC_COMMAND to kiosk {} (kioskid: {}) by {}", id, kiosk.getKioskid(), decodedEmail);
 
             Map<String, String> response = new HashMap<>();
             response.put("message", "동기화 명령이 키오스크에 전송되었습니다.");

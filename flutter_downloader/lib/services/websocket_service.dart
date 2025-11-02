@@ -124,6 +124,16 @@ class WebSocketService {
         print('WebSocket: Sync command received from admin');
         onSyncCommand?.call();
         break;
+      case 'SYNC_RESPONSE':
+        print('WebSocket: Sync response received');
+        // Check if server requires reconnection to clear old sessions
+        final requireReconnect = message['requireReconnect'] as bool?;
+        if (requireReconnect == true) {
+          print('WebSocket: Server requires reconnection - refreshing connection');
+          // Disconnect and reconnect to ensure we have a fresh session
+          _reconnect();
+        }
+        break;
       case 'CONFIG_UPDATE':
         print('WebSocket: Config update notification received from server');
         onConfigUpdate?.call();
@@ -191,6 +201,15 @@ class WebSocketService {
 
     _isConnected = false;
     onConnectionStatusChanged?.call(false);
+  }
+
+  void _reconnect() {
+    print('WebSocket: Reconnecting...');
+    disconnect();
+    // Wait a short moment before reconnecting to ensure clean disconnect
+    Future.delayed(const Duration(milliseconds: 500), () {
+      connect();
+    });
   }
 
   void dispose() {

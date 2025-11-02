@@ -147,7 +147,14 @@ Configuration is persisted via `StorageService` and can be updated in Settings s
 ### Permissions Required
 - `INTERNET`: Network access
 - `WRITE_EXTERNAL_STORAGE`: File downloads (Android < 13)
+- `READ_EXTERNAL_STORAGE`: File access (Android < 13)
+- `MANAGE_EXTERNAL_STORAGE`: Full storage access for kiosk operation (Android 11+)
 - Handled by `permission_handler` package
+
+### Download Directory
+- **Android**: Uses public Download folder `/storage/emulated/0/Download/KioskVideos`
+- **Windows**: Uses `%USERPROFILE%\Downloads\KioskVideos`
+- Requires storage permissions on Android (see AndroidManifest.xml)
 
 ## Windows-Specific Notes
 
@@ -196,3 +203,68 @@ Currently uses basic `setState()` pattern. The app passes `ApiService` and `Stor
 - **Android**: Use `getExternalStorageDirectory()` or user-selected path via file picker
 - **Windows**: Standard Windows paths (e.g., `C:\Videos\Kiosk`)
 - Always use `Platform.pathSeparator` for cross-platform compatibility
+
+## Event Logging System
+
+The Flutter app implements **dual event logging** to synchronize with backend database events:
+
+### Local File Logging
+- **Service**: `EventLogger` (`services/event_logger.dart`)
+- **Location**: `{downloadPath}/logs/events_YYYYMMDD.log`
+- **Format**: `[timestamp] [eventType] message | metadata: {...}`
+- **Singleton pattern**: Initialize once with `EventLogger().initialize(downloadPath)`
+
+### Synchronized Events
+The app logs the same events that the backend records in the `kiosk_events` table:
+
+**Connection Events:**
+- `USER_LOGIN` - User authentication success (api_service.dart:105-110)
+- `KIOSK_CONNECTED` - Kiosk connection established (api_service.dart:245-250)
+- `USER_LOGOUT` - User logout (settings_screen.dart:284-296)
+
+**Synchronization Events:**
+- `SYNC_STARTED` - Video sync initiated (api_service.dart:150-153)
+- `SYNC_COMPLETED` - Video sync finished (api_service.dart:164-169)
+
+**Configuration Events:**
+- `CONFIG_READ` - Configuration retrieved from server (api_service.dart:372-387)
+- `CONFIG_SAVED` - Configuration saved to server (api_service.dart:326-358)
+
+**Download Events:**
+- `DOWNLOAD_STARTED` - Video download begins (api_service.dart:431-432)
+- `DOWNLOAD_COMPLETED` - Video download finishes (api_service.dart:435-436)
+- `DOWNLOAD_FAILED` - Video download fails (api_service.dart:439-440)
+
+### Event Metadata
+Events include contextual information:
+- User email and role for authentication events
+- Session version and expiration for connection events
+- Video count for sync events
+- Config settings for configuration events
+- Video ID and status for download events
+
+### Troubleshooting with Logs
+- Compare local event logs with backend `kiosk_events` table for debugging
+- Check event timestamps to identify network or timing issues
+- Verify event metadata matches between client and server
+- Log files rotate daily for manageable file sizes
+
+## Device Information Tracking
+
+The app automatically sends device information to the backend via HTTP headers:
+
+**Headers Added:**
+- `X-Device-OS` - Operating system type (Windows, Android, iOS, etc.)
+- `X-Device-Version` - OS version string
+- `X-Device-Name` - Device hostname or computer name
+
+**Implementation:**
+- `DeviceInfoUtil` (`utils/device_info_util.dart`) - Utility class for device detection
+- Headers automatically added in `ApiService` Dio interceptor (api_service.dart:47-50)
+- Backend stores device info in Kiosk entity (`osType`, `osVersion`, `deviceName` fields)
+- Device info included in KIOSK_CONNECTED event metadata
+
+**Platform-Specific Detection:**
+- **Windows**: Uses `Platform.environment['COMPUTERNAME']` or `Platform.localHostname`
+- **Android**: Uses `Platform.localHostname` or environment variables
+- **Fallback**: Returns "Unknown" or "Unknown Device" if detection fails

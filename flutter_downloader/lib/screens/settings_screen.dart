@@ -62,36 +62,50 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (_downloadPathController.text.isEmpty) {
       String basePath = '';
 
-      try {
-        // Try getDownloadsDirectory first
-        final directory = await getDownloadsDirectory();
-        if (directory != null) {
-          basePath = directory.path;
-        }
-      } catch (e) {
-        // Ignore and try fallback
-      }
-
-      // Fallback for Windows
-      if (basePath.isEmpty) {
+      if (Platform.isAndroid) {
+        // Use public Download folder for Android
+        basePath = '/storage/emulated/0/Download';
+      } else if (Platform.isWindows) {
+        // Windows: Try Downloads directory
         try {
-          final userProfile = Platform.environment['USERPROFILE'];
-          if (userProfile != null && userProfile.isNotEmpty) {
-            basePath = '$userProfile\\Downloads';
+          // Try getDownloadsDirectory first
+          final directory = await getDownloadsDirectory();
+          if (directory != null) {
+            basePath = directory.path;
           }
         } catch (e) {
-          // Ignore
+          // Ignore and try fallback
+        }
+
+        // Fallback for Windows
+        if (basePath.isEmpty) {
+          try {
+            final userProfile = Platform.environment['USERPROFILE'];
+            if (userProfile != null && userProfile.isNotEmpty) {
+              basePath = '$userProfile\\Downloads';
+            }
+          } catch (e) {
+            // Ignore
+          }
+        }
+
+        // Final fallback for Windows
+        if (basePath.isEmpty) {
+          basePath = 'C:\\Downloads';
+        }
+      } else {
+        // Other platforms: use application documents directory
+        try {
+          final directory = await getApplicationDocumentsDirectory();
+          basePath = directory.path;
+        } catch (e) {
+          basePath = '/Downloads';
         }
       }
 
-      // Final fallback
-      if (basePath.isEmpty) {
-        basePath = 'C:\\Downloads';
-      }
-
-      // Add KioskVideos subdirectory
+      // Add KioskVideos subdirectory with platform-specific separator
       setState(() {
-        _downloadPathController.text = '$basePath\\KioskVideos';
+        _downloadPathController.text = '$basePath${Platform.pathSeparator}KioskVideos';
       });
     }
   }
@@ -596,35 +610,52 @@ class _SettingsScreenState extends State<SettingsScreen> {
     // Delete saved configuration
     await widget.storageService.deleteConfig();
 
-    // Get default download path
+    // Get default download path based on platform
     String basePath = '';
-    try {
-      final directory = await getDownloadsDirectory();
-      if (directory != null) {
-        basePath = directory.path;
+
+    if (Platform.isAndroid) {
+      // Use public Download folder for Android
+      basePath = '/storage/emulated/0/Download';
+    } else if (Platform.isWindows) {
+      // Windows: Try Downloads directory
+      try {
+        final directory = await getDownloadsDirectory();
+        if (directory != null) {
+          basePath = directory.path;
+        }
+      } catch (e) {
+        // Fallback for Windows
+        final userProfile = Platform.environment['USERPROFILE'];
+        if (userProfile != null && userProfile.isNotEmpty) {
+          basePath = '$userProfile\\Downloads';
+        } else {
+          basePath = 'C:\\Downloads';
+        }
       }
-    } catch (e) {
-      // Fallback for Windows
-      final userProfile = Platform.environment['USERPROFILE'];
-      if (userProfile != null && userProfile.isNotEmpty) {
-        basePath = '$userProfile\\Downloads';
-      } else {
-        basePath = 'C:\\Downloads';
+    } else {
+      // Other platforms
+      try {
+        final directory = await getApplicationDocumentsDirectory();
+        basePath = directory.path;
+      } catch (e) {
+        basePath = '/Downloads';
       }
     }
+
+    final defaultPath = '$basePath${Platform.pathSeparator}KioskVideos';
 
     setState(() {
       // Reset form fields to defaults
       _kioskIdController.text = '';
       _posIdController.text = '';
-      _downloadPathController.text = '$basePath\\KioskVideos';
+      _downloadPathController.text = defaultPath;
       _autoSync = true;
       _syncIntervalHours = 12;
 
       // Reset original values
       _originalKioskId = '';
       _originalPosId = '';
-      _originalDownloadPath = '$basePath\\KioskVideos';
+      _originalDownloadPath = defaultPath;
       _originalAutoSync = true;
       _originalSyncInterval = 12;
 

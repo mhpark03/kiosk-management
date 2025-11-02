@@ -29,6 +29,11 @@ public class KioskDTO {
     private LocalDateTime updatedAt;
     private LocalDateTime storeRegdate; // Store's registration date for validation
 
+    // Device information
+    private String osType; // Operating system type (e.g., Windows, Android)
+    private String osVersion; // Operating system version (e.g., Windows 10, Android 12)
+    private String deviceName; // Device name/hostname
+
     // Video statistics
     private Integer totalVideoCount; // Total number of videos assigned to this kiosk
     private Integer downloadedVideoCount; // Number of videos with COMPLETED download status
@@ -48,6 +53,9 @@ public class KioskDTO {
                 .deldate(kiosk.getDeldate())
                 .createdAt(kiosk.getCreatedAt())
                 .updatedAt(kiosk.getUpdatedAt())
+                .osType(kiosk.getOsType())
+                .osVersion(kiosk.getOsVersion())
+                .deviceName(kiosk.getDeviceName())
                 .build();
     }
 }
