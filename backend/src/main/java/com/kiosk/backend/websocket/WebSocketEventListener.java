@@ -7,6 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.event.EventListener;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.stereotype.Component;
+import org.springframework.web.socket.messaging.SessionConnectEvent;
 import org.springframework.web.socket.messaging.SessionDisconnectEvent;
 
 /**
@@ -18,6 +19,37 @@ import org.springframework.web.socket.messaging.SessionDisconnectEvent;
 public class WebSocketEventListener {
 
     private final KioskEventService kioskEventService;
+    private final WebSocketSessionManager sessionManager;
+
+    /**
+     * Handle WebSocket connect events
+     */
+    @EventListener
+    public void handleWebSocketConnectListener(SessionConnectEvent event) {
+        StompHeaderAccessor headerAccessor = StompHeaderAccessor.wrap(event.getMessage());
+
+        // Get kiosk ID and session ID from session attributes
+        String kioskId = (String) headerAccessor.getSessionAttributes().get("kioskId");
+        String sessionId = headerAccessor.getSessionId();
+
+        if (kioskId != null && sessionId != null) {
+            log.info("Kiosk connected: {} with session ID: {}", kioskId, sessionId);
+
+            // Register session in session manager
+            sessionManager.registerSession(kioskId, sessionId);
+
+            // Record WebSocket connection event
+            try {
+                kioskEventService.recordEvent(kioskId, KioskEvent.EventType.WEBSOCKET_CONNECTED,
+                    "WebSocket 연결 성공");
+                log.info("Recorded WEBSOCKET_CONNECTED event for kiosk: {}", kioskId);
+            } catch (Exception e) {
+                log.error("Failed to record WebSocket connect event for kiosk: {}", kioskId, e);
+            }
+        } else {
+            log.debug("WebSocket connected but no kiosk ID or session ID found");
+        }
+    }
 
     /**
      * Handle WebSocket disconnect events
@@ -26,11 +58,15 @@ public class WebSocketEventListener {
     public void handleWebSocketDisconnectListener(SessionDisconnectEvent event) {
         StompHeaderAccessor headerAccessor = StompHeaderAccessor.wrap(event.getMessage());
 
-        // Get kiosk ID from session attributes
+        // Get kiosk ID and session ID from session attributes
         String kioskId = (String) headerAccessor.getSessionAttributes().get("kioskId");
+        String sessionId = headerAccessor.getSessionId();
 
-        if (kioskId != null) {
-            log.info("Kiosk disconnected: {}", kioskId);
+        if (kioskId != null && sessionId != null) {
+            log.info("Kiosk disconnected: {} with session ID: {}", kioskId, sessionId);
+
+            // Unregister session from session manager
+            sessionManager.unregisterSession(kioskId, sessionId);
 
             // Record WebSocket disconnection event
             try {
@@ -41,7 +77,7 @@ public class WebSocketEventListener {
                 log.error("Failed to record WebSocket disconnect event for kiosk: {}", kioskId, e);
             }
         } else {
-            log.debug("WebSocket disconnected but no kiosk ID found in session");
+            log.debug("WebSocket disconnected but no kiosk ID or session ID found in session");
         }
     }
 }
