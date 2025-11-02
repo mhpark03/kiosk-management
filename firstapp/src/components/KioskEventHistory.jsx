@@ -197,8 +197,10 @@ function KioskEventHistory() {
 
   const formatDeviceInfo = (osType, osVersion) => {
     if (!osType && !osVersion) return '-';
-    if (osType && osVersion) return `${osType} ${osVersion}`;
-    return osType || osVersion || '-';
+    // Truncate osVersion to max 15 characters
+    const truncatedVersion = osVersion && osVersion.length > 15 ? osVersion.substring(0, 15) + '...' : osVersion;
+    if (osType && osVersion) return `${osType} ${truncatedVersion}`;
+    return osType || truncatedVersion || '-';
   };
 
   // Get unique users from events
@@ -451,12 +453,12 @@ function KioskEventHistory() {
                     <td>{getStoreName(event.posid)}</td>
                     <td style={{textAlign: 'center'}}>{formatKioskId(event.kioskid)}</td>
                     <td style={{textAlign: 'center'}}>{event.kioskno || '-'}</td>
-                    <td title={event.deviceName || '-'}>
-                      <div style={{fontSize: '13px'}}>
+                    <td title={`${event.osType || ''} ${event.osVersion || ''}\n${event.deviceName || ''}`}>
+                      <div style={{fontSize: '13px', maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}>
                         {formatDeviceInfo(event.osType, event.osVersion)}
                       </div>
                       {event.deviceName && (
-                        <div style={{fontSize: '11px', color: '#666', marginTop: '2px'}}>
+                        <div style={{fontSize: '11px', color: '#666', marginTop: '2px', maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}>
                           {event.deviceName}
                         </div>
                       )}
