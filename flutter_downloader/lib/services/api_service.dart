@@ -473,4 +473,53 @@ class ApiService {
       // Don't throw error, just log it (background operation)
     }
   }
+
+  // Report kiosk status (heartbeat) - NO AUTH REQUIRED
+  // This allows monitoring even when tokens are expired
+  Future<void> reportKioskStatus({
+    required String kioskId,
+    required String appVersion,
+    required String connectionStatus, // ONLINE, ERROR
+    String? errorMessage,
+    required bool isLoggedIn,
+    required String osType,
+    required String osVersion,
+    required String deviceName,
+  }) async {
+    try {
+      print('[HEARTBEAT] Sending status report for kiosk: $kioskId');
+
+      final response = await _dio.post(
+        '/kiosk-status/heartbeat',
+        data: {
+          'kioskId': kioskId,
+          'appVersion': appVersion,
+          'connectionStatus': connectionStatus,
+          'errorMessage': errorMessage,
+          'isLoggedIn': isLoggedIn,
+          'osType': osType,
+          'osVersion': osVersion,
+          'deviceName': deviceName,
+        },
+        options: Options(
+          // Don't use default authorization headers for this request
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        ),
+      );
+
+      if (response.statusCode == 200) {
+        print('[HEARTBEAT] Status reported successfully');
+      } else {
+        print('[HEARTBEAT] Failed to report status: ${response.statusCode}');
+      }
+    } on DioException catch (e) {
+      print('[HEARTBEAT] Network error reporting status: ${e.message}');
+      // Don't throw error - heartbeat failure should not crash the app
+    } catch (e) {
+      print('[HEARTBEAT] Error reporting status: $e');
+      // Don't throw error - heartbeat failure should not crash the app
+    }
+  }
 }

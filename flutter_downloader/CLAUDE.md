@@ -82,6 +82,84 @@ The app supports two authentication modes that can work independently or togethe
 
 **Important**: Kiosk auth headers are ALWAYS sent when configured, even if user auth token is also present. This allows both authenticated user management and kiosk operation simultaneously.
 
+### WebSocket Token Management & Auto-Renewal
+
+The app uses a **separate token for WebSocket connections** that differs from the user JWT token:
+
+**Token Types:**
+1. **User JWT Token** - For REST API authentication (`Authorization: Bearer {token}`)
+2. **Kiosk WebSocket Token** - For WebSocket connection authentication (issued via `/api/kiosk-auth/token`)
+
+**WebSocket Token Flow:**
+```
+App Start (with existing config)
+  ↓
+VideoListScreen.initState()
+  ↓
+_initWebSocket()
+  ↓
+apiService.getKioskToken(kioskId, posId, kioskNo)
+  ↓
+WebSocket connects with kiosk token
+```
+
+**Auto-Renewal Mechanism (Automatic Token Recovery):**
+
+When WebSocket connection fails (e.g., expired/invalid token), the app automatically attempts recovery:
+
+```dart
+// video_list_screen.dart: _initWebSocket() catch block
+} catch (e) {
+  print('WebSocket: Initialization failed: $e');
+
+  // Auto-recovery: If logged in + config exists, renew token
+  if (_isLoggedIn && config.kioskId.isNotEmpty) {
+    await _attemptTokenRenewalAndReconnect(config, kiosk);
+  }
+}
+```
+
+**Recovery Process:**
+1. Detect WebSocket connection failure
+2. Check if user is logged in (authentication available)
+3. Call `updateKioskConfig()` API (even if settings unchanged)
+4. Backend issues new session token in response
+5. Save new token to secure storage
+6. Re-request kiosk WebSocket token with fresh session
+7. Reconnect WebSocket with new token
+
+**Key Implementation Points:**
+- Recovery is **automatic** - no user interaction required
+- Only triggers when user is logged in (security consideration)
+- Uses existing `updateKioskConfig()` endpoint for token renewal
+- Settings screen validation (checking for changes) remains unchanged
+- Unattended kiosks benefit from automatic recovery on restart
+
+**Why Separate Tokens?**
+- User token: Admin/management operations (optional for kiosk operation)
+- Kiosk token: Real-time WebSocket sync (requires kiosk credentials: kioskId, posId, kioskNo)
+- WebSocket backend validates token type and rejects user tokens for security
+
+**Backend Endpoints:**
+- `/api/kiosk-auth/token` - Issue WebSocket kiosk token (requires kioskId, posId, kioskNo)
+- `/api/kiosks/by-kioskid/{id}/config` - Update config & renew session token (PATCH)
+
+**Failure Scenarios:**
+- **No login**: Shows "Login Required" dialog with options:
+  - "나중에" (Later) - Continue with manual refresh only
+  - "로그인" (Login) - Navigate to login screen for admin intervention
+  - Dialog clearly explains that admin must login to resolve token issue
+  - Manual refresh remains available for unattended operation
+- **Network error**: Shows orange notification about connection failure
+- **Invalid credentials**: Requires manual settings update
+- **Token renewal failed**: Shows orange notification, manual refresh still works
+
+**Unattended Operation Considerations:**
+- If WebSocket connection fails without login, dialog appears requiring admin action
+- This ensures that token expiration issues in unattended kiosks trigger proper alert
+- Admin can visit kiosk, login, and automatic token renewal will resolve the issue
+- Kiosk continues to function with manual refresh if admin is unavailable
+
 ### Service Layer Architecture
 
 **ApiService** (`services/api_service.dart`):

@@ -770,6 +770,100 @@ function KioskManagement() {
     return `${month}/${day}`;
   };
 
+  // Render connection status with color coding
+  const renderConnectionStatus = (kiosk) => {
+    const { lastHeartbeat, connectionStatus, isLoggedIn, appVersion } = kiosk;
+
+    // Check if kiosk is online (heartbeat within last 5 minutes)
+    const isOnline = lastHeartbeat &&
+      (new Date() - new Date(lastHeartbeat)) < 5 * 60 * 1000;
+
+    let status = connectionStatus || 'UNKNOWN';
+    let statusText = '';
+    let statusColor = '';
+    let statusBg = '';
+
+    if (!lastHeartbeat) {
+      // Never connected
+      statusText = '미연결';
+      statusColor = '#999';
+      statusBg = '#f5f5f5';
+    } else if (isOnline) {
+      if (status === 'ERROR') {
+        statusText = '오류';
+        statusColor = '#d32f2f';
+        statusBg = '#ffebee';
+      } else {
+        statusText = '정상';
+        statusColor = '#388e3c';
+        statusBg = '#e8f5e9';
+      }
+    } else {
+      // Offline (no heartbeat for >5 minutes)
+      statusText = '오프라인';
+      statusColor = '#f57c00';
+      statusBg = '#fff3e0';
+    }
+
+    const timeAgo = lastHeartbeat ? getTimeAgo(new Date(lastHeartbeat)) : null;
+
+    return (
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: '4px'
+      }}>
+        <span style={{
+          display: 'inline-block',
+          padding: '4px 8px',
+          borderRadius: '12px',
+          fontSize: '0.8em',
+          fontWeight: '600',
+          color: statusColor,
+          backgroundColor: statusBg,
+          border: `1px solid ${statusColor}40`
+        }}>
+          {statusText}
+          {isLoggedIn && isOnline && (
+            <span style={{marginLeft: '4px', fontSize: '0.9em'}}>👤</span>
+          )}
+        </span>
+        {timeAgo && (
+          <span style={{
+            fontSize: '0.7em',
+            color: '#999'
+          }} title={`마지막 연결: ${new Date(lastHeartbeat).toLocaleString('ko-KR')}`}>
+            {timeAgo}
+          </span>
+        )}
+        {appVersion && (
+          <span style={{
+            fontSize: '0.65em',
+            color: '#999'
+          }}>
+            v{appVersion}
+          </span>
+        )}
+      </div>
+    );
+  };
+
+  // Get time ago string (e.g., "2분 전", "1시간 전")
+  const getTimeAgo = (date) => {
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMinutes = Math.floor(diffMs / (1000 * 60));
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+    if (diffMinutes < 1) return '방금';
+    if (diffMinutes < 60) return `${diffMinutes}분 전`;
+    if (diffHours < 24) return `${diffHours}시간 전`;
+    if (diffDays < 7) return `${diffDays}일 전`;
+    return date.toLocaleDateString('ko-KR');
+  };
+
   const formatUserEmail = (email) => {
     if (!email) return 'N/A';
     // Extract username part before @ symbol
@@ -932,6 +1026,7 @@ function KioskManagement() {
                 <th>시작일</th>
                 <th>종료일</th>
                 <th>영상</th>
+                <th>연결 상태</th>
                 <th>상태</th>
                 <th>작업</th>
               </tr>
@@ -939,7 +1034,7 @@ function KioskManagement() {
             <tbody>
               {filteredKiosks.length === 0 ? (
                 <tr>
-                  <td colSpan="11" className="no-data">
+                  <td colSpan="12" className="no-data">
                     {(appliedSearchStoreName || appliedSearchMaker) ? '필터와 일치하는 키오스크가 없습니다' : '키오스크가 없습니다'}
                   </td>
                 </tr>
@@ -976,6 +1071,9 @@ function KioskManagement() {
                           {kiosk.totalVideoCount || 0}
                         </span>
                       </span>
+                    </td>
+                    <td style={{textAlign: 'center'}}>
+                      {renderConnectionStatus(kiosk)}
                     </td>
                     <td>
                       <span className={`state-badge ${getStateColor(kiosk.state)}`}>

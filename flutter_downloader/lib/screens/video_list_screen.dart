@@ -6,6 +6,7 @@ import '../services/storage_service.dart';
 import '../services/download_service.dart';
 import '../services/websocket_service.dart';
 import '../services/event_logger.dart';
+import '../utils/device_info_util.dart';
 import '../models/video.dart';
 import '../models/kiosk.dart';
 import 'settings_screen.dart';
@@ -35,6 +36,7 @@ class _VideoListScreenState extends State<VideoListScreen> {
   bool _wsConnected = false;
   Timer? _autoLogoutTimer;
   Timer? _tokenRenewalTimer;
+  Timer? _statusHeartbeatTimer; // Timer for periodic status reporting
   bool _isLoggedIn = false;
   Kiosk? _kiosk; // Store kiosk info for display
 
@@ -46,6 +48,7 @@ class _VideoListScreenState extends State<VideoListScreen> {
     _loadVideos();
     _initWebSocket();
     _startAutoLogoutTimer();
+    _startStatusHeartbeat(); // Start periodic status reporting
   }
 
   @override
@@ -53,6 +56,7 @@ class _VideoListScreenState extends State<VideoListScreen> {
     _webSocketService.dispose();
     _autoLogoutTimer?.cancel();
     _tokenRenewalTimer?.cancel();
+    _statusHeartbeatTimer?.cancel();
     super.dispose();
   }
 
@@ -200,6 +204,59 @@ class _VideoListScreenState extends State<VideoListScreen> {
     });
   }
 
+  // Start periodic status heartbeat (every 2 minutes)
+  // This allows admin to monitor kiosk health even when tokens are expired
+  void _startStatusHeartbeat() {
+    _statusHeartbeatTimer?.cancel();
+
+    // Send heartbeat immediately
+    _reportKioskStatus();
+
+    // Then every 2 minutes
+    _statusHeartbeatTimer = Timer.periodic(const Duration(minutes: 2), (timer) {
+      _reportKioskStatus();
+    });
+
+    print('[HEARTBEAT] Status reporting started (every 2 minutes)');
+  }
+
+  // Report kiosk status to server (no auth required)
+  Future<void> _reportKioskStatus() async {
+    final config = widget.storageService.getConfig();
+    if (config == null || config.kioskId.isEmpty) {
+      print('[HEARTBEAT] No config, skipping status report');
+      return;
+    }
+
+    try {
+      // Determine connection status
+      String connectionStatus = 'ONLINE';
+      String? errorMessage;
+
+      if (_errorMessage != null && _errorMessage!.isNotEmpty) {
+        connectionStatus = 'ERROR';
+        errorMessage = _errorMessage;
+      }
+
+      // Report status to server
+      await widget.apiService.reportKioskStatus(
+        kioskId: config.kioskId,
+        appVersion: '1.0.0', // TODO: Get from package info
+        connectionStatus: connectionStatus,
+        errorMessage: errorMessage,
+        isLoggedIn: _isLoggedIn,
+        osType: DeviceInfoUtil.getOsType(),
+        osVersion: DeviceInfoUtil.getOsVersion(),
+        deviceName: DeviceInfoUtil.getDeviceName(),
+      );
+
+      print('[HEARTBEAT] Status reported - Status: $connectionStatus, Logged in: $_isLoggedIn, WS: $_wsConnected');
+    } catch (e) {
+      print('[HEARTBEAT] Failed to report status: $e');
+      // Don't crash app on heartbeat failure
+    }
+  }
+
   Future<void> _initWebSocket() async {
     final config = widget.storageService.getConfig();
 
@@ -269,40 +326,198 @@ class _VideoListScreenState extends State<VideoListScreen> {
       );
 
       // Set up callbacks
-      _webSocketService.onSyncCommand = () {
-        print('WebSocket: Sync command received, reloading videos...');
-        _loadVideos();
-      };
-
-      _webSocketService.onConfigUpdate = () {
-        print('WebSocket: Config update received, reloading config from server...');
-        _handleConfigUpdate();
-      };
-
-      _webSocketService.onConnectionStatusChanged = (connected) {
-        if (mounted) {
-          setState(() {
-            _wsConnected = connected;
-          });
-          if (connected) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('실시간 연결됨'),
-                duration: Duration(seconds: 2),
-                backgroundColor: Colors.green,
-              ),
-            );
-          }
-        }
-      };
+      _setupWebSocketCallbacks();
 
       // Connect
       _webSocketService.connect();
     } catch (e) {
       print('WebSocket: Initialization failed: $e');
-      print('WebSocket: 앱은 WebSocket 없이 계속 동작합니다 (수동 새로고침 사용 가능)');
-      // WebSocket 연결 실패는 치명적이지 않음 - 조용히 실패하고 수동 새로고침만 사용
+
+      // Auto-recovery: If logged in + config exists, attempt token renewal
+      if (_isLoggedIn && config.kioskId.isNotEmpty) {
+        print('WebSocket: 로그인 상태이므로 토큰 갱신 시도...');
+        await _attemptTokenRenewalAndReconnect(config, kiosk);
+      } else if (!_isLoggedIn) {
+        // Not logged in - show login required notification
+        print('WebSocket: 로그인이 필요하여 연결할 수 없습니다');
+        _showLoginRequiredForWebSocket();
+      } else {
+        print('WebSocket: 앱은 WebSocket 없이 계속 동작합니다 (수동 새로고침 사용 가능)');
+      }
     }
+  }
+
+  /// Setup WebSocket callbacks (extracted to avoid code duplication)
+  void _setupWebSocketCallbacks() {
+    _webSocketService.onSyncCommand = () {
+      print('WebSocket: Sync command received, reloading videos...');
+      _loadVideos();
+    };
+
+    _webSocketService.onConfigUpdate = () {
+      print('WebSocket: Config update received, reloading config from server...');
+      _handleConfigUpdate();
+    };
+
+    _webSocketService.onConnectionStatusChanged = (connected) {
+      if (mounted) {
+        setState(() {
+          _wsConnected = connected;
+        });
+        if (connected) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('실시간 연결됨'),
+              duration: Duration(seconds: 2),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      }
+    };
+  }
+
+  /// Attempt to renew token and reconnect WebSocket when connection fails
+  Future<void> _attemptTokenRenewalAndReconnect(
+    dynamic config,
+    Kiosk? kiosk,
+  ) async {
+    try {
+      print('[TOKEN RENEWAL] 설정 값을 서버에 재전송하여 토큰 갱신 시작...');
+
+      // Call updateKioskConfig API to get new token
+      final newToken = await widget.apiService.updateKioskConfig(
+        config.kioskId,
+        config.downloadPath,
+        config.serverUrl,
+        config.autoSync,
+        config.syncIntervalHours,
+      );
+
+      if (newToken != null) {
+        print('[TOKEN RENEWAL] 새 토큰 발급 성공, 저장 중...');
+
+        // Save new token to secure storage
+        await widget.storageService.saveToken(newToken);
+
+        // Set new token in ApiService
+        widget.apiService.setAuthToken(newToken);
+
+        print('[TOKEN RENEWAL] 토큰 갱신 완료, WebSocket 재연결 시도...');
+
+        // Re-request kiosk WebSocket token
+        if (kiosk?.kioskNumber != null && config.posId != null) {
+          final kioskToken = await widget.apiService.getKioskToken(
+            config.kioskId,
+            config.posId!,
+            kiosk!.kioskNumber!,
+          );
+
+          // Reconfigure WebSocket with new kiosk token
+          _webSocketService.configure(
+            config.serverUrl,
+            config.kioskId,
+            kioskToken,
+          );
+
+          // Re-setup callbacks
+          _setupWebSocketCallbacks();
+
+          // Attempt connection
+          _webSocketService.connect();
+
+          print('[TOKEN RENEWAL] WebSocket 재연결 성공!');
+
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('토큰 갱신 후 실시간 연결 복구됨'),
+                backgroundColor: Colors.green,
+                duration: Duration(seconds: 3),
+              ),
+            );
+          }
+        }
+      } else {
+        print('[TOKEN RENEWAL] 서버에서 토큰을 반환하지 않음 (갱신 실패)');
+        _showTokenRenewalFailedMessage();
+      }
+    } catch (e) {
+      print('[TOKEN RENEWAL] 토큰 갱신 실패: $e');
+      _showTokenRenewalFailedMessage();
+    }
+  }
+
+  /// Show notification when token renewal fails
+  void _showTokenRenewalFailedMessage() {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('실시간 연결 실패 (수동 새로고침으로 사용 가능)'),
+          backgroundColor: Colors.orange,
+          duration: Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+
+  /// Show dialog when login is required for WebSocket connection
+  void _showLoginRequiredForWebSocket() {
+    if (!mounted) return;
+
+    // Delay to ensure widget is fully built
+    Future.delayed(const Duration(milliseconds: 500), () {
+      if (!mounted) return;
+
+      showDialog(
+        context: context,
+        barrierDismissible: false, // Must take action
+        builder: (context) => AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.warning, color: Colors.orange),
+              SizedBox(width: 8),
+              Text('로그인 필요'),
+            ],
+          ),
+          content: const Text(
+            'WebSocket 실시간 연결을 위해서는 로그인이 필요합니다.\n\n'
+            '무인 환경에서 토큰 문제가 발생했습니다.\n'
+            '관리자가 로그인하여 문제를 해결해주세요.\n\n'
+            '※ 로그인 없이도 수동 새로고침으로 앱을 계속 사용할 수 있습니다.',
+            style: TextStyle(fontSize: 14),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                // Show info that manual refresh is available
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('수동 새로고침 버튼으로 영상 목록을 갱신할 수 있습니다'),
+                    backgroundColor: Colors.blue,
+                    duration: Duration(seconds: 4),
+                  ),
+                );
+              },
+              child: const Text('나중에'),
+            ),
+            ElevatedButton.icon(
+              onPressed: () {
+                Navigator.pop(context);
+                _navigateToLogin();
+              },
+              icon: const Icon(Icons.login),
+              label: const Text('로그인'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue,
+                foregroundColor: Colors.white,
+              ),
+            ),
+          ],
+        ),
+      );
+    });
   }
 
   Future<void> _handleConfigUpdate() async {
