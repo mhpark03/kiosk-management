@@ -613,7 +613,9 @@ public class KioskController {
                     eventMessage, eventMetadata);
                 log.info("Recorded KIOSK_CONNECTED event for kiosk {}", kioskId);
             } catch (Exception e) {
-                log.error("Failed to record KIOSK_CONNECTED event for kiosk {}: {}", kioskId, e.getMessage());
+                // Log with full stack trace for debugging
+                log.error("Failed to record KIOSK_CONNECTED event for kiosk {} (posId={}, kioskNo={})",
+                    kioskId, posId, kioskNo, e);
                 // Don't fail the request if event recording fails
             }
 
