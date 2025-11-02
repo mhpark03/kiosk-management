@@ -2,11 +2,14 @@ import 'package:dio/dio.dart';
 import '../models/user.dart';
 import '../models/video.dart';
 import '../models/kiosk.dart';
+import '../utils/device_info_util.dart';
+import 'event_logger.dart';
 
 class ApiService {
   late final Dio _dio;
   String? _authToken;
   String _baseUrl;
+  final EventLogger _eventLogger = EventLogger();
 
   // Kiosk authentication headers (for unattended operation)
   String? _kioskPosId;
@@ -40,6 +43,11 @@ class ApiService {
             options.headers['X-Kiosk-Id'] = _kioskId;
             options.headers['X-Kiosk-No'] = _kioskNo.toString();
           }
+
+          // Add device information headers (always included)
+          options.headers['X-Device-OS'] = DeviceInfoUtil.getOsType();
+          options.headers['X-Device-Version'] = DeviceInfoUtil.getOsVersion();
+          options.headers['X-Device-Name'] = DeviceInfoUtil.getDeviceName();
 
           return handler.next(options);
         },
@@ -93,6 +101,14 @@ class ApiService {
           token: data['token'] as String,
         );
         setAuthToken(user.token!);
+
+        // Log USER_LOGIN event
+        await _eventLogger.logEvent(
+          eventType: 'USER_LOGIN',
+          message: '사용자 로그인 성공',
+          metadata: 'email=${user.email}, role=${user.role}',
+        );
+
         return user;
       } else {
         throw Exception('Login failed: ${response.statusCode}');
@@ -137,6 +153,13 @@ class ApiService {
   Future<List<Video>> getKioskVideos(String kioskId) async {
     try {
       print('[API] Fetching videos for kioskId: $kioskId');
+
+      // Log SYNC_STARTED event
+      await _eventLogger.logEvent(
+        eventType: 'SYNC_STARTED',
+        message: '영상 동기화 시작',
+      );
+
       final response = await _dio.get('/kiosks/by-kioskid/$kioskId/videos-with-status');
 
       print('[API] Response status: ${response.statusCode}');
@@ -144,7 +167,16 @@ class ApiService {
       if (response.statusCode == 200) {
         final List<dynamic> videosList = response.data as List<dynamic>;
         print('[API] Received ${videosList.length} videos');
-        return videosList.map((json) => Video.fromJson(json)).toList();
+        final videos = videosList.map((json) => Video.fromJson(json)).toList();
+
+        // Log SYNC_COMPLETED event
+        await _eventLogger.logEvent(
+          eventType: 'SYNC_COMPLETED',
+          message: '영상 파일 ${videos.length} 개 동기완료',
+          metadata: '{"videoCount": ${videos.length}}',
+        );
+
+        return videos;
       } else {
         throw Exception('Failed to get videos: ${response.statusCode}');
       }
@@ -218,6 +250,13 @@ class ApiService {
         print('[CONNECT] Token expires in: ${expiresIn / 86400} days');
         print('[CONNECT] Renewal interval: ${renewalInterval != null ? renewalInterval / 86400 : 0} days');
 
+        // Log KIOSK_CONNECTED event
+        await _eventLogger.logEvent(
+          eventType: 'KIOSK_CONNECTED',
+          message: '키오스크 연결 성공 (세션 버전: $sessionVersion)',
+          metadata: 'posId=$posId, kioskNo=$kioskNo, sessionVersion=$sessionVersion, expiresIn=${expiresIn ~/ 86400} days',
+        );
+
         // Set the token to be used in Authorization header for future requests
         setAuthToken(token);
 
@@ -283,6 +322,13 @@ class ApiService {
     int syncInterval,
   ) async {
     try {
+      // Log CONFIG_SAVED event before updating
+      await _eventLogger.logEvent(
+        eventType: 'CONFIG_SAVED',
+        message: '설정 저장 시작',
+        metadata: 'autoSync=$autoSync, syncInterval=$syncInterval',
+      );
+
       final response = await _dio.patch(
         '/kiosks/by-kioskid/$kioskId/config',
         data: {
@@ -303,6 +349,13 @@ class ApiService {
       }
 
       print('[CONFIG SYNC] Configuration synced to server successfully');
+
+      // Log successful config save
+      await _eventLogger.logEvent(
+        eventType: 'CONFIG_SAVED',
+        message: '설정 저장 완료',
+        metadata: 'autoSync=$autoSync, syncInterval=$syncInterval',
+      );
 
       // Extract and return the new session token if available
       final token = response.data['token'] as String?;
@@ -329,10 +382,25 @@ class ApiService {
   // Get kiosk configuration from server
   Future<Map<String, dynamic>> getKioskConfig(String kioskId) async {
     try {
+      // Log CONFIG_READ event
+      await _eventLogger.logEvent(
+        eventType: 'CONFIG_READ',
+        message: '설정 조회 시작',
+      );
+
       final response = await _dio.get('/kiosks/by-kioskid/$kioskId/config');
 
       if (response.statusCode == 200) {
-        return response.data as Map<String, dynamic>;
+        final config = response.data as Map<String, dynamic>;
+
+        // Log successful config read
+        await _eventLogger.logEvent(
+          eventType: 'CONFIG_READ',
+          message: '설정 조회 완료',
+          metadata: 'autoSync=${config['autoSync']}, syncInterval=${config['syncInterval']}',
+        );
+
+        return config;
       } else {
         throw Exception('Failed to get config: ${response.statusCode}');
       }
@@ -354,6 +422,34 @@ class ApiService {
     String status,
   ) async {
     try {
+      // Log appropriate event based on download status
+      String eventType;
+      String eventMessage;
+
+      switch (status.toUpperCase()) {
+        case 'IN_PROGRESS':
+          eventType = 'DOWNLOAD_STARTED';
+          eventMessage = '영상 다운로드 시작';
+          break;
+        case 'COMPLETED':
+          eventType = 'DOWNLOAD_COMPLETED';
+          eventMessage = '영상 다운로드 완료';
+          break;
+        case 'FAILED':
+          eventType = 'DOWNLOAD_FAILED';
+          eventMessage = '영상 다운로드 실패';
+          break;
+        default:
+          eventType = 'DOWNLOAD_STATUS_UPDATE';
+          eventMessage = '영상 다운로드 상태 업데이트';
+      }
+
+      await _eventLogger.logEvent(
+        eventType: eventType,
+        message: eventMessage,
+        metadata: 'videoId=$videoId, status=$status',
+      );
+
       final response = await _dio.patch(
         '/kiosks/by-kioskid/${Uri.encodeComponent(kioskId)}/videos/$videoId/status',
         queryParameters: {'status': status},

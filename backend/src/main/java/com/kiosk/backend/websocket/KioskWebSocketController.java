@@ -85,12 +85,15 @@ public class KioskWebSocketController {
             List<KioskVideoDTO> videos = kioskService.getKioskVideosWithStatusByKioskId(kioskId);
 
             // Send video list back to the requesting kiosk
+            // Include requireReconnect to ensure client refreshes its WebSocket connection
+            // This helps clear out old sessions and ensure only valid tokens remain connected
             messagingTemplate.convertAndSend("/topic/kiosk/" + kioskId, Map.of(
                 "type", "SYNC_RESPONSE",
                 "success", true,
                 "data", videos,
                 "timestamp", LocalDateTime.now().toString(),
-                "message", "영상 목록 동기화 완료"
+                "message", "영상 목록 동기화 완료",
+                "requireReconnect", true
             ));
 
             log.info("Sent {} videos to kiosk {}", videos.size(), kioskId);

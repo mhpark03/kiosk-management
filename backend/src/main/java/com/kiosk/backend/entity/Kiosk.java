@@ -67,6 +67,15 @@ public class Kiosk {
 
     private LocalDateTime lastConnectedAt; // Last connection timestamp
 
+    @Column(length = 50)
+    private String osType; // Operating system type (e.g., Windows, Android)
+
+    @Column(length = 100)
+    private String osVersion; // Operating system version (e.g., Windows 10, Android 12)
+
+    @Column(length = 255)
+    private String deviceName; // Device name/hostname
+
     private LocalDateTime regdate; // Registration date
 
     private LocalDateTime setdate; // Setup date
