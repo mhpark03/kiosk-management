@@ -44,6 +44,8 @@ public class SecurityConfig {
                 .requestMatchers("/api/auth/login", "/api/auth/signup", "/api/auth/reset-password").permitAll()
                 // Kiosk authentication - token generation for WebSocket
                 .requestMatchers("/api/kiosk-auth/token").permitAll()
+                // Kiosk status monitoring - no auth required (for monitoring unattended kiosks with token issues)
+                .requestMatchers("/api/kiosk-status/**").permitAll()
                 // H2 Console (for development/testing only - REMOVE IN PRODUCTION!)
                 .requestMatchers("/h2-console/**").permitAll()
                 // Swagger/OpenAPI endpoints
