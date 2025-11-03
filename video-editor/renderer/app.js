@@ -1365,6 +1365,39 @@ function showToolProperties(tool) {
           <h3 style="margin-bottom: 15px; color: #667eea;">✨ Veo 이미지 생성</h3>
 
           <div class="property-group">
+            <label>참조 이미지 (1~3개)</label>
+            <div style="display: flex; gap: 8px; margin-bottom: 10px;">
+              <button
+                id="veo-ref-img-source-local"
+                class="property-btn"
+                onclick="selectVeoRefImageSource('local')"
+                style="flex: 1; padding: 8px; font-size: 13px; background: #667eea;"
+              >
+                📁 PC
+              </button>
+              <button
+                id="veo-ref-img-source-s3"
+                class="property-btn"
+                onclick="selectVeoRefImageSource('s3')"
+                style="flex: 1; padding: 8px; font-size: 13px; background: #444;"
+              >
+                🖼️ 서버
+              </button>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 10px;">
+              <div id="veo-ref-img-slot-0" style="border: 2px dashed #444; border-radius: 8px; padding: 6px; aspect-ratio: 1/1; cursor: pointer; display: flex; align-items: center; justify-content: center; background: #2a2a2a; position: relative;">
+                <span style="font-size: 24px;">🖼️</span>
+              </div>
+              <div id="veo-ref-img-slot-1" style="border: 2px dashed #444; border-radius: 8px; padding: 6px; aspect-ratio: 1/1; cursor: pointer; display: flex; align-items: center; justify-content: center; background: #2a2a2a; position: relative;">
+                <span style="font-size: 24px;">🖼️</span>
+              </div>
+              <div id="veo-ref-img-slot-2" style="border: 2px dashed #444; border-radius: 8px; padding: 6px; aspect-ratio: 1/1; cursor: pointer; display: flex; align-items: center; justify-content: center; background: #2a2a2a; position: relative;">
+                <span style="font-size: 24px;">🖼️</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="property-group">
             <label>프롬프트 *</label>
             <textarea
               id="image-prompt-veo"
@@ -1380,25 +1413,33 @@ function showToolProperties(tool) {
               id="image-aspect-veo"
               style="width: 100%; padding: 10px; background: #2d2d2d; border: 1px solid #444; border-radius: 5px; color: #e0e0e0; font-size: 14px;"
             >
-              <option value="16:9">16:9 (가로)</option>
+              <option value="16:9" selected>16:9 (가로)</option>
               <option value="9:16">9:16 (세로)</option>
               <option value="1:1">1:1 (정사각형)</option>
+              <option value="3:4">3:4 (세로)</option>
+              <option value="4:3">4:3 (가로)</option>
             </select>
-          </div>
-
-          <div class="property-group">
-            <label>제목 *</label>
-            <input type="text" id="ai-image-title-veo" placeholder="생성될 이미지의 제목">
-          </div>
-
-          <div class="property-group">
-            <label>설명 *</label>
-            <textarea id="ai-image-description-veo" rows="2" placeholder="이미지 설명을 입력하세요"></textarea>
           </div>
 
           <div style="background: #2a2a3e; padding: 12px; border-radius: 8px; margin-top: 10px; border-left: 4px solid #667eea;">
             <button class="property-btn" onclick="executeGenerateImageVeo()" style="width: 100%; margin: 0; background: #667eea;">
-              ✨ 이미지 생성하고 S3에 저장
+              ✨ 이미지 생성
+            </button>
+          </div>
+
+          <div id="veo-image-save-section" style="background: #2a3e2a; padding: 12px; border-radius: 8px; margin-top: 10px; border-left: 4px solid #4ade80; display: none;">
+            <div class="property-group" style="margin-bottom: 10px;">
+              <label>제목 *</label>
+              <input type="text" id="ai-image-title-veo" placeholder="생성된 이미지의 제목">
+            </div>
+
+            <div class="property-group" style="margin-bottom: 10px;">
+              <label>설명</label>
+              <textarea id="ai-image-description-veo" rows="2" placeholder="이미지 설명을 입력하세요"></textarea>
+            </div>
+
+            <button class="property-btn" onclick="saveGeneratedVeoImageToS3()" style="width: 100%; margin: 0; background: #4ade80;">
+              💾 S3에 저장
             </button>
           </div>
         </div>

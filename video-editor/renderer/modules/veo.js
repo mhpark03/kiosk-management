@@ -7,7 +7,8 @@
 import * as ImagenModule from './imagen.js';
 
 // Global state for VEO reference images (for image generation)
-let veoReferenceImages = [null, null, null, null, null];
+let veoReferenceImages = [null, null, null];
+let veoRefImageSourceMode = 'local';  // 'local' or 's3' - tracks which source button is active
 
 // Global state for generated VEO image
 let generatedVeoImage = null;  // {imageData: base64, preview: dataUrl}
@@ -66,29 +67,116 @@ export async function selectVeoRefImage(index, source) {
 }
 
 /**
+ * Select source mode for VEO reference images (local or s3)
+ * @param {string} source - 'local' or 's3'
+ */
+export function selectVeoRefImageSource(source) {
+  console.log('[VEO Image] Setting reference image source to:', source);
+  veoRefImageSourceMode = source;
+
+  // Update button styles
+  const localBtn = document.getElementById('veo-ref-img-source-local');
+  const s3Btn = document.getElementById('veo-ref-img-source-s3');
+
+  if (localBtn && s3Btn) {
+    if (source === 'local') {
+      localBtn.style.background = '#667eea';
+      s3Btn.style.background = '#444';
+    } else {
+      localBtn.style.background = '#444';
+      s3Btn.style.background = '#667eea';
+    }
+  }
+
+  // Make slots clickable
+  for (let i = 0; i < 3; i++) {
+    const slot = document.getElementById(`veo-ref-img-slot-${i}`);
+    if (slot) {
+      slot.onclick = () => selectVeoRefImageSlot(i);
+      slot.style.cursor = 'pointer';
+    }
+  }
+}
+
+/**
+ * Select image for specific slot
+ * @param {number} index - Slot index (0-4)
+ */
+async function selectVeoRefImageSlot(index) {
+  console.log(`[VEO Image] Selecting ${veoRefImageSourceMode} image for slot ${index}`);
+  await selectVeoRefImage(index, veoRefImageSourceMode);
+}
+
+/**
  * Update reference image preview
  * @param {number} index - Reference image slot index
  */
 export function updateVeoRefImagePreview(index) {
   const imageData = veoReferenceImages[index];
-  const previewDiv = document.getElementById(`veo-ref-img${index}-preview`);
+  const slotDiv = document.getElementById(`veo-ref-img-slot-${index}`);
 
-  if (!previewDiv) return;
+  if (!slotDiv) {
+    console.error(`[VEO Image] Slot not found: veo-ref-img-slot-${index}`);
+    return;
+  }
 
   if (imageData && imageData.preview) {
-    previewDiv.innerHTML = `
-      <img src="${imageData.preview}" style="width: 100%; height: 100%; object-fit: contain;" />
+    slotDiv.style.border = '2px solid #667eea';
+    slotDiv.innerHTML = `
+      <img src="${imageData.preview}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 6px;" />
       <button
-        onclick="window.clearVeoRefImage(${index})"
-        style="position: absolute; top: 5px; right: 5px; background: rgba(220, 53, 69, 0.9); color: white; border: none; border-radius: 50%; width: 25px; height: 25px; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; padding: 0;"
+        onclick="window.clearVeoRefImage(${index}); event.stopPropagation();"
+        style="position: absolute; top: 2px; right: 2px; background: rgba(220, 53, 69, 0.9); color: white; border: none; border-radius: 50%; width: 20px; height: 20px; cursor: pointer; font-size: 12px; display: flex; align-items: center; justify-content: center; padding: 0; z-index: 10;"
       >✕</button>
-      <div style="position: absolute; bottom: 5px; left: 5px; background: rgba(0, 0, 0, 0.7); color: white; padding: 3px 8px; border-radius: 3px; font-size: 11px;">
+      <div style="position: absolute; bottom: 2px; left: 2px; background: rgba(0, 0, 0, 0.7); color: white; padding: 2px 6px; border-radius: 3px; font-size: 10px;">
         ${imageData.source === 's3' ? '서버' : 'PC'}
       </div>
     `;
+
+    // Show in center preview
+    showVeoRefImagesInCenterPreview();
   } else {
-    previewDiv.innerHTML = `<span style="color: #888; font-size: 13px;">이미지 ${index + 1}</span>`;
+    slotDiv.style.border = '2px dashed #444';
+    slotDiv.innerHTML = `<span style="font-size: 24px;">🖼️</span>`;
+
+    // Update center preview
+    showVeoRefImagesInCenterPreview();
   }
+}
+
+/**
+ * Show VEO reference images in center preview
+ */
+function showVeoRefImagesInCenterPreview() {
+  const centerImagePreview = document.getElementById('generated-image-preview');
+  const centerVideoPreview = document.getElementById('preview-video');
+  const centerPlaceholder = document.getElementById('preview-placeholder');
+
+  if (!centerImagePreview || !centerVideoPreview || !centerPlaceholder) {
+    console.error('[VEO Image] Center preview elements not found');
+    return;
+  }
+
+  // Get selected images
+  const selectedImages = veoReferenceImages.filter(img => img !== null);
+
+  if (selectedImages.length === 0) {
+    // No images selected, show placeholder
+    centerVideoPreview.style.display = 'none';
+    centerImagePreview.style.display = 'none';
+    centerPlaceholder.style.display = 'flex';
+    return;
+  }
+
+  // Hide other elements
+  centerVideoPreview.style.display = 'none';
+  centerPlaceholder.style.display = 'none';
+
+  // Show first selected image in center
+  centerImagePreview.src = selectedImages[0].preview;
+  centerImagePreview.style.display = 'block';
+
+  console.log(`[VEO Image] Showing ${selectedImages.length} reference images in center preview`);
 }
 
 /**
@@ -217,8 +305,6 @@ async function openVeoRefImageS3Selector(index) {
 export async function executeGenerateImageVeo() {
   const prompt = document.getElementById('image-prompt-veo')?.value;
   const aspect = document.getElementById('image-aspect-veo')?.value;
-  const title = document.getElementById('ai-image-title-veo')?.value?.trim();
-  const description = document.getElementById('ai-image-description-veo')?.value?.trim();
 
   if (!prompt) {
     alert('프롬프트를 입력해주세요.');
@@ -302,9 +388,23 @@ export async function executeGenerateImageVeo() {
 function displayGeneratedVeoImagePreview() {
   if (!generatedVeoImage) return;
 
-  const previewSection = document.getElementById('veo-generated-image-section');
-  if (previewSection) {
-    previewSection.style.display = 'block';
+  // Show in center preview
+  const centerImagePreview = document.getElementById('generated-image-preview');
+  const centerVideoPreview = document.getElementById('preview-video');
+  const centerPlaceholder = document.getElementById('preview-placeholder');
+
+  if (centerImagePreview && centerVideoPreview && centerPlaceholder) {
+    centerVideoPreview.style.display = 'none';
+    centerPlaceholder.style.display = 'none';
+    centerImagePreview.src = generatedVeoImage.preview;
+    centerImagePreview.style.display = 'block';
+    console.log('[VEO Image] Displaying generated image in center preview');
+  }
+
+  // Show S3 save section
+  const saveSection = document.getElementById('veo-image-save-section');
+  if (saveSection) {
+    saveSection.style.display = 'block';
   }
 
   const previewDiv = document.getElementById('veo-generated-image-preview');
