@@ -1544,7 +1544,33 @@ function showToolProperties(tool) {
     case 'generate-video-veo':
       propertiesPanel.innerHTML = `
         <div style="height: calc(100vh - 250px); overflow-y: auto; overflow-x: hidden; padding-right: 10px;">
-          <h3 style="margin-bottom: 15px; color: #667eea;">🌟 Veo 영상 생성</h3>
+          <h3 style="margin-bottom: 15px; color: #667eea;">🌟 Veo 영상 생성 (Image to Video)</h3>
+
+          <!-- Image Upload Section -->
+          <div class="property-group">
+            <label>시작 이미지 *</label>
+            <div style="display: flex; gap: 8px; margin-bottom: 10px;">
+              <button
+                id="veo-img-source-local"
+                class="property-btn"
+                onclick="selectVeoImageSource('local')"
+                style="flex: 1; padding: 8px; font-size: 13px; background: #667eea;"
+              >
+                📁 PC
+              </button>
+              <button
+                id="veo-img-source-s3"
+                class="property-btn"
+                onclick="selectVeoImageSource('s3')"
+                style="flex: 1; padding: 8px; font-size: 13px; background: #444;"
+              >
+                🖼️ 서버
+              </button>
+            </div>
+            <div id="veo-img-preview" style="width: 100%; height: 150px; background: #2d2d2d; border: 1px solid #444; border-radius: 5px; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden;">
+              <span style="color: #888; font-size: 13px;">이미지를 선택하세요</span>
+            </div>
+          </div>
 
           <div class="property-group">
             <label>프롬프트 *</label>
@@ -1558,43 +1584,66 @@ function showToolProperties(tool) {
 
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
             <div class="property-group">
-              <label>영상 길이 (초)</label>
+              <label>영상 길이</label>
               <select
                 id="video-duration-veo"
                 style="width: 100%; padding: 10px; background: #2d2d2d; border: 1px solid #444; border-radius: 5px; color: #e0e0e0; font-size: 14px;"
               >
-                <option value="5">5초</option>
-                <option value="8" selected>8초</option>
-                <option value="10">10초</option>
+                <option value="4">4초</option>
+                <option value="5" selected>5초</option>
+                <option value="8">8초</option>
               </select>
             </div>
 
             <div class="property-group">
-              <label>화면 비율</label>
+              <label>해상도</label>
               <select
-                id="video-aspect-veo"
+                id="video-resolution-veo"
                 style="width: 100%; padding: 10px; background: #2d2d2d; border: 1px solid #444; border-radius: 5px; color: #e0e0e0; font-size: 14px;"
               >
-                <option value="16:9" selected>16:9 (가로)</option>
-                <option value="9:16">9:16 (세로)</option>
+                <option value="720p" selected>720p</option>
+                <option value="1080p">1080p</option>
               </select>
             </div>
           </div>
 
           <div class="property-group">
-            <label>제목 *</label>
-            <input type="text" id="ai-video-title-veo" placeholder="생성될 영상의 제목">
+            <label>화면 비율</label>
+            <select
+              id="video-aspect-veo"
+              style="width: 100%; padding: 10px; background: #2d2d2d; border: 1px solid #444; border-radius: 5px; color: #e0e0e0; font-size: 14px;"
+            >
+              <option value="16:9" selected>16:9 (가로)</option>
+              <option value="9:16">9:16 (세로)</option>
+              <option value="1:1">1:1 (정사각형)</option>
+            </select>
           </div>
 
-          <div class="property-group">
-            <label>설명 *</label>
-            <textarea id="ai-video-description-veo" rows="2" placeholder="영상 설명을 입력하세요"></textarea>
-          </div>
-
-          <div style="background: #2a2a3e; padding: 12px; border-radius: 8px; margin-top: 10px; border-left: 4px solid #667eea;">
+          <!-- Generate Button -->
+          <div style="background: #2a2a3e; padding: 12px; border-radius: 8px; margin-top: 10px; margin-bottom: 15px; border-left: 4px solid #667eea;">
             <button class="property-btn" onclick="executeGenerateVideoVeo()" style="width: 100%; margin: 0; background: #667eea;">
-              🌟 영상 생성하고 S3에 저장
+              🎬 영상 만들기
             </button>
+          </div>
+
+          <!-- Generated Video Preview -->
+          <div id="veo-video-preview-section" style="display: none;">
+            <div class="property-group">
+              <label>제목 *</label>
+              <input type="text" id="ai-video-title-veo" placeholder="S3에 저장할 영상의 제목">
+            </div>
+
+            <div class="property-group">
+              <label>설명 *</label>
+              <textarea id="ai-video-description-veo" rows="2" placeholder="영상 설명을 입력하세요"></textarea>
+            </div>
+
+            <!-- Save to S3 Button -->
+            <div style="background: #2a2a3e; padding: 12px; border-radius: 8px; margin-top: 10px; border-left: 4px solid #28a745;">
+              <button class="property-btn" onclick="saveVeoVideoToS3()" style="width: 100%; margin: 0; background: #28a745;">
+                💾 S3에 저장
+              </button>
+            </div>
           </div>
         </div>
       `;
@@ -9791,6 +9840,16 @@ let runwayVideoImages = {
 // Global state for generated video
 let generatedRunwayVideo = null;  // {filePath: string, url: string, metadata: object}
 
+// ============================================================================
+// VEO Video Generation
+// ============================================================================
+
+// Global state for VEO image
+let veoImage = null;  // {source: 'local'|'s3', filePath: string, preview: string}
+
+// Global state for generated VEO video
+let generatedVeoVideo = null;  // {url: string, taskId: string}
+
 // Model configurations for Runway video generation
 const runwayVideoModelConfig = {
   'gen3a_turbo': {
@@ -10998,29 +11057,391 @@ async function saveRunwayVideoToS3() {
   }
 }
 
-// Veo Video Generation
-async function executeGenerateVideoVeo() {
-  const prompt = document.getElementById('video-prompt-veo')?.value;
-  const duration = document.getElementById('video-duration-veo')?.value;
-  const aspect = document.getElementById('video-aspect-veo')?.value;
-  const title = document.getElementById('ai-video-title-veo')?.value?.trim();
-  const description = document.getElementById('ai-video-description-veo')?.value?.trim();
+// ============================================================================
+// VEO Video Generation Functions
+// ============================================================================
 
+/**
+ * Select image source for VEO video generation
+ */
+async function selectVeoImageSource(source) {
+  console.log(`[VEO Video] Selecting ${source} image`);
+
+  if (source === 'local') {
+    // Select from local PC
+    try {
+      const filePath = await window.electronAPI.selectMedia('image');
+
+      if (!filePath) {
+        console.log('[VEO Video] No file selected');
+        return;
+      }
+
+      console.log('[VEO Video] Selected local file:', filePath);
+
+      // Store in global state
+      veoImage = {
+        source: 'local',
+        filePath: filePath,
+        preview: `file://${filePath}`
+      };
+
+      // Update preview
+      updateVeoImagePreview();
+
+      // Update button states
+      updateVeoSourceButtons('local');
+    } catch (error) {
+      console.error('[VEO Video] Error selecting local image:', error);
+      alert('이미지 선택 중 오류가 발생했습니다.');
+    }
+  } else if (source === 's3') {
+    // Select from S3
+    try {
+      // Open S3 image selector modal
+      await openVeoS3ImageSelector();
+
+      // Update button states
+      updateVeoSourceButtons('s3');
+    } catch (error) {
+      console.error('[VEO Video] Error opening S3 selector:', error);
+      alert('S3 이미지 선택 중 오류가 발생했습니다.');
+    }
+  }
+}
+
+/**
+ * Update source button states
+ */
+function updateVeoSourceButtons(activeSource) {
+  const localBtn = document.getElementById('veo-img-source-local');
+  const s3Btn = document.getElementById('veo-img-source-s3');
+
+  if (localBtn && s3Btn) {
+    if (activeSource === 'local') {
+      localBtn.style.background = '#667eea';
+      s3Btn.style.background = '#444';
+    } else {
+      localBtn.style.background = '#444';
+      s3Btn.style.background = '#667eea';
+    }
+  }
+}
+
+/**
+ * Update image preview
+ */
+function updateVeoImagePreview() {
+  const previewDiv = document.getElementById('veo-img-preview');
+
+  if (!previewDiv) return;
+
+  if (veoImage && veoImage.preview) {
+    previewDiv.innerHTML = `
+      <img src="${veoImage.preview}" style="width: 100%; height: 100%; object-fit: contain;" />
+      <button
+        onclick="clearVeoImage()"
+        style="position: absolute; top: 5px; right: 5px; background: rgba(220, 53, 69, 0.9); color: white; border: none; border-radius: 50%; width: 25px; height: 25px; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; padding: 0;"
+      >✕</button>
+      <div style="position: absolute; bottom: 5px; left: 5px; background: rgba(0, 0, 0, 0.7); color: white; padding: 3px 8px; border-radius: 3px; font-size: 11px;">
+        ${veoImage.source === 's3' ? '서버' : 'PC'}
+      </div>
+    `;
+  } else {
+    previewDiv.innerHTML = `<span style="color: #888; font-size: 13px;">이미지를 선택하세요</span>`;
+  }
+}
+
+/**
+ * Clear selected image
+ */
+function clearVeoImage() {
+  veoImage = null;
+  updateVeoImagePreview();
+  console.log('[VEO Video] Cleared image');
+}
+
+/**
+ * Open S3 image selector modal
+ */
+async function openVeoS3ImageSelector() {
+  console.log('[VEO Video] Opening S3 image selector');
+
+  try {
+    // Fetch images from backend
+    const response = await fetch('http://localhost:8080/api/videos/images');
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch images: ${response.status}`);
+    }
+
+    const images = await response.json();
+    console.log(`[VEO Video] Loaded ${images.length} images from S3`);
+
+    // Create modal
+    const modal = document.createElement('div');
+    modal.id = 'veo-s3-modal';
+    modal.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
+    `;
+
+    const modalContent = document.createElement('div');
+    modalContent.style.cssText = `
+      background: #1e1e2e;
+      padding: 20px;
+      border-radius: 10px;
+      width: 80%;
+      max-width: 900px;
+      max-height: 80vh;
+      overflow-y: auto;
+    `;
+
+    const title = document.createElement('h3');
+    title.textContent = '서버 이미지 선택';
+    title.style.cssText = 'color: #667eea; margin-bottom: 15px;';
+
+    const grid = document.createElement('div');
+    grid.style.cssText = `
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 15px;
+      margin-bottom: 15px;
+    `;
+
+    // Add images
+    images.forEach(image => {
+      const imgCard = document.createElement('div');
+      imgCard.style.cssText = `
+        cursor: pointer;
+        border: 2px solid transparent;
+        border-radius: 8px;
+        overflow: hidden;
+        transition: border-color 0.3s;
+      `;
+
+      imgCard.innerHTML = `
+        <img src="${image.url}" style="width: 100%; height: 120px; object-fit: cover;" />
+        <div style="padding: 8px; background: #2d2d2d;">
+          <div style="color: white; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${image.title || 'Untitled'}</div>
+        </div>
+      `;
+
+      imgCard.onmouseover = () => imgCard.style.borderColor = '#667eea';
+      imgCard.onmouseout = () => imgCard.style.borderColor = 'transparent';
+
+      imgCard.onclick = () => {
+        veoImage = {
+          source: 's3',
+          filePath: image.url,
+          preview: image.url
+        };
+        updateVeoImagePreview();
+        document.body.removeChild(modal);
+        console.log('[VEO Video] Selected S3 image:', image.url);
+      };
+
+      grid.appendChild(imgCard);
+    });
+
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = '닫기';
+    closeBtn.className = 'property-btn';
+    closeBtn.style.cssText = 'width: 100%; margin-top: 10px;';
+    closeBtn.onclick = () => document.body.removeChild(modal);
+
+    modalContent.appendChild(title);
+    modalContent.appendChild(grid);
+    modalContent.appendChild(closeBtn);
+    modal.appendChild(modalContent);
+    document.body.appendChild(modal);
+
+  } catch (error) {
+    console.error('[VEO Video] Failed to open S3 image selector:', error);
+    alert('서버 이미지 목록을 불러오는 중 오류가 발생했습니다.');
+  }
+}
+
+/**
+ * Generate video with VEO (Image to Video)
+ */
+async function executeGenerateVideoVeo() {
+  const prompt = document.getElementById('video-prompt-veo')?.value?.trim();
+  const duration = document.getElementById('video-duration-veo')?.value || '4';
+  const resolution = document.getElementById('video-resolution-veo')?.value || '720p';
+  const aspectRatio = document.getElementById('video-aspect-veo')?.value || '16:9';
+
+  // Validate inputs
   if (!prompt) {
     alert('프롬프트를 입력해주세요.');
     return;
   }
 
-  alert('Veo 영상 생성 기능은 곧 구현될 예정입니다.\n\n' +
-        `프롬프트: ${prompt}\n` +
-        `길이: ${duration}초\n` +
-        `종횡비: ${aspect}\n` +
-        `제목: ${title}\n` +
-        `설명: ${description}\n\n` +
-        '⚙️ Google Veo API 연동이 필요합니다.\n' +
-        '구현 시 /api/ai/upload 엔드포인트로 S3에 자동 저장됩니다.');
+  if (!veoImage) {
+    alert('시작 이미지를 선택해주세요.');
+    return;
+  }
 
-  console.log('[Veo Video] Placeholder called with:', { prompt, duration, aspect, title, description });
+  try {
+    console.log('[VEO Video] Starting video generation...');
+    console.log('[VEO Video] Prompt:', prompt);
+    console.log('[VEO Video] Duration:', duration);
+    console.log('[VEO Video] Resolution:', resolution);
+    console.log('[VEO Video] Aspect Ratio:', aspectRatio);
+    console.log('[VEO Video] Image:', veoImage);
+
+    updateProgress(10, '영상 생성 준비 중...');
+    updateStatus('영상 생성 준비 중...');
+
+    // Prepare form data
+    const formData = new FormData();
+    formData.append('prompt', prompt);
+    formData.append('duration', duration);
+    formData.append('resolution', resolution);
+    formData.append('aspectRatio', aspectRatio);
+
+    // Add image file
+    if (veoImage.source === 'local') {
+      // Read local file using file:// protocol
+      updateProgress(15, '이미지 로드 중...');
+      const imageResponse = await fetch(`file://${veoImage.filePath}`);
+      const imageBlob = await imageResponse.blob();
+      const fileName = veoImage.filePath.split(/[\\/]/).pop();
+      formData.append('firstFrame', imageBlob, fileName);
+    } else if (veoImage.source === 's3') {
+      // For S3 images, we need to fetch and convert to blob
+      updateProgress(15, 'S3 이미지 다운로드 중...');
+      const imageResponse = await fetch(veoImage.filePath);
+      const imageBlob = await imageResponse.blob();
+      formData.append('firstFrame', imageBlob, 'image.jpg');
+    }
+
+    updateProgress(20, 'VEO API 호출 중...');
+
+    // Call backend VEO API
+    const response = await fetch('http://localhost:8080/api/veo/generate-with-first-frame', {
+      method: 'POST',
+      body: formData
+    });
+
+    if (!response.ok) {
+      throw new Error(`API call failed: ${response.status} ${response.statusText}`);
+    }
+
+    const result = await response.json();
+    console.log('[VEO Video] Generation result:', result);
+
+    if (!result.success) {
+      throw new Error(result.message || 'Video generation failed');
+    }
+
+    // Store generated video info
+    generatedVeoVideo = {
+      url: result.videoUrl,
+      taskId: result.taskId
+    };
+
+    updateProgress(100, '영상 생성 완료!');
+    updateStatus('영상 생성 완료!');
+
+    // Show success message
+    alert(`영상이 생성되었습니다!\n\nTask ID: ${result.taskId}\n\n영상을 재생하거나 S3에 저장할 수 있습니다.`);
+
+    // Show preview section
+    const previewSection = document.getElementById('veo-video-preview-section');
+    if (previewSection) {
+      previewSection.style.display = 'block';
+    }
+
+    console.log('[VEO Video] Video generated successfully');
+
+  } catch (error) {
+    console.error('[VEO Video] Generation failed:', error);
+    alert('영상 생성 중 오류가 발생했습니다: ' + error.message);
+    updateProgress(0, '');
+    updateStatus('');
+  }
+}
+
+/**
+ * Save generated VEO video to S3
+ */
+async function saveVeoVideoToS3() {
+  if (!generatedVeoVideo || !generatedVeoVideo.url) {
+    alert('저장할 영상이 없습니다. 먼저 영상을 생성해주세요.');
+    return;
+  }
+
+  const title = document.getElementById('ai-video-title-veo')?.value?.trim();
+  const description = document.getElementById('ai-video-description-veo')?.value?.trim();
+
+  if (!title) {
+    alert('제목을 입력해주세요.');
+    return;
+  }
+
+  try {
+    console.log('[VEO Video] Saving to S3...');
+    updateProgress(10, 'S3 저장 준비 중...');
+    updateStatus('S3 저장 중...');
+
+    // Download video from VEO URL
+    updateProgress(20, '영상 다운로드 중...');
+    const videoResponse = await fetch(generatedVeoVideo.url);
+    if (!videoResponse.ok) {
+      throw new Error('Failed to download generated video');
+    }
+
+    const videoBlob = await videoResponse.blob();
+    console.log('[VEO Video] Video downloaded, size:', videoBlob.size);
+
+    // Upload to S3 via backend
+    updateProgress(50, 'S3 업로드 중...');
+    const formData = new FormData();
+    formData.append('file', videoBlob, `veo_${Date.now()}.mp4`);
+    formData.append('title', title);
+    formData.append('description', description || '');
+
+    const uploadResponse = await fetch('http://localhost:8080/api/ai/upload', {
+      method: 'POST',
+      body: formData
+    });
+
+    if (!uploadResponse.ok) {
+      throw new Error(`S3 upload failed: ${uploadResponse.status}`);
+    }
+
+    const uploadResult = await uploadResponse.json();
+    console.log('[VEO Video] Upload result:', uploadResult);
+
+    updateProgress(100, 'S3 저장 완료!');
+    updateStatus('S3 저장 완료!');
+
+    alert('영상이 S3에 저장되었습니다!\n\n' +
+          `제목: ${title}\n` +
+          `설명: ${description}\n\n` +
+          '⚙️ 백엔드 API와 연동하여 S3에 자동 업로드되었습니다.');
+
+    console.log('[VEO Video] Saved to S3 successfully');
+
+    // Clear form
+    document.getElementById('ai-video-title-veo').value = '';
+    document.getElementById('ai-video-description-veo').value = '';
+
+  } catch (error) {
+    console.error('[VEO Video] S3 upload failed:', error);
+    alert('S3 저장 중 오류가 발생했습니다: ' + error.message);
+    updateProgress(0, '');
+    updateStatus('');
+  }
 }
 
 // Preview TTS audio before saving
