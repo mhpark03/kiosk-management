@@ -197,8 +197,21 @@ async function openVeoRefImageS3Selector(index) {
   console.log(`[VEO Image] Opening S3 image selector for slot ${index}`);
 
   try {
+    // Get auth token
+    const authToken = window.getAuthToken ? window.getAuthToken() : null;
+    const backendUrl = window.getBackendUrl ? window.getBackendUrl() : 'http://localhost:8080';
+
+    if (!authToken) {
+      alert('로그인이 필요합니다.');
+      return;
+    }
+
     // Fetch images from backend
-    const response = await fetch('http://localhost:8080/api/videos/images');
+    const response = await fetch(`${backendUrl}/api/videos/images`, {
+      headers: {
+        'Authorization': `Bearer ${authToken}`
+      }
+    });
 
     if (!response.ok) {
       throw new Error(`Failed to fetch images: ${response.status}`);
