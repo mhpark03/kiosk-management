@@ -12,7 +12,6 @@ import '../models/kiosk.dart';
 import 'settings_screen.dart';
 import 'login_screen.dart';
 import 'video_player_screen.dart';
-import 'veo_generator_screen.dart';
 
 class VideoListScreen extends StatefulWidget {
   final ApiService apiService;
@@ -885,21 +884,6 @@ class _VideoListScreenState extends State<VideoListScreen> {
           ],
         ),
         actions: [
-          // VEO AI 영상 생성 버튼
-          IconButton(
-            icon: const Icon(Icons.auto_awesome, size: 20),
-            onPressed: () {
-              _resetAutoLogoutTimer();
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => const VeoGeneratorScreen(),
-                ),
-              );
-            },
-            tooltip: 'AI 영상 생성',
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-          ),
           // 로그인/로그아웃 버튼
           if (_isLoggedIn)
             IconButton(
