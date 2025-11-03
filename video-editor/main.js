@@ -6,6 +6,7 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const { spawn } = require('child_process');
+const veoHelper = require('./veo-helper');
 
 let mainWindow;
 let ffmpegPath;
@@ -3172,120 +3173,10 @@ ipcMain.handle('poll-runway-task', async (event, taskId) => {
 });
 
 /**
- * Get Google Cloud access token for Vertex AI API
- */
-ipcMain.handle('get-google-access-token', async () => {
-  logInfo('GOOGLE_AUTH', 'Getting Google Cloud access token');
-
-  try {
-    const { GoogleAuth } = require('google-auth-library');
-
-    // Initialize Google Auth with service account credentials
-    const auth = new GoogleAuth({
-      scopes: ['https://www.googleapis.com/auth/cloud-platform'],
-      // Use GOOGLE_APPLICATION_CREDENTIALS environment variable or default credentials
-      keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS
-    });
-
-    const client = await auth.getClient();
-    const accessToken = await client.getAccessToken();
-
-    if (!accessToken || !accessToken.token) {
-      throw new Error('Failed to obtain access token');
-    }
-
-    logInfo('GOOGLE_AUTH', 'Access token obtained successfully');
-    return { token: accessToken.token };
-
-  } catch (error) {
-    logError('GOOGLE_AUTH_ERROR', 'Failed to get access token', {
-      error: error.message
-    });
-    throw error;
-  }
-});
-
-/**
- * Generate video with Google VEO API directly
+ * Generate video with Google VEO API using Gemini API (matching backend implementation)
  */
 ipcMain.handle('generate-veo-video', async (event, params) => {
-  logInfo('VEO_GENERATE', 'Starting VEO video generation', {
-    hasImage: !!params.imageBase64,
-    promptLength: params.prompt?.length || 0
-  });
-
-  try {
-    const { GoogleAuth } = require('google-auth-library');
-    const axios = require('axios');
-
-    // Get access token
-    const auth = new GoogleAuth({
-      scopes: ['https://www.googleapis.com/auth/cloud-platform'],
-      keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS
-    });
-
-    const client = await auth.getClient();
-    const accessToken = await client.getAccessToken();
-
-    if (!accessToken || !accessToken.token) {
-      throw new Error('Failed to obtain access token');
-    }
-
-    // Google Cloud project configuration
-    const projectId = process.env.GOOGLE_CLOUD_PROJECT || 'ringo-system-456';
-    const location = 'us-central1';
-
-    // Call Vertex AI Veo API
-    const apiUrl = `https://${location}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${location}/publishers/google/models/veo-001:generateVideo`;
-
-    const requestBody = {
-      instances: [{
-        prompt: params.prompt,
-        image: {
-          bytesBase64Encoded: params.imageBase64
-        }
-      }],
-      parameters: {
-        sampleCount: 1,
-        videoDurationSeconds: parseInt(params.duration || 4),
-        aspectRatio: params.aspectRatio || '16:9'
-      }
-    };
-
-    logInfo('VEO_GENERATE', 'Calling VEO API', { projectId, location });
-
-    const response = await axios.post(apiUrl, requestBody, {
-      headers: {
-        'Authorization': `Bearer ${accessToken.token}`,
-        'Content-Type': 'application/json'
-      },
-      timeout: 300000 // 5 minutes timeout for video generation
-    });
-
-    const result = response.data;
-    logInfo('VEO_GENERATE', 'VEO API response received', {
-      status: response.status,
-      hasData: !!result
-    });
-
-    // Extract video URL from response
-    const videoUrl = result.predictions?.[0]?.videoUri || result.videoUrl;
-    const taskId = result.name || `veo-${Date.now()}`;
-
-    return {
-      success: true,
-      videoUrl: videoUrl,
-      taskId: taskId,
-      rawResponse: result
-    };
-
-  } catch (error) {
-    logError('VEO_GENERATE_ERROR', 'Failed to generate VEO video', {
-      error: error.message,
-      response: error.response?.data
-    });
-    throw error;
-  }
+  return await veoHelper.generateVeoVideo(params, logInfo, logError);
 });
 
 logInfo('SYSTEM', 'Kiosk Video Editor initialized');

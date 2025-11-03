@@ -56,8 +56,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   generateImageRunway: (params) => ipcRenderer.invoke('generate-image-runway', params),
   pollRunwayTask: (taskId) => ipcRenderer.invoke('poll-runway-task', taskId),
 
-  // Google VEO operations
-  getGoogleAccessToken: () => ipcRenderer.invoke('get-google-access-token'),
+  // Google VEO operations (using Gemini API with API Key - matching backend)
   generateVeoVideo: (params) => ipcRenderer.invoke('generate-veo-video', params),
 
   // Backend authentication
