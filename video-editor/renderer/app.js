@@ -5461,7 +5461,7 @@ async function executeExtractAudioToS3() {
     }
 
     const allVideos = await checkResponse.json();
-    const audioFiles = allVideos.filter(v => v.contentType && v.contentType.startsWith('audio/'));
+    const audioFiles = allVideos.filter(v => v.mediaType === 'AUDIO');
     const duplicateTitle = audioFiles.find(audio => audio.title === title);
 
     if (duplicateTitle) {
@@ -8331,7 +8331,7 @@ async function executeExportAudioToS3() {
     }
 
     const allVideos = await checkResponse.json();
-    const audioFiles = allVideos.filter(v => v.contentType && v.contentType.startsWith('audio/'));
+    const audioFiles = allVideos.filter(v => v.mediaType === 'AUDIO');
     const duplicateTitle = audioFiles.find(audio => audio.title === title);
 
     if (duplicateTitle) {
@@ -8499,7 +8499,7 @@ async function executeExportVideoToS3() {
     }
 
     const allVideos = await checkResponse.json();
-    const videoFiles = allVideos.filter(v => v.contentType && v.contentType.startsWith('video/'));
+    const videoFiles = allVideos.filter(v => v.mediaType === 'VIDEO');
     const duplicateTitle = videoFiles.find(video => video.title === title);
 
     if (duplicateTitle) {
