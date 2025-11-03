@@ -64,11 +64,9 @@ class VeoVideoResult {
   }
 }
 
-/// Enum for VEO generation mode
+/// Enum for VEO generation mode (simplified to Image to Video only)
 enum VeoGenerationMode {
-  promptOnly('Text to Video'),
-  withFirstFrame('Image to Video'),
-  withInterpolation('Interpolation (First + Last Frame)');
+  withFirstFrame('Image to Video');
 
   final String displayName;
   const VeoGenerationMode(this.displayName);
