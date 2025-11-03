@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: file: blob: https://*.s3.ap-northeast-2.amazonaws.com https://*.s3.amazonaws.com https://*.cloudfront.net; media-src 'self' data: file: blob:; connect-src 'self' http://localhost:* http://127.0.0.1:* https://*.s3.ap-northeast-2.amazonaws.com https://*.s3.amazonaws.com https://*.cloudfront.net;">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: file: blob: https://*.s3.ap-northeast-2.amazonaws.com https://*.s3.amazonaws.com https://*.cloudfront.net; media-src 'self' data: file: blob: https://generativelanguage.googleapis.com; connect-src 'self' http://localhost:* http://127.0.0.1:* https://*.s3.ap-northeast-2.amazonaws.com https://*.s3.amazonaws.com https://*.cloudfront.net https://generativelanguage.googleapis.com;">
   <title>Kiosk Video Editor - 고급 영상/음성 편집</title>
   <link rel="stylesheet" href="styles.css">
 </head>
@@ -249,6 +249,12 @@
     <div id="modal-content" class="modal-content"></div>
   </div>
 
+  <script type="module">
+    import { initializeModules } from './modules/module-loader.js';
+    document.addEventListener('DOMContentLoaded', () => {
+      initializeModules();
+    });
+  </script>
   <script src="app.js"></script>
 </body>
 </html>

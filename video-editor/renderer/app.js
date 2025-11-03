@@ -459,7 +459,10 @@ function closeCustomDialog() {
 window.closeCustomDialog = closeCustomDialog;
 
 // Initialize app
+console.log('[APP.JS] Script loaded');
+
 document.addEventListener('DOMContentLoaded', () => {
+  console.log('[APP.JS] DOMContentLoaded fired');
   setupToolButtons();
   setupVideoControls();
   setupFFmpegProgressListener();
@@ -468,6 +471,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setupImportButton();
   updateModeUI();
   updateStatus('준비 완료');
+  console.log('[APP.JS] Initialization complete');
 });
 
 // Setup import button in preview placeholder
@@ -1551,23 +1555,23 @@ function showToolProperties(tool) {
             <label>시작 이미지 *</label>
             <div style="display: flex; gap: 8px; margin-bottom: 10px;">
               <button
-                id="veo-img-source-local"
+                id="veo-video-img-source-local"
                 class="property-btn"
-                onclick="selectVeoImageSource('local')"
+                onclick="selectVeoVideoImageSource('local')"
                 style="flex: 1; padding: 8px; font-size: 13px; background: #667eea;"
               >
                 📁 PC
               </button>
               <button
-                id="veo-img-source-s3"
+                id="veo-video-img-source-s3"
                 class="property-btn"
-                onclick="selectVeoImageSource('s3')"
+                onclick="selectVeoVideoImageSource('s3')"
                 style="flex: 1; padding: 8px; font-size: 13px; background: #444;"
               >
                 🖼️ 서버
               </button>
             </div>
-            <div id="veo-img-preview" style="width: 100%; height: 150px; background: #2d2d2d; border: 1px solid #444; border-radius: 5px; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden;">
+            <div id="veo-video-img-preview" style="width: 100%; height: 150px; background: #2d2d2d; border: 1px solid #444; border-radius: 5px; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden;">
               <span style="color: #888; font-size: 13px;">이미지를 선택하세요</span>
             </div>
           </div>
@@ -1589,8 +1593,8 @@ function showToolProperties(tool) {
                 id="video-duration-veo"
                 style="width: 100%; padding: 10px; background: #2d2d2d; border: 1px solid #444; border-radius: 5px; color: #e0e0e0; font-size: 14px;"
               >
-                <option value="4">4초</option>
-                <option value="5" selected>5초</option>
+                <option value="4" selected>4초</option>
+                <option value="6">6초</option>
                 <option value="8">8초</option>
               </select>
             </div>
@@ -5961,6 +5965,9 @@ function updateStatus(text) {
   document.getElementById('status-text').textContent = text;
 }
 
+// Expose updateStatus to window for module access
+window.updateStatus = updateStatus;
+
 // Audio file editing functions
 async function importAudioFile() {
   // Check authentication
@@ -8687,30 +8694,46 @@ async function previewAudioTrimRange() {
 
 // Mode switching functions
 function setupModeButtons() {
+  console.log('[setupModeButtons] Setting up mode buttons');
   const videoModeBtn = document.getElementById('video-mode-btn');
   const audioModeBtn = document.getElementById('audio-mode-btn');
   const contentModeBtn = document.getElementById('content-mode-btn');
 
+  console.log('[setupModeButtons] Buttons found:', {
+    video: !!videoModeBtn,
+    audio: !!audioModeBtn,
+    content: !!contentModeBtn
+  });
+
   if (videoModeBtn) {
     videoModeBtn.addEventListener('click', () => {
+      console.log('[Mode Button] Video button clicked');
       switchMode('video');
     });
   }
 
   if (audioModeBtn) {
     audioModeBtn.addEventListener('click', () => {
+      console.log('[Mode Button] Audio button clicked');
       switchMode('audio');
     });
   }
 
   if (contentModeBtn) {
     contentModeBtn.addEventListener('click', () => {
+      console.log('[Mode Button] Content button clicked');
       switchMode('content');
     });
   }
+
+  console.log('[setupModeButtons] Mode buttons setup complete');
 }
 
+// Expose setupModeButtons to window for module access
+window.setupModeButtons = setupModeButtons;
+
 function switchMode(mode) {
+  console.log('[switchMode] Switching to:', mode, 'from:', currentMode);
   if (currentMode === mode) {
     return; // Already in this mode
   }
@@ -12055,8 +12078,3 @@ async function fetchMediaFromS3(mediaType = 'all') {
 
 // Make fetchMediaFromS3 globally accessible
 window.fetchMediaFromS3 = fetchMediaFromS3;
-
-// Initialize auth on page load
-document.addEventListener('DOMContentLoaded', () => {
-  initializeAuth();
-});
