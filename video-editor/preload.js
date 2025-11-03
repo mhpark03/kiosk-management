@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getVideoInfo: (videoPath) => ipcRenderer.invoke('get-video-info', videoPath),
   generateWaveform: (videoPath) => ipcRenderer.invoke('generate-waveform', videoPath),
   generateWaveformRange: (options) => ipcRenderer.invoke('generate-waveform-range', options),
+  generateWaveformFromUrl: (videoUrl) => ipcRenderer.invoke('generate-waveform-from-url', videoUrl),
 
   // Video operations
   trimVideo: (options) => ipcRenderer.invoke('trim-video', options),
@@ -66,5 +67,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   downloadFile: (url, filename) => ipcRenderer.invoke('download-file', url, filename),
 
   // Focus webContents (workaround for input activation)
-  focusWebContents: () => ipcRenderer.invoke('focus-webcontents')
+  focusWebContents: () => ipcRenderer.invoke('focus-webcontents'),
+  // Imagen operations (using Gemini API with API Key)
+  generateImagenImage: (params) => ipcRenderer.invoke('generate-imagen-image', params),
 });
