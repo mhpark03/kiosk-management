@@ -69,9 +69,6 @@ dependencies:
   # Video player
   video_player: ^2.8.2
 
-  # Image picker for VEO frame selection
-  image_picker: ^1.0.7
-
 dev_dependencies:
   flutter_test:
     sdk: flutter
