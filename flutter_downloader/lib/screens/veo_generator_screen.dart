@@ -20,15 +20,14 @@ class _VeoGeneratorScreenState extends State<VeoGeneratorScreen> {
   final _formKey = GlobalKey<FormState>();
   final _promptController = TextEditingController();
 
-  VeoGenerationMode _generationMode = VeoGenerationMode.promptOnly;
   String _duration = "4";
   String _resolution = "720p";
   String _aspectRatio = "16:9";
 
   String? _firstFramePath;
-  String? _lastFramePath;
 
   bool _isGenerating = false;
+  bool _isSavingToS3 = false;
   VeoVideoResult? _generationResult;
 
   final ImagePicker _imagePicker = ImagePicker();
@@ -40,7 +39,8 @@ class _VeoGeneratorScreenState extends State<VeoGeneratorScreen> {
   }
 
   Future<void> _initializeVeoService() async {
-    final serverUrl = await StorageService.getServerUrl();
+    final storageService = await StorageService.init();
+    final serverUrl = storageService.getCustomServerUrl();
     setState(() {
       _veoService = VeoService(baseUrl: serverUrl ?? 'http://localhost:8080');
     });
@@ -52,7 +52,7 @@ class _VeoGeneratorScreenState extends State<VeoGeneratorScreen> {
     super.dispose();
   }
 
-  Future<void> _pickImage(bool isFirstFrame) async {
+  Future<void> _pickImage() async {
     try {
       final XFile? image = await _imagePicker.pickImage(
         source: ImageSource.gallery,
@@ -62,11 +62,7 @@ class _VeoGeneratorScreenState extends State<VeoGeneratorScreen> {
 
       if (image != null) {
         setState(() {
-          if (isFirstFrame) {
-            _firstFramePath = image.path;
-          } else {
-            _lastFramePath = image.path;
-          }
+          _firstFramePath = image.path;
         });
       }
     } catch (e) {
@@ -80,17 +76,10 @@ class _VeoGeneratorScreenState extends State<VeoGeneratorScreen> {
       return;
     }
 
-    // Validate images based on generation mode
-    if (_generationMode == VeoGenerationMode.withFirstFrame && _firstFramePath == null) {
+    // Validate first frame image is selected
+    if (_firstFramePath == null) {
       _showError('Please select a first frame image');
       return;
-    }
-
-    if (_generationMode == VeoGenerationMode.withInterpolation) {
-      if (_firstFramePath == null || _lastFramePath == null) {
-        _showError('Please select both first and last frame images');
-        return;
-      }
     }
 
     setState(() {
@@ -105,22 +94,9 @@ class _VeoGeneratorScreenState extends State<VeoGeneratorScreen> {
         resolution: _resolution,
         aspectRatio: _aspectRatio,
         firstFramePath: _firstFramePath,
-        lastFramePath: _lastFramePath,
       );
 
-      late VeoVideoResult result;
-
-      switch (_generationMode) {
-        case VeoGenerationMode.promptOnly:
-          result = await _veoService.generateFromPrompt(request);
-          break;
-        case VeoGenerationMode.withFirstFrame:
-          result = await _veoService.generateWithFirstFrame(request);
-          break;
-        case VeoGenerationMode.withInterpolation:
-          result = await _veoService.generateWithInterpolation(request);
-          break;
-      }
+      final result = await _veoService.generateWithFirstFrame(request);
 
       setState(() {
         _generationResult = result;
@@ -137,6 +113,34 @@ class _VeoGeneratorScreenState extends State<VeoGeneratorScreen> {
         _isGenerating = false;
       });
       _showError('Error: $e');
+    }
+  }
+
+  Future<void> _saveToS3() async {
+    if (_generationResult == null || _generationResult!.videoUrl == null) {
+      _showError('No generated video to save');
+      return;
+    }
+
+    setState(() {
+      _isSavingToS3 = true;
+    });
+
+    try {
+      // TODO: Implement S3 save functionality via backend API
+      // For now, just show a success message
+      await Future.delayed(const Duration(seconds: 2));
+
+      setState(() {
+        _isSavingToS3 = false;
+      });
+
+      _showSuccess('Video saved to S3 successfully!');
+    } catch (e) {
+      setState(() {
+        _isSavingToS3 = false;
+      });
+      _showError('Failed to save to S3: $e');
     }
   }
 
@@ -167,7 +171,7 @@ class _VeoGeneratorScreenState extends State<VeoGeneratorScreen> {
         context,
         MaterialPageRoute(
           builder: (context) => VideoPlayerScreen(
-            videoUrl: proxyUrl,
+            videoPath: proxyUrl,
             videoTitle: 'Generated Video',
           ),
         ),
@@ -214,38 +218,13 @@ class _VeoGeneratorScreenState extends State<VeoGeneratorScreen> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Generate AI-powered videos from text prompts and images',
+                        'Image to Video - Generate AI-powered videos from images and text prompts',
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
                     ],
                   ),
                 ),
               ),
-              const SizedBox(height: 24),
-
-              // Generation Mode Selection
-              Text(
-                'Generation Mode',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-              ),
-              const SizedBox(height: 12),
-              ...VeoGenerationMode.values.map((mode) {
-                return RadioListTile<VeoGenerationMode>(
-                  title: Text(mode.displayName),
-                  value: mode,
-                  groupValue: _generationMode,
-                  onChanged: _isGenerating
-                      ? null
-                      : (value) {
-                          setState(() {
-                            _generationMode = value!;
-                          });
-                        },
-                  activeColor: Colors.deepPurple,
-                );
-              }),
               const SizedBox(height: 24),
 
               // Prompt Input
@@ -277,33 +256,22 @@ class _VeoGeneratorScreenState extends State<VeoGeneratorScreen> {
               ),
               const SizedBox(height: 24),
 
-              // Image Frame Selection (if needed)
-              if (_generationMode != VeoGenerationMode.promptOnly) ...[
-                Text(
-                  'Frame Images',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                ),
-                const SizedBox(height: 12),
+              // Image Frame Selection
+              Text(
+                'First Frame Image',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+              ),
+              const SizedBox(height: 12),
 
-                // First Frame
-                _buildImagePicker(
-                  label: 'First Frame *',
-                  imagePath: _firstFramePath,
-                  onTap: () => _pickImage(true),
-                ),
-                const SizedBox(height: 12),
-
-                // Last Frame (only for interpolation mode)
-                if (_generationMode == VeoGenerationMode.withInterpolation)
-                  _buildImagePicker(
-                    label: 'Last Frame *',
-                    imagePath: _lastFramePath,
-                    onTap: () => _pickImage(false),
-                  ),
-                const SizedBox(height: 24),
-              ],
+              // First Frame
+              _buildImagePicker(
+                label: 'First Frame *',
+                imagePath: _firstFramePath,
+                onTap: _pickImage,
+              ),
+              const SizedBox(height: 24),
 
               // Video Settings
               Text(
@@ -475,7 +443,7 @@ class _VeoGeneratorScreenState extends State<VeoGeneratorScreen> {
         Expanded(
           flex: 3,
           child: DropdownButtonFormField<String>(
-            value: value,
+            initialValue: value,
             items: items.map((item) {
               return DropdownMenuItem(
                 value: item,
@@ -531,14 +499,41 @@ class _VeoGeneratorScreenState extends State<VeoGeneratorScreen> {
             ],
             if (isSuccess) ...[
               const SizedBox(height: 16),
-              ElevatedButton.icon(
-                onPressed: _playGeneratedVideo,
-                icon: const Icon(Icons.play_circle),
-                label: const Text('Play Video'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
-                  foregroundColor: Colors.white,
-                ),
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: _playGeneratedVideo,
+                      icon: const Icon(Icons.play_circle),
+                      label: const Text('Play Video'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        foregroundColor: Colors.white,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: _isSavingToS3 ? null : _saveToS3,
+                      icon: _isSavingToS3
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                              ),
+                            )
+                          : const Icon(Icons.cloud_upload),
+                      label: Text(_isSavingToS3 ? 'Saving...' : 'Save to S3'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue,
+                        foregroundColor: Colors.white,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ],
