@@ -28,3 +28,8 @@ logs/
 # Temp files
 *.tmp
 temp/
+
+# Environment variables (contains API keys and secrets)
+.env
+.env.local
+.env.*.local
