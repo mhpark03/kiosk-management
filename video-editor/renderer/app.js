@@ -11326,18 +11326,38 @@ async function executeGenerateVideoVeo() {
 
     updateProgress(20, 'VEO API 호출 중...');
 
-    // Convert image to base64 for API call
+    // Convert image to base64 for API call (using FileReader to avoid stack overflow)
     let imageBase64;
     if (veoImage.source === 'local') {
       const imageResponse = await fetch(`file://${veoImage.filePath}`);
       const imageBlob = await imageResponse.blob();
-      const arrayBuffer = await imageBlob.arrayBuffer();
-      imageBase64 = btoa(String.fromCharCode.apply(null, new Uint8Array(arrayBuffer)));
+
+      // Use FileReader to convert blob to base64 (avoids stack overflow for large images)
+      imageBase64 = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          // Remove the data URL prefix (e.g., "data:image/jpeg;base64,")
+          const base64String = reader.result.split(',')[1];
+          resolve(base64String);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(imageBlob);
+      });
     } else if (veoImage.source === 's3') {
       const imageResponse = await fetch(veoImage.filePath);
       const imageBlob = await imageResponse.blob();
-      const arrayBuffer = await imageBlob.arrayBuffer();
-      imageBase64 = btoa(String.fromCharCode.apply(null, new Uint8Array(arrayBuffer)));
+
+      // Use FileReader to convert blob to base64 (avoids stack overflow for large images)
+      imageBase64 = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          // Remove the data URL prefix (e.g., "data:image/jpeg;base64,")
+          const base64String = reader.result.split(',')[1];
+          resolve(base64String);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(imageBlob);
+      });
     }
 
     updateProgress(30, 'Google VEO API 요청 중...');
