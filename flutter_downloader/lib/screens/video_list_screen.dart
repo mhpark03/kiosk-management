@@ -336,7 +336,7 @@ class _VideoListScreenState extends State<VideoListScreen> {
       // Auto-recovery: If logged in + config exists, attempt token renewal
       if (_isLoggedIn && config.kioskId.isNotEmpty) {
         print('WebSocket: 로그인 상태이므로 토큰 갱신 시도...');
-        await _attemptTokenRenewalAndReconnect(config, kiosk);
+        await _attemptTokenRenewalAndReconnect(config, _kiosk);
       } else if (!_isLoggedIn) {
         // Not logged in - show login required notification
         print('WebSocket: 로그인이 필요하여 연결할 수 없습니다');

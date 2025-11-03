@@ -11326,21 +11326,35 @@ async function executeGenerateVideoVeo() {
 
     updateProgress(20, 'VEO API 호출 중...');
 
-    // Call backend VEO API
-    const response = await fetch('http://localhost:8080/api/veo/generate-with-first-frame', {
-      method: 'POST',
-      body: formData
-    });
-
-    if (!response.ok) {
-      throw new Error(`API call failed: ${response.status} ${response.statusText}`);
+    // Convert image to base64 for API call
+    let imageBase64;
+    if (veoImage.source === 'local') {
+      const imageResponse = await fetch(`file://${veoImage.filePath}`);
+      const imageBlob = await imageResponse.blob();
+      const arrayBuffer = await imageBlob.arrayBuffer();
+      imageBase64 = btoa(String.fromCharCode.apply(null, new Uint8Array(arrayBuffer)));
+    } else if (veoImage.source === 's3') {
+      const imageResponse = await fetch(veoImage.filePath);
+      const imageBlob = await imageResponse.blob();
+      const arrayBuffer = await imageBlob.arrayBuffer();
+      imageBase64 = btoa(String.fromCharCode.apply(null, new Uint8Array(arrayBuffer)));
     }
 
-    const result = await response.json();
+    updateProgress(30, 'Google VEO API 요청 중...');
+
+    // Call Google VEO API via Electron main process
+    const result = await window.electronAPI.generateVeoVideo({
+      prompt: prompt,
+      imageBase64: imageBase64,
+      duration: duration,
+      resolution: resolution,
+      aspectRatio: aspectRatio
+    });
+
     console.log('[VEO Video] Generation result:', result);
 
-    if (!result.success) {
-      throw new Error(result.message || 'Video generation failed');
+    if (!result.success || !result.videoUrl) {
+      throw new Error('Video generation failed or video URL not found');
     }
 
     // Store generated video info
