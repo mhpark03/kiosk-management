@@ -1,197 +1,130 @@
-/**
- * Google VEO Video Generation Helper
- * Matches backend VeoService.java implementation using Gemini API
- */
-
 const axios = require('axios');
 
-/**
- * Generate video with Google VEO API using Gemini API (matching backend implementation)
- */
+const API_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta';
+const VEO_MODEL = 'veo-3.1-generate-preview';
+const POLL_INTERVAL_MS = 5000;
+const MAX_POLL_ATTEMPTS = 60;
+
 async function generateVeoVideo(params, logInfo, logError) {
-  logInfo('VEO_GENERATE', 'Starting VEO video generation', {
-    hasImage: !!params.imageBase64,
-    promptLength: params.prompt?.length || 0
-  });
+  const apiKey = process.env.GOOGLE_AI_API_KEY;
+  if (!apiKey) throw new Error('API key not set');
+
+  // Ensure durationSeconds is a valid NUMBER: 4, 6, or 8
+  let durationSeconds = params.durationSeconds || 4;
+  if (typeof durationSeconds === 'string') {
+    durationSeconds = parseInt(durationSeconds);
+  }
+  // Validate and normalize to allowed values
+  if (![4, 6, 8].includes(durationSeconds)) {
+    durationSeconds = 4; // Default to 4 if invalid
+  }
+
+  // Validate aspectRatio
+  const aspectRatio = params.aspectRatio || "16:9";
+  if (!["16:9", "9:16"].includes(aspectRatio)) {
+    aspectRatio = "16:9";
+  }
+
+  // Validate resolution
+  const resolution = params.resolution || "720p";
+  if (!["720p", "1080p"].includes(resolution)) {
+    resolution = "720p";
+  }
+
+  if (logInfo) {
+    logInfo('VEO', 'Parameters: duration=' + durationSeconds + ' (type: ' + typeof durationSeconds + '), aspect=' + aspectRatio + ', res=' + resolution);
+  }
+
+  const instance = { prompt: params.prompt };
+  if (params.imageBase64) {
+    instance.image = {
+      bytesBase64Encoded: params.imageBase64,
+      mimeType: params.mimeType || 'image/jpeg'
+    };
+  }
+  const parameters = {
+    aspectRatio: aspectRatio,
+    durationSeconds: durationSeconds,
+    resolution: resolution
+  };
+  const operationName = await submitVideoGenerationRequest(instance, parameters, apiKey, logInfo, logError);
+  return await pollForVideoResult(operationName, apiKey, logInfo, logError);
+}
+
+async function submitVideoGenerationRequest(instance, parameters, apiKey, logInfo, logError) {
+  const endpoint = API_BASE_URL + '/models/' + VEO_MODEL + ':predictLongRunning';
+  const requestBody = { instances: [instance], parameters };
+
+  if (logInfo) {
+    logInfo('VEO', 'Request endpoint: ' + endpoint);
+    logInfo('VEO', 'Request body: ' + JSON.stringify(requestBody).substring(0, 500));
+  }
 
   try {
-    // Get API key from environment variable
-    const apiKey = process.env.GOOGLE_AI_API_KEY;
-    if (!apiKey) {
-      throw new Error('GOOGLE_AI_API_KEY environment variable is not set');
-    }
-
-    // Gemini API configuration (matching backend VeoService.java)
-    const apiUrl = process.env.GOOGLE_AI_API_URL || 'https://generativelanguage.googleapis.com/v1beta';
-    const veoModel = process.env.GOOGLE_VEO_MODEL || 'veo-3.1-generate-preview';
-
-    // Build endpoint according to Gemini API spec
-    const endpoint = `${apiUrl}/models/${veoModel}:predictLongRunning`;
-
-    // Build request body with instances array
-    const instance = {
-      prompt: params.prompt
-    };
-
-    // Add image if provided
-    if (params.imageBase64) {
-      instance.image = {
-        bytesBase64Encoded: params.imageBase64,
-        mimeType: 'image/jpeg'
-      };
-    }
-
-    const requestBody = {
-      instances: [instance],
-      parameters: {
-        aspectRatio: params.aspectRatio || '16:9',
-        durationSeconds: parseInt(params.duration || 8),
-        resolution: params.resolution || '720p'
-      }
-    };
-
-    logInfo('VEO_GENERATE', 'Calling Gemini VEO API', {
-      endpoint,
-      model: veoModel,
-      hasApiKey: !!apiKey
-    });
-
-    // Submit video generation request
     const response = await axios.post(endpoint, requestBody, {
-      headers: {
-        'Content-Type': 'application/json',
-        'x-goog-api-key': apiKey
-      },
-      timeout: 300000 // 5 minutes timeout
+      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+      timeout: 30000
     });
-
-    const result = response.data;
-
-    // Extract operation name from response
-    if (!result.name) {
-      throw new Error('Operation name not found in response');
-    }
-
-    const operationName = result.name;
-    logInfo('VEO_GENERATE', 'Video generation operation submitted', { operationName });
-
-    // Poll for result
-    const pollIntervalMs = parseInt(process.env.GOOGLE_VEO_POLL_INTERVAL || '5000');
-    const maxPollAttempts = parseInt(process.env.GOOGLE_VEO_MAX_POLL_ATTEMPTS || '60');
-
-    const videoResult = await pollForVideoResult(apiUrl, operationName, apiKey, pollIntervalMs, maxPollAttempts, logInfo, logError);
-
-    return videoResult;
-
+    if (response.data && response.data.name) return response.data.name;
+    throw new Error('No operation name in response');
   } catch (error) {
-    logError('VEO_GENERATE_ERROR', 'Failed to generate VEO video', {
-      error: error.message,
-      response: error.response?.data
-    });
+    if (logError) {
+      logError('VEO', 'API request failed: ' + error.message);
+      if (error.response && error.response.data) {
+        logError('VEO', 'Error response: ' + JSON.stringify(error.response.data));
+      }
+    }
     throw error;
   }
 }
 
-/**
- * Poll for video generation result
- */
-async function pollForVideoResult(apiUrl, operationName, apiKey, pollIntervalMs, maxPollAttempts, logInfo, logError) {
-  // Build poll endpoint - operation name already includes the full path
-  const pollEndpoint = `${apiUrl}/${operationName}`;
-
-  for (let attempt = 0; attempt < maxPollAttempts; attempt++) {
+async function pollForVideoResult(operationName, apiKey, logInfo, logError) {
+  const pollEndpoint = API_BASE_URL + '/' + operationName;
+  for (let attempt = 0; attempt < MAX_POLL_ATTEMPTS; attempt++) {
     try {
-      logInfo('VEO_POLL', `Polling for result (attempt ${attempt + 1}/${maxPollAttempts})`, { operationName });
-
       const response = await axios.get(pollEndpoint, {
-        headers: {
-          'x-goog-api-key': apiKey
-        }
+        headers: { 'x-goog-api-key': apiKey },
+        timeout: 10000
       });
-
-      const body = response.data;
-
-      // Check if operation is done
-      if (body.done === true) {
-        logInfo('VEO_POLL', 'Video generation completed', { operationName });
-        return parseVideoResponse(body, operationName, logInfo, logError);
+      if (response.data && response.data.done === true) {
+        return parseVideoResponse(response.data, operationName, logInfo, logError);
       }
-
-      logInfo('VEO_POLL', 'Video generation in progress...', {
-        attempt: attempt + 1,
-        maxAttempts: maxPollAttempts
-      });
-
-      // Wait before next poll
-      await new Promise(resolve => setTimeout(resolve, pollIntervalMs));
-
+      await sleep(POLL_INTERVAL_MS);
     } catch (error) {
-      logError('VEO_POLL_ERROR', 'Error polling for video result', {
-        error: error.message,
-        attempt: attempt + 1
-      });
+      await sleep(POLL_INTERVAL_MS);
     }
   }
-
-  // Timeout
-  return {
-    success: false,
-    message: `Video generation timed out after ${maxPollAttempts} attempts`,
-    taskId: operationName
-  };
+  return { success: false, message: 'Timeout after ' + MAX_POLL_ATTEMPTS + ' attempts', taskId: operationName };
 }
 
-/**
- * Parse video generation response
- */
 function parseVideoResponse(response, operationName, logInfo, logError) {
-  logInfo('VEO_PARSE', 'Parsing video response', {
-    hasResponse: !!response,
-    responseKeys: Object.keys(response)
-  });
-
-  const result = {
-    taskId: operationName,
-    success: false,
-    message: 'Unknown error'
-  };
-
-  // Check for errors first
+  const result = { taskId: operationName, success: false, message: 'Unknown error' };
   if (response.error) {
-    result.message = response.error.message || 'Unknown error';
-    logError('VEO_PARSE_ERROR', 'Video generation failed', { error: response.error });
+    result.message = 'Video generation failed: ' + (response.error.message || 'Unknown error');
     return result;
   }
-
-  // Extract video URL from response according to Gemini API spec
-  // Response structure: response.generateVideoResponse.generatedSamples[0].video.uri
-  if (response.response) {
-    const responseData = response.response;
-
-    if (responseData.generateVideoResponse) {
-      const generateVideoResponse = responseData.generateVideoResponse;
-
-      if (generateVideoResponse.generatedSamples &&
-          generateVideoResponse.generatedSamples.length > 0) {
-        const firstSample = generateVideoResponse.generatedSamples[0];
-
-        if (firstSample.video && firstSample.video.uri) {
-          result.videoUrl = firstSample.video.uri;
-          result.success = true;
-          result.message = 'Video generated successfully';
-          logInfo('VEO_PARSE', 'Video URL extracted successfully', { videoUrl: result.videoUrl });
-          return result;
-        }
-      }
+  if (response.response && response.response.generateVideoResponse &&
+      response.response.generateVideoResponse.generatedSamples &&
+      response.response.generateVideoResponse.generatedSamples.length > 0) {
+    const sample = response.response.generateVideoResponse.generatedSamples[0];
+    if (sample.video && sample.video.uri) {
+      result.videoUrl = sample.video.uri;
+      result.success = true;
+      result.message = 'Video generated successfully';
+      return result;
     }
   }
-
-  // If we reach here, video URL was not found
   result.message = 'Video URL not found in response';
-  logError('VEO_PARSE_ERROR', 'Video URL not found in response', { response });
   return result;
 }
 
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 module.exports = {
-  generateVeoVideo
+  generateVeoVideo,
+  submitVideoGenerationRequest,
+  pollForVideoResult,
+  parseVideoResponse
 };
