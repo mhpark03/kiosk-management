@@ -8729,8 +8729,10 @@ function setupModeButtons() {
   console.log('[setupModeButtons] Mode buttons setup complete');
 }
 
-// Expose setupModeButtons to window for module access
+// Expose functions to window for module access
 window.setupModeButtons = setupModeButtons;
+window.loadVideoWithAudioCheck = loadVideoWithAudioCheck;
+window.loadVideo = loadVideo;
 
 function switchMode(mode) {
   console.log('[switchMode] Switching to:', mode, 'from:', currentMode);

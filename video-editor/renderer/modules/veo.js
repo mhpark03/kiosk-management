@@ -549,6 +549,9 @@ export function updateVeoVideoSourceButtons(activeSource) {
 export function updateVeoVideoImagePreview() {
   console.log('[VEO Video] updateVeoVideoImagePreview called');
   const previewDiv = document.getElementById('veo-video-img-preview');
+  const centerImagePreview = document.getElementById('generated-image-preview');
+  const centerVideoPreview = document.getElementById('preview-video');
+  const centerPlaceholder = document.getElementById('preview-placeholder');
 
   console.log('[VEO Video] previewDiv found:', !!previewDiv);
   console.log('[VEO Video] veoVideoImage:', veoVideoImage);
@@ -571,8 +574,22 @@ export function updateVeoVideoImagePreview() {
         ${sourceLabel}
       </div>
     `;
+
+    // Show in center preview
+    if (centerImagePreview && centerVideoPreview && centerPlaceholder) {
+      centerVideoPreview.style.display = 'none';
+      centerPlaceholder.style.display = 'none';
+      centerImagePreview.src = veoVideoImage.preview;
+      centerImagePreview.style.display = 'block';
+      console.log('[VEO Video] Image displayed in center preview');
+    }
   } else {
     previewDiv.innerHTML = `<span style="color: #888; font-size: 13px;">이미지를 선택하세요</span>`;
+
+    // Hide center preview
+    if (centerImagePreview) {
+      centerImagePreview.style.display = 'none';
+    }
   }
 }
 
@@ -794,10 +811,35 @@ export async function executeGenerateVideoVeo() {
       throw new Error('Video generation failed or video URL not found');
     }
 
-    // Store generated video info
+    // Download video to temp file
+    if (typeof window.updateProgress === 'function') {
+      window.updateProgress(90, '영상 다운로드 중...');
+    }
+    if (typeof window.updateStatus === 'function') {
+      window.updateStatus('영상 다운로드 중...');
+    }
+
+    console.log('[VEO Video] Starting download from URL:', result.videoUrl);
+    const downloadResult = await window.electronAPI.downloadFile(result.videoUrl, `veo_video_${result.taskId}.mp4`);
+    console.log('[VEO Video] Download result:', downloadResult);
+
+    if (!downloadResult || !downloadResult.success) {
+      const errorMsg = downloadResult?.error || '알 수 없는 오류';
+      console.error('[VEO Video] Download failed:', errorMsg);
+      throw new Error(`영상 다운로드에 실패했습니다: ${errorMsg}`);
+    }
+
+    if (!downloadResult.filePath) {
+      throw new Error('영상 다운로드에 실패했습니다: 파일 경로를 받지 못했습니다.');
+    }
+
+    console.log('[VEO Video] Video downloaded to:', downloadResult.filePath);
+
+    // Store generated video info with local path
     generatedVeoVideo = {
       url: result.videoUrl,
-      taskId: result.taskId
+      taskId: result.taskId,
+      localPath: downloadResult.filePath
     };
 
     if (typeof window.updateProgress === 'function') {
@@ -816,7 +858,14 @@ export async function executeGenerateVideoVeo() {
       previewSection.style.display = 'block';
     }
 
-    console.log('[VEO Video] Video generated successfully');
+    // Load video using existing video loader (with audio check and waveform)
+    if (typeof window.loadVideoWithAudioCheck === 'function') {
+      await window.loadVideoWithAudioCheck(downloadResult.filePath);
+    } else if (typeof window.loadVideo === 'function') {
+      await window.loadVideo(downloadResult.filePath);
+    }
+
+    console.log('[VEO Video] Video generated and loaded successfully');
 
   } catch (error) {
     console.error('[VEO Video] Generation failed:', error);
@@ -856,17 +905,23 @@ export async function saveVeoVideoToS3() {
       window.updateStatus('S3 저장 중...');
     }
 
-    // Download video from VEO URL
-    if (typeof window.updateProgress === 'function') {
-      window.updateProgress(20, '영상 다운로드 중...');
+    // Use local downloaded file
+    if (!generatedVeoVideo.localPath) {
+      throw new Error('로컬 파일 경로가 없습니다. 영상을 다시 생성해주세요.');
     }
-    const videoResponse = await fetch(generatedVeoVideo.url);
+
+    if (typeof window.updateProgress === 'function') {
+      window.updateProgress(20, '로컬 파일 읽는 중...');
+    }
+
+    // Read local file and convert to blob
+    const videoResponse = await fetch(`file://${generatedVeoVideo.localPath}`);
     if (!videoResponse.ok) {
-      throw new Error('Failed to download generated video');
+      throw new Error('Failed to read local video file');
     }
 
     const videoBlob = await videoResponse.blob();
-    console.log('[VEO Video] Video downloaded, size:', videoBlob.size);
+    console.log('[VEO Video] Local file read, size:', videoBlob.size);
 
     // Upload to S3 via backend
     if (typeof window.updateProgress === 'function') {

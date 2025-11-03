@@ -7,6 +7,7 @@ const fs = require('fs');
 const os = require('os');
 const { spawn } = require('child_process');
 const veoHelper = require('./veo-helper');
+const imagenHelper = require('./imagen-helper');
 
 let mainWindow;
 let ffmpegPath;
@@ -698,6 +699,157 @@ ipcMain.handle('generate-waveform-range', async (event, options) => {
       reject(new Error(`FFmpeg error: ${err.message}`));
     });
   });
+});
+
+// Generate waveform from URL (download first, then generate)
+ipcMain.handle('generate-waveform-from-url', async (event, videoUrl) => {
+  logInfo('WAVEFORM_URL_START', 'Generating waveform from URL', { videoUrl });
+
+  const https = require('https');
+  const http = require('http');
+  const path = require('path');
+  const os = require('os');
+  const tempDir = os.tmpdir();
+  const tempVideoPath = path.join(tempDir, `veo_video_${Date.now()}.mp4`);
+  const waveformPath = path.join(tempDir, `waveform_${Date.now()}.png`);
+
+  try {
+    // Download video to temp file
+    logInfo('WAVEFORM_URL_DOWNLOAD', 'Downloading video', { videoUrl, tempVideoPath });
+
+    await new Promise((resolve, reject) => {
+      const file = fs.createWriteStream(tempVideoPath);
+
+      // Check if this is a Google API URL
+      if (videoUrl.includes('generativelanguage.googleapis.com')) {
+        const axios = require('axios');
+        const apiKey = process.env.GOOGLE_AI_API_KEY;
+
+        if (!apiKey) {
+          reject(new Error('GOOGLE_AI_API_KEY environment variable not set'));
+          return;
+        }
+
+        // Add API key as query parameter
+        const separator = videoUrl.includes('?') ? '&' : '?';
+        const downloadUrl = `${videoUrl}${separator}key=${apiKey}`;
+
+        axios({
+          method: 'GET',
+          url: downloadUrl,
+          responseType: 'stream',
+          headers: { 'x-goog-api-key': apiKey },
+          timeout: 300000
+        }).then((response) => {
+          response.data.pipe(file);
+
+          file.on('finish', () => {
+            file.close();
+            resolve();
+          });
+
+          file.on('error', (err) => {
+            fs.unlinkSync(tempVideoPath);
+            reject(err);
+          });
+        }).catch((err) => {
+          reject(err);
+        });
+      } else {
+        // Regular HTTP/HTTPS download
+        const protocol = videoUrl.startsWith('https') ? https : http;
+
+        protocol.get(videoUrl, (response) => {
+          if (response.statusCode !== 200) {
+            reject(new Error(`Failed to download: ${response.statusCode}`));
+            return;
+          }
+
+          response.pipe(file);
+
+          file.on('finish', () => {
+            file.close();
+            resolve();
+          });
+
+          file.on('error', (err) => {
+            fs.unlinkSync(tempVideoPath);
+            reject(err);
+          });
+        }).on('error', (err) => {
+          reject(err);
+        });
+      }
+    });
+
+    logInfo('WAVEFORM_URL_DOWNLOADED', 'Video downloaded, generating waveform');
+
+    // Generate waveform using FFmpeg
+    const base64Image = await new Promise((resolve, reject) => {
+      const args = [
+        '-i', tempVideoPath,
+        '-filter_complex',
+        '[0:a]showwavespic=s=1200x300:colors=#667eea:draw=scale:scale=log:split_channels=1[wave]',
+        '-map', '[wave]',
+        '-frames:v', '1',
+        '-y',
+        waveformPath
+      ];
+
+      const ffmpeg = spawn(ffmpegPath, args, {
+        stdio: ['pipe', 'pipe', 'pipe'],
+        windowsHide: true
+      });
+
+      let errorOutput = '';
+      ffmpeg.stderr.on('data', (data) => {
+        errorOutput += data.toString('utf8');
+      });
+
+      ffmpeg.on('close', (code) => {
+        if (code === 0) {
+          try {
+            const imageBuffer = fs.readFileSync(waveformPath);
+            const base64 = `data:image/png;base64,${imageBuffer.toString('base64')}`;
+
+            // Clean up temp files
+            try {
+              fs.unlinkSync(waveformPath);
+            } catch (e) {}
+            try {
+              fs.unlinkSync(tempVideoPath);
+            } catch (e) {}
+
+            logInfo('WAVEFORM_URL_SUCCESS', 'Waveform generated from URL');
+            resolve(base64);
+          } catch (readErr) {
+            reject(new Error(`Failed to read waveform: ${readErr.message}`));
+          }
+        } else {
+          logError('WAVEFORM_URL_FAILED', 'Waveform generation failed', { error: errorOutput });
+          reject(new Error(errorOutput || 'FFmpeg waveform generation failed'));
+        }
+      });
+
+      ffmpeg.on('error', (err) => {
+        reject(new Error(`FFmpeg error: ${err.message}`));
+      });
+    });
+
+    return base64Image;
+  } catch (error) {
+    logError('WAVEFORM_URL_ERROR', 'Error generating waveform from URL', { error: error.message });
+
+    // Clean up temp files on error
+    try {
+      if (fs.existsSync(tempVideoPath)) fs.unlinkSync(tempVideoPath);
+    } catch (e) {}
+    try {
+      if (fs.existsSync(waveformPath)) fs.unlinkSync(waveformPath);
+    } catch (e) {}
+
+    throw error;
+  }
 });
 
 // Trim video
@@ -2933,12 +3085,34 @@ ipcMain.handle('download-file', async (event, url, filename) => {
 
     logInfo('FILE_DOWNLOAD', 'Downloading to:', { filePath });
 
+    // Check if this is a Google API URL and add API key if needed
+    let downloadUrl = url;
+    const headers = {};
+
+    if (url.includes('generativelanguage.googleapis.com')) {
+      const apiKey = process.env.GOOGLE_AI_API_KEY;
+      if (apiKey) {
+        // Add API key both as header and query parameter for maximum compatibility
+        headers['x-goog-api-key'] = apiKey;
+
+        // Also add as query parameter
+        const separator = url.includes('?') ? '&' : '?';
+        downloadUrl = `${url}${separator}key=${apiKey}`;
+
+        logInfo('FILE_DOWNLOAD', 'Adding Google API key to request (header + query param)');
+      } else {
+        logError('FILE_DOWNLOAD', 'Google API URL but no API key found');
+        throw new Error('GOOGLE_AI_API_KEY environment variable not set');
+      }
+    }
+
     // Download file
     const response = await axios({
       method: 'GET',
-      url: url,
+      url: downloadUrl,
       responseType: 'stream',
-      timeout: 300000 // 5 minutes timeout
+      timeout: 300000, // 5 minutes timeout
+      headers: headers
     });
 
     // Write to file
@@ -3180,3 +3354,9 @@ ipcMain.handle('generate-veo-video', async (event, params) => {
 });
 
 logInfo('SYSTEM', 'Kiosk Video Editor initialized');
+/**
+ * Generate image with Google Imagen
+ */
+ipcMain.handle('generate-imagen-image', async (event, params) => {
+  return await imagenHelper.generateImagenImage(params, logInfo, logError);
+});
