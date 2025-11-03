@@ -459,10 +459,7 @@ function closeCustomDialog() {
 window.closeCustomDialog = closeCustomDialog;
 
 // Initialize app
-console.log('[APP.JS] Script loaded');
-
 document.addEventListener('DOMContentLoaded', () => {
-  console.log('[APP.JS] DOMContentLoaded fired');
   setupToolButtons();
   setupVideoControls();
   setupFFmpegProgressListener();
@@ -471,7 +468,6 @@ document.addEventListener('DOMContentLoaded', () => {
   setupImportButton();
   updateModeUI();
   updateStatus('준비 완료');
-  console.log('[APP.JS] Initialization complete');
 });
 
 // Setup import button in preview placeholder
@@ -1365,39 +1361,6 @@ function showToolProperties(tool) {
           <h3 style="margin-bottom: 15px; color: #667eea;">✨ Veo 이미지 생성</h3>
 
           <div class="property-group">
-            <label>참조 이미지 (1~3개)</label>
-            <div style="display: flex; gap: 8px; margin-bottom: 10px;">
-              <button
-                id="veo-ref-img-source-local"
-                class="property-btn"
-                onclick="selectVeoRefImageSource('local')"
-                style="flex: 1; padding: 8px; font-size: 13px; background: #667eea;"
-              >
-                📁 PC
-              </button>
-              <button
-                id="veo-ref-img-source-s3"
-                class="property-btn"
-                onclick="selectVeoRefImageSource('s3')"
-                style="flex: 1; padding: 8px; font-size: 13px; background: #444;"
-              >
-                🖼️ 서버
-              </button>
-            </div>
-            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 10px;">
-              <div id="veo-ref-img-slot-0" style="border: 2px dashed #444; border-radius: 8px; padding: 6px; aspect-ratio: 1/1; cursor: pointer; display: flex; align-items: center; justify-content: center; background: #2a2a2a; position: relative;">
-                <span style="font-size: 24px;">🖼️</span>
-              </div>
-              <div id="veo-ref-img-slot-1" style="border: 2px dashed #444; border-radius: 8px; padding: 6px; aspect-ratio: 1/1; cursor: pointer; display: flex; align-items: center; justify-content: center; background: #2a2a2a; position: relative;">
-                <span style="font-size: 24px;">🖼️</span>
-              </div>
-              <div id="veo-ref-img-slot-2" style="border: 2px dashed #444; border-radius: 8px; padding: 6px; aspect-ratio: 1/1; cursor: pointer; display: flex; align-items: center; justify-content: center; background: #2a2a2a; position: relative;">
-                <span style="font-size: 24px;">🖼️</span>
-              </div>
-            </div>
-          </div>
-
-          <div class="property-group">
             <label>프롬프트 *</label>
             <textarea
               id="image-prompt-veo"
@@ -1413,33 +1376,25 @@ function showToolProperties(tool) {
               id="image-aspect-veo"
               style="width: 100%; padding: 10px; background: #2d2d2d; border: 1px solid #444; border-radius: 5px; color: #e0e0e0; font-size: 14px;"
             >
-              <option value="16:9" selected>16:9 (가로)</option>
+              <option value="16:9">16:9 (가로)</option>
               <option value="9:16">9:16 (세로)</option>
               <option value="1:1">1:1 (정사각형)</option>
-              <option value="3:4">3:4 (세로)</option>
-              <option value="4:3">4:3 (가로)</option>
             </select>
+          </div>
+
+          <div class="property-group">
+            <label>제목 *</label>
+            <input type="text" id="ai-image-title-veo" placeholder="생성될 이미지의 제목">
+          </div>
+
+          <div class="property-group">
+            <label>설명 *</label>
+            <textarea id="ai-image-description-veo" rows="2" placeholder="이미지 설명을 입력하세요"></textarea>
           </div>
 
           <div style="background: #2a2a3e; padding: 12px; border-radius: 8px; margin-top: 10px; border-left: 4px solid #667eea;">
             <button class="property-btn" onclick="executeGenerateImageVeo()" style="width: 100%; margin: 0; background: #667eea;">
-              ✨ 이미지 생성
-            </button>
-          </div>
-
-          <div id="veo-image-save-section" style="background: #2a3e2a; padding: 12px; border-radius: 8px; margin-top: 10px; border-left: 4px solid #4ade80; display: none;">
-            <div class="property-group" style="margin-bottom: 10px;">
-              <label>제목 *</label>
-              <input type="text" id="ai-image-title-veo" placeholder="생성된 이미지의 제목">
-            </div>
-
-            <div class="property-group" style="margin-bottom: 10px;">
-              <label>설명</label>
-              <textarea id="ai-image-description-veo" rows="2" placeholder="이미지 설명을 입력하세요"></textarea>
-            </div>
-
-            <button class="property-btn" onclick="saveGeneratedVeoImageToS3()" style="width: 100%; margin: 0; background: #4ade80;">
-              💾 S3에 저장
+              ✨ 이미지 생성하고 S3에 저장
             </button>
           </div>
         </div>
@@ -1596,23 +1551,23 @@ function showToolProperties(tool) {
             <label>시작 이미지 *</label>
             <div style="display: flex; gap: 8px; margin-bottom: 10px;">
               <button
-                id="veo-video-img-source-local"
+                id="veo-img-source-local"
                 class="property-btn"
-                onclick="selectVeoVideoImageSource('local')"
+                onclick="selectVeoImageSource('local')"
                 style="flex: 1; padding: 8px; font-size: 13px; background: #667eea;"
               >
                 📁 PC
               </button>
               <button
-                id="veo-video-img-source-s3"
+                id="veo-img-source-s3"
                 class="property-btn"
-                onclick="selectVeoVideoImageSource('s3')"
+                onclick="selectVeoImageSource('s3')"
                 style="flex: 1; padding: 8px; font-size: 13px; background: #444;"
               >
                 🖼️ 서버
               </button>
             </div>
-            <div id="veo-video-img-preview" style="width: 100%; height: 150px; background: #2d2d2d; border: 1px solid #444; border-radius: 5px; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden;">
+            <div id="veo-img-preview" style="width: 100%; height: 150px; background: #2d2d2d; border: 1px solid #444; border-radius: 5px; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden;">
               <span style="color: #888; font-size: 13px;">이미지를 선택하세요</span>
             </div>
           </div>
@@ -1634,8 +1589,8 @@ function showToolProperties(tool) {
                 id="video-duration-veo"
                 style="width: 100%; padding: 10px; background: #2d2d2d; border: 1px solid #444; border-radius: 5px; color: #e0e0e0; font-size: 14px;"
               >
-                <option value="4" selected>4초</option>
-                <option value="6">6초</option>
+                <option value="4">4초</option>
+                <option value="5" selected>5초</option>
                 <option value="8">8초</option>
               </select>
             </div>
@@ -2261,12 +2216,8 @@ function setupVideoControls() {
 
 // Import video
 async function importVideo() {
-  // Get auth token from auth module
-  const token = window.getAuthToken ? window.getAuthToken() : authToken;
-  const user = window.getCurrentUser ? window.getCurrentUser() : currentUser;
-
   // Check authentication
-  if (!token || !user) {
+  if (!authToken || !currentUser) {
     const useLocal = confirm('로그인이 필요합니다.\n\n로컬 파일을 선택하시겠습니까?\n(취소를 누르면 로그인 화면으로 이동합니다)');
     if (useLocal) {
       const videoPath = await window.electronAPI.selectVideo();
@@ -4701,12 +4652,8 @@ let mergePreviewIndex = 0;
 let isMergePreviewPlaying = false;
 
 async function addVideoToMerge() {
-  // Get auth token from auth module
-  const token = window.getAuthToken ? window.getAuthToken() : authToken;
-  const user = window.getCurrentUser ? window.getCurrentUser() : currentUser;
-
   // Check authentication
-  if (!token || !user) {
+  if (!authToken || !currentUser) {
     const useLocal = confirm('로그인이 필요합니다.\n\n로컬 파일을 선택하시겠습니까?\n(취소를 누르면 로그인 화면으로 이동합니다)');
     if (useLocal) {
       const videoPath = await window.electronAPI.selectVideo();
@@ -4906,12 +4853,8 @@ async function executeMerge() {
 
 // Audio merge functions
 async function addAudioToMerge() {
-  // Get auth token from auth module
-  const token = window.getAuthToken ? window.getAuthToken() : authToken;
-  const user = window.getCurrentUser ? window.getCurrentUser() : currentUser;
-
   // Check authentication
-  if (!token || !user) {
+  if (!authToken || !currentUser) {
     const useLocal = confirm('로그인이 필요합니다.\n\n로컬 파일을 선택하시겠습니까?\n(취소를 누르면 로그인 화면으로 이동합니다)');
     if (useLocal) {
       const audioPath = await window.electronAPI.selectAudio();
@@ -5141,12 +5084,8 @@ function toggleAudioSourceUI() {
 }
 
 async function selectAudioFile() {
-  // Get auth token from auth module
-  const token = window.getAuthToken ? window.getAuthToken() : authToken;
-  const user = window.getCurrentUser ? window.getCurrentUser() : currentUser;
-
   // Check authentication
-  if (!token || !user) {
+  if (!authToken || !currentUser) {
     const useLocal = confirm('로그인이 필요합니다.\n\n로컬 파일을 선택하시겠습니까?\n(취소를 누르면 로그인 화면으로 이동합니다)');
     if (useLocal) {
       selectedAudioFile = await window.electronAPI.selectAudio();
@@ -5412,13 +5351,8 @@ async function executeExtractAudioToS3() {
     return;
   }
 
-  // Get auth token from auth module
-  const token = window.getAuthToken ? window.getAuthToken() : authToken;
-  const user = window.getCurrentUser ? window.getCurrentUser() : currentUser;
-  const baseUrl = window.getBackendUrl ? window.getBackendUrl() : backendBaseUrl;
-
   // Check if user is logged in
-  if (!token || !user) {
+  if (!authToken || !currentUser) {
     alert('S3에 업로드하려면 로그인이 필요합니다.');
     return;
   }
@@ -5446,12 +5380,12 @@ async function executeExtractAudioToS3() {
   updateProgress(0, '제목 중복 확인 중...');
 
   try {
-    // Check for duplicate title using my-videos endpoint
+    // Check for duplicate title
     console.log('[Extract Audio S3] Checking for duplicate title:', title);
-    const checkResponse = await fetch(`${baseUrl}/api/videos/my-videos`, {
+    const checkResponse = await fetch(`${backendBaseUrl}/api/videos`, {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${token}`,
+        'Authorization': `Bearer ${authToken}`,
         'Content-Type': 'application/json'
       }
     });
@@ -5501,10 +5435,10 @@ async function executeExtractAudioToS3() {
     formData.append('description', description);
 
     // Upload to backend
-    const uploadResponse = await fetch(`${baseUrl}/api/videos/upload`, {
+    const uploadResponse = await fetch(`${backendBaseUrl}/api/videos/upload`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${token}`
+        'Authorization': `Bearer ${authToken}`
       },
       body: formData
     });
@@ -6027,17 +5961,10 @@ function updateStatus(text) {
   document.getElementById('status-text').textContent = text;
 }
 
-// Expose updateStatus to window for module access
-window.updateStatus = updateStatus;
-
 // Audio file editing functions
 async function importAudioFile() {
-  // Get auth token from auth module
-  const token = window.getAuthToken ? window.getAuthToken() : authToken;
-  const user = window.getCurrentUser ? window.getCurrentUser() : currentUser;
-
   // Check authentication
-  if (!token || !user) {
+  if (!authToken || !currentUser) {
     const useLocal = confirm('로그인이 필요합니다.\n\n로컬 파일을 선택하시겠습니까?\n(취소를 누르면 로그인 화면으로 이동합니다)');
     if (useLocal) {
       const audioPath = await window.electronAPI.selectAudio();
@@ -6057,19 +5984,15 @@ async function importAudioFile() {
 // Show audio list modal from S3
 async function showAudioListFromS3() {
   try {
-    // Get auth token from auth module
-    const token = window.getAuthToken ? window.getAuthToken() : authToken;
-    const baseUrl = window.getBackendUrl ? window.getBackendUrl() : backendBaseUrl;
-
     showProgress();
     updateProgress(30, 'S3에서 음성 목록 불러오는 중...');
     updateStatus('음성 목록 로드 중...');
 
-    // Fetch audio list from backend using my-videos endpoint
-    const response = await fetch(`${baseUrl}/api/videos/my-videos`, {
+    // Fetch audio list from backend
+    const response = await fetch(`${backendBaseUrl}/api/videos`, {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${token}`
+        'Authorization': `Bearer ${authToken}`
       }
     });
 
@@ -6079,8 +6002,8 @@ async function showAudioListFromS3() {
 
     const videos = await response.json();
 
-    // Filter only audio files (check mediaType is AUDIO)
-    const audioFiles = videos.filter(v => v.mediaType === 'AUDIO');
+    // Filter only audio files (check contentType starts with 'audio/')
+    const audioFiles = videos.filter(v => v.contentType && v.contentType.startsWith('audio/'));
 
     console.log('[Audio Import] Found audio files:', audioFiles.length);
 
@@ -6350,19 +6273,15 @@ window.selectAudioFromS3 = async function(audioId, audioTitle, audioDescription 
 // Show audio list from S3 for merge (병합용)
 async function showAudioListForMerge() {
   try {
-    // Get auth token from auth module
-    const token = window.getAuthToken ? window.getAuthToken() : authToken;
-    const baseUrl = window.getBackendUrl ? window.getBackendUrl() : backendBaseUrl;
-
     showProgress();
     updateProgress(30, 'S3에서 음성 목록 불러오는 중...');
     updateStatus('음성 목록 로드 중...');
 
-    // Fetch audio list from backend using my-videos endpoint
-    const response = await fetch(`${baseUrl}/api/videos/my-videos`, {
+    // Fetch audio list from backend
+    const response = await fetch(`${backendBaseUrl}/api/videos`, {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${token}`
+        'Authorization': `Bearer ${authToken}`
       }
     });
 
@@ -6372,8 +6291,8 @@ async function showAudioListForMerge() {
 
     const videos = await response.json();
 
-    // Filter only audio files (check mediaType is AUDIO)
-    const audioFiles = videos.filter(v => v.mediaType === 'AUDIO');
+    // Filter only audio files (check contentType starts with 'audio/')
+    const audioFiles = videos.filter(v => v.contentType && v.contentType.startsWith('audio/'));
 
     console.log('[Audio Merge] Found audio files:', audioFiles.length);
 
@@ -6634,19 +6553,15 @@ window.selectAudioFromS3ForMerge = async function(audioId, audioTitle) {
 // Show video list from S3
 async function showVideoListFromS3() {
   try {
-    // Get auth token from auth module
-    const token = window.getAuthToken ? window.getAuthToken() : authToken;
-    const baseUrl = window.getBackendUrl ? window.getBackendUrl() : backendBaseUrl;
-
     showProgress();
     updateProgress(30, 'S3에서 영상 목록 불러오는 중...');
     updateStatus('영상 목록 로드 중...');
 
-    // Fetch video list from backend using my-videos endpoint
-    const response = await fetch(`${baseUrl}/api/videos/my-videos`, {
+    // Fetch video list from backend
+    const response = await fetch(`${backendBaseUrl}/api/videos`, {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${token}`
+        'Authorization': `Bearer ${authToken}`
       }
     });
 
@@ -6656,8 +6571,8 @@ async function showVideoListFromS3() {
 
     const videos = await response.json();
 
-    // Filter only video files (check mediaType is VIDEO)
-    const videoFiles = videos.filter(v => v.mediaType === 'VIDEO');
+    // Filter only video files (check contentType starts with 'video/')
+    const videoFiles = videos.filter(v => v.contentType && v.contentType.startsWith('video/'));
 
     console.log('[Video Import] Found video files:', videoFiles.length);
 
@@ -6973,19 +6888,15 @@ window.deleteVideoFromS3 = async function(videoId, videoTitle) {
 // Show video list from S3 for merge (병합용)
 async function showVideoListForMerge() {
   try {
-    // Get auth token from auth module
-    const token = window.getAuthToken ? window.getAuthToken() : authToken;
-    const baseUrl = window.getBackendUrl ? window.getBackendUrl() : backendBaseUrl;
-
     showProgress();
     updateProgress(30, 'S3에서 영상 목록 불러오는 중...');
     updateStatus('영상 목록 로드 중...');
 
-    // Fetch video list from backend using my-videos endpoint
-    const response = await fetch(`${baseUrl}/api/videos/my-videos`, {
+    // Fetch video list from backend
+    const response = await fetch(`${backendBaseUrl}/api/videos`, {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${token}`
+        'Authorization': `Bearer ${authToken}`
       }
     });
 
@@ -6995,8 +6906,8 @@ async function showVideoListForMerge() {
 
     const videos = await response.json();
 
-    // Filter only video files (check mediaType is VIDEO)
-    const videoFiles = videos.filter(v => v.mediaType === 'VIDEO');
+    // Filter only video files (check contentType starts with 'video/')
+    const videoFiles = videos.filter(v => v.contentType && v.contentType.startsWith('video/'));
 
     console.log('[Video Merge] Found video files:', videoFiles.length);
 
@@ -7261,19 +7172,15 @@ window.selectVideoFromS3ForMerge = async function(videoId, videoTitle) {
 // Show audio list from S3 for insertion (삽입용)
 async function showAudioListForInsertion() {
   try {
-    // Get auth token from auth module
-    const token = window.getAuthToken ? window.getAuthToken() : authToken;
-    const baseUrl = window.getBackendUrl ? window.getBackendUrl() : backendBaseUrl;
-
     showProgress();
     updateProgress(30, 'S3에서 음성 목록 불러오는 중...');
     updateStatus('음성 목록 로드 중...');
 
-    // Fetch audio list from backend using my-videos endpoint
-    const response = await fetch(`${baseUrl}/api/videos/my-videos`, {
+    // Fetch audio list from backend
+    const response = await fetch(`${backendBaseUrl}/api/videos`, {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${token}`
+        'Authorization': `Bearer ${authToken}`
       }
     });
 
@@ -7283,8 +7190,8 @@ async function showAudioListForInsertion() {
 
     const videos = await response.json();
 
-    // Filter only audio files (check mediaType is AUDIO)
-    const audioFiles = videos.filter(v => v.mediaType === 'AUDIO');
+    // Filter only audio files (check contentType starts with 'audio/')
+    const audioFiles = videos.filter(v => v.contentType && v.contentType.startsWith('audio/'));
 
     console.log('[Audio Insert] Found audio files:', audioFiles.length);
 
@@ -8282,13 +8189,8 @@ async function executeExportAudioToS3() {
     return;
   }
 
-  // Get auth token from auth module
-  const token = window.getAuthToken ? window.getAuthToken() : authToken;
-  const user = window.getCurrentUser ? window.getCurrentUser() : currentUser;
-  const baseUrl = window.getBackendUrl ? window.getBackendUrl() : backendBaseUrl;
-
   // Check if user is logged in
-  if (!token || !user) {
+  if (!authToken || !currentUser) {
     alert('S3에 업로드하려면 로그인이 필요합니다.');
     return;
   }
@@ -8316,12 +8218,12 @@ async function executeExportAudioToS3() {
   updateProgress(0, '제목 중복 확인 중...');
 
   try {
-    // Check for duplicate title using my-videos endpoint
+    // Check for duplicate title
     console.log('[Export Audio S3] Checking for duplicate title:', title);
-    const checkResponse = await fetch(`${baseUrl}/api/videos/my-videos`, {
+    const checkResponse = await fetch(`${backendBaseUrl}/api/videos`, {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${token}`,
+        'Authorization': `Bearer ${authToken}`,
         'Content-Type': 'application/json'
       }
     });
@@ -8358,10 +8260,10 @@ async function executeExportAudioToS3() {
     formData.append('description', description);
 
     // Upload to backend
-    const uploadResponse = await fetch(`${baseUrl}/api/videos/upload`, {
+    const uploadResponse = await fetch(`${backendBaseUrl}/api/videos/upload`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${token}`
+        'Authorization': `Bearer ${authToken}`
       },
       body: formData
     });
@@ -8450,13 +8352,8 @@ async function executeExportVideoToS3() {
     return;
   }
 
-  // Get auth token from auth module
-  const token = window.getAuthToken ? window.getAuthToken() : authToken;
-  const user = window.getCurrentUser ? window.getCurrentUser() : currentUser;
-  const baseUrl = window.getBackendUrl ? window.getBackendUrl() : backendBaseUrl;
-
   // Check if user is logged in
-  if (!token || !user) {
+  if (!authToken || !currentUser) {
     alert('S3에 업로드하려면 로그인이 필요합니다.');
     return;
   }
@@ -8484,12 +8381,12 @@ async function executeExportVideoToS3() {
   updateProgress(0, '제목 중복 확인 중...');
 
   try {
-    // Check for duplicate title using my-videos endpoint
+    // Check for duplicate title
     console.log('[Export Video S3] Checking for duplicate title:', title);
-    const checkResponse = await fetch(`${baseUrl}/api/videos/my-videos`, {
+    const checkResponse = await fetch(`${backendBaseUrl}/api/videos`, {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${token}`,
+        'Authorization': `Bearer ${authToken}`,
         'Content-Type': 'application/json'
       }
     });
@@ -8790,48 +8687,30 @@ async function previewAudioTrimRange() {
 
 // Mode switching functions
 function setupModeButtons() {
-  console.log('[setupModeButtons] Setting up mode buttons');
   const videoModeBtn = document.getElementById('video-mode-btn');
   const audioModeBtn = document.getElementById('audio-mode-btn');
   const contentModeBtn = document.getElementById('content-mode-btn');
 
-  console.log('[setupModeButtons] Buttons found:', {
-    video: !!videoModeBtn,
-    audio: !!audioModeBtn,
-    content: !!contentModeBtn
-  });
-
   if (videoModeBtn) {
     videoModeBtn.addEventListener('click', () => {
-      console.log('[Mode Button] Video button clicked');
       switchMode('video');
     });
   }
 
   if (audioModeBtn) {
     audioModeBtn.addEventListener('click', () => {
-      console.log('[Mode Button] Audio button clicked');
       switchMode('audio');
     });
   }
 
   if (contentModeBtn) {
     contentModeBtn.addEventListener('click', () => {
-      console.log('[Mode Button] Content button clicked');
       switchMode('content');
     });
   }
-
-  console.log('[setupModeButtons] Mode buttons setup complete');
 }
 
-// Expose functions to window for module access
-window.setupModeButtons = setupModeButtons;
-window.loadVideoWithAudioCheck = loadVideoWithAudioCheck;
-window.loadVideo = loadVideo;
-
 function switchMode(mode) {
-  console.log('[switchMode] Switching to:', mode, 'from:', currentMode);
   if (currentMode === mode) {
     return; // Already in this mode
   }
@@ -9417,12 +9296,8 @@ async function executeGenerateTTSAndUpload() {
     return;
   }
 
-  // Get auth token from auth module
-  const token = window.getAuthToken ? window.getAuthToken() : authToken;
-  const user = window.getCurrentUser ? window.getCurrentUser() : currentUser;
-
   // Check authentication
-  if (!token || !user) {
+  if (!authToken || !currentUser) {
     alert('로그인이 필요합니다.\n먼저 로그인해주세요.');
     return;
   }
@@ -9714,13 +9589,8 @@ async function loadAudioWithWaveform(filePath, filename) {
 async function uploadVideoContentToS3() {
   console.log('[Upload Video Content S3] Function called');
 
-  // Get auth token from auth module
-  const token = window.getAuthToken ? window.getAuthToken() : authToken;
-  const user = window.getCurrentUser ? window.getCurrentUser() : currentUser;
-  const baseUrl = window.getBackendUrl ? window.getBackendUrl() : backendBaseUrl;
-
   // Check if user is logged in
-  if (!token || !user) {
+  if (!authToken || !currentUser) {
     alert('S3에 업로드하려면 로그인이 필요합니다.');
     return;
   }
@@ -9763,12 +9633,12 @@ async function uploadVideoContentToS3() {
   updateProgress(0, '파일명 중복 확인 중...');
 
   try {
-    // Check for duplicate filename using my-videos endpoint
+    // Check for duplicate filename (originalFilename)
     console.log('[Upload Video Content S3] Checking for duplicate filename:', videoFile.name);
-    const checkResponse = await fetch(`${baseUrl}/api/videos/my-videos`, {
+    const checkResponse = await fetch(`${backendBaseUrl}/api/videos`, {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${token}`,
+        'Authorization': `Bearer ${authToken}`,
         'Content-Type': 'application/json'
       }
     });
@@ -9803,10 +9673,10 @@ async function uploadVideoContentToS3() {
     formData.append('description', finalDescription);
 
     // Upload to backend
-    const uploadResponse = await fetch(`${baseUrl}/api/videos/upload`, {
+    const uploadResponse = await fetch(`${backendBaseUrl}/api/videos/upload`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${token}`
+        'Authorization': `Bearer ${authToken}`
       },
       body: formData
     });
@@ -9840,13 +9710,8 @@ async function uploadVideoContentToS3() {
 async function uploadImageToS3() {
   console.log('[Upload Image S3] Function called');
 
-  // Get auth token from auth module
-  const token = window.getAuthToken ? window.getAuthToken() : authToken;
-  const user = window.getCurrentUser ? window.getCurrentUser() : currentUser;
-  const baseUrl = window.getBackendUrl ? window.getBackendUrl() : backendBaseUrl;
-
   // Check if user is logged in
-  if (!token || !user) {
+  if (!authToken || !currentUser) {
     alert('S3에 업로드하려면 로그인이 필요합니다.');
     return;
   }
@@ -9889,12 +9754,12 @@ async function uploadImageToS3() {
   updateProgress(0, '파일명 중복 확인 중...');
 
   try {
-    // Check for duplicate filename using my-videos endpoint
+    // Check for duplicate filename (originalFilename)
     console.log('[Upload Image S3] Checking for duplicate filename:', imageFile.name);
-    const checkResponse = await fetch(`${baseUrl}/api/videos/my-videos`, {
+    const checkResponse = await fetch(`${backendBaseUrl}/api/videos`, {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${token}`,
+        'Authorization': `Bearer ${authToken}`,
         'Content-Type': 'application/json'
       }
     });
@@ -9929,10 +9794,10 @@ async function uploadImageToS3() {
     formData.append('description', finalDescription);
 
     // Upload to backend (videos endpoint handles all media types including images)
-    const uploadResponse = await fetch(`${baseUrl}/api/videos/upload`, {
+    const uploadResponse = await fetch(`${backendBaseUrl}/api/videos/upload`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${token}`
+        'Authorization': `Bearer ${authToken}`
       },
       body: formData
     });
@@ -10129,25 +9994,20 @@ async function renderImageList() {
   const endIndex = Math.min(startIndex + imageListItemsPerPage, images.length);
   const currentPageItems = images.slice(startIndex, endIndex);
 
-  // Get auth token from auth module
-  const token = window.getAuthToken ? window.getAuthToken() : authToken;
-  const baseUrl = window.getBackendUrl ? window.getBackendUrl() : backendBaseUrl;
-
   // Get presigned URLs for images
   for (const img of currentPageItems) {
     if (!img.presignedUrl) {
       try {
-        // Use /api/videos/{id} endpoint which returns presigned URL
-        const response = await fetch(`${baseUrl}/api/videos/${img.id}`, {
+        const response = await fetch(`${backendBaseUrl}/api/videos/${img.id}/download-url`, {
           method: 'GET',
           headers: {
-            'Authorization': `Bearer ${token}`,
+            'Authorization': `Bearer ${authToken}`,
             'Content-Type': 'application/json'
           }
         });
         if (response.ok) {
           const data = await response.json();
-          img.presignedUrl = data.s3Url;
+          img.presignedUrl = data.url || data.downloadUrl;
         }
       } catch (error) {
         console.error('[Image List] Failed to get presigned URL:', error);
@@ -10462,13 +10322,8 @@ async function saveGeneratedImageToS3() {
     return;
   }
 
-  // Get auth token from auth module
-  const token = window.getAuthToken ? window.getAuthToken() : authToken;
-  const user = window.getCurrentUser ? window.getCurrentUser() : currentUser;
-  const baseUrl = window.getBackendUrl ? window.getBackendUrl() : backendBaseUrl;
-
   // Check authentication
-  if (!token || !user) {
+  if (!authToken || !currentUser) {
     alert('S3에 업로드하려면 로그인이 필요합니다.');
     return;
   }
@@ -10489,10 +10344,10 @@ async function saveGeneratedImageToS3() {
     formData.append('title', title);
     formData.append('description', description);
 
-    const uploadResponse = await fetch(`${baseUrl}/api/ai/upload`, {
+    const uploadResponse = await fetch(`${backendBaseUrl}/api/ai/upload`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${token}`
+        'Authorization': `Bearer ${authToken}`
       },
       body: formData
     });
@@ -12011,13 +11866,8 @@ async function uploadAudioToS3() {
     return;
   }
 
-  // Get auth token from auth module
-  const token = window.getAuthToken ? window.getAuthToken() : authToken;
-  const user = window.getCurrentUser ? window.getCurrentUser() : currentUser;
-  const baseUrl = window.getBackendUrl ? window.getBackendUrl() : backendBaseUrl;
-
   // Check authentication
-  if (!token || !user) {
+  if (!authToken || !currentUser) {
     alert('로그인이 필요합니다.\n먼저 로그인해주세요.');
     return;
   }
@@ -12045,10 +11895,10 @@ async function uploadAudioToS3() {
     formData.append('description', description);
 
     // Upload to backend
-    const uploadResponse = await fetch(`${baseUrl}/api/videos/upload`, {
+    const uploadResponse = await fetch(`${backendBaseUrl}/api/videos/upload`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${token}`
+        'Authorization': `Bearer ${authToken}`
       },
       body: formData
     });
@@ -12166,20 +12016,15 @@ function getBackendUrl() {
  * @returns {Promise<Array>} - Array of media files
  */
 async function fetchMediaFromS3(mediaType = 'all') {
-  // Get auth token from auth module
-  const token = window.getAuthToken ? window.getAuthToken() : authToken;
-  const baseUrl = window.getBackendUrl ? window.getBackendUrl() : backendBaseUrl;
-
-  if (!token) {
+  if (!authToken) {
     throw new Error('로그인이 필요합니다.');
   }
 
   try {
-    // Use /my-videos endpoint for non-admin users
-    const response = await fetch(`${baseUrl}/api/videos/my-videos`, {
+    const response = await fetch(`${backendBaseUrl}/api/videos`, {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${token}`,
+        'Authorization': `Bearer ${authToken}`,
         'Content-Type': 'application/json'
       }
     });
@@ -12188,18 +12033,20 @@ async function fetchMediaFromS3(mediaType = 'all') {
       throw new Error(`Failed to fetch media: ${response.status}`);
     }
 
-    let allFiles = await response.json();
+    const allFiles = await response.json();
 
-    // Filter by mediaType if specified
-    if (mediaType === 'image') {
-      allFiles = allFiles.filter(f => f.mediaType === 'IMAGE');
-    } else if (mediaType === 'video') {
-      allFiles = allFiles.filter(f => f.mediaType === 'VIDEO');
-    } else if (mediaType === 'audio') {
-      allFiles = allFiles.filter(f => f.mediaType === 'AUDIO');
+    // Filter by media type
+    switch(mediaType) {
+      case 'image':
+        return allFiles.filter(f => f.contentType && f.contentType.startsWith('image/'));
+      case 'video':
+        return allFiles.filter(f => f.contentType && f.contentType.startsWith('video/'));
+      case 'audio':
+        return allFiles.filter(f => f.contentType && f.contentType.startsWith('audio/'));
+      case 'all':
+      default:
+        return allFiles;
     }
-
-    return allFiles;
   } catch (error) {
     console.error('[Fetch Media] Error:', error);
     throw error;
@@ -12208,3 +12055,8 @@ async function fetchMediaFromS3(mediaType = 'all') {
 
 // Make fetchMediaFromS3 globally accessible
 window.fetchMediaFromS3 = fetchMediaFromS3;
+
+// Initialize auth on page load
+document.addEventListener('DOMContentLoaded', () => {
+  initializeAuth();
+});

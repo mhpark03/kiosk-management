@@ -1,0 +1,54 @@
+/**
+ * Google VEO Video Generation Module
+ * Handles image-to-video generation using Google VEO API
+ */
+
+// Import Imagen module for image generation
+import * as ImagenModule from './imagen.js';
+
+// Global state for VEO image generation (multiple reference images like Runway)
+let veoReferenceImages = [null, null, null, null, null];
+
+// Global state for generated VEO image (result of image generation)
+let generatedVeoImage = null;  // {imageData: base64, preview: dataUrl}
+
+// Global state for VEO video generation (single image)
+let veoVideoImage = null;  // {source: 'local'|'s3'|'generated', filePath: string, preview: string}
+
+// Global state for generated VEO video
+let generatedVeoVideo = null;  // {url: string, taskId: string}
+
+/**
+ * Select reference image for VEO image generation (like Runway)
+ * @param {number} index - Index of the reference image slot (0-4)
+ * @param {string} source - 'local' or 's3'
+ */
+export async function selectVeoRefImage(index, source) {
+  console.log(`[VEO Image] Selecting reference image ${index} from ${source}`);
+
+  if (source === 'local') {
+    try {
+      const filePath = await window.electronAPI.selectMedia('image');
+
+      if (!filePath) {
+        console.log('[VEO Image] No file selected');
+        return;
+      }
+
+      console.log('[VEO Image] Selected local file:', filePath);
+
+      veoReferenceImages[index] = filePath;
+      updateVeoRefImagePreview(index);
+    } catch (error) {
+      console.error('[VEO Image] Error selecting local image:', error);
+      alert('이미지 선택 중 오류가 발생했습니다.');
+    }
+  } else if (source === 's3') {
+    try {
+      await openVeoRefImageS3Selector(index);
+    } catch (error) {
+      console.error('[VEO Image] Error opening S3 selector:', error);
+      alert('S3 이미지 선택 중 오류가 발생했습니다.');
+    }
+  }
+}

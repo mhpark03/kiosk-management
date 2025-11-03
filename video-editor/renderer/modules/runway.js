@@ -453,14 +453,12 @@ async function openRunwayVideoS3ImageSelector(imageNumber) {
   console.log(`[Runway Video] Opening S3 image selector for slot ${imageNumber}`);
 
   try {
-    // Fetch images from backend
-    const response = await fetch('http://localhost:8080/api/videos/images');
-
-    if (!response.ok) {
-      throw new Error(`Failed to fetch images: ${response.status}`);
+    // Fetch images from backend using common function
+    if (!window.fetchMediaFromS3) {
+      throw new Error('fetchMediaFromS3 함수를 사용할 수 없습니다.');
     }
 
-    const images = await response.json();
+    const images = await window.fetchMediaFromS3('image');
     console.log(`[Runway Video] Loaded ${images.length} images from S3`);
 
     // Create modal
