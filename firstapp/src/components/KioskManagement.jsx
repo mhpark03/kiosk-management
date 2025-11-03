@@ -53,7 +53,6 @@ function KioskManagement() {
   const [dashboardFilterRegion, setDashboardFilterRegion] = useState(null);
   const [dashboardFilterState, setDashboardFilterState] = useState(null);
   const [dashboardFilterInstallMonth, setDashboardFilterInstallMonth] = useState(null);
-  const [dashboardFilterConnectionStatus, setDashboardFilterConnectionStatus] = useState(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -93,9 +92,6 @@ function KioskManagement() {
     }
     if (location.state?.filterInstallMonth) {
       setDashboardFilterInstallMonth(location.state.filterInstallMonth);
-    }
-    if (location.state?.filterConnectionStatus) {
-      setDashboardFilterConnectionStatus(location.state.filterConnectionStatus);
     }
   }, [location]);
 
@@ -334,28 +330,7 @@ function KioskManagement() {
       matchesInstallMonth = kioskMonth === dashboardFilterInstallMonth;
     }
 
-    // Filter by connection status
-    let matchesConnectionStatus = true;
-    if (dashboardFilterConnectionStatus) {
-      const { lastHeartbeat, connectionStatus, isLoggedIn } = kiosk;
-      const now = new Date();
-      const fiveMinutesAgo = new Date(now - 5 * 60 * 1000);
-      const isOnline = lastHeartbeat && (new Date(lastHeartbeat) > fiveMinutesAgo);
-
-      if (dashboardFilterConnectionStatus === 'online') {
-        matchesConnectionStatus = isOnline && connectionStatus !== 'ERROR';
-      } else if (dashboardFilterConnectionStatus === 'error') {
-        matchesConnectionStatus = isOnline && connectionStatus === 'ERROR';
-      } else if (dashboardFilterConnectionStatus === 'offline') {
-        matchesConnectionStatus = lastHeartbeat && !isOnline;
-      } else if (dashboardFilterConnectionStatus === 'unknown') {
-        matchesConnectionStatus = !lastHeartbeat;
-      } else if (dashboardFilterConnectionStatus === 'loggedIn') {
-        matchesConnectionStatus = isOnline && isLoggedIn;
-      }
-    }
-
-    return matchesStoreName && matchesMaker && matchesRegion && matchesState && matchesInstallMonth && matchesConnectionStatus;
+    return matchesStoreName && matchesMaker && matchesRegion && matchesState && matchesInstallMonth;
   });
 
   // Handle search button click
@@ -969,14 +944,7 @@ function KioskManagement() {
   return (
     <div className="kiosk-management">
       <div className="kiosk-header">
-        <h1>
-          키오스크 관리
-          {(dashboardFilterConnectionStatus || dashboardFilterState || dashboardFilterRegion || dashboardFilterInstallMonth) && (
-            <span style={{fontSize: '14px', marginLeft: '15px', color: '#667eea', fontWeight: '500'}}>
-              (대시보드 필터 활성)
-            </span>
-          )}
-        </h1>
+        <h1>키오스크 관리</h1>
         <div className="header-actions">
           <div className="search-filters">
             <select

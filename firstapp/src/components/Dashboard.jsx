@@ -29,18 +29,6 @@ function Dashboard() {
     loadDashboardData();
   }, []);
 
-  const [kioskStatusStats, setKioskStatusStats] = useState({
-    total: 0,
-    online: 0,
-    offline: 0,
-    error: 0,
-    unknown: 0,
-    preparing: 0,
-    active: 0,
-    maintenance: 0,
-    loggedIn: 0
-  });
-
   const loadDashboardData = async () => {
     try {
       setLoading(true);
@@ -55,70 +43,16 @@ function Dashboard() {
       const monthlyInstallations = processMonthlyInstallations(kiosks, sixMonthsAgo);
       const weeklyActiveKiosks = processWeeklyActiveKiosks(kiosks, sixMonthsAgo);
       const regionalStats = processRegionalData(kiosks, stores);
-      const statusStats = processKioskStatusStats(kiosks);
 
       setInstallationData(monthlyInstallations);
       setActiveKioskData(weeklyActiveKiosks);
       setRegionData(regionalStats);
-      setKioskStatusStats(statusStats);
       setError('');
     } catch (err) {
       setError('데이터를 불러오는데 실패했습니다: ' + err.message);
     } finally {
       setLoading(false);
     }
-  };
-
-  const processKioskStatusStats = (kiosks) => {
-    const stats = {
-      total: 0,
-      online: 0,
-      offline: 0,
-      error: 0,
-      unknown: 0,
-      preparing: 0,
-      active: 0,
-      maintenance: 0,
-      loggedIn: 0
-    };
-
-    const now = new Date();
-    const fiveMinutesAgo = new Date(now - 5 * 60 * 1000);
-
-    kiosks.forEach(kiosk => {
-      // Skip deleted kiosks
-      if (kiosk.state === 'deleted') return;
-
-      stats.total++;
-
-      // Count by operational state
-      if (kiosk.state === 'preparing') stats.preparing++;
-      else if (kiosk.state === 'active') stats.active++;
-      else if (kiosk.state === 'maintenance') stats.maintenance++;
-
-      // Count by connection status
-      const lastHeartbeat = kiosk.lastHeartbeat ? new Date(kiosk.lastHeartbeat) : null;
-      const isOnline = lastHeartbeat && lastHeartbeat > fiveMinutesAgo;
-
-      if (!lastHeartbeat) {
-        stats.unknown++;
-      } else if (isOnline) {
-        if (kiosk.connectionStatus === 'ERROR') {
-          stats.error++;
-        } else {
-          stats.online++;
-        }
-      } else {
-        stats.offline++;
-      }
-
-      // Count logged in kiosks
-      if (kiosk.isLoggedIn && isOnline) {
-        stats.loggedIn++;
-      }
-    });
-
-    return stats;
   };
 
   const processMonthlyInstallations = (kiosks, startDate) => {
@@ -401,138 +335,11 @@ function Dashboard() {
     );
   }
 
-  const handleStatusCardClick = (filterType, filterValue) => {
-    if (filterType === 'connectionStatus') {
-      navigate('/kiosks', { state: { filterConnectionStatus: filterValue } });
-    } else if (filterType === 'operationalState') {
-      navigate('/kiosks', { state: { filterState: filterValue } });
-    } else if (filterType === 'total') {
-      navigate('/kiosks');
-    }
-  };
-
   return (
     <div className="dashboard-container">
       <div className="dashboard-header">
         <h1>대시보드</h1>
         <p>최근 6개월 키오스크 통계</p>
-      </div>
-
-      {/* Kiosk Status Statistics Cards */}
-      <div className="status-cards-container">
-        <div className="status-cards-section">
-          <h3 className="status-section-title">전체 현황</h3>
-          <div className="status-cards">
-            <div
-              className="status-card total-card"
-              onClick={() => handleStatusCardClick('total')}
-            >
-              <div className="status-card-icon">📊</div>
-              <div className="status-card-content">
-                <div className="status-card-label">전체 키오스크</div>
-                <div className="status-card-value">{kioskStatusStats.total}</div>
-              </div>
-            </div>
-
-            <div
-              className="status-card logged-in-card"
-              onClick={() => handleStatusCardClick('connectionStatus', 'loggedIn')}
-            >
-              <div className="status-card-icon">👤</div>
-              <div className="status-card-content">
-                <div className="status-card-label">관리자 로그인</div>
-                <div className="status-card-value">{kioskStatusStats.loggedIn}</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="status-cards-section">
-          <h3 className="status-section-title">연결 상태</h3>
-          <div className="status-cards">
-            <div
-              className="status-card online-card"
-              onClick={() => handleStatusCardClick('connectionStatus', 'online')}
-            >
-              <div className="status-card-icon">🟢</div>
-              <div className="status-card-content">
-                <div className="status-card-label">정상</div>
-                <div className="status-card-value">{kioskStatusStats.online}</div>
-              </div>
-            </div>
-
-            <div
-              className="status-card error-card"
-              onClick={() => handleStatusCardClick('connectionStatus', 'error')}
-            >
-              <div className="status-card-icon">🔴</div>
-              <div className="status-card-content">
-                <div className="status-card-label">오류</div>
-                <div className="status-card-value">{kioskStatusStats.error}</div>
-              </div>
-            </div>
-
-            <div
-              className="status-card offline-card"
-              onClick={() => handleStatusCardClick('connectionStatus', 'offline')}
-            >
-              <div className="status-card-icon">🟠</div>
-              <div className="status-card-content">
-                <div className="status-card-label">오프라인</div>
-                <div className="status-card-value">{kioskStatusStats.offline}</div>
-              </div>
-            </div>
-
-            <div
-              className="status-card unknown-card"
-              onClick={() => handleStatusCardClick('connectionStatus', 'unknown')}
-            >
-              <div className="status-card-icon">⚪</div>
-              <div className="status-card-content">
-                <div className="status-card-label">미연결</div>
-                <div className="status-card-value">{kioskStatusStats.unknown}</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="status-cards-section">
-          <h3 className="status-section-title">가동 상태</h3>
-          <div className="status-cards">
-            <div
-              className="status-card preparing-card"
-              onClick={() => handleStatusCardClick('operationalState', 'preparing')}
-            >
-              <div className="status-card-icon">🔧</div>
-              <div className="status-card-content">
-                <div className="status-card-label">준비중</div>
-                <div className="status-card-value">{kioskStatusStats.preparing}</div>
-              </div>
-            </div>
-
-            <div
-              className="status-card active-card"
-              onClick={() => handleStatusCardClick('operationalState', 'active')}
-            >
-              <div className="status-card-icon">✅</div>
-              <div className="status-card-content">
-                <div className="status-card-label">운영중</div>
-                <div className="status-card-value">{kioskStatusStats.active}</div>
-              </div>
-            </div>
-
-            <div
-              className="status-card maintenance-card"
-              onClick={() => handleStatusCardClick('operationalState', 'maintenance')}
-            >
-              <div className="status-card-icon">🔨</div>
-              <div className="status-card-content">
-                <div className="status-card-label">정비중</div>
-                <div className="status-card-value">{kioskStatusStats.maintenance}</div>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
 
       <div className="charts-container">
