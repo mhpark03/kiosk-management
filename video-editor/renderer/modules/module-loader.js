@@ -39,6 +39,7 @@ export function initializeModules() {
 
   // Expose VEO functions to window for global access
   // VEO Image Generation (with reference images)
+  window.selectVeoRefImageSource = VEO.selectVeoRefImageSource;
   window.selectVeoRefImage = VEO.selectVeoRefImage;
   window.updateVeoRefImagePreview = VEO.updateVeoRefImagePreview;
   window.clearVeoRefImage = VEO.clearVeoRefImage;
