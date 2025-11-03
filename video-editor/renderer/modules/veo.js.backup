@@ -7,8 +7,7 @@
 import * as ImagenModule from './imagen.js';
 
 // Global state for VEO reference images (for image generation)
-let veoReferenceImages = [null, null, null];
-let veoRefImageSourceMode = 'local';  // 'local' or 's3' - tracks which source button is active
+let veoReferenceImages = [null, null, null, null, null];
 
 // Global state for generated VEO image
 let generatedVeoImage = null;  // {imageData: base64, preview: dataUrl}
@@ -67,116 +66,29 @@ export async function selectVeoRefImage(index, source) {
 }
 
 /**
- * Select source mode for VEO reference images (local or s3)
- * @param {string} source - 'local' or 's3'
- */
-export function selectVeoRefImageSource(source) {
-  console.log('[VEO Image] Setting reference image source to:', source);
-  veoRefImageSourceMode = source;
-
-  // Update button styles
-  const localBtn = document.getElementById('veo-ref-img-source-local');
-  const s3Btn = document.getElementById('veo-ref-img-source-s3');
-
-  if (localBtn && s3Btn) {
-    if (source === 'local') {
-      localBtn.style.background = '#667eea';
-      s3Btn.style.background = '#444';
-    } else {
-      localBtn.style.background = '#444';
-      s3Btn.style.background = '#667eea';
-    }
-  }
-
-  // Make slots clickable
-  for (let i = 0; i < 3; i++) {
-    const slot = document.getElementById(`veo-ref-img-slot-${i}`);
-    if (slot) {
-      slot.onclick = () => selectVeoRefImageSlot(i);
-      slot.style.cursor = 'pointer';
-    }
-  }
-}
-
-/**
- * Select image for specific slot
- * @param {number} index - Slot index (0-4)
- */
-async function selectVeoRefImageSlot(index) {
-  console.log(`[VEO Image] Selecting ${veoRefImageSourceMode} image for slot ${index}`);
-  await selectVeoRefImage(index, veoRefImageSourceMode);
-}
-
-/**
  * Update reference image preview
  * @param {number} index - Reference image slot index
  */
 export function updateVeoRefImagePreview(index) {
   const imageData = veoReferenceImages[index];
-  const slotDiv = document.getElementById(`veo-ref-img-slot-${index}`);
+  const previewDiv = document.getElementById(`veo-ref-img${index}-preview`);
 
-  if (!slotDiv) {
-    console.error(`[VEO Image] Slot not found: veo-ref-img-slot-${index}`);
-    return;
-  }
+  if (!previewDiv) return;
 
   if (imageData && imageData.preview) {
-    slotDiv.style.border = '2px solid #667eea';
-    slotDiv.innerHTML = `
-      <img src="${imageData.preview}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 6px;" />
+    previewDiv.innerHTML = `
+      <img src="${imageData.preview}" style="width: 100%; height: 100%; object-fit: contain;" />
       <button
-        onclick="window.clearVeoRefImage(${index}); event.stopPropagation();"
-        style="position: absolute; top: 2px; right: 2px; background: rgba(220, 53, 69, 0.9); color: white; border: none; border-radius: 50%; width: 20px; height: 20px; cursor: pointer; font-size: 12px; display: flex; align-items: center; justify-content: center; padding: 0; z-index: 10;"
+        onclick="window.clearVeoRefImage(${index})"
+        style="position: absolute; top: 5px; right: 5px; background: rgba(220, 53, 69, 0.9); color: white; border: none; border-radius: 50%; width: 25px; height: 25px; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; padding: 0;"
       >✕</button>
-      <div style="position: absolute; bottom: 2px; left: 2px; background: rgba(0, 0, 0, 0.7); color: white; padding: 2px 6px; border-radius: 3px; font-size: 10px;">
+      <div style="position: absolute; bottom: 5px; left: 5px; background: rgba(0, 0, 0, 0.7); color: white; padding: 3px 8px; border-radius: 3px; font-size: 11px;">
         ${imageData.source === 's3' ? '서버' : 'PC'}
       </div>
     `;
-
-    // Show in center preview
-    showVeoRefImagesInCenterPreview();
   } else {
-    slotDiv.style.border = '2px dashed #444';
-    slotDiv.innerHTML = `<span style="font-size: 24px;">🖼️</span>`;
-
-    // Update center preview
-    showVeoRefImagesInCenterPreview();
+    previewDiv.innerHTML = `<span style="color: #888; font-size: 13px;">이미지 ${index + 1}</span>`;
   }
-}
-
-/**
- * Show VEO reference images in center preview
- */
-function showVeoRefImagesInCenterPreview() {
-  const centerImagePreview = document.getElementById('generated-image-preview');
-  const centerVideoPreview = document.getElementById('preview-video');
-  const centerPlaceholder = document.getElementById('preview-placeholder');
-
-  if (!centerImagePreview || !centerVideoPreview || !centerPlaceholder) {
-    console.error('[VEO Image] Center preview elements not found');
-    return;
-  }
-
-  // Get selected images
-  const selectedImages = veoReferenceImages.filter(img => img !== null);
-
-  if (selectedImages.length === 0) {
-    // No images selected, show placeholder
-    centerVideoPreview.style.display = 'none';
-    centerImagePreview.style.display = 'none';
-    centerPlaceholder.style.display = 'flex';
-    return;
-  }
-
-  // Hide other elements
-  centerVideoPreview.style.display = 'none';
-  centerPlaceholder.style.display = 'none';
-
-  // Show first selected image in center
-  centerImagePreview.src = selectedImages[0].preview;
-  centerImagePreview.style.display = 'block';
-
-  console.log(`[VEO Image] Showing ${selectedImages.length} reference images in center preview`);
 }
 
 /**
@@ -197,50 +109,15 @@ async function openVeoRefImageS3Selector(index) {
   console.log(`[VEO Image] Opening S3 image selector for slot ${index}`);
 
   try {
-    // Fetch images from backend using common function
-    if (!window.fetchMediaFromS3) {
-      throw new Error('fetchMediaFromS3 함수를 사용할 수 없습니다.');
+    // Fetch images from backend
+    const response = await fetch('http://localhost:8080/api/videos/images');
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch images: ${response.status}`);
     }
 
-    const images = await window.fetchMediaFromS3('image');
+    const images = await response.json();
     console.log(`[VEO Image] Loaded ${images.length} images from S3`);
-
-    if (images.length === 0) {
-      alert('S3에 저장된 이미지가 없습니다.');
-      return;
-    }
-
-    // Sort by upload date (newest first)
-    images.sort((a, b) => {
-      const dateA = new Date(a.uploadedAt || a.createdAt || 0);
-      const dateB = new Date(b.uploadedAt || b.createdAt || 0);
-      return dateB - dateA;
-    });
-
-    // Get auth token from auth module
-    const token = window.getAuthToken ? window.getAuthToken() : null;
-    const baseUrl = window.getBackendUrl ? window.getBackendUrl() : 'http://localhost:8080';
-
-    // Get presigned URLs for images
-    for (const img of images) {
-      if (!img.presignedUrl) {
-        try {
-          const response = await fetch(`${baseUrl}/api/videos/${img.id}`, {
-            method: 'GET',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            }
-          });
-          if (response.ok) {
-            const data = await response.json();
-            img.presignedUrl = data.s3Url;
-          }
-        } catch (error) {
-          console.error('[VEO Image] Failed to get presigned URL:', error);
-        }
-      }
-    }
 
     // Create modal
     const modal = document.createElement('div');
@@ -258,86 +135,74 @@ async function openVeoRefImageS3Selector(index) {
       z-index: 10000;
     `;
 
-    modal.innerHTML = `
-      <div style="background: #2a2a2a; padding: 20px; border-radius: 8px; width: 90vw; max-width: 1200px; height: 85vh; overflow: hidden; display: flex; flex-direction: column;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-          <h2 style="margin: 0; color: #e0e0e0; font-size: 20px;">🖼️ S3에서 참조 이미지 선택 (슬롯 ${index + 1})</h2>
-          <button onclick="this.closest('#veo-ref-s3-modal').remove()" style="background: none; border: none; color: #aaa; font-size: 28px; cursor: pointer; padding: 0; width: 35px; height: 35px; line-height: 1;">&times;</button>
-        </div>
-
-        <div style="margin-bottom: 12px;">
-          <div style="color: #aaa; font-size: 13px;">
-            총 ${images.length}개의 이미지 파일
-          </div>
-        </div>
-
-        <div style="flex: 1; overflow-x: hidden; overflow-y: auto; border: 1px solid #444; border-radius: 4px;">
-          <table style="width: 100%; border-collapse: collapse; table-layout: fixed;">
-            <thead style="position: sticky; top: 0; background: #333; z-index: 1;">
-              <tr style="border-bottom: 2px solid #555;">
-                <th style="padding: 12px 8px; text-align: center; color: #e0e0e0; font-size: 13px; font-weight: 600; width: 100px;">미리보기</th>
-                <th style="padding: 12px 8px; text-align: left; color: #e0e0e0; font-size: 13px; font-weight: 600; width: 25%;">제목</th>
-                <th style="padding: 12px 8px; text-align: left; color: #e0e0e0; font-size: 13px; font-weight: 600; width: 40%;">설명</th>
-                <th style="padding: 12px 8px; text-align: center; color: #e0e0e0; font-size: 13px; font-weight: 600; width: 70px;">분류</th>
-                <th style="padding: 12px 8px; text-align: right; color: #e0e0e0; font-size: 13px; font-weight: 600; width: 80px;">크기</th>
-                <th style="padding: 12px 8px; text-align: center; color: #e0e0e0; font-size: 13px; font-weight: 600; width: 100px;">업로드일</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${images.map((img, i) => {
-                const sizeInMB = img.fileSize ? (img.fileSize / (1024 * 1024)).toFixed(2) : '?';
-                let uploadDate = '날짜 없음';
-                const dateField = img.uploadedAt || img.createdAt;
-                if (dateField) {
-                  const date = new Date(dateField);
-                  if (!isNaN(date.getTime())) {
-                    uploadDate = date.toLocaleDateString('ko-KR');
-                  }
-                }
-                const folder = img.s3Key ? (img.s3Key.includes('images/ai/') ? 'AI' : img.s3Key.includes('images/uploads/') ? '업로드' : '기타') : '?';
-                const rowBg = i % 2 === 0 ? '#2d2d2d' : '#333';
-                const imageUrl = img.presignedUrl || img.s3Url || '';
-
-                return `
-                  <tr style="border-bottom: 1px solid #444; background: ${rowBg}; transition: background 0.2s; cursor: pointer;"
-                      onmouseover="this.style.background='#3a3a5a'"
-                      onmouseout="this.style.background='${rowBg}'"
-                      onclick="window.selectVeoRefImageFromList(${index}, '${imageUrl.replace(/'/g, "\\'")}')">
-                    <td style="padding: 8px; text-align: center;">
-                      <img src="${imageUrl}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 4px; border: 1px solid #555;"/>
-                    </td>
-                    <td style="padding: 12px 8px; color: #e0e0e0; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                      <div style="font-weight: 600;">${img.title || img.filename}</div>
-                    </td>
-                    <td style="padding: 12px 8px; color: #aaa; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                      ${img.description || '설명 없음'}
-                    </td>
-                    <td style="padding: 12px 8px; text-align: center; color: #aaa; font-size: 12px;">
-                      <span style="background: ${folder === 'AI' ? '#4a5568' : '#2d5a4a'}; padding: 4px 8px; border-radius: 4px; font-size: 11px;">
-                        ${folder}
-                      </span>
-                    </td>
-                    <td style="padding: 12px 8px; text-align: right; color: #aaa; font-size: 12px;">
-                      ${sizeInMB} MB
-                    </td>
-                    <td style="padding: 12px 8px; text-align: center; color: #aaa; font-size: 12px;">
-                      ${uploadDate}
-                    </td>
-                  </tr>
-                `;
-              }).join('')}
-            </tbody>
-          </table>
-        </div>
-
-        <div style="margin-top: 15px; text-align: right;">
-          <button onclick="this.closest('#veo-ref-s3-modal').remove()" class="property-btn" style="padding: 10px 20px; background: #555;">
-            닫기
-          </button>
-        </div>
-      </div>
+    const modalContent = document.createElement('div');
+    modalContent.style.cssText = `
+      background: #1e1e2e;
+      padding: 20px;
+      border-radius: 10px;
+      width: 80%;
+      max-width: 900px;
+      max-height: 80vh;
+      overflow-y: auto;
     `;
 
+    const title = document.createElement('h3');
+    title.textContent = '서버 이미지 선택';
+    title.style.cssText = 'color: #667eea; margin-bottom: 15px;';
+
+    const grid = document.createElement('div');
+    grid.style.cssText = `
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 15px;
+      margin-bottom: 15px;
+    `;
+
+    // Add images
+    images.forEach(image => {
+      const imgCard = document.createElement('div');
+      imgCard.style.cssText = `
+        cursor: pointer;
+        border: 2px solid transparent;
+        border-radius: 8px;
+        overflow: hidden;
+        transition: border-color 0.3s;
+      `;
+
+      imgCard.innerHTML = `
+        <img src="${image.url}" style="width: 100%; height: 120px; object-fit: cover;" />
+        <div style="padding: 8px; background: #2d2d2d;">
+          <div style="color: white; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${image.title || 'Untitled'}</div>
+        </div>
+      `;
+
+      imgCard.onmouseover = () => imgCard.style.borderColor = '#667eea';
+      imgCard.onmouseout = () => imgCard.style.borderColor = 'transparent';
+
+      imgCard.onclick = () => {
+        veoReferenceImages[index] = {
+          source: 's3',
+          filePath: image.url,
+          preview: image.url
+        };
+        updateVeoRefImagePreview(index);
+        document.body.removeChild(modal);
+        console.log(`[VEO Image] Selected S3 image for slot ${index}:`, image.url);
+      };
+
+      grid.appendChild(imgCard);
+    });
+
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = '닫기';
+    closeBtn.className = 'property-btn';
+    closeBtn.style.cssText = 'width: 100%; margin-top: 10px;';
+    closeBtn.onclick = () => document.body.removeChild(modal);
+
+    modalContent.appendChild(title);
+    modalContent.appendChild(grid);
+    modalContent.appendChild(closeBtn);
+    modal.appendChild(modalContent);
     document.body.appendChild(modal);
 
   } catch (error) {
@@ -347,33 +212,13 @@ async function openVeoRefImageS3Selector(index) {
 }
 
 /**
- * Select VEO reference image from list (called from modal)
- */
-window.selectVeoRefImageFromList = function(index, imageUrl) {
-  veoReferenceImages[index] = {
-    source: 's3',
-    filePath: imageUrl,
-    preview: imageUrl
-  };
-  updateVeoRefImagePreview(index);
-
-  const modal = document.getElementById('veo-ref-s3-modal');
-  if (modal) {
-    modal.remove();
-  }
-
-  console.log(`[VEO Image] Selected S3 image for slot ${index}:`, imageUrl);
-
-  // Show selected images in center preview
-  showVeoRefImagesInCenterPreview();
-};
-
-/**
  * Generate image for VEO using Imagen API
  */
 export async function executeGenerateImageVeo() {
   const prompt = document.getElementById('image-prompt-veo')?.value;
   const aspect = document.getElementById('image-aspect-veo')?.value;
+  const title = document.getElementById('ai-image-title-veo')?.value?.trim();
+  const description = document.getElementById('ai-image-description-veo')?.value?.trim();
 
   if (!prompt) {
     alert('프롬프트를 입력해주세요.');
@@ -457,23 +302,9 @@ export async function executeGenerateImageVeo() {
 function displayGeneratedVeoImagePreview() {
   if (!generatedVeoImage) return;
 
-  // Show in center preview
-  const centerImagePreview = document.getElementById('generated-image-preview');
-  const centerVideoPreview = document.getElementById('preview-video');
-  const centerPlaceholder = document.getElementById('preview-placeholder');
-
-  if (centerImagePreview && centerVideoPreview && centerPlaceholder) {
-    centerVideoPreview.style.display = 'none';
-    centerPlaceholder.style.display = 'none';
-    centerImagePreview.src = generatedVeoImage.preview;
-    centerImagePreview.style.display = 'block';
-    console.log('[VEO Image] Displaying generated image in center preview');
-  }
-
-  // Show S3 save section
-  const saveSection = document.getElementById('veo-image-save-section');
-  if (saveSection) {
-    saveSection.style.display = 'block';
+  const previewSection = document.getElementById('veo-generated-image-section');
+  if (previewSection) {
+    previewSection.style.display = 'block';
   }
 
   const previewDiv = document.getElementById('veo-generated-image-preview');
@@ -524,14 +355,7 @@ export async function downloadGeneratedVeoImage() {
   }
 }
 
-/**
- * Use generated image for video generation
- */
-export function useGeneratedImageForVideo() {
-  if (!generatedVeoImage) {
-    alert('생성된 이미지가 없습니다.');
-    return;
-  }
+
 
   // Set generated image as video image
   veoVideoImage = {
@@ -708,30 +532,16 @@ export function updateVeoVideoSourceButtons(activeSource) {
     } else if (activeSource === 's3') {
       localBtn.style.background = '#444';
       s3Btn.style.background = '#667eea';
-    }
-  }
-}
 
 /**
  * Update VEO video image preview
  */
 export function updateVeoVideoImagePreview() {
-  console.log('[VEO Video] updateVeoVideoImagePreview called');
   const previewDiv = document.getElementById('veo-video-img-preview');
-  const centerImagePreview = document.getElementById('generated-image-preview');
-  const centerVideoPreview = document.getElementById('preview-video');
-  const centerPlaceholder = document.getElementById('preview-placeholder');
 
-  console.log('[VEO Video] previewDiv found:', !!previewDiv);
-  console.log('[VEO Video] veoVideoImage:', veoVideoImage);
-
-  if (!previewDiv) {
-    console.error('[VEO Video] Preview div not found! ID: veo-video-img-preview');
-    return;
-  }
+  if (!previewDiv) return;
 
   if (veoVideoImage && veoVideoImage.preview) {
-    console.log('[VEO Video] Setting preview image:', veoVideoImage.preview);
     const sourceLabel = veoVideoImage.source === 's3' ? '서버' : 'PC';
     previewDiv.innerHTML = `
       <img src="${veoVideoImage.preview}" style="width: 100%; height: 100%; object-fit: contain;" />
@@ -743,22 +553,8 @@ export function updateVeoVideoImagePreview() {
         ${sourceLabel}
       </div>
     `;
-
-    // Show in center preview
-    if (centerImagePreview && centerVideoPreview && centerPlaceholder) {
-      centerVideoPreview.style.display = 'none';
-      centerPlaceholder.style.display = 'none';
-      centerImagePreview.src = veoVideoImage.preview;
-      centerImagePreview.style.display = 'block';
-      console.log('[VEO Video] Image displayed in center preview');
-    }
   } else {
     previewDiv.innerHTML = `<span style="color: #888; font-size: 13px;">이미지를 선택하세요</span>`;
-
-    // Hide center preview
-    if (centerImagePreview) {
-      centerImagePreview.style.display = 'none';
-    }
   }
 }
 
@@ -778,12 +574,14 @@ async function openVeoVideoS3ImageSelector() {
   console.log('[VEO Video] Opening S3 image selector');
 
   try {
-    // Fetch images from backend using common function
-    if (!window.fetchMediaFromS3) {
-      throw new Error('fetchMediaFromS3 함수를 사용할 수 없습니다.');
+    // Fetch images from backend
+    const response = await fetch('http://localhost:8080/api/videos/images');
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch images: ${response.status}`);
     }
 
-    const images = await window.fetchMediaFromS3('image');
+    const images = await response.json();
     console.log(`[VEO Video] Loaded ${images.length} images from S3`);
 
     // Create modal
@@ -913,6 +711,12 @@ export async function executeGenerateVideoVeo() {
       window.updateStatus('영상 생성 준비 중...');
     }
 
+    // Prepare form data
+    const formData = new FormData();
+    formData.append('prompt', prompt);
+    formData.append('duration', duration);
+    formData.append('resolution', resolution);
+    formData.append('aspectRatio', aspectRatio);
 
     // Convert image to base64 for API call
     let imageBase64;
@@ -920,15 +724,11 @@ export async function executeGenerateVideoVeo() {
       window.updateProgress(15, '이미지 로드 중...');
     }
 
-    let imageMimeType = 'image/png'; // Default
-
     if (veoVideoImage.source === 'local') {
       const imageResponse = await fetch(`file://${veoVideoImage.filePath}`);
       const imageBlob = await imageResponse.blob();
-      imageMimeType = imageBlob.type || 'image/png'; // Use original mime type
-      console.log(`[VEO Video] Image size: ${imageBlob.size} bytes, type: ${imageMimeType}`);
 
-      // Use FileReader to convert blob to base64 (without compression)
+      // Use FileReader to convert blob to base64 (avoids stack overflow for large images)
       imageBase64 = await new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onloadend = () => {
@@ -942,10 +742,8 @@ export async function executeGenerateVideoVeo() {
     } else if (veoVideoImage.source === 's3') {
       const imageResponse = await fetch(veoVideoImage.filePath);
       const imageBlob = await imageResponse.blob();
-      imageMimeType = imageBlob.type || 'image/png'; // Use original mime type
-      console.log(`[VEO Video] Image size: ${imageBlob.size} bytes, type: ${imageMimeType}`);
 
-      // Use FileReader to convert blob to base64 (without compression)
+      // Use FileReader to convert blob to base64
       imageBase64 = await new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onloadend = () => {
@@ -962,14 +760,12 @@ export async function executeGenerateVideoVeo() {
     }
 
     // Call Google VEO API via Electron main process
-    // Note: durationSeconds must be a STRING: "4", "6", or "8"
     const result = await window.electronAPI.generateVeoVideo({
       prompt: prompt,
       imageBase64: imageBase64,
-      durationSeconds: duration, // Keep as string
+      duration: duration,
       resolution: resolution,
-      aspectRatio: aspectRatio,
-      mimeType: imageMimeType // Use original image type
+      aspectRatio: aspectRatio
     });
 
     console.log('[VEO Video] Generation result:', result);
@@ -978,35 +774,10 @@ export async function executeGenerateVideoVeo() {
       throw new Error('Video generation failed or video URL not found');
     }
 
-    // Download video to temp file
-    if (typeof window.updateProgress === 'function') {
-      window.updateProgress(90, '영상 다운로드 중...');
-    }
-    if (typeof window.updateStatus === 'function') {
-      window.updateStatus('영상 다운로드 중...');
-    }
-
-    console.log('[VEO Video] Starting download from URL:', result.videoUrl);
-    const downloadResult = await window.electronAPI.downloadFile(result.videoUrl, `veo_video_${result.taskId}.mp4`);
-    console.log('[VEO Video] Download result:', downloadResult);
-
-    if (!downloadResult || !downloadResult.success) {
-      const errorMsg = downloadResult?.error || '알 수 없는 오류';
-      console.error('[VEO Video] Download failed:', errorMsg);
-      throw new Error(`영상 다운로드에 실패했습니다: ${errorMsg}`);
-    }
-
-    if (!downloadResult.filePath) {
-      throw new Error('영상 다운로드에 실패했습니다: 파일 경로를 받지 못했습니다.');
-    }
-
-    console.log('[VEO Video] Video downloaded to:', downloadResult.filePath);
-
-    // Store generated video info with local path
+    // Store generated video info
     generatedVeoVideo = {
       url: result.videoUrl,
-      taskId: result.taskId,
-      localPath: downloadResult.filePath
+      taskId: result.taskId
     };
 
     if (typeof window.updateProgress === 'function') {
@@ -1025,14 +796,7 @@ export async function executeGenerateVideoVeo() {
       previewSection.style.display = 'block';
     }
 
-    // Load video using existing video loader (with audio check and waveform)
-    if (typeof window.loadVideoWithAudioCheck === 'function') {
-      await window.loadVideoWithAudioCheck(downloadResult.filePath);
-    } else if (typeof window.loadVideo === 'function') {
-      await window.loadVideo(downloadResult.filePath);
-    }
-
-    console.log('[VEO Video] Video generated and loaded successfully');
+    console.log('[VEO Video] Video generated successfully');
 
   } catch (error) {
     console.error('[VEO Video] Generation failed:', error);
@@ -1072,23 +836,17 @@ export async function saveVeoVideoToS3() {
       window.updateStatus('S3 저장 중...');
     }
 
-    // Use local downloaded file
-    if (!generatedVeoVideo.localPath) {
-      throw new Error('로컬 파일 경로가 없습니다. 영상을 다시 생성해주세요.');
-    }
-
+    // Download video from VEO URL
     if (typeof window.updateProgress === 'function') {
-      window.updateProgress(20, '로컬 파일 읽는 중...');
+      window.updateProgress(20, '영상 다운로드 중...');
     }
-
-    // Read local file and convert to blob
-    const videoResponse = await fetch(`file://${generatedVeoVideo.localPath}`);
+    const videoResponse = await fetch(generatedVeoVideo.url);
     if (!videoResponse.ok) {
-      throw new Error('Failed to read local video file');
+      throw new Error('Failed to download generated video');
     }
 
     const videoBlob = await videoResponse.blob();
-    console.log('[VEO Video] Local file read, size:', videoBlob.size);
+    console.log('[VEO Video] Video downloaded, size:', videoBlob.size);
 
     // Upload to S3 via backend
     if (typeof window.updateProgress === 'function') {
