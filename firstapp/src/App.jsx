@@ -18,6 +18,7 @@ import VideoUpload from './components/VideoUpload';
 import VideoGenerator from './components/VideoGenerator';
 import ImageManagement from './components/ImageManagement';
 import ImageEdit from './components/ImageEdit';
+import AudioManagement from './components/AudioManagement';
 import KioskVideoManagement from './components/KioskVideoManagement';
 import KioskEventHistory from './components/KioskEventHistory';
 import UserGuide from './components/UserGuide';
@@ -179,6 +180,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <ImageEdit />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/audios"
+            element={
+              <ProtectedRoute>
+                <AudioManagement />
               </ProtectedRoute>
             }
           />
