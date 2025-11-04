@@ -411,11 +411,10 @@ public class VideoController {
     }
 
     /**
-     * Regenerate thumbnail for a video (Admin only)
+     * Regenerate thumbnail for a video
      * POST /api/videos/{id}/regenerate-thumbnail
      */
     @PostMapping("/{id}/regenerate-thumbnail")
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> regenerateThumbnail(@PathVariable Long id, Authentication authentication) {
         try {
             String userEmail = authentication.getName();
