@@ -150,15 +150,6 @@ function Navbar() {
                   </li>
                   <li>
                     <Link
-                      to="/videos/ai-generated"
-                      className={location.pathname === '/videos/ai-generated' ? 'active' : ''}
-                      onClick={closeMenu}
-                    >
-                      편집영상관리
-                    </Link>
-                  </li>
-                  <li>
-                    <Link
                       to="/images"
                       className={location.pathname === '/images' ? 'active' : ''}
                       onClick={closeMenu}
