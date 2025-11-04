@@ -60,21 +60,22 @@ jobs:
         cd backend
         aws s3 cp deploy-${{ steps.timestamp.outputs.timestamp }}.zip s3://${{ secrets.EB_S3_BUCKET }}/backend-${{ steps.timestamp.outputs.timestamp }}.zip
         aws elasticbeanstalk create-application-version \
-          --application-name ${{ secrets.EB_APPLICATION_NAME }} \
+          --application-name kiosk-backend-v2 \
           --version-label backend-${{ steps.timestamp.outputs.timestamp }} \
           --source-bundle S3Bucket="${{ secrets.EB_S3_BUCKET }}",S3Key="backend-${{ steps.timestamp.outputs.timestamp }}.zip"
         aws elasticbeanstalk update-environment \
-          --application-name ${{ secrets.EB_APPLICATION_NAME }} \
-          --environment-name ${{ secrets.EB_ENVIRONMENT_NAME }} \
+          --application-name kiosk-backend-v2 \
+          --environment-name kiosk-backend-prod-v2 \
           --version-label backend-${{ steps.timestamp.outputs.timestamp }}
 
     - name: Wait for deployment
       run: |
         aws elasticbeanstalk wait environment-updated \
-          --application-name ${{ secrets.EB_APPLICATION_NAME }} \
-          --environment-name ${{ secrets.EB_ENVIRONMENT_NAME }}
+          --application-name kiosk-backend-v2 \
+          --environment-name kiosk-backend-prod-v2
 
     - name: Verify deployment
       run: |
         echo "Deployment completed successfully!"
-        echo "Application URL: ${{ secrets.EB_ENVIRONMENT_URL }}"
+        CNAME=$(aws elasticbeanstalk describe-environments --application-name kiosk-backend-v2 --environment-names kiosk-backend-prod-v2 --region ap-northeast-2 --query "Environments[0].CNAME" --output text)
+        echo "Application URL: http://${CNAME}"
