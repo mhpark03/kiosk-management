@@ -4,14 +4,23 @@
 
 /**
  * Format timestamp to KST string
- * @param {string|Date} timestamp - ISO timestamp or Date object
+ * @param {string|Date|Object} timestamp - ISO timestamp, Date object, or Firebase Timestamp
  * @param {boolean} includeTime - Whether to include time (default: true)
  * @returns {string} Formatted date string in KST
  */
 export const formatKSTDate = (timestamp, includeTime = true) => {
   if (!timestamp) return 'N/A';
 
-  const date = new Date(timestamp);
+  // Handle Firebase Timestamp objects
+  let date;
+  if (timestamp.toDate && typeof timestamp.toDate === 'function') {
+    date = timestamp.toDate();
+  } else {
+    date = new Date(timestamp);
+  }
+
+  // Check if date is valid
+  if (isNaN(date.getTime())) return 'N/A';
 
   // Convert to KST (Korea Standard Time, UTC+9)
   const kstDate = new Date(date.toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
@@ -48,7 +57,17 @@ export const formatKSTDateShort = (timestamp) => {
 export const formatKSTLocale = (timestamp) => {
   if (!timestamp) return 'N/A';
 
-  const date = new Date(timestamp);
+  // Handle Firebase Timestamp objects
+  let date;
+  if (timestamp.toDate && typeof timestamp.toDate === 'function') {
+    date = timestamp.toDate();
+  } else {
+    date = new Date(timestamp);
+  }
+
+  // Check if date is valid
+  if (isNaN(date.getTime())) return 'N/A';
+
   return date.toLocaleString('ko-KR', {
     timeZone: 'Asia/Seoul',
     year: 'numeric',
