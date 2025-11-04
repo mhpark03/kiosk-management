@@ -15,7 +15,6 @@ import UserManagement from './components/UserManagement';
 import BatchManagement from './components/BatchManagement';
 import VideoManagement from './components/VideoManagement';
 import VideoUpload from './components/VideoUpload';
-import VideoGenerator from './components/VideoGenerator';
 import ImageManagement from './components/ImageManagement';
 import ImageEdit from './components/ImageEdit';
 import AudioManagement from './components/AudioManagement';
@@ -192,10 +191,6 @@ function App() {
             }
           />
           <Route
-            path="/videos/generate"
-            element={
-              <ProtectedRoute>
-                <VideoGenerator />
               </ProtectedRoute>
             }
           />
