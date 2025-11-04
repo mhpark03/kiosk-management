@@ -76,7 +76,7 @@ public class VideoController {
     /**
      * Get all videos (Admin only)
      * GET /api/videos
-     * Optional query param: type (e.g., UPLOAD, VEO_GENERATED, AI_GENERATED)
+     * Optional query param: type (e.g., UPLOAD, AI_GENERATED)
      */
     @GetMapping
     @PreAuthorize("hasRole('ADMIN')")
@@ -159,7 +159,7 @@ public class VideoController {
     /**
      * Get videos uploaded by current user
      * GET /api/videos/my-videos
-     * Optional query param: type (e.g., UPLOAD, VEO_GENERATED, AI_GENERATED)
+     * Optional query param: type (e.g., UPLOAD, AI_GENERATED)
      */
     @GetMapping("/my-videos")
     public ResponseEntity<?> getMyVideos(
