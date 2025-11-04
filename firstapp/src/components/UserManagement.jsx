@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getAllUsers, suspendUser, activateUser, deleteUser, updateUserRole, updateUserProfileByAdmin } from '../services/userService';
 import './StoreManagement.css';
+import { formatKSTDate } from '../utils/dateUtils';
 
 function UserManagement() {
   const navigate = useNavigate();
@@ -318,15 +319,6 @@ function UserManagement() {
     );
   };
 
-  const formatDate = (date) => {
-    if (!date) return 'N/A';
-    const d = new Date(date);
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    const hours = String(d.getHours()).padStart(2, '0');
-    const minutes = String(d.getMinutes()).padStart(2, '0');
-    return `${month}/${day} ${hours}:${minutes}`;
-  };
 
   // Sort users: PENDING_APPROVAL first, then others
   const sortedUsers = [...users].sort((a, b) => {
@@ -412,8 +404,8 @@ function UserManagement() {
                   <td>{user.phoneNumber || '-'}</td>
                   <td>{getRoleSelect(user)}</td>
                   <td>{getStatusSelect(user)}</td>
-                  <td>{formatDate(user.createdAt)}</td>
-                  <td>{formatDate(user.updatedAt)}</td>
+                  <td>{formatKSTDate(user.createdAt)}</td>
+                  <td>{formatKSTDate(user.updatedAt)}</td>
                   <td className="memo-cell">{user.memo || '-'}</td>
                   <td>
                     <div className="action-buttons">

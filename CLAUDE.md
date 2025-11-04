@@ -2,690 +2,445 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## System Overview
+## Repository Overview
 
-This is a **Kiosk Management System** consisting of four applications:
+Multi-component kiosk management system with Spring Boot backend, React admin dashboard, Flutter kiosk app, and Electron video editor.
 
-1. **backend/** - Spring Boot REST API for managing kiosks, stores, videos/images, and events
-2. **firstapp/** - React web dashboard for administrators (Vite + React 19)
-3. **kiosk-downloader/** - Electron desktop app for kiosk devices to download/manage videos
-4. **video-editor/** - Electron desktop app for advanced video/audio editing with FFmpeg
+**Components:**
+1. `backend/` - Spring Boot REST API (Java 17, Gradle)
+2. `firstapp/` - React admin dashboard (Vite + React 19)
+3. `flutter_downloader/` - Flutter kiosk app (Windows/Android)
+4. `video-editor/` - Electron video editor with AI integrations
 
-### Architecture Flow
-
-```
-Kiosk Downloader (Electron)  ←→  Spring Boot Backend (Port 8080)  ←→  MySQL Database
-                                           ↑
-React Admin Dashboard (Port 5173) ────────┘
-
-                                  AWS S3 (Media Storage)
-                                           ↑
-                                  Runway ML API (AI Generation)
-```
-
-## Running the Applications
+## Build & Run Commands
 
 ### Backend (Spring Boot)
-
-The backend requires MySQL and environment variables for database access.
-
 ```bash
-# Development (local MySQL) - Quick start
 cd backend
-start-backend.bat              # Convenience script with pre-configured JAVA_HOME
 
-# Development (local MySQL) - Manual
-DB_PASSWORD=your_password JAVA_HOME="C:/Program Files/Eclipse Adoptium/jdk-17.0.16.8-hotspot" ./gradlew.bat bootRun
+# Local development (localhost MySQL)
+SPRING_PROFILES_ACTIVE=local JAVA_HOME="C:/Program Files/Eclipse Adoptium/jdk-17.0.16.8-hotspot" ./gradlew.bat bootRun
 
-# Build
-./gradlew.bat build
+# AWS development (RDS)
+SPRING_PROFILES_ACTIVE=dev JAVA_HOME="C:/Program Files/Eclipse Adoptium/jdk-17.0.16.8-hotspot" ./gradlew.bat bootRun
+
+# Build JAR (skip tests for faster builds)
+./gradlew.bat clean build -x test
 
 # Run tests
 ./gradlew.bat test
 ```
 
-**Critical Environment Variables:**
-- `DB_PASSWORD` - Required for MySQL (local profile)
-- `JAVA_HOME` - Java 17 installation path
-- `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` - For S3 media storage
-- `SPRING_PROFILES_ACTIVE` - Profile selection (local/dev/prod)
-- `runway.api.key` - Runway ML API key for AI generation (optional)
-
-### React Admin Dashboard
-
+### Frontend (React + Vite)
 ```bash
 cd firstapp
-npm install
-npm run dev          # Development server on https://localhost:5173
-npm run build        # Production build
-npm run lint         # Run ESLint
-```
 
-### Kiosk Downloader (Electron)
+# Development server (http://localhost:5173)
+npm run dev
 
-```bash
-cd kiosk-downloader
-npm install
-npm start                    # Run in development
-npm run build:win            # Build Windows installer
+# Production build
+npm run build
+
+# Lint
+npm run lint
 ```
 
 ### Video Editor (Electron)
-
-**Prerequisites**: FFmpeg must be installed and available in PATH or placed in `video-editor/ffmpeg/` directory.
-
 ```bash
 cd video-editor
 npm install
-npm start                    # Run in development (with UTF-8 encoding)
-npm start-dev                # Run in development mode
-npm run build:win            # Build Windows installer
+npm start  # Run in development
 ```
 
-## Key Architecture Patterns
+## Critical Architecture Patterns
 
-### Backend Data Model Hierarchy
+### AI Content Upload Flow (video-editor → backend)
 
-The system has a **three-tier kiosk identification** system:
+**IMPORTANT**: The video-editor uploads AI-generated content via `/api/ai/upload`:
 
-1. **Store** (POS ID: 8 digits, e.g., "00000001")
-   - Auto-generated sequential
-   - Managed via `/api/stores`
-
-2. **Kiosk** (Kiosk ID: 12 digits, e.g., "000000000001")
-   - Auto-generated sequential globally
-   - Kiosk Number: Sequential per-store (1, 2, 3...)
-   - Belongs to exactly one Store (posid foreign key)
-   - Managed via `/api/kiosks`
-
-3. **Video** (assigned to Kiosks, also stores images)
-   - Supports both VIDEO and IMAGE media types
-   - Two source types: UPLOAD (user uploaded) and RUNWAY_GENERATED (AI generated)
-   - Stored in AWS S3 with organized folder structure
-   - Metadata in MySQL
-   - Managed via `/api/videos`
-
-### Media Management with AI Generation
-
-The Video entity handles both videos and images with dual classification:
-
-**VideoType enum:**
-- `UPLOAD` - Regular uploaded video/image
-- `RUNWAY_GENERATED` - AI-generated content from Runway ML
-
-**MediaType enum:**
-- `VIDEO` - Video file
-- `IMAGE` - Image file
-
-**S3 Folder Structure:**
 ```
-videos/
-  ├── uploads/        # User uploaded videos
-  ├── runway/         # Runway ML generated videos
-  └── veo/            # Google Veo generated videos
-images/
-  ├── uploads/        # User uploaded images
-  └── runway/         # Runway ML generated images
-audios/
-  ├── uploads/        # User uploaded audio files
-  └── tts/            # Google TTS generated audio files
-thumbnails/
-  ├── uploads/        # Thumbnails for uploaded content
-  ├── runway/         # Thumbnails for Runway ML content
-  └── veo/            # Thumbnails for Google Veo content
+video-editor → POST /api/ai/upload → AIContentController.uploadAIContent()
+                                    → VideoService.uploadAIContent()
+                                    → S3Service.uploadFile()
+                                    → Video entity (AI_GENERATED, mediaType: IMAGE|VIDEO|AUDIO)
 ```
 
-**Runway ML Integration:**
-- Video generation: Models include gen3a_turbo, gen4_turbo, veo3, veo3.1, veo3.1_fast
-- Image generation: gen4_image model with up to 5 reference images
-- API base URL: `https://api.dev.runwayml.com` (dev) or `https://api.runwayml.com` (prod)
-- Task-based async generation with polling (`/v1/tasks/{taskId}`)
-- Metadata stored: taskId, model, resolution, prompt, duration (videos), style (images)
+**Files that MUST NOT be deleted:**
+- `AIContentController.java` - Editor uploads depend on this
+- `VideoService.uploadAIContent()` method - Editor uploads depend on this
 
-**Key Endpoints:**
-- `/api/runway/generate-video` - Start video generation task
-- `/api/runway/generate-image` - Start image generation task (POST `/v1/text_to_image`)
-- `/api/runway/task-status/{taskId}` - Poll generation status
-- `/api/videos/save-runway-video` - Save generated video to S3 and DB
-- `/api/videos/save-runway-image` - Save generated image to S3 and DB
+**Files deleted for memory optimization (editor calls APIs directly):**
+- `RunwayController.java` - Editor has own Runway API integration
+- `RunwayService.java` - Heavy image processing (460 lines), not needed
+- Frontend: `VideoGenerator.jsx`, `veoService.js`, `runwayService.js`
 
-**Google Veo Integration:**
-- Video generation using Google Generative Language API
-- Model: `veo-3.1-generate-preview`
-- API base: `https://generativelanguage.googleapis.com/v1beta`
-- Requires `GOOGLE_AI_API_KEY` environment variable
-- Task-based async generation similar to Runway ML
-- Default settings: 720p resolution, 16:9 aspect ratio, 8 second duration
-- S3 folder structure: `videos/veo/` and `thumbnails/veo/`
-- VideoType enum includes `VEO_GENERATED` alongside `UPLOAD` and `RUNWAY_GENERATED`
-
-**Veo Endpoints:**
-- `/api/veo/generate-video` - Start Veo video generation
-- `/api/veo/task-status/{taskId}` - Poll Veo generation status
-- `/api/videos/save-veo-video` - Save generated video to S3 and DB
-
-### Event Tracking System
-
-All kiosk activities are tracked via `KioskEvent` entity with **client IP recording**:
-
-- Event types: APP_START, SYNC_STARTED, DOWNLOAD_COMPLETED, CONFIG_SAVED, etc.
-- Automatically captures client IP from HTTP request headers (X-Forwarded-For, X-Real-IP, or remote address)
-- API: `/api/kiosk-events`
-- Service uses `@Transactional(propagation = Propagation.REQUIRES_NEW)` to ensure events are always recorded
-
-### Security Architecture
-
-- **JWT-based authentication** (infrastructure ready, not fully enforced)
-- Two authentication filters run in sequence:
-  1. `KioskAuthenticationFilter` - For kiosk device authentication using X-Kiosk-Id header
-  2. `JwtAuthenticationFilter` - For user JWT token authentication
-- User email tracking via `X-User-Email` header for audit trails
-- Spring Security configured but permissive for development
-- Admin-only endpoints protected with `@PreAuthorize("hasRole('ADMIN')")`
-
-### Soft Delete Pattern
-
-Entities support soft delete with restore functionality:
-- `deleted` boolean field
-- `deletedAt` timestamp
-- Repository methods with `@Where(clause = "deleted = false")` for default queries
-- Explicit `includeDeleted` parameter for controllers to override
-
-## Database Migrations
-
-The backend uses **Hibernate auto-DDL** (`spring.jpa.hibernate.ddl-auto=update`). For manual migrations:
-
-- Migration scripts stored in backend root (e.g., `add_client_ip_column.sql`)
-- Apply manually when using `ddl-auto=none` or `validate` profiles
-- When adding new fields like `mediaType` or `imageStyle`, the schema updates automatically on restart
-
-## Frontend-Backend Integration
-
-### CORS Configuration
-
-Backend allows:
-- React dev server: `https://localhost:5173`
-- Production S3 frontend: `http://kiosk-frontend-20251018.s3-website.ap-northeast-2.amazonaws.com`
-- Electron app: All localhost ports via `http://localhost:*`
-
-**CORS Implementation:**
-- `CorsConfig.java` - Configures allowed origins, methods, headers
-- `SecurityConfig.java` - Explicitly allows OPTIONS preflight requests with:
-  ```java
-  .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-  ```
-- Without OPTIONS permitAll, CORS preflight requests will fail with 403 Forbidden
-- All API endpoints return proper CORS headers:
-  - `Access-Control-Allow-Origin`
-  - `Access-Control-Allow-Credentials: true`
-  - `Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS`
-
-### Electron CSP (Content Security Policy)
-
-Located in `kiosk-downloader/renderer/index.html`:
-```
-connect-src 'self' http://localhost:* http://127.0.0.1:*
-            https://*.ap-northeast-2.amazonaws.com
-            http://*.elasticbeanstalk.com
-```
-
-Add new backend URLs here if deployment changes.
-
-### API Server Selection (Electron App)
-
-The kiosk downloader supports three server modes:
-- **Local server**: `http://localhost:8080/api`
-- **AWS dev server**: Elastic Beanstalk URL
-- **Custom**: User-provided URL
-
-Configured in `kiosk-downloader/renderer/app.js` server selector radio buttons.
-
-### AI Generation Workflow (React Dashboard)
-
-**Video Generation** (`/videos/generate`):
-1. User uploads 2 images, enters prompt, selects model/duration/resolution
-2. Frontend calls `/api/runway/generate-video`
-3. Backend converts images to base64, calls Runway ML `/v1/image_to_video`
-4. Frontend polls `/api/runway/task-status/{taskId}` every 5 seconds
-5. On completion, user can save video via `/api/videos/save-runway-video`
-
-**Image Generation** (`/images/generate`):
-1. User uploads 1-5 reference images, enters prompt, selects style/aspect ratio
-2. Frontend calls `/api/runway/generate-image`
-3. Backend formats as array of `{uri, tag}` objects, calls `/v1/text_to_image`
-4. Frontend polls task status every 3 seconds
-5. On completion, user can save image via `/api/videos/save-runway-image`
-
-## AWS Deployment
-
-### GitHub Actions CI/CD (Recommended)
-
-The project uses **GitHub Actions for automated deployment** to avoid Windows ZIP path separator issues:
-
-**Trigger Conditions:**
-- Automatic: Push to `main` branch with changes in `backend/` folder
-- Manual: Via GitHub Actions UI (workflow_dispatch)
-
-**Deployment Process:**
-1. Ubuntu runner builds JAR with Gradle
-2. Python script (`create_deployment_package.py`) creates Linux-compatible ZIP with forward slashes
-3. Uploads to S3 bucket: `elasticbeanstalk-ap-northeast-2-638596943554`
-4. Creates Elastic Beanstalk application version
-5. Deploys to environment: `Kiosk-backend-env`
-6. Waits for deployment completion and verifies health
-
-**Required GitHub Secrets:**
-- `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`
-- `EB_S3_BUCKET`, `EB_APPLICATION_NAME`, `EB_ENVIRONMENT_NAME`, `EB_ENVIRONMENT_URL`
-
-**Important:** Never create deployment ZIPs on Windows with PowerShell `Compress-Archive` - it uses backslashes which causes EB deployment failures. Always use the GitHub Actions workflow or the `create_deployment_package.py` script.
-
-### Elastic Beanstalk (Backend)
-
-- Platform: Java 17 Corretto (Amazon Linux 2023)
-- Environment: `Kiosk-backend-env`
-- Application: `Kiosk-backend`
-- Environment variables must include: `DB_PASSWORD`, `AWS_S3_BUCKET_NAME`, `AWS_REGION`, `runway.api.key`
-- Health check endpoint: `/actuator/health`
-- JAR name fixed: `backend-0.0.1-SNAPSHOT.jar` (see `build.gradle`)
-- Port: 5000 (set in Procfile, overriding application.yml's 8080)
-
-**Security Group Configuration:**
-- Security Group: `sg-0f75c519287fcacbe`
-- Port 80 (HTTP) restricted to Korean IP ranges only
-- Allowed IP ranges include major Korean ISPs (KT, SK, LG, etc.)
-- Specific IP allowlist can be added for testing/development
-- All international traffic blocked by default for security
-
-### S3 Media Storage
-
-- SDK: AWS SDK for Java v2
-- Service: `S3Service` handles presigned URLs for download
-- Region: `ap-northeast-2` (Seoul)
-- Separate folders for different media types and sources
-
-## Important Implementation Details
-
-### Sequential ID Generation
-
-Both POS ID and Kiosk ID use **database-level MAX() queries** for sequential generation:
+### Video Entity Type System
 
 ```java
-// Example from KioskService
-String nextId = kioskRepository.findMaxKioskid()
-    .map(maxId -> String.format("%012d", Long.parseLong(maxId) + 1))
-    .orElse("000000000001");
-```
+// Video.java
+public enum VideoType {
+    UPLOAD,          // Regular user uploads
+    AI_GENERATED     // AI-generated content from editor (TTS, Imagen, Veo, Runway)
+}
 
-This is **not thread-safe** under high concurrency. Consider using database sequences for production.
-
-### Kiosk History Tracking
-
-All kiosk updates are automatically recorded in `kiosk_history` table via `@EntityListeners(KioskAuditListener.class)` on the Kiosk entity. The listener captures:
-- Old state before update
-- User who made the change (from X-User-Email header)
-- Timestamp
-
-### Video Download Flow (Electron App)
-
-1. App calls `/api/kiosks/kioskid/{id}` to get assigned videos
-2. For each video, calls `/api/videos/{id}/download-url` to get presigned S3 URL
-3. Downloads file from S3 using presigned URL
-4. Records events: DOWNLOAD_STARTED, DOWNLOAD_PROGRESS, DOWNLOAD_COMPLETED/FAILED
-
-### Kiosk Unattended Operation
-
-**IMPORTANT:** Kiosks operate unattended without human supervision. UI behavior must follow these rules:
-
-**Popup Display Rules:**
-- ✅ **Show popups ONLY for manual user actions** (button clicks when a person is present)
-- ❌ **NEVER show popups for automated events** (WebSocket commands, background sync, scheduled tasks)
-
-**Automated Events (Console Log Only):**
-- WebSocket SYNC_COMMAND from admin web
-- Automatic video synchronization
-- Background downloads
-- Config updates pushed from backend
-- Heartbeat and connection status updates
-
-**Manual Events (Allow Popups):**
-- User clicks "동기화" button manually
-- User triggers downloads via UI
-- User changes settings
-- Errors that require user intervention
-
-**Implementation Pattern:**
-```javascript
-// Good: Automated sync (no popup)
-case 'SYNC_COMMAND':
-  console.log('[SYNC_COMMAND] Starting automated sync...');
-  if (window.syncVideos) {
-    window.syncVideos(true); // isAutoSync = true, no popups
-  }
-  break;
-
-// Good: Manual sync (with popup)
-function onManualSyncClick() {
-  window.syncVideos(false); // isAutoSync = false, show popups
+public enum MediaType {
+    VIDEO,           // Video files
+    IMAGE,           // Image files
+    AUDIO            // Audio files (TTS, user uploads)
 }
 ```
 
-This ensures kiosks can operate 24/7 without user interaction or popup accumulation blocking the screen.
+**S3 Folder Structure:**
+```
+videos/uploads/      # User uploaded videos
+videos/ai/           # AI-generated videos
+images/uploads/      # User uploaded images
+images/ai/           # AI-generated images
+audios/uploads/      # User uploaded audio
+audios/ai/           # AI-generated audio (TTS from editor)
+thumbnails/uploads/  # Thumbnails for uploads
+thumbnails/ai/       # Thumbnails for AI content
+```
 
-### FFmpeg Thumbnail Generation
+### Three-Tier Kiosk Identification
 
-For uploaded videos, thumbnails are generated using FFmpeg:
+1. **Store** (POS ID: 8 digits, e.g., "00000001")
+   - Auto-generated via `MAX(posid) + 1`
+   - **NOT thread-safe** under concurrency
+
+2. **Kiosk** (Kiosk ID: 12 digits, e.g., "000000000001")
+   - Auto-generated globally via `MAX(kioskid) + 1`
+   - Kiosk Number: Per-store sequential (1, 2, 3...)
+   - **NOT thread-safe** under concurrency
+
+3. **Video** (assigned to kiosks)
+   - Supports VIDEO, IMAGE, AUDIO media types
+   - Two source types: UPLOAD, AI_GENERATED
+
+## Environment Configuration
+
+### Required Environment Variables
+```bash
+# Database
+DB_PASSWORD=your_password
+
+# Java
+JAVA_HOME=C:/Program Files/Eclipse Adoptium/jdk-17.0.16.8-hotspot
+
+# Profile
+SPRING_PROFILES_ACTIVE=local  # or dev, prod
+```
+
+### Optional for Full Features
+```bash
+# AWS S3
+AWS_ACCESS_KEY_ID=...
+AWS_SECRET_ACCESS_KEY=...
+AWS_S3_BUCKET_NAME=kiosk-video-bucket
+AWS_REGION=ap-northeast-2
+
+# Google AI (for editor)
+GOOGLE_AI_API_KEY=...
+
+# Runway ML (for editor)
+RUNWAY_API_KEY=...
+```
+
+## Deployment
+
+### GitHub Actions Auto-Deploy
+
+Push to `main` branch with changes in `backend/**` or `firstapp/**` triggers deployment:
+
+**Backend → AWS Elastic Beanstalk:**
+- Workflow: `.github/workflows/deploy-backend.yml`
+- Platform: Java 17 Corretto on Amazon Linux 2023
+- Instance: t3.micro (1GB RAM, AWS free tier)
+- Environment: `kiosk-backend-prod-v2`
+- Application: `kiosk-backend-v2`
+
+**Frontend → AWS S3 Static Website:**
+- Workflow: `.github/workflows/deploy-frontend.yml`
+
+### AWS Elastic Beanstalk Configuration
+
+**Memory Constraints (t3.micro = 1GB RAM):**
+- JVM heap: `-Xmx512m -Xms256m` (set via JAVA_TOOL_OPTIONS)
+- Deleted RunwayService (460 lines, memory intensive)
+- Deleted frontend AI generators (1,640+ lines)
+- Kept only AIContentController for editor uploads
+
+**Environment Variables (set via EB console or eb-env-vars.json):**
+```json
+{
+  "DB_PASSWORD": "...",
+  "AWS_ACCESS_KEY_ID": "...",
+  "AWS_SECRET_ACCESS_KEY": "...",
+  "AWS_S3_BUCKET_NAME": "kiosk-video-bucket",
+  "GOOGLE_AI_API_KEY": "...",
+  "RUNWAY_API_KEY": "...",
+  "JWT_SECRET": "...",
+  "SPRING_PROFILES_ACTIVE": "dev"
+}
+```
+
+**Note:** `eb-env-vars.json` is in `.gitignore` - DO NOT commit to git.
+
+## Database Schema
+
+### Soft Delete Pattern
+All entities use soft delete:
 ```java
-ProcessBuilder processBuilder = new ProcessBuilder(
+@Column(nullable = false)
+private Boolean deleted = false;
+
+@Column
+private LocalDateTime deletedAt;
+```
+
+### History Tracking
+All entity changes recorded via `@RecordActivity` annotation:
+```java
+@PostMapping
+@RecordActivity(
+    entityType = EntityHistory.EntityType.VIDEO,
+    action = EntityHistory.ActionType.VIDEO_UPLOAD,
+    description = "영상 업로드"
+)
+```
+
+### Cleaning Up Old Video Types
+
+Database may contain old enum values (RUNWAY_GENERATED, VEO_GENERATED) from before unification to AI_GENERATED.
+
+**Cleanup script:**
+```bash
+cd backend
+python delete_ai_videos.py  # Deletes RUNWAY_GENERATED, VEO_GENERATED videos
+```
+
+**SQL queries:**
+```sql
+-- Check for old types
+SELECT COUNT(*), video_type FROM videos
+WHERE video_type IN ('RUNWAY_GENERATED', 'VEO_GENERATED')
+GROUP BY video_type;
+
+-- Delete old types
+DELETE FROM videos WHERE video_type IN ('RUNWAY_GENERATED', 'VEO_GENERATED');
+```
+
+## Key API Endpoints
+
+### Authentication
+Two authentication methods:
+
+1. **User JWT** (Admin Dashboard):
+   ```
+   Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+   ```
+
+2. **Kiosk Header** (Flutter App):
+   ```
+   X-Kiosk-Id: 000000000001
+   ```
+
+### Video/Media Upload
+
+**Regular Upload (from dashboard):**
+```bash
+POST /api/videos/upload
+Content-Type: multipart/form-data
+- file: video/image/audio file
+- title: string
+- description: string
+```
+
+**AI Content Upload (from editor):**
+```bash
+POST /api/ai/upload
+Content-Type: multipart/form-data
+- file: AI-generated content
+- title: string
+- description: string
+- mediaType: VIDEO|IMAGE|AUDIO
+```
+
+### Presigned URLs
+```bash
+GET /api/videos/{id}/presigned-url   # 60-minute expiry
+GET /api/videos/{id}/download-url    # Download with filename
+```
+
+## Frontend Architecture
+
+### React Components
+
+**Media Management (separate pages):**
+- `VideoManagement.jsx` - Videos only (filters out audio by contentType)
+- `ImageManagement.jsx` - Images only
+- `AudioManagement.jsx` - Audio only
+
+**Navigation:**
+```javascript
+// Navbar.jsx
+<Link to="/videos">영상 관리</Link>
+<Link to="/audios">음성 관리</Link>  // Between videos and images
+<Link to="/images">이미지 관리</Link>
+```
+
+### API Services
+
+```javascript
+// videoService.js
+getAllVideos()     // Gets all media, filter by contentType in components
+getAllAudios()     // Filters contentType.startsWith('audio/')
+uploadVideo(...)   // POST /api/videos/upload
+uploadAudio(...)   // POST /api/videos/upload (same endpoint)
+```
+
+## Video Editor Integration
+
+### Editor Calls Backend APIs
+
+**TTS Audio Upload:**
+```javascript
+// video-editor/renderer/modules/tts.js
+const response = await fetch(`${backendBaseUrl}/api/ai/upload`, {
+  method: 'POST',
+  body: formData  // file, title, description, mediaType=AUDIO
+});
+```
+
+**Imagen Image Upload:**
+```javascript
+// video-editor/renderer/modules/imagen.js
+const response = await fetch(`${backendBaseUrl}/api/ai/upload`, {
+  method: 'POST',
+  body: formData  // file, title, description, mediaType=IMAGE
+});
+```
+
+**Veo/Runway Video Upload:**
+```javascript
+// video-editor/renderer/modules/veo.js
+// video-editor/renderer/modules/runway.js
+const response = await fetch(`${baseUrl}/api/ai/upload`, {
+  method: 'POST',
+  body: formData  // file, title, description, mediaType=VIDEO
+});
+```
+
+## Common Issues
+
+### Memory Issues on t3.micro
+
+**Symptoms:**
+- Environment health shows "Warning: 95% memory in use"
+- Application becomes unresponsive
+- Deployment fails with timeout
+
+**Solutions:**
+1. Check instance health:
+   ```bash
+   aws elasticbeanstalk describe-instances-health \
+     --environment-name kiosk-backend-prod-v2 \
+     --region ap-northeast-2 \
+     --attribute-names All
+   ```
+
+2. Restart application:
+   ```bash
+   aws elasticbeanstalk restart-app-server \
+     --environment-name kiosk-backend-prod-v2 \
+     --region ap-northeast-2
+   ```
+
+3. If persistent, consider:
+   - Upgrading to t3.small (2GB RAM)
+   - Removing FFmpeg thumbnail generation
+   - Profiling for memory leaks
+
+### Build Fails on GitHub Actions
+
+**Common causes:**
+- Compilation errors (missing dependencies)
+- Incomplete/unclosed Java comments
+- Missing closing braces
+
+**Local verification:**
+```bash
+cd backend
+./gradlew.bat clean build -x test
+```
+
+### Database Enum Errors
+
+**Symptom:**
+```
+No enum constant com.kiosk.backend.entity.Video.VideoType.RUNWAY_GENERATED
+```
+
+**Cause:** Database contains old video_type values not in current enum.
+
+**Fix:**
+```bash
+cd backend
+python delete_ai_videos.py
+```
+
+## Security Notes
+
+- Database credentials NOT in git (`.env`, `eb-env-vars.json` in `.gitignore`)
+- AWS credentials in GitHub Secrets only
+- JWT secret in environment variables
+- API keys for Google/Runway in editor `.env` (not committed)
+- CORS configured for localhost:5173, AWS S3 frontend, Elastic Beanstalk backend
+
+## FFmpeg Integration
+
+**Backend generates thumbnails:**
+```java
+ProcessBuilder pb = new ProcessBuilder(
     "ffmpeg",
     "-i", videoPath,
     "-ss", "00:00:01.000",
     "-vframes", "1",
     "-vf", "scale=320:-1",
-    "-y",
     thumbnailPath
 );
 ```
 
-For images (both uploaded and AI-generated), the original image is copied as the thumbnail.
+**Audio files skip thumbnail generation** (validated by contentType check in VideoService.java:736)
 
-### Video Merging Feature
+**Images use original as thumbnail** (copied byte-for-byte)
 
-The system supports **server-side video merging** using FFmpeg with automatic resolution normalization.
+## AWS Resource Names
 
-**Features:**
-- Merge two videos with three transition types:
-  - `concat` - Simple concatenation without transition
-  - `fade` - Fade out/in transition between videos
-  - `xfade` - Crossfade transition
-- Three quality levels: low (1Mbps), medium (4Mbps), high (8Mbps)
-- Automatic resolution normalization to 1920x1080 with aspect ratio preservation
-- Handles videos with or without audio streams
-- Automatic thumbnail generation for merged videos
-
-**FFmpeg Filter Chains:**
-```java
-// Concat (simple) - normalizes both videos to 1920x1080
-"[0:v]scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1[v0];" +
-"[1:v]scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1[v1];" +
-"[v0][v1]concat=n=2:v=1:a=0[outv]"
-
-// Fade - applies fade effect after scaling
-"[0:v]scale=...,setsar=1,fade=t=out:st=%.2f:d=%.2f[v0];" +
-"[1:v]scale=...,setsar=1,fade=t=in:st=0:d=%.2f[v1];" +
-"[v0][v1]concat=n=2:v=1:a=0[outv]"
-
-// Xfade - crossfade transition after scaling
-"[0:v]scale=...,setsar=1[v0];" +
-"[1:v]scale=...,setsar=1[v1];" +
-"[v0][v1]xfade=transition=fade:duration=%.2f:offset=%.2f[outv]"
-```
-
-**Backend Implementation:**
-- `VideoController.mergeVideos()` - Admin-only endpoint at `/api/videos/merge`
-- `VideoService.mergeVideos()` - Downloads videos from S3, processes with FFmpeg, uploads result
-- `VideoService.getVideoDuration()` - Uses FFprobe to get video duration for transition timing
-- Temporary files cleaned up after processing
-- Entity history recording for audit trail
-
-**Frontend Implementation:**
-- `VideoMerger.jsx` - UI component with dual video selection
-- Route: `/videos/merge` in navigation menu under "영상" dropdown
-- `videoService.mergeVideos()` - API client method
-
-**API Endpoint:**
-```
-POST /api/videos/merge
-Authorization: Required (Admin only)
-Content-Type: application/json
-
-Request Body:
-{
-  "videoId1": 123,
-  "videoId2": 456,
-  "title": "Merged Video Title",
-  "description": "Description",
-  "transitionType": "fade",        // concat | fade | xfade
-  "transitionDuration": 1.0,       // seconds (for fade/xfade)
-  "outputQuality": "medium"        // low | medium | high
-}
-
-Response:
-{
-  "message": "Videos merged successfully",
-  "video": { ... }  // Video entity with merged video details
-}
-```
-
-**FFmpeg Installation (Production):**
-- **Local development:** FFmpeg must be installed and available in PATH
-- **Production (Elastic Beanstalk):** Currently disabled due to t3.micro memory constraints
-  - Configuration file: `backend/.ebextensions/03_ffmpeg.config.disabled`
-  - Installation attempts timeout on small instances
-  - Options for production deployment:
-    1. Manual SSH installation on EC2 instance
-    2. Upgrade to t3.small or larger instance type
-    3. Use Lambda function for video processing
-    4. Pre-build Docker image with FFmpeg included
-
-**Important Notes:**
-- Video-only processing: Audio streams not currently supported (concat filter uses `v=1:a=0`)
-- Resolution normalization ensures videos with different dimensions can be merged
-- Black padding added to maintain 16:9 aspect ratio when needed
-- CORS must allow OPTIONS preflight requests for cross-origin access
-
-### Video Editor Application Architecture
-
-The video-editor is a standalone Electron desktop application for advanced video/audio editing using FFmpeg.
-
-**Key Components:**
-- `main.js` - Electron main process with FFmpeg integration and IPC handlers
-- `preload.js` - Exposes safe FFmpeg APIs to renderer process
-- `renderer/app.js` - UI logic with timeline, waveform visualization, and editing controls (~2500 lines)
-- `renderer/index.html` - Multi-panel UI (sidebar, preview, timeline, properties)
-- `renderer/styles.css` - Comprehensive styling with z-index layering
-
-**FFmpeg Integration:**
-- Searches for FFmpeg in: system PATH → `video-editor/ffmpeg/` → bundled resources
-- All video operations execute via child processes with progress callbacks
-- Supports video formats: MP4, AVI, MOV, MKV, WebM
-- Supports audio formats: MP3, WAV, AAC, OGG
-
-**Audio Waveform Visualization:**
-- Generated using FFmpeg showwavespic filter at 1800x200 resolution
-- Stored as PNG in temp directory, displayed in timeline
-- Zoom functionality: Double-click to reset, drag to select zoom range
-- Playhead bar synchronized with video currentTime, accounts for zoom transform
-- Uses pixel-based coordinate system for accurate positioning
-
-**Timeline Slider Drag System:**
-- Pixel-based coordinates (not percentage-based) for stable drag state
-- Global document listeners for mousemove/mouseup to prevent state loss
-- 10px threshold to distinguish click from drag
-- Auto-sets trim range on drag completion in trim mode
-- Visual feedback with red selection box during drag (z-index: 4)
-- Implementation pattern matches audio track zoom for consistency
-
-**Timeline Overlay Z-Index Hierarchy:**
-1. Timeline slider (z-index: 1, bottom layer)
-2. Zoom range overlay (z-index: 2, yellow, for audio zoom visualization)
-3. Trim/audio range overlays (z-index: 3, red/purple, for editing ranges)
-4. Drag selection box (z-index: 4, top layer, shown during active drag)
-
-**Logging System:**
-- Daily log files: `logs/video-editor-YYYY-MM-DD-NNN.log` with sequence numbers
-- UTF-8 encoding with BOM for Korean character support
-- KST timezone formatting: `YYYY/MM/DD-HH:MM:SS`
-- All FFmpeg operations logged with command, progress, and results
-- Logs sent to renderer via IPC for console display
-
-**Editing Features:**
-- Trim: Two modes available
-  - **Keep Range**: Extract specific time range (preserves selected portion)
-  - **Delete Range**: Remove selected portion (keeps everything else)
-  - Separate controls for video-only, audio-only, or both tracks
-  - Split trim buttons in audio editing mode for precise control
-- Merge: Concatenate multiple videos with transition effects (fade, xfade)
-- Audio insert: Add background music with volume control at specific timestamp
-- Audio extract: Save audio track as separate file
-- Volume adjust: Amplify/reduce audio levels
-- Filters: Brightness, contrast, saturation, blur, sharpen
-- Text overlay: Position, size, color, time-based display
-- Speed adjust: 0.25x to 4x playback speed
-
-**Audio Processing Standards:**
-- All audio operations use **48kHz sample rate** to prevent quality loss
-- Silent audio generation for videos without audio tracks
-- Automatic audio stream detection and handling
-
-**State Management:**
-- Global variables track: currentVideo, videoInfo, activeTool, zoomStart/End
-- Flags for user interaction: isUserSeekingSlider, sliderIsDragging
-- Audio preview element for background music testing before insertion
-- Trim/audio range overlays updated in real-time based on input values
-
-**Backend Integration (Optional):**
-- Can connect to backend API for video upload/download
-- Uses presigned S3 URLs for large file transfers
-- Configured via `renderer/api.js` with axios HTTP client
-
-**Important Implementation Notes:**
-- Always use pixel coordinates for drag operations, convert to percentages only when needed
-- Reset drag state on mouseup, mouseleave, and global document mouseup
-- Update overlays synchronously with input changes for immediate feedback
-- Use `chcp 65001` in npm scripts to ensure UTF-8 encoding on Windows
-- FFmpeg processes spawn with `{ encoding: 'utf8' }` for proper Korean text handling
-
-### Runway ML API Version Header
-
-All Runway ML API requests must include:
-```
-X-Runway-Version: 2024-11-06
-```
-
-Task polling typically requires 60-120 attempts with 3-5 second intervals depending on generation complexity.
-
-### String Truncation for Database Saves
-
-VideoService automatically truncates VARCHAR fields to prevent database errors:
-
-```java
-// Database column length limits enforced
-private static final int MAX_TITLE_LENGTH = 255;
-private static final int MAX_FILENAME_LENGTH = 255;
-private static final int MAX_RUNWAY_TASK_ID_LENGTH = 100;
-private static final int MAX_RUNWAY_MODEL_LENGTH = 50;
-private static final int MAX_RUNWAY_RESOLUTION_LENGTH = 50;
-private static final int MAX_IMAGE_STYLE_LENGTH = 50;
-
-// Truncate utility logs warnings when truncation occurs
-private String truncate(String value, int maxLength) { ... }
-```
-
-Applied to all save/update methods:
-- `uploadVideo()` - User uploads
-- `saveRunwayGeneratedVideo()` - Runway ML videos
-- `saveRunwayGeneratedImage()` - Runway ML images
-- `saveVeoGeneratedVideo()` - Google Veo videos
-- `updateVideo()` - Title/description updates
-
-TEXT columns (description, runwayPrompt) have no length limits.
-
-## Configuration Files
-
-- `backend/src/main/resources/application.yml` - Main Spring Boot config
-- `backend/src/main/resources/application-local.yml` - Local MySQL configuration
-- `backend/src/main/resources/application-dev.yml` - AWS development environment configuration
-- `backend/Procfile` - Elastic Beanstalk process definition (sets port 5000)
-- `backend/create_deployment_package.py` - Creates Linux-compatible deployment ZIPs
-- `kiosk-downloader/config.json` - Electron app persistent config (API URL, credentials, download path)
-- `firstapp/src/firebase-config.js` - Firebase configuration for admin dashboard
-- `firstapp/.env.production` - Production API URL for React app
-- `.github/workflows/deploy-backend.yml` - Backend CI/CD pipeline
-- `.github/workflows/deploy-frontend.yml` - Frontend CI/CD pipeline
+- **Backend Application**: kiosk-backend-v2
+- **Backend Environment**: kiosk-backend-prod-v2
+- **Backend URL**: http://kiosk-backend-prod-v2.eba-tm9pvuph.ap-northeast-2.elasticbeanstalk.com
+- **Database**: kiosk-db.cj0k46yy6vv6.ap-northeast-2.rds.amazonaws.com:3306/kioskdb
+- **S3 Bucket**: kiosk-video-bucket
+- **Region**: ap-northeast-2 (Seoul)
 
 ## Testing
 
-Backend has minimal test coverage. When writing tests:
-- Use `@SpringBootTest` for integration tests
-- Use `@DataJpaTest` for repository tests
-- Mock `HttpServletRequest` for controllers that extract headers
-- For Runway ML integration, mock `RestTemplate` responses
-
-## Troubleshooting
-
-### Common Deployment Issues
-
-**1. ZIP File Path Separator Errors**
-```
-Error: warning: /opt/elasticbeanstalk/deployment/app_source_bundle appears to use backslashes as path separators
-```
-**Solution:** Never use Windows PowerShell's `Compress-Archive`. Use GitHub Actions or `jar` command:
+Backend has minimal test coverage:
 ```bash
 cd backend
-jar cvf ../deploy.zip Procfile -C . build/libs/backend-0.0.1-SNAPSHOT.jar
+./gradlew.bat test
 ```
 
-**2. Application Not Starting (502 Bad Gateway)**
-- Check EB environment health: Should be Green/Ok
-- Verify environment variables are set (especially `DB_PASSWORD`)
-- Check application logs in CloudWatch
-- Try restarting the app server: `aws elasticbeanstalk restart-app-server`
-
-**3. Database Connection Errors**
-- Verify `DB_PASSWORD` environment variable matches RDS password
-- Check RDS security group allows inbound from EB environment
-- Ensure `SPRING_PROFILES_ACTIVE` is set to correct profile (local/dev/prod)
-
-**4. Video Upload/Download Failures**
-- Verify AWS credentials (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`)
-- Check S3 bucket permissions
-- Ensure bucket name matches `AWS_S3_BUCKET_NAME` env var
-- Check CORS configuration allows the origin domain
-
-**5. Kiosk Event Recording Failures**
-If you see transaction rollback errors:
-- Check `entity_history` table schema
-- Ensure `action` column is VARCHAR(50), not ENUM
-- Ensure `entity_type` column is VARCHAR(50), not ENUM
-- Ensure `userid` column allows NULL
-
-**6. FFmpeg Installation Issues (Elastic Beanstalk)**
-If deployment hangs or times out with FFmpeg installation:
-- **Symptom:** Deployment stuck for 10+ minutes, command timeout on instance
-- **Cause:** t3.micro instances (1GB RAM) cannot handle large FFmpeg binary downloads
-- **Solution:** Temporarily disable FFmpeg installation:
-  ```bash
-  mv backend/.ebextensions/03_ffmpeg.config backend/.ebextensions/03_ffmpeg.config.disabled
-  ```
-- **Video merge feature requires FFmpeg:**
-  - Works on local development with FFmpeg installed
-  - Production workarounds: larger instance, manual install, or Lambda processing
-
-**7. CORS Preflight Request Failures**
-If you see CORS errors in browser console:
-- **Symptom:** `No 'Access-Control-Allow-Origin' header is present`
-- **Cause:** OPTIONS preflight requests blocked by authentication
-- **Solution:** Verify `SecurityConfig.java` includes:
-  ```java
-  .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-  ```
-- Must be placed BEFORE other authorization rules
-
-### Manual Rollback
-
-If deployment fails, rollback to previous version:
+Frontend has ESLint:
 ```bash
-aws elasticbeanstalk update-environment \
-  --environment-name Kiosk-backend-env \
-  --version-label backend-YYYYMMDD-HHMMSS \
-  --region ap-northeast-2
+cd firstapp
+npm run lint
 ```
 
-Find available versions:
-```bash
-aws elasticbeanstalk describe-application-versions \
-  --application-name Kiosk-backend \
-  --region ap-northeast-2 \
-  --query "ApplicationVersions[*].VersionLabel"
-```
+## Related Documentation
+
+- `backend/README.md` - Detailed backend API documentation
+- `README.md` - Project overview and setup
+- `AWS_DEPLOYMENT_CHECKLIST.md` - AWS deployment guide
+- `flutter_downloader/CLAUDE.md` - Flutter app development guide

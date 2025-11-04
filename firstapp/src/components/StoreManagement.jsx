@@ -13,6 +13,7 @@ import { useAuth } from '../context/AuthContext';
 import { Timestamp } from 'firebase/firestore';
 import { FiEdit, FiTrash2, FiX, FiRotateCcw, FiClock, FiSearch } from 'react-icons/fi';
 import './StoreManagement.css';
+import { formatKSTDate } from '../utils/dateUtils';
 
 function StoreManagement() {
   const { user } = useAuth();
@@ -156,7 +157,7 @@ function StoreManagement() {
       for (const store of expiredStores) {
         try {
           await updateStoreState(store.id, 'inactive');
-          console.log(`Auto-deactivated store: ${store.posname} (enddate: ${formatDate(store.enddate)})`);
+          console.log(`Auto-deactivated store: ${store.posname} (enddate: ${formatKSTDate(store.enddate)})`);
           // Update the store state in the data array
           store.state = 'inactive';
         } catch (err) {
@@ -177,7 +178,7 @@ function StoreManagement() {
       for (const store of inactiveStoresWithFutureEnddate) {
         try {
           await updateStoreState(store.id, 'active');
-          console.log(`Auto-activated store: ${store.posname} (enddate: ${formatDate(store.enddate)})`);
+          console.log(`Auto-activated store: ${store.posname} (enddate: ${formatKSTDate(store.enddate)})`);
           // Update the store state in the data array
           store.state = 'active';
         } catch (err) {
@@ -421,18 +422,6 @@ function StoreManagement() {
     setFormData({ posid: '', posname: '', zonecode: '', posaddress: '', posaddress_detail: '', state: 'active', regdate: '', enddate: '' });
   };
 
-  const formatDate = (timestamp, includeTime = false) => {
-    if (!timestamp) return 'N/A';
-    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    if (includeTime) {
-      const hours = String(date.getHours()).padStart(2, '0');
-      const minutes = String(date.getMinutes()).padStart(2, '0');
-      return `${month}/${day} ${hours}:${minutes}`;
-    }
-    return `${month}/${day}`;
-  };
 
   const formatUserEmail = (email) => {
     if (!email) return 'N/A';
@@ -627,8 +616,8 @@ function StoreManagement() {
                     </td>
                     <td>{store.posname}</td>
                     <td>{store.posaddress}</td>
-                    <td>{formatDate(store.regdate)}</td>
-                    <td>{formatDate(store.enddate)}</td>
+                    <td>{formatKSTDate(store.regdate)}</td>
+                    <td>{formatKSTDate(store.enddate)}</td>
                     <td>
                       <span className={`state-badge ${getStateColor(store.state)}`}>
                         {store.state === 'active' ? '활성' :

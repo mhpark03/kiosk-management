@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import videoService from '../services/videoService';
 import { FiUpload, FiTrash2, FiPlay, FiImage, FiEdit, FiDownload } from 'react-icons/fi';
 import './VideoManagement.css';
+import { formatKSTDate } from '../utils/dateUtils';
 
 function VideoManagement() {
   const { user } = useAuth();
@@ -170,15 +171,6 @@ function VideoManagement() {
     }
   };
 
-  const formatDate = (timestamp) => {
-    if (!timestamp) return 'N/A';
-    const date = new Date(timestamp);
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    return `${month}/${day} ${hours}:${minutes}`;
-  };
 
   const getUploaderName = (video) => {
     // 1순위: uploadedByName이 있으면 사용
@@ -324,7 +316,7 @@ function VideoManagement() {
                     {video.description || '-'}
                   </td>
                   <td>{videoService.formatFileSize(video.fileSize)}</td>
-                  <td>{formatDate(video.uploadedAt)}</td>
+                  <td>{formatKSTDate(video.uploadedAt)}</td>
                   <td>{getUploaderName(video)}</td>
                   <td>
                     <div className="action-buttons">

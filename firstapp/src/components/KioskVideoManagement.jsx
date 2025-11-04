@@ -6,6 +6,7 @@ import { getAllStores } from '../services/storeService';
 import api from '../services/api';
 import { FiArrowLeft, FiCheck, FiPlus, FiX, FiTrash2, FiSearch, FiDownload, FiRefreshCw } from 'react-icons/fi';
 import './VideoManagement.css';
+import { formatKSTDate } from '../utils/dateUtils';
 
 function KioskVideoManagement() {
   const { user } = useAuth();
@@ -269,15 +270,6 @@ function KioskVideoManagement() {
     );
   };
 
-  const formatDate = (timestamp) => {
-    if (!timestamp) return 'N/A';
-    const date = new Date(timestamp);
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    return `${month}/${day} ${hours}:${minutes}`;
-  };
 
   const getStoreName = (posid) => {
     const store = stores.find(s => s.posid === posid);
@@ -528,7 +520,7 @@ function KioskVideoManagement() {
                         {video.description || '-'}
                       </td>
                       <td>{videoService.formatFileSize(video.fileSize)}</td>
-                      <td>{formatDate(video.uploadedAt)}</td>
+                      <td>{formatKSTDate(video.uploadedAt)}</td>
                       <td>{getUploaderName(video)}</td>
                       <td style={{textAlign: 'center'}}>
                         {getStatusBadge(videoStatusMap[video.id] || 'PENDING')}
@@ -745,7 +737,7 @@ function KioskVideoManagement() {
                             {video.description || '-'}
                           </td>
                           <td>{videoService.formatFileSize(video.fileSize)}</td>
-                          <td>{formatDate(video.uploadedAt)}</td>
+                          <td>{formatKSTDate(video.uploadedAt)}</td>
                           <td>{getUploaderName(video)}</td>
                         </tr>
                       ))
