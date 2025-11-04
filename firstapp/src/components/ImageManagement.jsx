@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import videoService from '../services/videoService';
 import { FiTrash2, FiDownload, FiImage, FiEdit } from 'react-icons/fi';
+import { formatKSTDate } from '../utils/dateUtils';
 import './VideoManagement.css';
 
 export default function ImageManagement() {
@@ -178,15 +179,6 @@ export default function ImageManagement() {
   };
 
 
-  const formatDate = (timestamp) => {
-    if (!timestamp) return '';
-    const date = new Date(timestamp);
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    return `${month}/${day} ${hours}:${minutes}`;
-  };
 
   const formatFileSize = (bytes) => {
     if (!bytes) return '';
@@ -338,7 +330,7 @@ export default function ImageManagement() {
                     {image.description || '-'}
                   </td>
                   <td>{formatFileSize(image.fileSize)}</td>
-                  <td>{formatDate(image.uploadedAt)}</td>
+                  <td>{formatKSTDate(image.uploadedAt)}</td>
                   <td>{getUploaderName(image)}</td>
                   <td>
                     <div className="action-buttons">

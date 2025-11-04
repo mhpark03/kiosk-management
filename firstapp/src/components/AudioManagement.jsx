@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import videoService from '../services/videoService';
 import { FiTrash2, FiDownload, FiMusic, FiEdit, FiPlay, FiPause } from 'react-icons/fi';
 import './VideoManagement.css';
+import { formatKSTDate } from '../utils/dateUtils';
 
 export default function AudioManagement() {
   const { user } = useAuth();
@@ -262,15 +263,6 @@ export default function AudioManagement() {
     }
   };
 
-  const formatDate = (timestamp) => {
-    if (!timestamp) return '';
-    const date = new Date(timestamp);
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    return `${month}/${day} ${hours}:${minutes}`;
-  };
 
   const formatFileSize = (bytes) => {
     if (!bytes) return '';
@@ -414,7 +406,7 @@ export default function AudioManagement() {
                     {audio.description || '-'}
                   </td>
                   <td>{formatFileSize(audio.fileSize)}</td>
-                  <td>{formatDate(audio.uploadedAt)}</td>
+                  <td>{formatKSTDate(audio.uploadedAt)}</td>
                   <td>{getUploaderName(audio)}</td>
                   <td>
                     <div className="action-buttons">

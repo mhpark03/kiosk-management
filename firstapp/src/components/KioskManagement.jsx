@@ -26,6 +26,7 @@ import { useAuth } from '../context/AuthContext';
 import { Timestamp } from 'firebase/firestore';
 import { FiEdit, FiTrash2, FiClock, FiRotateCcw, FiVideo, FiSettings } from 'react-icons/fi';
 import './KioskManagement.css';
+import { formatKSTDate } from '../utils/dateUtils';
 
 function KioskManagement() {
   const { user } = useAuth();
@@ -171,7 +172,7 @@ function KioskManagement() {
           const delDateTime = delDate.getTime();
 
           if (delDateTime < todayTime) {
-            console.log(`Auto-updating kiosk ${kiosk.kioskid} from '${kiosk.state}' to 'inactive' (deldate ${formatDate(kiosk.deldate)} has passed)`);
+            console.log(`Auto-updating kiosk ${kiosk.kioskid} from '${kiosk.state}' to 'inactive' (deldate ${formatKSTDate(kiosk.deldate)} has passed)`);
             try {
               await updateKioskState(kiosk.id, 'inactive');
               if (user) {
@@ -199,7 +200,7 @@ function KioskManagement() {
 
         // If setdate is in the future and state is active, change to preparing
         if (setDateTime > todayTime && kiosk.state === 'active') {
-          console.log(`Auto-updating kiosk ${kiosk.kioskid} from 'active' to 'preparing' (setdate ${formatDate(kiosk.setdate)} is in the future)`);
+          console.log(`Auto-updating kiosk ${kiosk.kioskid} from 'active' to 'preparing' (setdate ${formatKSTDate(kiosk.setdate)} is in the future)`);
           try {
             await updateKioskState(kiosk.id, 'preparing');
             if (user) {
@@ -212,7 +213,7 @@ function KioskManagement() {
 
         // If setdate has arrived and state is preparing, change to active
         if (setDateTime <= todayTime && kiosk.state === 'preparing') {
-          console.log(`Auto-updating kiosk ${kiosk.kioskid} from 'preparing' to 'active' (setdate ${formatDate(kiosk.setdate)} has arrived)`);
+          console.log(`Auto-updating kiosk ${kiosk.kioskid} from 'preparing' to 'active' (setdate ${formatKSTDate(kiosk.setdate)} has arrived)`);
           try {
             await updateKioskState(kiosk.id, 'active');
             if (user) {
@@ -757,18 +758,6 @@ function KioskManagement() {
     });
   };
 
-  const formatDate = (timestamp, includeTime = false) => {
-    if (!timestamp) return 'N/A';
-    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    if (includeTime) {
-      const hours = String(date.getHours()).padStart(2, '0');
-      const minutes = String(date.getMinutes()).padStart(2, '0');
-      return `${month}/${day} ${hours}:${minutes}`;
-    }
-    return `${month}/${day}`;
-  };
 
   // Render connection status with color coding
   const renderConnectionStatus = (kiosk) => {
@@ -1053,9 +1042,9 @@ function KioskManagement() {
                     <td style={{textAlign: 'center'}}>{kiosk.kioskno || 'N/A'}</td>
                     <td>{kiosk.maker || '-'}</td>
                     <td>{kiosk.serialno || '-'}</td>
-                    <td>{formatDate(kiosk.regdate)}</td>
-                    <td>{formatDate(kiosk.setdate)}</td>
-                    <td>{formatDate(kiosk.deldate)}</td>
+                    <td>{formatKSTDate(kiosk.regdate)}</td>
+                    <td>{formatKSTDate(kiosk.setdate)}</td>
+                    <td>{formatKSTDate(kiosk.deldate)}</td>
                     <td style={{textAlign: 'center'}}>
                       <span style={{
                         display: 'inline-flex',
