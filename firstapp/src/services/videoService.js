@@ -95,6 +95,62 @@ export const videoService = {
     }
   },
 
+  // Get all audios (contentType starts with audio/)
+  async getAllAudios() {
+    try {
+      const response = await api.get('/videos', {
+        params: {
+          type: 'UPLOAD'
+        }
+      });
+      // Filter for audio files only
+      const audioFiles = response.data.filter(item => {
+        const contentType = item.contentType?.toLowerCase() || '';
+        return contentType.startsWith('audio/');
+      });
+      return audioFiles;
+    } catch (error) {
+      console.error('Get audios error:', error);
+      throw new Error(error.response?.data?.error || 'Failed to fetch audios');
+    }
+  },
+
+  // Upload an audio file
+  async uploadAudio(file, title = '', description = '') {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      if (title) {
+        formData.append('title', title);
+      }
+      if (description) {
+        formData.append('description', description);
+      }
+
+      const response = await api.post('/audios/upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      return response.data;
+    } catch (error) {
+      console.error('Audio upload error:', error);
+      throw new Error(error.response?.data?.error || 'Failed to upload audio');
+    }
+  },
+
+  // Get download URL for video/audio file
+  async getDownloadUrl(id) {
+    try {
+      const response = await api.get(`/videos/${id}/download-url`);
+      return response.data;
+    } catch (error) {
+      console.error('Get download URL error:', error);
+      throw new Error(error.response?.data?.error || 'Failed to generate download URL');
+    }
+  },
+
   // Get all AI-generated videos (VEO_GENERATED and AI_GENERATED)
   async getAIVideos(aiModelFilter = null) {
     try {

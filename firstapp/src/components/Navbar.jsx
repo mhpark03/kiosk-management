@@ -150,6 +150,15 @@ function Navbar() {
                   </li>
                   <li>
                     <Link
+                      to="/audios"
+                      className={location.pathname === '/audios' ? 'active' : ''}
+                      onClick={closeMenu}
+                    >
+                      음성 관리
+                    </Link>
+                  </li>
+                  <li>
+                    <Link
                       to="/images"
                       className={location.pathname === '/images' ? 'active' : ''}
                       onClick={closeMenu}
