@@ -19,7 +19,6 @@ public class Video {
 
     public enum VideoType {
         UPLOAD,           // Regular uploaded video/image
-        VEO_GENERATED,    // AI-generated video from Google Veo
         AI_GENERATED      // AI-generated content (unified)
     }
 

@@ -65,16 +65,11 @@ public class SecurityConfig {
                 .requestMatchers("/api/kiosks/by-kioskid/*/videos/*/status").authenticated()
                 // Kiosk configuration management - requires kiosk authentication
                 .requestMatchers("/api/kiosks/by-kioskid/*/config").authenticated()
-                // Veo save endpoint - temporary permitAll for debugging
-                .requestMatchers("/api/videos/save-veo-video").permitAll()
+                // Runway save endpoint - temporary permitAll for debugging
                 .requestMatchers("/api/videos/save-runway-video").permitAll() // Temporary for debugging
                 .requestMatchers("/api/videos/*").authenticated()
-                // Veo proxy endpoint - public access for video playback (no auth needed)
-                .requestMatchers("/api/veo/proxy-video").permitAll()
                 // Runway API endpoints - requires authentication
                 .requestMatchers("/api/runway/**").authenticated()
-                // Veo generation endpoints - requires authentication
-                .requestMatchers("/api/veo/**").authenticated()
                 // All other endpoints require authentication
                 .requestMatchers("/api/**").authenticated()
                 .anyRequest().authenticated()

@@ -78,17 +78,6 @@ google:
     api:
       key: ${GOOGLE_AI_API_KEY:}
       url: ${GOOGLE_AI_API_URL:https://generativelanguage.googleapis.com/v1beta}
-    veo:
-      model: ${GOOGLE_VEO_MODEL:veo-3.1-generate-preview}
-      aspect:
-        ratio: ${GOOGLE_VEO_ASPECT_RATIO:16:9}
-      resolution: ${GOOGLE_VEO_RESOLUTION:720p}
-      duration: ${GOOGLE_VEO_DURATION:8}
-      poll:
-        interval: ${GOOGLE_VEO_POLL_INTERVAL:5000}
-      max:
-        poll:
-          attempts: ${GOOGLE_VEO_MAX_POLL_ATTEMPTS:60}
 
 logging:
   level:
