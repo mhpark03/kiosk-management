@@ -26,7 +26,6 @@ public class VideoService {
     private final UserRepository userRepository;
     private final KioskVideoRepository kioskVideoRepository;
     private final S3Service s3Service;
-    private VeoService veoService; // Lazy injection to avoid circular dependency
 
     public VideoService(VideoRepository videoRepository, UserRepository userRepository,
                        KioskVideoRepository kioskVideoRepository,
@@ -35,13 +34,6 @@ public class VideoService {
         this.userRepository = userRepository;
         this.kioskVideoRepository = kioskVideoRepository;
         this.s3Service = s3Service;
-    }
-
-    // Setter for VeoService to avoid circular dependency
-    @org.springframework.beans.factory.annotation.Autowired(required = false)
-    public void setVeoService(@org.springframework.context.annotation.Lazy VeoService veoService) {
-        this.veoService = veoService;
-        log.info("✅ VeoService injected successfully into VideoService");
     }
 
     // S3 folder structure
@@ -847,138 +839,6 @@ public class VideoService {
         String originalFilename = file.getOriginalFilename();
         if (originalFilename == null || originalFilename.trim().isEmpty()) {
             throw new IllegalArgumentException("File name is required");
-        }
-    }
-
-    /**
-     * Save Google Veo generated video to S3 and database
-     * Downloads video from URL, uploads to S3, and saves metadata
-     *
-     * @param videoUrl URL of the generated video from Google Veo API
-     * @param uploadedById User ID who generated the video
-     * @param title Title for the video
-     * @param description Description for the video
-     * @param veoTaskId Google Veo task ID
-     * @param veoPrompt Prompt used for generation
-     * @return Saved Video entity
-     */
-    @Transactional
-    public Video saveVeoGeneratedVideo(String videoUrl, Long uploadedById, String title, String description,
-                                       String veoTaskId, String veoPrompt) throws IOException {
-        log.info("=== Saving Google Veo generated video to S3 ===");
-        log.info("Video URL: {}", videoUrl);
-        log.info("Uploaded by ID: {}", uploadedById);
-        log.info("Title: {}", title);
-        log.info("Veo Task ID: {}", veoTaskId);
-
-        // Validate inputs
-        if (title == null || title.trim().isEmpty()) {
-            log.error("Title is required");
-            throw new IllegalArgumentException("Title is required");
-        }
-        if (description == null || description.trim().isEmpty()) {
-            log.error("Description is required");
-            throw new IllegalArgumentException("Description is required");
-        }
-
-        Path tempVideoPath = null;
-        try {
-            // Download video from Google Veo URL with authentication
-            log.info("Creating temporary file for video download...");
-            tempVideoPath = Files.createTempFile("veo_video_", ".mp4");
-
-            // Use VeoService to download with authentication
-            log.info("Checking VeoService availability...");
-            if (veoService == null) {
-                log.error("❌ VeoService is NULL - cannot download authenticated video");
-                throw new RuntimeException("VeoService not available - cannot download authenticated video");
-            }
-            log.info("✅ VeoService is available");
-
-            log.info("Downloading video using VeoService...");
-            try (java.io.InputStream in = veoService.downloadVideoStream(videoUrl)) {
-                Files.copy(in, tempVideoPath, StandardCopyOption.REPLACE_EXISTING);
-            }
-            log.info("✅ Video download completed");
-
-            long fileSize = Files.size(tempVideoPath);
-            log.info("Downloaded Veo video file, size: {} bytes", fileSize);
-
-            // Upload video to S3 (veo folder)
-            String filename = "veo_" + java.util.UUID.randomUUID().toString() + ".mp4";
-
-            byte[] videoBytes = Files.readAllBytes(tempVideoPath);
-            String uploadedS3Key = s3Service.uploadBytes(videoBytes, "videos/veo", filename, "video/mp4");
-            String s3Url = s3Service.getFileUrl(uploadedS3Key);
-
-            log.info("Uploaded Veo video to S3: {}", uploadedS3Key);
-
-            // Generate thumbnail
-            String thumbnailS3Key = null;
-            String thumbnailUrl = null;
-            try {
-                Path tempThumbnailPath = Files.createTempFile("thumbnail_", ".jpg");
-
-                ProcessBuilder processBuilder = new ProcessBuilder(
-                    "ffmpeg",
-                    "-i", tempVideoPath.toString(),
-                    "-ss", "00:00:01.000",
-                    "-vframes", "1",
-                    "-vf", "scale=320:-1",
-                    "-y",
-                    tempThumbnailPath.toString()
-                );
-
-                processBuilder.redirectErrorStream(true);
-                Process process = processBuilder.start();
-                int exitCode = process.waitFor();
-
-                if (exitCode == 0 && Files.exists(tempThumbnailPath)) {
-                    byte[] thumbnailBytes = Files.readAllBytes(tempThumbnailPath);
-                    String thumbnailFilename = filename.replace(".mp4", "_thumb.jpg");
-                    thumbnailS3Key = s3Service.uploadBytes(thumbnailBytes, "thumbnails/veo", thumbnailFilename, "image/jpeg");
-                    thumbnailUrl = s3Service.getFileUrl(thumbnailS3Key);
-                    log.info("Thumbnail uploaded successfully: {}", thumbnailS3Key);
-
-                    Files.deleteIfExists(tempThumbnailPath);
-                }
-            } catch (Exception e) {
-                log.error("Failed to generate/upload thumbnail: {}", e.getMessage());
-                // Continue without thumbnail
-            }
-
-            // Save metadata to database with Veo info and VEO_GENERATED type
-            Video video = Video.builder()
-                    .videoType(Video.VideoType.VEO_GENERATED)
-                    .filename(truncate(filename, MAX_FILENAME_LENGTH))
-                    .originalFilename(truncate("veo_generated_" + veoTaskId + ".mp4", MAX_FILENAME_LENGTH))
-                    .fileSize(fileSize)
-                    .contentType("video/mp4")
-                    .s3Key(uploadedS3Key)
-                    .s3Url(s3Url)
-                    .thumbnailS3Key(thumbnailS3Key)
-                    .thumbnailUrl(thumbnailUrl)
-                    .uploadedById(uploadedById)
-                    .title(truncate(title, MAX_TITLE_LENGTH))
-                    .description(description) // TEXT column - no limit
-                    .build();
-
-            Video savedVideo = videoRepository.save(video);
-            log.info("Google Veo generated video saved successfully: {} by user ID {}", savedVideo.getTitle(), uploadedById);
-
-            return savedVideo;
-        } catch (Exception e) {
-            log.error("Failed to save Google Veo generated video", e);
-            throw new IOException("Failed to save Google Veo generated video: " + e.getMessage(), e);
-        } finally {
-            // Clean up temporary file
-            if (tempVideoPath != null && Files.exists(tempVideoPath)) {
-                try {
-                    Files.delete(tempVideoPath);
-                } catch (IOException e) {
-                    log.error("Failed to delete temporary video file: {}", e.getMessage());
-                }
-            }
         }
     }
 
