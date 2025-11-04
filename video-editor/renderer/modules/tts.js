@@ -343,6 +343,7 @@ export async function executeGenerateTTSAndUpload() {
     formData.append('file', audioBlob, filename);
     formData.append('title', title);
     formData.append('description', description);
+    formData.append('mediaType', 'AUDIO');  // Explicitly set media type
 
     if (typeof window.updateProgress === 'function') {
       window.updateProgress(70, 'S3에 업로드 중...');

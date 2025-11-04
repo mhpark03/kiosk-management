@@ -1275,8 +1275,8 @@ function showToolProperties(tool) {
           <h3 style="margin-bottom: 15px; color: #667eea;">🎨 Runway 이미지 생성</h3>
 
           <div class="property-group">
-            <label>참조 이미지 (1~5개) - S3에서 선택</label>
-            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 10px;">
+            <label>참조 이미지 (1~3개) - S3에서 선택</label>
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 10px;">
               <div id="ref-image-slot-0" style="border: 2px dashed #444; border-radius: 8px; padding: 8px; aspect-ratio: 1/1; cursor: pointer; display: flex; align-items: center; justify-content: center; background: #2a2a2a;" onclick="selectReferenceImageFromS3(0)">
                 <span style="font-size: 32px;">🖼️</span>
               </div>
@@ -1284,12 +1284,6 @@ function showToolProperties(tool) {
                 <span style="font-size: 32px;">🖼️</span>
               </div>
               <div id="ref-image-slot-2" style="border: 2px dashed #444; border-radius: 8px; padding: 8px; aspect-ratio: 1/1; cursor: pointer; display: flex; align-items: center; justify-content: center; background: #2a2a2a;" onclick="selectReferenceImageFromS3(2)">
-                <span style="font-size: 32px;">🖼️</span>
-              </div>
-              <div id="ref-image-slot-3" style="border: 2px dashed #444; border-radius: 8px; padding: 8px; aspect-ratio: 1/1; cursor: pointer; display: flex; align-items: center; justify-content: center; background: #2a2a2a;" onclick="selectReferenceImageFromS3(3)">
-                <span style="font-size: 32px;">🖼️</span>
-              </div>
-              <div id="ref-image-slot-4" style="border: 2px dashed #444; border-radius: 8px; padding: 8px; aspect-ratio: 1/1; cursor: pointer; display: flex; align-items: center; justify-content: center; background: #2a2a2a;" onclick="selectReferenceImageFromS3(4)">
                 <span style="font-size: 32px;">🖼️</span>
               </div>
             </div>
@@ -6291,6 +6285,10 @@ window.selectLocalAudioFile = async function() {
 // Select audio from S3
 window.selectAudioFromS3 = async function(audioId, audioTitle, audioDescription = '') {
   try {
+    // Get auth token from auth module
+    const token = window.getAuthToken ? window.getAuthToken() : authToken;
+    const baseUrl = window.getBackendUrl ? window.getBackendUrl() : backendBaseUrl;
+
     closeAudioSelectionModal();
     showProgress();
     updateProgress(30, 'S3에서 음성 다운로드 중...');
@@ -6304,11 +6302,11 @@ window.selectAudioFromS3 = async function(audioId, audioTitle, audioDescription 
       description: audioDescription || ''
     };
 
-    // Get download URL from backend
-    const response = await fetch(`${backendBaseUrl}/api/videos/${audioId}/download-url`, {
+    // Get download URL from backend (using /api/videos/{id} which returns presigned URL)
+    const response = await fetch(`${baseUrl}/api/videos/${audioId}`, {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${authToken}`
+        'Authorization': `Bearer ${token}`
       }
     });
 
@@ -6317,7 +6315,7 @@ window.selectAudioFromS3 = async function(audioId, audioTitle, audioDescription 
     }
 
     const data = await response.json();
-    const downloadUrl = data.url;
+    const downloadUrl = data.s3Url;
 
     console.log('[Audio Import] Got presigned URL:', downloadUrl);
 
@@ -6579,6 +6577,10 @@ window.selectLocalAudioFileForMerge = async function() {
 // Select audio from S3 for merge (병합 리스트에 추가)
 window.selectAudioFromS3ForMerge = async function(audioId, audioTitle) {
   try {
+    // Get auth token from auth module
+    const token = window.getAuthToken ? window.getAuthToken() : authToken;
+    const baseUrl = window.getBackendUrl ? window.getBackendUrl() : backendBaseUrl;
+
     closeAudioSelectionModalForMerge();
     showProgress();
     updateProgress(30, 'S3에서 음성 다운로드 중...');
@@ -6586,11 +6588,11 @@ window.selectAudioFromS3ForMerge = async function(audioId, audioTitle) {
 
     console.log('[Audio Merge] Downloading audio from S3:', audioId);
 
-    // Get download URL from backend
-    const response = await fetch(`${backendBaseUrl}/api/videos/${audioId}/download-url`, {
+    // Get download URL from backend (using /api/videos/{id} which returns presigned URL)
+    const response = await fetch(`${baseUrl}/api/videos/${audioId}`, {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${authToken}`
+        'Authorization': `Bearer ${token}`
       }
     });
 
@@ -6599,7 +6601,7 @@ window.selectAudioFromS3ForMerge = async function(audioId, audioTitle) {
     }
 
     const data = await response.json();
-    const downloadUrl = data.url;
+    const downloadUrl = data.s3Url;
 
     console.log('[Audio Merge] Got presigned URL:', downloadUrl);
 
@@ -6890,11 +6892,15 @@ window.selectVideoFromS3 = async function(videoId, videoTitle, videoDescription 
       description: videoDescription || ''
     };
 
-    // Get download URL from backend
-    const response = await fetch(`${backendBaseUrl}/api/videos/${videoId}/download-url`, {
+    // Get auth token from auth module
+    const token = window.getAuthToken ? window.getAuthToken() : authToken;
+    const baseUrl = window.getBackendUrl ? window.getBackendUrl() : backendBaseUrl;
+
+    // Get download URL from backend (using /api/videos/{id} which returns presigned URL)
+    const response = await fetch(`${baseUrl}/api/videos/${videoId}`, {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${authToken}`
+        'Authorization': `Bearer ${token}`
       }
     });
 
@@ -6903,7 +6909,7 @@ window.selectVideoFromS3 = async function(videoId, videoTitle, videoDescription 
     }
 
     const data = await response.json();
-    const downloadUrl = data.url;
+    const downloadUrl = data.s3Url;
 
     console.log('[Video Import] Got presigned URL:', downloadUrl);
 
@@ -6936,6 +6942,10 @@ window.selectVideoFromS3 = async function(videoId, videoTitle, videoDescription 
 // Delete video from S3
 window.deleteVideoFromS3 = async function(videoId, videoTitle) {
   try {
+    // Get auth token from auth module
+    const token = window.getAuthToken ? window.getAuthToken() : authToken;
+    const baseUrl = window.getBackendUrl ? window.getBackendUrl() : backendBaseUrl;
+
     // Confirm deletion
     const confirmed = confirm(`영상 파일 "${videoTitle}"을(를) 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.`);
     if (!confirmed) {
@@ -6945,10 +6955,10 @@ window.deleteVideoFromS3 = async function(videoId, videoTitle) {
     console.log('[Video Delete] Deleting video from S3:', videoId);
 
     // Delete from backend (which will also delete from S3)
-    const response = await fetch(`${backendBaseUrl}/api/videos/${videoId}`, {
+    const response = await fetch(`${baseUrl}/api/videos/${videoId}`, {
       method: 'DELETE',
       headers: {
-        'Authorization': `Bearer ${authToken}`,
+        'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
       }
     });
@@ -7213,11 +7223,15 @@ window.selectVideoFromS3ForMerge = async function(videoId, videoTitle) {
 
     console.log('[Video Merge] Downloading video from S3:', videoId);
 
-    // Get download URL from backend
-    const response = await fetch(`${backendBaseUrl}/api/videos/${videoId}/download-url`, {
+    // Get auth token from auth module
+    const token = window.getAuthToken ? window.getAuthToken() : authToken;
+    const baseUrl = window.getBackendUrl ? window.getBackendUrl() : backendBaseUrl;
+
+    // Get download URL from backend (using /api/videos/{id} which returns presigned URL)
+    const response = await fetch(`${baseUrl}/api/videos/${videoId}`, {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${authToken}`
+        'Authorization': `Bearer ${token}`
       }
     });
 
@@ -7226,7 +7240,7 @@ window.selectVideoFromS3ForMerge = async function(videoId, videoTitle) {
     }
 
     const data = await response.json();
-    const downloadUrl = data.url;
+    const downloadUrl = data.s3Url;
 
     console.log('[Video Merge] Got presigned URL:', downloadUrl);
 
@@ -7504,11 +7518,15 @@ window.selectAudioFromS3ForInsertion = async function(audioId, audioTitle) {
 
     console.log('[Audio Insert] Downloading audio from S3:', audioId);
 
-    // Get download URL from backend
-    const response = await fetch(`${backendBaseUrl}/api/videos/${audioId}/download-url`, {
+    // Get auth token from auth module
+    const token = window.getAuthToken ? window.getAuthToken() : authToken;
+    const baseUrl = window.getBackendUrl ? window.getBackendUrl() : backendBaseUrl;
+
+    // Get download URL from backend (using /api/videos/{id} which returns presigned URL)
+    const response = await fetch(`${baseUrl}/api/videos/${audioId}`, {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${authToken}`
+        'Authorization': `Bearer ${token}`
       }
     });
 
@@ -7517,7 +7535,7 @@ window.selectAudioFromS3ForInsertion = async function(audioId, audioTitle) {
     }
 
     const data = await response.json();
-    const downloadUrl = data.url;
+    const downloadUrl = data.s3Url;
 
     console.log('[Audio Insert] Got presigned URL:', downloadUrl);
 
@@ -7555,6 +7573,10 @@ window.selectAudioFromS3ForInsertion = async function(audioId, audioTitle) {
 // Delete audio from S3
 window.deleteAudioFromS3 = async function(audioId, audioTitle) {
   try {
+    // Get auth token from auth module
+    const token = window.getAuthToken ? window.getAuthToken() : authToken;
+    const baseUrl = window.getBackendUrl ? window.getBackendUrl() : backendBaseUrl;
+
     // Confirm deletion
     const confirmed = confirm(`음성 파일 "${audioTitle}"을(를) 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.`);
     if (!confirmed) {
@@ -7564,10 +7586,10 @@ window.deleteAudioFromS3 = async function(audioId, audioTitle) {
     console.log('[Audio Delete] Deleting audio from S3:', audioId);
 
     // Delete from backend (which will also delete from S3)
-    const response = await fetch(`${backendBaseUrl}/api/videos/${audioId}`, {
+    const response = await fetch(`${baseUrl}/api/videos/${audioId}`, {
       method: 'DELETE',
       headers: {
-        'Authorization': `Bearer ${authToken}`,
+        'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
       }
     });
@@ -8526,10 +8548,10 @@ async function executeExportVideoToS3() {
     formData.append('description', description);
 
     // Upload to backend (videos folder)
-    const uploadResponse = await fetch(`${backendBaseUrl}/api/videos/upload`, {
+    const uploadResponse = await fetch(`${baseUrl}/api/videos/upload`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${authToken}`
+        'Authorization': `Bearer ${token}`
       },
       body: formData
     });
@@ -9420,6 +9442,7 @@ async function executeGenerateTTSAndUpload() {
   // Get auth token from auth module
   const token = window.getAuthToken ? window.getAuthToken() : authToken;
   const user = window.getCurrentUser ? window.getCurrentUser() : currentUser;
+  const baseUrl = window.getBackendUrl ? window.getBackendUrl() : backendBaseUrl;
 
   // Check authentication
   if (!token || !user) {
@@ -9503,14 +9526,15 @@ async function executeGenerateTTSAndUpload() {
     formData.append('file', audioBlob, filename);
     formData.append('title', title);
     formData.append('description', description);
+    formData.append('mediaType', 'AUDIO');  // Explicitly set media type
 
     updateProgress(70, 'S3에 업로드 중...');
 
     // Upload to backend (AI-generated content endpoint)
-    const uploadResponse = await fetch(`${backendBaseUrl}/api/ai/upload`, {
+    const uploadResponse = await fetch(`${baseUrl}/api/ai/upload`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${authToken}`
+        'Authorization': `Bearer ${token}`
       },
       body: formData
     });
@@ -9971,6 +9995,8 @@ let runwayVideoImages = {
   image1: null,  // {source: 'local'|'s3', filePath: string, preview: string}
   image2: null
 };
+// Expose to window for Runway module
+window.runwayVideoImages = runwayVideoImages;
 
 // Global state for generated video
 let generatedRunwayVideo = null;  // {filePath: string, url: string, metadata: object}
@@ -10018,8 +10044,9 @@ const runwayVideoModelConfig = {
 // Runway Image Generation
 // ============================================================================
 
-// Global state for reference images
-let referenceImages = [null, null, null, null, null];
+// Global state for reference images (exposed to window for Runway module - max 3 for Runway API)
+let referenceImages = [null, null, null];
+window.referenceImages = referenceImages;
 
 /**
  * Select reference image for a slot
@@ -10488,6 +10515,7 @@ async function saveGeneratedImageToS3() {
     formData.append('file', data.blob, data.fileName);
     formData.append('title', title);
     formData.append('description', description);
+    formData.append('mediaType', 'IMAGE');  // Explicitly set media type
 
     const uploadResponse = await fetch(`${baseUrl}/api/ai/upload`, {
       method: 'POST',
@@ -10778,8 +10806,16 @@ async function openRunwayVideoS3ImageSelector(imageNumber) {
   console.log(`[Runway Video] Opening S3 image selector for slot ${imageNumber}`);
 
   try {
+    // Get auth token from auth module
+    const token = window.getAuthToken ? window.getAuthToken() : authToken;
+    const baseUrl = window.getBackendUrl ? window.getBackendUrl() : backendBaseUrl;
+
     // Fetch images from backend
-    const response = await fetch('http://localhost:8080/api/videos/images');
+    const response = await fetch(`${baseUrl}/api/videos/images`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
 
     if (!response.ok) {
       throw new Error(`Failed to fetch images: ${response.status}`);
@@ -10931,6 +10967,8 @@ function updateRunwayVideoModelOptions() {
 
 /**
  * Generate Runway video (without saving to S3)
+ * NOTE: This function is duplicated in runway.js module
+ * The module version is exposed to window and takes precedence
  */
 async function executeGenerateVideoRunway() {
   const prompt = document.getElementById('video-prompt-runway')?.value?.trim();
@@ -10938,8 +10976,11 @@ async function executeGenerateVideoRunway() {
   const duration = document.getElementById('video-duration-runway')?.value;
   const resolution = document.getElementById('video-resolution-runway')?.value;
 
+  // Use window.runwayVideoImages (shared with module)
+  const videoImages = window.runwayVideoImages || runwayVideoImages;
+
   // Validation (제목/설명은 불필요)
-  if (!runwayVideoImages.image1 || !runwayVideoImages.image2) {
+  if (!videoImages.image1 || !videoImages.image2) {
     alert('시작 이미지와 종료 이미지를 모두 선택해주세요.');
     return;
   }
@@ -10954,8 +10995,8 @@ async function executeGenerateVideoRunway() {
     prompt,
     duration,
     resolution,
-    image1: runwayVideoImages.image1.filePath,
-    image2: runwayVideoImages.image2.filePath
+    image1: videoImages.image1.filePath,
+    image2: videoImages.image2.filePath
   });
 
   try {
@@ -10965,8 +11006,8 @@ async function executeGenerateVideoRunway() {
 
     // Call Runway ML API
     const result = await window.electronAPI.generateVideoRunway({
-      image1Path: runwayVideoImages.image1.filePath,
-      image2Path: runwayVideoImages.image2.filePath,
+      image1Path: videoImages.image1.filePath,
+      image2Path: videoImages.image2.filePath,
       prompt: prompt,
       duration: duration,
       model: model,
@@ -11313,8 +11354,16 @@ async function openVeoS3ImageSelector() {
   console.log('[VEO Video] Opening S3 image selector');
 
   try {
+    // Get auth token from auth module
+    const token = window.getAuthToken ? window.getAuthToken() : authToken;
+    const baseUrl = window.getBackendUrl ? window.getBackendUrl() : backendBaseUrl;
+
     // Fetch images from backend
-    const response = await fetch('http://localhost:8080/api/videos/images');
+    const response = await fetch(`${baseUrl}/api/videos/images`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
 
     if (!response.ok) {
       throw new Error(`Failed to fetch images: ${response.status}`);
@@ -11567,6 +11616,15 @@ async function saveVeoVideoToS3() {
     return;
   }
 
+  // Get auth token from auth module
+  const token = window.getAuthToken ? window.getAuthToken() : authToken;
+  const baseUrl = window.getBackendUrl ? window.getBackendUrl() : backendBaseUrl;
+
+  if (!token) {
+    alert('로그인이 필요합니다.');
+    return;
+  }
+
   try {
     console.log('[VEO Video] Saving to S3...');
     updateProgress(10, 'S3 저장 준비 중...');
@@ -11588,9 +11646,13 @@ async function saveVeoVideoToS3() {
     formData.append('file', videoBlob, `veo_${Date.now()}.mp4`);
     formData.append('title', title);
     formData.append('description', description || '');
+    formData.append('mediaType', 'VIDEO');  // Explicitly set media type
 
-    const uploadResponse = await fetch('http://localhost:8080/api/ai/upload', {
+    const uploadResponse = await fetch(`${baseUrl}/api/ai/upload`, {
       method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      },
       body: formData
     });
 

@@ -3184,27 +3184,66 @@ ipcMain.handle('generate-image-runway', async (event, params) => {
       throw new Error('프롬프트를 입력해주세요.');
     }
 
-    // Convert image files to base64
+    // Parse target aspect ratio
+    const [targetWidth, targetHeight] = (aspectRatio || '1024:1024').split(':').map(Number);
+    const targetRatio = targetWidth / targetHeight;
+
+    logInfo('RUNWAY_IMAGE', 'Target aspect ratio', {
+      ratio: aspectRatio,
+      targetWidth,
+      targetHeight,
+      targetRatio: targetRatio.toFixed(2)
+    });
+
+    // Convert image files to base64 with aspect ratio adjustment
+    const sharp = require('sharp');
     const imageDataArray = [];
+
     for (const imagePath of imagePaths) {
       if (imagePath && fs.existsSync(imagePath)) {
+        // Load image and get metadata
         const imageBuffer = fs.readFileSync(imagePath);
-        const base64Data = imageBuffer.toString('base64');
-        const mimeType = imagePath.toLowerCase().endsWith('.png') ? 'image/png' : 'image/jpeg';
+        const metadata = await sharp(imageBuffer).metadata();
+
+        logInfo('RUNWAY_IMAGE', `Original image ${imageDataArray.length + 1}`, {
+          width: metadata.width,
+          height: metadata.height,
+          ratio: (metadata.width / metadata.height).toFixed(2)
+        });
+
+        // Resize/crop image to match target aspect ratio
+        // Use cover strategy to fill the entire target dimensions
+        const processedBuffer = await sharp(imageBuffer)
+          .resize(targetWidth, targetHeight, {
+            fit: 'cover',  // Crop to fill the dimensions
+            position: 'center'  // Center crop
+          })
+          .jpeg({ quality: 90 })  // Convert to JPEG for smaller size
+          .toBuffer();
+
+        const base64Data = processedBuffer.toString('base64');
         imageDataArray.push({
-          uri: `data:${mimeType};base64,${base64Data}`,
+          uri: `data:image/jpeg;base64,${base64Data}`,
           tag: `reference_${imageDataArray.length + 1}`
         });
 
-        logInfo('RUNWAY_IMAGE', `Loaded reference image ${imageDataArray.length}`, {
+        logInfo('RUNWAY_IMAGE', `Processed reference image ${imageDataArray.length}`, {
           path: imagePath,
-          size: imageBuffer.length
+          originalSize: imageBuffer.length,
+          processedSize: processedBuffer.length,
+          dimensions: `${targetWidth}x${targetHeight}`
         });
       }
     }
 
     if (imageDataArray.length === 0) {
       throw new Error('유효한 참조 이미지를 찾을 수 없습니다.');
+    }
+
+    // Runway API supports maximum 3 reference images
+    if (imageDataArray.length > 3) {
+      logInfo('RUNWAY_IMAGE', `Warning: ${imageDataArray.length} images provided, but Runway API only supports 3. Using first 3 images.`);
+      imageDataArray.splice(3); // Keep only first 3
     }
 
     // Add style to prompt
