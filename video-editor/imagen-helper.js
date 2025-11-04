@@ -1,79 +1,102 @@
 /**
  * Google Imagen Image Generation Helper
- * Using Gemini API with API Key authentication
+ * Using Vertex AI Imagen 3.0 REST API with Service Account authentication
  */
 
 const axios = require('axios');
+const { GoogleAuth } = require('google-auth-library');
+const path = require('path');
 
 // Imagen configuration
-const IMAGEN_MODEL = 'imagen-3.0-generate-002'; // or 'imagen-4.0-generate-preview-06-06'
+const PROJECT_ID = 'kioskaudio';
+const LOCATION = 'us-central1'; // Imagen is available in us-central1
+const MODEL_NAME = 'imagen-3.0-generate-001';
+
+// Service account key file path
+const SERVICE_ACCOUNT_PATH = path.join(__dirname, 'google-tts-service-account.json');
+
+// Imagen REST API endpoint
+const IMAGEN_ENDPOINT = `https://${LOCATION}-aiplatform.googleapis.com/v1/projects/${PROJECT_ID}/locations/${LOCATION}/publishers/google/models/${MODEL_NAME}:predict`;
 
 /**
- * Generate image with Google Imagen via Gemini API
+ * Generate image with Google Vertex AI Imagen 3.0
  */
 async function generateImagenImage(params, logInfo, logError) {
-  logInfo('IMAGEN_GENERATE', 'Starting Imagen image generation', {
+  logInfo('IMAGEN_GENERATE', 'Starting Vertex AI Imagen generation', {
     promptLength: params.prompt?.length || 0,
-    model: IMAGEN_MODEL
+    model: MODEL_NAME,
+    projectId: PROJECT_ID
   });
 
   try {
-    // Get API key from environment variable
-    const apiKey = process.env.GOOGLE_AI_API_KEY;
-    if (!apiKey) {
-      throw new Error('GOOGLE_AI_API_KEY environment variable is not set');
+    // Initialize Google Auth with service account
+    const auth = new GoogleAuth({
+      keyFile: SERVICE_ACCOUNT_PATH,
+      scopes: ['https://www.googleapis.com/auth/cloud-platform']
+    });
+
+    // Get access token
+    const client = await auth.getClient();
+    const accessToken = await client.getAccessToken();
+
+    if (!accessToken.token) {
+      throw new Error('Failed to obtain access token');
     }
 
-    //Build Gemini API endpoint for Imagen
-    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${IMAGEN_MODEL}:generateImages`;
-
-    // Build request body
-    const requestBody = {
-      prompt: params.prompt,
+    logInfo('IMAGEN_GENERATE', 'Calling Vertex AI Imagen REST API', {
+      model: MODEL_NAME,
+      aspectRatio: params.aspectRatio,
       numberOfImages: params.numberOfImages || 1,
-      aspectRatio: params.aspectRatio || '1:1', // 1:1, 3:4, 4:3, 9:16, 16:9
-      negativePrompt: params.negativePrompt || '',
-      safetyFilterLevel: params.safetyFilterLevel || 'BLOCK_ONLY_HIGH',
-      personGeneration: params.personGeneration || 'ALLOW_ADULT'
+      endpoint: IMAGEN_ENDPOINT
+    });
+
+    // Build REST API request body
+    const requestBody = {
+      instances: [
+        {
+          prompt: params.prompt
+        }
+      ],
+      parameters: {
+        sampleCount: params.numberOfImages || 1,
+        aspectRatio: params.aspectRatio || '1:1',
+        negativePrompt: params.negativePrompt || '',
+        safetySetting: params.safetyFilterLevel || 'block_medium_and_above',
+        personGeneration: params.personGeneration || 'allow_adult',
+        addWatermark: false
+      }
     };
 
-    logInfo('IMAGEN_GENERATE', 'Calling Gemini Imagen API', {
-      endpoint,
-      model: IMAGEN_MODEL,
-      hasApiKey: !!apiKey
-    });
-
-    // Submit image generation request
-    const response = await axios.post(endpoint, requestBody, {
+    // Call Imagen REST API
+    const response = await axios.post(IMAGEN_ENDPOINT, requestBody, {
       headers: {
-        'Content-Type': 'application/json',
-        'x-goog-api-key': apiKey
-      },
-      timeout: 60000 // 1 minute timeout
+        'Authorization': `Bearer ${accessToken.token}`,
+        'Content-Type': 'application/json'
+      }
     });
-
-    const result = response.data;
 
     logInfo('IMAGEN_GENERATE', 'Imagen API response received', {
-      hasImages: !!result.generatedImages,
-      imagesCount: result.generatedImages?.length || 0
+      hasPredictions: !!(response.data && response.data.predictions),
+      statusCode: response.status,
+      responseKeys: response.data ? Object.keys(response.data) : [],
+      fullResponse: JSON.stringify(response.data)
     });
 
     // Parse response
-    return parseImagenResponse(result, logInfo, logError);
+    return parseImagenResponse(response.data, logInfo, logError);
 
   } catch (error) {
-    logError('IMAGEN_GENERATE_ERROR', 'Failed to generate Imagen image', {
+    logError('IMAGEN_GENERATE_ERROR', 'Failed to generate image', {
       error: error.message,
-      response: error.response?.data,
-      status: error.response?.status
+      stack: error.stack,
+      response: error.response?.data
     });
     throw error;
   }
 }
 
 /**
- * Parse Imagen image generation response
+ * Parse Vertex AI Imagen REST API response
  */
 function parseImagenResponse(response, logInfo, logError) {
   const result = {
@@ -82,19 +105,26 @@ function parseImagenResponse(response, logInfo, logError) {
     images: []
   };
 
-  // Check if generated images exist
-  if (!response.generatedImages || response.generatedImages.length === 0) {
-    result.message = 'No generated images in response';
-    logError('IMAGEN_PARSE_ERROR', 'No generated images found', { response });
+  // Check if predictions exist (REST API format)
+  if (!response || !response.predictions || response.predictions.length === 0) {
+    result.message = 'No predictions in response';
+    logError('IMAGEN_PARSE_ERROR', 'No predictions found', {
+      hasResponse: !!response,
+      hasPredictions: !!(response && response.predictions)
+    });
     return result;
   }
 
-  // Extract image data (base64 encoded)
-  for (const img of response.generatedImages) {
-    if (img.image && img.image.imageBytes) {
+  // Extract image data from REST API predictions
+  for (const prediction of response.predictions) {
+    // Imagen REST API returns bytesBase64Encoded field
+    const base64Data = prediction.bytesBase64Encoded;
+    const mimeType = prediction.mimeType || 'image/png';
+
+    if (base64Data) {
       result.images.push({
-        imageBase64: img.image.imageBytes,
-        mimeType: img.image.mimeType || 'image/png'
+        imageBase64: base64Data,
+        mimeType: mimeType
       });
     }
   }
@@ -107,7 +137,10 @@ function parseImagenResponse(response, logInfo, logError) {
     });
   } else {
     result.message = 'Image data not found in response';
-    logError('IMAGEN_PARSE_ERROR', 'Image data not found', { response });
+    logError('IMAGEN_PARSE_ERROR', 'Image data not found', {
+      predictionCount: response.predictions.length,
+      firstPredictionKeys: response.predictions[0] ? Object.keys(response.predictions[0]) : []
+    });
   }
 
   return result;

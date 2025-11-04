@@ -406,7 +406,7 @@ export async function executeGenerateImageVeo() {
     const fullPrompt = refImageInfo + prompt;
 
     // Call Imagen API (using the existing Imagen module)
-    const result = await window.electronAPI.generateImageImagen({
+    const result = await window.electronAPI.generateImagenImage({
       prompt: fullPrompt,
       aspectRatio: aspect,
       numberOfImages: 1
@@ -419,8 +419,10 @@ export async function executeGenerateImageVeo() {
     }
 
     // Store generated image (Imagen returns base64)
-    const imageBase64 = result.images[0];
-    const imageDataUrl = `data:image/png;base64,${imageBase64}`;
+    const imageData = result.images[0];
+    const imageBase64 = imageData.imageBase64;
+    const mimeType = imageData.mimeType || 'image/png';
+    const imageDataUrl = `data:${mimeType};base64,${imageBase64}`;
 
     generatedVeoImage = {
       imageData: imageBase64,
@@ -571,6 +573,15 @@ export async function saveGeneratedVeoImageToS3() {
     return;
   }
 
+  // Get auth token from auth module
+  const token = window.getAuthToken ? window.getAuthToken() : null;
+  const baseUrl = window.getBackendUrl ? window.getBackendUrl() : 'http://localhost:8080';
+
+  if (!token) {
+    alert('로그인이 필요합니다.');
+    return;
+  }
+
   try {
     console.log('[VEO Image] Saving to S3...');
     if (typeof window.updateProgress === 'function') {
@@ -600,9 +611,13 @@ export async function saveGeneratedVeoImageToS3() {
     formData.append('file', imageBlob, `veo_image_${Date.now()}.png`);
     formData.append('title', title);
     formData.append('description', description || '');
+    formData.append('mediaType', 'IMAGE');  // Explicitly set media type
 
-    const uploadResponse = await fetch('http://localhost:8080/api/ai/upload', {
+    const uploadResponse = await fetch(`${baseUrl}/api/ai/upload`, {
       method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      },
       body: formData
     });
 
@@ -1063,6 +1078,15 @@ export async function saveVeoVideoToS3() {
     return;
   }
 
+  // Get auth token from auth module
+  const token = window.getAuthToken ? window.getAuthToken() : null;
+  const baseUrl = window.getBackendUrl ? window.getBackendUrl() : 'http://localhost:8080';
+
+  if (!token) {
+    alert('로그인이 필요합니다.');
+    return;
+  }
+
   try {
     console.log('[VEO Video] Saving to S3...');
     if (typeof window.updateProgress === 'function') {
@@ -1098,9 +1122,13 @@ export async function saveVeoVideoToS3() {
     formData.append('file', videoBlob, `veo_${Date.now()}.mp4`);
     formData.append('title', title);
     formData.append('description', description || '');
+    formData.append('mediaType', 'VIDEO');  // Explicitly set media type
 
-    const uploadResponse = await fetch('http://localhost:8080/api/ai/upload', {
+    const uploadResponse = await fetch(`${baseUrl}/api/ai/upload`, {
       method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      },
       body: formData
     });
 
