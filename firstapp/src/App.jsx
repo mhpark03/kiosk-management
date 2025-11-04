@@ -191,10 +191,6 @@ function App() {
             }
           />
           <Route
-              </ProtectedRoute>
-            }
-          />
-          <Route
             path="/kiosk-events"
             element={
               <ProtectedRoute>
