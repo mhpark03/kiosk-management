@@ -91,3 +91,4 @@ video-editor/waveform_debug/
 # Google Cloud credentials
 google-tts-service-account.json
 **/google-tts-service-account.json
+backend/eb-env-vars.json
