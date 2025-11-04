@@ -29,8 +29,13 @@ function VideoManagement() {
     try {
       setLoading(true);
       const data = await videoService.getAllVideos();
+      // Filter out audio files (only show actual video files)
+      const videoOnlyData = data.filter(video => {
+        const contentType = video.contentType?.toLowerCase() || '';
+        return !contentType.startsWith('audio/');
+      });
       // Sort by ID in descending order (newest first) - show all videos
-      const sortedData = [...data].sort((a, b) => b.id - a.id);
+      const sortedData = [...videoOnlyData].sort((a, b) => b.id - a.id);
       setVideos(sortedData);
       setError('');
     } catch (err) {
@@ -120,6 +125,18 @@ function VideoManagement() {
     try {
       setRegeneratingThumbnail(true);
       setError('');
+
+      // Log video details before regenerating thumbnail
+      console.log('=== Regenerating Thumbnail ===');
+      console.log('Video ID:', editingVideo.id);
+      console.log('Original Filename:', editingVideo.originalFilename);
+      console.log('Content Type:', editingVideo.contentType);
+      console.log('Media Type:', editingVideo.mediaType);
+      console.log('Video Type:', editingVideo.videoType);
+      console.log('S3 Key:', editingVideo.s3Key);
+      console.log('Full video object:', editingVideo);
+      console.log('==============================');
+
       const response = await videoService.regenerateThumbnail(editingVideo.id);
       setSuccess('썸네일이 성공적으로 재생성되었습니다.');
 
@@ -133,6 +150,7 @@ function VideoManagement() {
 
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
+      console.error('Thumbnail regeneration error:', err);
       setError(err.message);
       setTimeout(() => setError(''), 3000);
     } finally {

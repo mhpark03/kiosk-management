@@ -728,27 +728,85 @@ public class VideoService {
             throw new RuntimeException("You don't have permission to regenerate thumbnail for this video");
         }
 
+        // Check if the file is an audio file (cannot generate thumbnail from audio)
+        String contentType = video.getContentType();
+        if (contentType != null && contentType.toLowerCase().startsWith("audio/")) {
+            log.warn("Cannot generate thumbnail for audio file: {}", video.getOriginalFilename());
+            throw new RuntimeException("Cannot generate thumbnail for audio files");
+        }
+
+        // Check if the file is an image (use the original image as thumbnail instead)
+        if (video.getMediaType() == Video.MediaType.IMAGE) {
+            log.info("Video ID {} is an image, using original as thumbnail", id);
+            try {
+                // Download image from S3
+                byte[] imageBytes = s3Service.downloadFile(video.getS3Key());
+
+                // Delete old thumbnail from S3 if exists
+                if (video.getThumbnailS3Key() != null) {
+                    try {
+                        s3Service.deleteFile(video.getThumbnailS3Key());
+                    } catch (Exception e) {
+                        log.warn("Failed to delete old thumbnail from S3: {}", video.getThumbnailS3Key(), e);
+                    }
+                }
+
+                // Upload new thumbnail to S3 (same as original for images)
+                String filenameWithExt = extractFilename(video.getS3Key());
+                int lastDotIndex = filenameWithExt.lastIndexOf(".");
+                String filenameWithoutExt = (lastDotIndex > 0)
+                    ? filenameWithExt.substring(0, lastDotIndex)
+                    : filenameWithExt;
+                String extension = (lastDotIndex > 0) ? filenameWithExt.substring(lastDotIndex) : ".jpg";
+                String thumbnailFilename = filenameWithoutExt + "_thumb" + extension;
+
+                String thumbnailS3Key = s3Service.uploadBytes(imageBytes, THUMBNAIL_UPLOAD_FOLDER, thumbnailFilename, contentType);
+                String thumbnailUrl = s3Service.getFileUrl(thumbnailS3Key);
+
+                // Update video entity
+                video.setThumbnailS3Key(thumbnailS3Key);
+                video.setThumbnailUrl(thumbnailUrl);
+
+                Video updatedVideo = videoRepository.save(video);
+                log.info("Thumbnail regenerated successfully for image: {} by user ID {}", id, requestingUserId);
+                return updatedVideo;
+            } catch (Exception e) {
+                log.error("Failed to regenerate thumbnail for image: {}", id, e);
+                throw new RuntimeException("Failed to regenerate thumbnail: " + e.getMessage());
+            }
+        }
+
         try {
             // Download video from S3
             byte[] videoBytes = s3Service.downloadFile(video.getS3Key());
 
-            // Create temp file for video
-            Path tempVideoPath = Files.createTempFile("video_", ".mp4");
+            // Create temp file for video with proper extension
+            String extension = video.getOriginalFilename() != null && video.getOriginalFilename().contains(".")
+                ? video.getOriginalFilename().substring(video.getOriginalFilename().lastIndexOf("."))
+                : ".mp4";
+
+            Path tempVideoPath = Files.createTempFile("video_", extension);
             Files.write(tempVideoPath, videoBytes);
 
             // Generate new thumbnail
             Path tempThumbnailPath = Files.createTempFile("thumbnail_", ".jpg");
 
+            // Convert paths to absolute strings for FFmpeg (Windows-compatible)
+            String videoPathStr = tempVideoPath.toAbsolutePath().toString();
+            String thumbnailPathStr = tempThumbnailPath.toAbsolutePath().toString();
+
+            log.info("Regenerating thumbnail - Video path: {}, Thumbnail path: {}", videoPathStr, thumbnailPathStr);
+
             // Use -loglevel error to minimize output and prevent buffer issues
             ProcessBuilder processBuilder = new ProcessBuilder(
                 "ffmpeg",
                 "-loglevel", "error",  // Only output errors, drastically reduces output
-                "-i", tempVideoPath.toString(),
+                "-i", videoPathStr,
                 "-ss", "00:00:01.000",
                 "-vframes", "1",
                 "-vf", "scale=320:-1",
                 "-y",
-                tempThumbnailPath.toString()
+                thumbnailPathStr
             );
 
             // Discard stdout/stderr to prevent buffer blocking
@@ -769,6 +827,7 @@ public class VideoService {
             int exitCode = process.exitValue();
 
             if (exitCode != 0 || !Files.exists(tempThumbnailPath)) {
+                log.error("FFmpeg failed - Exit code: {}, Thumbnail exists: {}", exitCode, Files.exists(tempThumbnailPath));
                 throw new RuntimeException("Failed to generate thumbnail with FFmpeg, exit code: " + exitCode);
             }
 
