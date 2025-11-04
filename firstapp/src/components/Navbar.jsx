@@ -36,16 +36,19 @@ function Navbar() {
     setIsVideosOpen(!isVideosOpen);
     setIsSettingsOpen(false);
     setIsHistoryOpen(false);
+    setIsGuideOpen(false);
   };
 
   const toggleSettings = () => {
     setIsSettingsOpen(!isSettingsOpen);
     setIsVideosOpen(false);
+    setIsGuideOpen(false);
     setIsHistoryOpen(false);
   };
 
   const toggleHistory = () => {
     setIsHistoryOpen(!isHistoryOpen);
+    setIsGuideOpen(false);
     setIsVideosOpen(false);
     setIsSettingsOpen(false);
   };
