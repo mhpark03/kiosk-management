@@ -35,6 +35,18 @@ window.clearZoomRangeOverlay = TimelineHelpers.clearZoomRangeOverlay;
 window.updatePlayheadPosition = TimelineHelpers.updatePlayheadPosition;
 window.validateTimeRange = TimelineHelpers.validateTimeRange;
 
+// FilterOperations wrapper functions (for backward compatibility)
+window.updateFilterControls = function() {
+  const filterType = document.getElementById('filter-type')?.value;
+  if (filterType) {
+    FilterOperations.updateFilterControls(filterType);
+  }
+};
+
+window.updateFilterValue = function(paramName) {
+  FilterOperations.updateFilterValue(paramName);
+};
+
 // ============================================================================
 // State management
 // ============================================================================
@@ -5262,61 +5274,8 @@ async function executeVolumeAdjust() {
 }
 
 // Filter controls
-function updateFilterControls() {
-  const filterType = document.getElementById('filter-type').value;
-  const controlsDiv = document.getElementById('filter-controls');
-
-  switch (filterType) {
-    case 'brightness':
-      controlsDiv.innerHTML = `
-        <div class="property-group">
-          <label>밝기 <span class="property-value" id="brightness-value">0</span></label>
-          <input type="range" id="brightness" min="-1" max="1" step="0.1" value="0" oninput="updateFilterValue('brightness')">
-          <small style="color: #888;">-1 = 어둡게, 0 = 원본, 1 = 밝게</small>
-        </div>
-      `;
-      break;
-    case 'contrast':
-      controlsDiv.innerHTML = `
-        <div class="property-group">
-          <label>대비 <span class="property-value" id="contrast-value">1</span></label>
-          <input type="range" id="contrast" min="0" max="3" step="0.1" value="1" oninput="updateFilterValue('contrast')">
-          <small style="color: #888;">1 = 원본, 2 = 대비 2배</small>
-        </div>
-      `;
-      break;
-    case 'saturation':
-      controlsDiv.innerHTML = `
-        <div class="property-group">
-          <label>채도 <span class="property-value" id="saturation-value">1</span></label>
-          <input type="range" id="saturation" min="0" max="3" step="0.1" value="1" oninput="updateFilterValue('saturation')">
-          <small style="color: #888;">0 = 흑백, 1 = 원본, 2 = 채도 2배</small>
-        </div>
-      `;
-      break;
-    case 'blur':
-      controlsDiv.innerHTML = `
-        <div class="property-group">
-          <label>블러 강도 <span class="property-value" id="sigma-value">2</span></label>
-          <input type="range" id="sigma" min="0" max="10" step="0.5" value="2" oninput="updateFilterValue('sigma')">
-        </div>
-      `;
-      break;
-    case 'sharpen':
-      controlsDiv.innerHTML = `
-        <div class="property-group">
-          <label>샤픈 강도 <span class="property-value" id="amount-value">1</span></label>
-          <input type="range" id="amount" min="0" max="3" step="0.1" value="1" oninput="updateFilterValue('amount')">
-        </div>
-      `;
-      break;
-  }
-}
-
-function updateFilterValue(filterType) {
-  const value = document.getElementById(filterType).value;
-  document.getElementById(`${filterType}-value`).textContent = value;
-}
+// Note: updateFilterControls and updateFilterValue are now imported from FilterOperations module
+// Wrapper functions are defined at the top of this file for backward compatibility
 
 async function executeFilter() {
   if (!currentVideo) {
