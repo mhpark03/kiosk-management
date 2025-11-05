@@ -34,3 +34,5 @@ temp/
 .env.local
 .env.*.local
 google-service-account.json
+google-tts-service-account.json
+*-service-account.json
