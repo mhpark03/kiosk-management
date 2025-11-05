@@ -7455,10 +7455,12 @@ async function loadAudioFile(audioPath) {
         if (playBtn) playBtn.disabled = false;
         if (pauseBtn) pauseBtn.disabled = false;
 
-        // Also enable controls via PreviewManager
-        if (typeof previewManager !== 'undefined' && previewManager.enableControls) {
+        // Register audio element with PreviewManager so it can control playback
+        if (typeof previewManager !== 'undefined') {
+          previewManager.currentMediaElement = audioEl;
+          previewManager.currentPreviewType = 'audio';
           previewManager.enableControls();
-          console.log('[loadAudioFile] PreviewManager controls enabled');
+          console.log('[loadAudioFile] PreviewManager registered audio element and enabled controls');
         }
       }, { once: true });
 
