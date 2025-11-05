@@ -47,6 +47,17 @@ spring:
       max-file-size: 100MB
       max-request-size: 100MB
 
+  # Caffeine Cache Configuration (Memory-efficient local caching)
+  cache:
+    type: caffeine
+    caffeine:
+      spec: maximumSize=500,expireAfterWrite=10m
+    cache-names:
+      - videos
+      - kiosks
+      - stores
+      - users
+
 server:
   port: 8080
   # SSL disabled for local development (matching AWS environment)
