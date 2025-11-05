@@ -6,6 +6,8 @@
 
 키오스크 관리 시스템 - Spring Boot 백엔드, React 웹 프론트엔드, Flutter 모바일/데스크톱 앱으로 구성된 풀스택 솔루션
 
+> **🔐 Security Notice**: Never commit `.env`, `application-local.yml`, or any files containing API keys, passwords, or credentials. See [SECURITY.md](SECURITY.md) for details.
+
 ## 📋 프로젝트 개요
 
 키오스크 장비의 등록, 관리, 모니터링을 위한 통합 관리 시스템입니다. 매장(Store)과 키오스크(Kiosk) 정보를 효율적으로 관리하고, 영상 콘텐츠를 배포하며, 변경 이력을 추적할 수 있습니다.
