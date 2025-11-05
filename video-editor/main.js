@@ -3401,14 +3401,15 @@ ipcMain.handle('generate-imagen-image', async (event, params) => {
 });
 
 /**
- * Read audio file and return as Buffer for blob URL creation
+ * Read audio file and return as Base64 for blob URL creation
  */
 ipcMain.handle('read-audio-file', async (event, filePath) => {
   try {
     const buffer = await fs.promises.readFile(filePath);
+    const base64 = buffer.toString('base64');
     return {
       success: true,
-      buffer: buffer,
+      base64: base64,
       mimeType: 'audio/mpeg' // Assuming MP3 for TTS
     };
   } catch (error) {
