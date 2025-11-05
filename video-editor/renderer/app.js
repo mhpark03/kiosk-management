@@ -1,4 +1,43 @@
+// ============================================================================
+// Module Imports
+// ============================================================================
+import * as UIHelpers from './modules/utilities/UIHelpers.js';
+import * as TimelineHelpers from './modules/utilities/TimelineHelpers.js';
+import * as WaveformManager from './modules/utilities/WaveformManager.js';
+import * as FilterOperations from './modules/utilities/FilterOperations.js';
+import * as SpeedOperations from './modules/utilities/SpeedOperations.js';
+import * as PreviewHelpers from './modules/utilities/PreviewHelpers.js';
+
+// ============================================================================
+// Export module functions to window for backward compatibility
+// This allows existing code to continue using showProgress() instead of UIHelpers.showProgress()
+// ============================================================================
+
+// UIHelpers exports
+window.handleError = UIHelpers.handleError;
+window.showCustomDialog = UIHelpers.showCustomDialog;
+window.closeCustomDialog = UIHelpers.closeCustomDialog;
+window.showProgress = UIHelpers.showProgress;
+window.hideProgress = UIHelpers.hideProgress;
+window.updateProgress = UIHelpers.updateProgress;
+window.updateStatus = UIHelpers.updateStatus;
+window.confirmAction = UIHelpers.confirmAction;
+window.showAlert = UIHelpers.showAlert;
+window.clearToolProperties = UIHelpers.clearToolProperties;
+window.showToast = UIHelpers.showToast;
+
+// TimelineHelpers exports
+window.formatTime = TimelineHelpers.formatTime;
+window.updateTrimRangeOverlay = TimelineHelpers.updateTrimRangeOverlay;
+window.clearTrimRangeOverlay = TimelineHelpers.clearTrimRangeOverlay;
+window.updateZoomRangeOverlay = TimelineHelpers.updateZoomRangeOverlay;
+window.clearZoomRangeOverlay = TimelineHelpers.clearZoomRangeOverlay;
+window.updatePlayheadPosition = TimelineHelpers.updatePlayheadPosition;
+window.validateTimeRange = TimelineHelpers.validateTimeRange;
+
+// ============================================================================
 // State management
+// ============================================================================
 let currentVideo = null;
 let videoInfo = null;
 let activeTool = null;
@@ -38,44 +77,7 @@ let audioPreviewListener = null;  // Store preview timeupdate listener reference
 // Note: PreviewManager class is now loaded from modules/PreviewManager.js
 // ============================================================================
 
-// 공통 오류 처리 함수
-function handleError(operation, error, userMessage) {
-  // 콘솔에 상세한 오류 정보 기록
-  console.error(`=== ${operation} 오류 ===`);
-  console.error('오류 메시지:', error.message);
-  console.error('전체 오류 객체:', error);
-  if (error.stack) {
-    console.error('스택 트레이스:', error.stack);
-  }
-  console.error('=====================');
-
-  // 사용자에게는 간단한 한글 메시지 표시
-  showCustomDialog(`${userMessage}\n\n상세한 오류 내용은 개발자 도구(F12)의 콘솔에서 확인해주세요.`);
-  updateStatus(`${operation} 실패`);
-}
-
-// Custom dialog that doesn't break input focus
-function showCustomDialog(message) {
-  const overlay = document.getElementById('modal-overlay');
-  const content = document.getElementById('modal-content');
-
-  content.innerHTML = `
-    <div style="background: #2a2a2a; padding: 20px; border-radius: 8px; max-width: 500px; color: #e0e0e0;">
-      <p style="margin: 0 0 20px 0; white-space: pre-wrap; line-height: 1.5;">${message}</p>
-      <button onclick="closeCustomDialog()" style="padding: 10px 20px; background: #667eea; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; font-weight: 600;">확인</button>
-    </div>
-  `;
-
-  overlay.style.display = 'flex';
-}
-
-function closeCustomDialog() {
-  const overlay = document.getElementById('modal-overlay');
-  overlay.style.display = 'none';
-}
-
-// Make closeCustomDialog global
-window.closeCustomDialog = closeCustomDialog;
+// Note: handleError, showCustomDialog, closeCustomDialog are now imported from UIHelpers module
 
 // Initialize app
 console.log('[APP.JS] Script loaded');
@@ -2749,27 +2751,7 @@ function updateTrimDurationDisplay() {
   updateTrimRangeOverlay(startTime, endTime, maxDuration);
 }
 
-// Update trim range overlay on timeline
-function updateTrimRangeOverlay(startTime, endTime, maxDuration) {
-  const overlay = document.getElementById('trim-range-overlay');
-  if (!overlay || !videoInfo) return;
-
-  // Show overlay only in trim mode
-  if (activeTool === 'trim') {
-    overlay.style.display = 'block';
-
-    // Calculate percentages
-    const startPercent = (startTime / maxDuration) * 100;
-    const endPercent = (endTime / maxDuration) * 100;
-    const widthPercent = endPercent - startPercent;
-
-    // Update overlay position and size
-    overlay.style.left = `${startPercent}%`;
-    overlay.style.width = `${widthPercent}%`;
-  } else {
-    overlay.style.display = 'none';
-  }
-}
+// Note: updateTrimRangeOverlay is now imported from TimelineHelpers module
 
 // Update text range overlay on timeline
 function updateTextRangeOverlay(startTime, endTime, maxDuration) {
@@ -5631,26 +5613,7 @@ function setupFFmpegProgressListener() {
 
 // Log management - Removed (console log UI was removed)
 
-function showProgress() {
-  document.getElementById('progress-section').style.display = 'block';
-}
-
-function hideProgress() {
-  document.getElementById('progress-section').style.display = 'none';
-  updateProgress(0, '대기 중...');
-}
-
-function updateProgress(percent, text) {
-  document.getElementById('progress-fill').style.width = `${percent}%`;
-  document.getElementById('progress-text').textContent = text;
-}
-
-function updateStatus(text) {
-  document.getElementById('status-text').textContent = text;
-}
-
-// Expose updateStatus to window for module access
-window.updateStatus = updateStatus;
+// Note: showProgress, hideProgress, updateProgress, updateStatus are now imported from UIHelpers module
 
 // Audio file editing functions
 async function importAudioFile() {
@@ -8936,24 +8899,7 @@ function updateModeUI() {
   }
 }
 
-// Utility functions
-function formatTime(seconds) {
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  const secs = Math.floor(seconds % 60);
-  const decimal = Math.round((seconds % 1) * 100); // 소수점 둘째 자리
-
-  // 항상 소수점 2자리 표시
-  return `${pad(hours)}:${pad(minutes)}:${pad(secs)}.${pad2(decimal)}`;
-}
-
-function pad(num) {
-  return num.toString().padStart(2, '0');
-}
-
-function pad2(num) {
-  return num.toString().padStart(2, '0');
-}
+// Note: formatTime utility function is now imported from TimelineHelpers module
 
 // ==================== TTS Functions ====================
 
