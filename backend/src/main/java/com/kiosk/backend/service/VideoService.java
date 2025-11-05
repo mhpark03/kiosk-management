@@ -7,6 +7,8 @@ import com.kiosk.backend.repository.UserRepository;
 import com.kiosk.backend.repository.VideoRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -558,10 +560,11 @@ public class VideoService {
     }
 
     /**
-     * Get a video by ID
+     * Get a video by ID (Cached for performance)
      * @param id Video ID
      * @return Video entity
      */
+    @Cacheable(cacheNames = "videos", key = "#id")
     public Video getVideoById(Long id) {
         return videoRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Video not found with id: " + id));
@@ -598,6 +601,7 @@ public class VideoService {
      * @param requestingUserId ID of the user requesting deletion
      */
     @Transactional
+    @CacheEvict(cacheNames = "videos", key = "#id")
     public void deleteVideo(Long id, Long requestingUserId) {
         Video video = getVideoById(id);
 
@@ -656,6 +660,7 @@ public class VideoService {
      * @return Updated Video entity
      */
     @Transactional
+    @CacheEvict(cacheNames = "videos", key = "#id")
     public Video updateVideo(Long id, String title, String description, Long requestingUserId) {
         Video video = getVideoById(id);
 

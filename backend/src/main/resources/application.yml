@@ -47,6 +47,17 @@ spring:
       max-file-size: 100MB
       max-request-size: 100MB
 
+  # Caffeine Cache Configuration (Memory-efficient local caching)
+  cache:
+    type: caffeine
+    caffeine:
+      spec: maximumSize=500,expireAfterWrite=10m
+    cache-names:
+      - videos
+      - kiosks
+      - stores
+      - users
+
 server:
   port: 8080
   # SSL disabled for local development (matching AWS environment)
@@ -58,8 +69,8 @@ server:
   #   key-alias: kioskapp
 
 jwt:
-  secret: your-256-bit-secret-key-here-make-it-very-long-and-secure-at-least-32-characters
-  expiration: 86400000 # 24 hours in milliseconds
+  secret: ${JWT_SECRET}  # Must be set via environment variable
+  expiration: ${JWT_EXPIRATION:86400000} # 24 hours in milliseconds (default)
 
 aws:
   s3:
