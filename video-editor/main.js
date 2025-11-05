@@ -1222,7 +1222,8 @@ ipcMain.handle('adjust-audio-volume', async (event, options) => {
     const tempDir = os.tmpdir();
     const timestamp = Date.now();
     const fileName = path.basename(inputPath, path.extname(inputPath));
-    actualOutputPath = path.join(tempDir, `${fileName}_volume_${volumeLevel}x_${timestamp}.mp3`);
+    const ext = path.extname(inputPath); // Keep original extension (e.g., .mp4)
+    actualOutputPath = path.join(tempDir, `${fileName}_volume_${volumeLevel}x_${timestamp}${ext}`);
     logInfo('ADJUST_AUDIO_VOLUME_TEMP', 'Creating temp file', { actualOutputPath });
   }
 
@@ -1230,7 +1231,8 @@ ipcMain.handle('adjust-audio-volume', async (event, options) => {
     const args = [
       '-i', inputPath,
       '-af', `volume=${volumeLevel}`,
-      '-c:a', 'libmp3lame',  // Use MP3 encoder
+      '-c:v', 'copy',  // Copy video stream without re-encoding
+      '-c:a', 'aac',  // Use AAC encoder for audio (MP4 compatible)
       '-b:a', '192k',  // Bitrate
       '-y',  // Overwrite output file
       actualOutputPath
