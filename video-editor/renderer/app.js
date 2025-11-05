@@ -103,6 +103,43 @@ window.executeMergeAudio = function() { return executeMergeAudio(); };
 window.updateTransitionDescription = updateTransitionDescription;
 window.updateTransitionDurationVisibility = updateTransitionDurationVisibility;
 
+// Execute operations exports
+window.executeTrim = function() { return executeTrim(); };
+window.executeDeleteRange = function() { return executeDeleteRange(); };
+window.executeTrimVideoOnly = function() { return executeTrimVideoOnly(); };
+window.executeTrimAudioOnly = function() { return executeTrimAudioOnly(); };
+window.executeTrimAudioFile = function() { return executeTrimAudioFile(); };
+window.executeDeleteAudioRange = function() { return executeDeleteAudioRange(); };
+window.executeAudioVolume = function() { return executeAudioVolume(); };
+window.executeAddAudio = function() { return executeAddAudio(); };
+window.executeVolumeAdjust = function() { return executeVolumeAdjust(); };
+window.executeFilter = function() { return executeFilter(); };
+window.executeAddText = function() { return executeAddText(); };
+window.executeSpeed = function() { return executeSpeed(); };
+window.executeAudioSpeed = function() { return executeAudioSpeed(); };
+window.executeExportVideoToS3 = function() { return executeExportVideoToS3(); };
+window.executeExportAudioToS3 = function() { return executeExportAudioToS3(); };
+window.executeExtractAudioToS3 = function() { return executeExtractAudioToS3(); };
+
+// AI generation exports
+window.executeGenerateImageRunway = function() { return executeGenerateImageRunway(); };
+window.executeGenerateImageVeo = function() { return executeGenerateImageVeo(); };
+window.executeGenerateVideoRunway = function() { return executeGenerateVideoRunway(); };
+window.executeGenerateVideoVeo = function() { return executeGenerateVideoVeo(); };
+
+// Preview operations exports
+window.previewAudioVolume = previewAudioVolume;
+window.previewAudioStartTime = previewAudioStartTime;
+
+// Silence operations exports
+window.createSilenceFile = createSilenceFile;
+window.closeSilenceInputModal = closeSilenceInputModal;
+
+// AI modal operations exports
+window.clearRunwayVideoImage = clearRunwayVideoImage;
+window.clearVeoImage = clearVeoImage;
+window.closeRunwayVideoS3Modal = closeRunwayVideoS3Modal;
+
 // ============================================================================
 // State management
 // ============================================================================
