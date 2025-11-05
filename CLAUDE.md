@@ -213,22 +213,42 @@ All entity changes recorded via `@RecordActivity` annotation:
 
 Database may contain old enum values (RUNWAY_GENERATED, VEO_GENERATED) from before unification to AI_GENERATED.
 
-**Cleanup script:**
+**⚠️ IMPORTANT**: Only delete RUNWAY_GENERATED and VEO_GENERATED. AI_GENERATED is the current type in use!
+
+**Recommended: Use the cleanup guide**
 ```bash
 cd backend
-python delete_ai_videos.py  # Deletes RUNWAY_GENERATED, VEO_GENERATED videos
+cat CLEANUP_OLD_ENUMS.md  # Read the full guide first
 ```
 
-**SQL queries:**
+**Option 1: Python script (interactive)**
+```bash
+cd backend
+DB_PASSWORD=your_password python3 cleanup_old_enum_values.py
+```
+
+**Option 2: SQL script**
+```bash
+cd backend
+mysql -h <host> -u <user> -p kioskdb < cleanup_old_video_types.sql
+```
+
+**Option 3: Manual SQL queries**
 ```sql
 -- Check for old types
 SELECT COUNT(*), video_type FROM videos
 WHERE video_type IN ('RUNWAY_GENERATED', 'VEO_GENERATED')
 GROUP BY video_type;
 
--- Delete old types
-DELETE FROM videos WHERE video_type IN ('RUNWAY_GENERATED', 'VEO_GENERATED');
+-- Delete old types (review output above first!)
+DELETE FROM videos WHERE video_type = 'RUNWAY_GENERATED';
+DELETE FROM videos WHERE video_type = 'VEO_GENERATED';
+
+-- Verify cleanup
+SELECT video_type, COUNT(*) FROM videos GROUP BY video_type;
 ```
+
+**Note**: `delete_ai_videos.py` is deprecated (had security issues). Use `cleanup_old_enum_values.py` instead.
 
 ## Key API Endpoints
 
