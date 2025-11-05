@@ -97,6 +97,7 @@ let currentMode = 'video';  // 'video' or 'audio'
 let currentAudioFile = null;  // For audio editing mode
 let audioFileInfo = null;  // Audio file metadata
 let currentAudioMetadata = { title: '', description: '' };  // Audio file title and description from S3
+let currentVideoMetadata = { title: '', description: '' };  // Video file title and description from S3
 let textColorHistory = [];  // Color history for text mode
 let audioListCurrentPage = 1;  // Current page for audio list pagination
 let audioListItemsPerPage = 10;  // Items per page for audio list
