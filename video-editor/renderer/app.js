@@ -47,6 +47,45 @@ window.updateFilterValue = function(paramName) {
   FilterOperations.updateFilterValue(paramName);
 };
 
+// SpeedOperations wrapper functions (for backward compatibility)
+window.previewSpeed = function() {
+  const speed = parseFloat(document.getElementById('speed-factor')?.value || 1.0);
+  SpeedOperations.previewVideoSpeedChange(speed);
+  const video = document.getElementById('preview-video');
+  if (video && video.paused) {
+    video.play();
+  }
+  updateStatus(`미리보기 재생 중 (${speed}x 속도)`);
+};
+
+window.stopSpeedPreview = function() {
+  SpeedOperations.stopVideoSpeedPreview();
+  const video = document.getElementById('preview-video');
+  if (video) {
+    video.pause();
+  }
+  updateStatus('미리보기 중지됨 (속도 1.0x로 복원)');
+};
+
+window.previewAudioSpeed = function() {
+  const speed = parseFloat(document.getElementById('audio-speed-factor')?.value || 1.0);
+  SpeedOperations.previewAudioSpeedChange(speed);
+  const audio = document.getElementById('preview-audio');
+  if (audio && audio.paused) {
+    audio.play();
+  }
+  updateStatus(`미리보기 재생 중 (${speed}x 속도)`);
+};
+
+window.stopAudioSpeedPreview = function() {
+  SpeedOperations.stopAudioSpeedPreview();
+  const audio = document.getElementById('preview-audio');
+  if (audio) {
+    audio.pause();
+  }
+  updateStatus('미리보기 중지됨 (속도 1.0x로 복원)');
+};
+
 // ============================================================================
 // State management
 // ============================================================================
@@ -5413,36 +5452,8 @@ function updateSpeedDisplay() {
   document.getElementById('speed-value').textContent = `${value}x`;
 }
 
-// Preview speed change
-function previewSpeed() {
-  if (!currentVideo) {
-    alert('먼저 영상을 가져와주세요.');
-    return;
-  }
-
-  const video = document.getElementById('preview-video');
-  const speedFactor = parseFloat(document.getElementById('speed-factor').value);
-
-  if (video) {
-    video.playbackRate = speedFactor;
-    // Start playing from current position
-    if (video.paused) {
-      video.play();
-    }
-    updateStatus(`미리보기 재생 중 (${speedFactor}x 속도)`);
-  }
-}
-
-// Stop speed preview and reset to normal
-function stopSpeedPreview() {
-  const video = document.getElementById('preview-video');
-
-  if (video) {
-    video.playbackRate = 1.0;
-    video.pause();
-    updateStatus('미리보기 중지됨 (속도 1.0x로 복원)');
-  }
-}
+// Note: previewSpeed and stopSpeedPreview are now imported from SpeedOperations module
+// Wrapper functions are defined at the top of this file for backward compatibility
 
 async function executeSpeed() {
   if (!currentVideo) {
@@ -5488,36 +5499,8 @@ function updateAudioSpeedDisplay() {
   document.getElementById('audio-speed-value').textContent = `${value}x`;
 }
 
-// Preview audio speed change
-function previewAudioSpeed() {
-  if (!currentAudioFile) {
-    alert('먼저 음성 파일을 가져와주세요.');
-    return;
-  }
-
-  const audioElement = document.getElementById('preview-audio');
-  const speedFactor = parseFloat(document.getElementById('audio-speed-factor').value);
-
-  if (audioElement) {
-    audioElement.playbackRate = speedFactor;
-    // Start playing from current position
-    if (audioElement.paused) {
-      audioElement.play();
-    }
-    updateStatus(`미리보기 재생 중 (${speedFactor}x 속도)`);
-  }
-}
-
-// Stop audio speed preview and reset to normal
-function stopAudioSpeedPreview() {
-  const audioElement = document.getElementById('preview-audio');
-
-  if (audioElement) {
-    audioElement.playbackRate = 1.0;
-    audioElement.pause();
-    updateStatus('미리보기 중지됨 (속도 1.0x로 복원)');
-  }
-}
+// Note: previewAudioSpeed and stopAudioSpeedPreview are now imported from SpeedOperations module
+// Wrapper functions are defined at the top of this file for backward compatibility
 
 async function executeAudioSpeed() {
   if (!currentAudioFile) {
