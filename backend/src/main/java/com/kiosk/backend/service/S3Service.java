@@ -41,19 +41,32 @@ public class S3Service {
 
     @PostConstruct
     public void init() {
-        AwsBasicCredentials awsCredentials = AwsBasicCredentials.create(accessKey, secretKey);
+        // Skip S3 initialization if credentials are not provided (for local dev without AWS)
+        if (accessKey == null || accessKey.trim().isEmpty() ||
+            secretKey == null || secretKey.trim().isEmpty()) {
+            log.warn("AWS credentials not provided. S3 features will be disabled.");
+            log.warn("To enable S3: Set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY environment variables");
+            return;
+        }
 
-        this.s3Client = S3Client.builder()
-                .region(Region.of(region))
-                .credentialsProvider(StaticCredentialsProvider.create(awsCredentials))
-                .build();
+        try {
+            AwsBasicCredentials awsCredentials = AwsBasicCredentials.create(accessKey, secretKey);
 
-        this.s3Presigner = S3Presigner.builder()
-                .region(Region.of(region))
-                .credentialsProvider(StaticCredentialsProvider.create(awsCredentials))
-                .build();
+            this.s3Client = S3Client.builder()
+                    .region(Region.of(region))
+                    .credentialsProvider(StaticCredentialsProvider.create(awsCredentials))
+                    .build();
 
-        log.info("S3 Client initialized for bucket: {} in region: {}", bucketName, region);
+            this.s3Presigner = S3Presigner.builder()
+                    .region(Region.of(region))
+                    .credentialsProvider(StaticCredentialsProvider.create(awsCredentials))
+                    .build();
+
+            log.info("S3 Client initialized for bucket: {} in region: {}", bucketName, region);
+        } catch (Exception e) {
+            log.error("Failed to initialize S3 Client: {}", e.getMessage(), e);
+            log.warn("S3 features will be disabled");
+        }
     }
 
     @PreDestroy
@@ -74,6 +87,10 @@ public class S3Service {
      * @return S3 key of the uploaded file
      */
     public String uploadFile(MultipartFile file, String folderPath) throws IOException {
+        if (s3Client == null) {
+            throw new IOException("S3 is not configured. Please set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY environment variables.");
+        }
+
         String originalFilename = file.getOriginalFilename();
         String uniqueFilename = UUID.randomUUID().toString() + "_" + originalFilename;
         String s3Key = folderPath + uniqueFilename;
@@ -106,6 +123,10 @@ public class S3Service {
      * @return S3 key of the uploaded file
      */
     public String uploadBytes(byte[] bytes, String folderPath, String filename, String contentType) {
+        if (s3Client == null) {
+            throw new RuntimeException("S3 is not configured. Please set AWS credentials.");
+        }
+
         String uniqueFilename = UUID.randomUUID().toString() + "_" + filename;
         String s3Key = folderPath + uniqueFilename;
 
@@ -143,6 +164,10 @@ public class S3Service {
      * @return Presigned URL
      */
     public String generatePresignedUrl(String s3Key, int durationMinutes) {
+        if (s3Presigner == null) {
+            throw new RuntimeException("S3 is not configured. Please set AWS credentials.");
+        }
+
         try {
             GetObjectRequest getObjectRequest = GetObjectRequest.builder()
                     .bucket(bucketName)
