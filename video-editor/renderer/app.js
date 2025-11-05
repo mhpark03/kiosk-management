@@ -86,6 +86,23 @@ window.stopAudioSpeedPreview = function() {
   updateStatus('미리보기 중지됨 (속도 1.0x로 복원)');
 };
 
+// Merge operations exports (forward declarations - functions defined later in file)
+window.addVideoToMerge = function() { return addVideoToMerge(); };
+window.updateMergeFileList = updateMergeFileList;
+window.moveMergeVideoUp = moveMergeVideoUp;
+window.moveMergeVideoDown = moveMergeVideoDown;
+window.removeMergeVideo = removeMergeVideo;
+window.previewMerge = function() { return previewMerge(); };
+window.stopMergePreview = stopMergePreview;
+window.executeMerge = function() { return executeMerge(); };
+window.addAudioToMerge = function() { return addAudioToMerge(); };
+window.addSilenceToMerge = addSilenceToMerge;
+window.updateMergeAudioFileList = updateMergeAudioFileList;
+window.removeMergeAudio = removeMergeAudio;
+window.executeMergeAudio = function() { return executeMergeAudio(); };
+window.updateTransitionDescription = updateTransitionDescription;
+window.updateTransitionDurationVisibility = updateTransitionDurationVisibility;
+
 // ============================================================================
 // State management
 // ============================================================================
