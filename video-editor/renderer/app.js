@@ -5376,7 +5376,7 @@ async function executeVolumeAdjust() {
     const result = await window.electronAPI.adjustAudioVolume({
       inputPath: currentVideo,
       outputPath: null, // null means create temp file
-      volume: volumeLevel
+      volumeLevel: volumeLevel
     });
 
     hideProgress();
