@@ -1,0 +1,18 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "elasticbeanstalk:DescribeEnvironments",
+        "elasticbeanstalk:DescribeInstancesHealth",
+        "elasticbeanstalk:DescribeEnvironmentHealth",
+        "elasticbeanstalk:DescribeEnvironmentResources",
+        "cloudwatch:GetMetricStatistics",
+        "cloudwatch:ListMetrics",
+        "ec2:DescribeInstances"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
