@@ -4236,37 +4236,8 @@ function previewAudioEndTime() {
   updateStatus(`끝 위치로 이동: ${formatTime(endTime)}`);
 }
 
-function previewAudioTrimRange() {
-  const video = document.getElementById('preview-video');
-  const startInput = document.getElementById('trim-audio-start');
-  const endInput = document.getElementById('trim-audio-end');
-
-  if (!video || !video.src) {
-    alert('먼저 영상을 가져와주세요.');
-    return;
-  }
-
-  const startTime = parseFloat(startInput.value) || 0;
-  const endTime = parseFloat(endInput.value) || 0;
-
-  if (endTime <= startTime) {
-    alert('끝 시간은 시작 시간보다 커야 합니다.');
-    return;
-  }
-
-  video.currentTime = startTime;
-  video.play();
-
-  const stopAtEnd = () => {
-    if (video.currentTime >= endTime) {
-      video.pause();
-      video.removeEventListener('timeupdate', stopAtEnd);
-    }
-  };
-
-  video.addEventListener('timeupdate', stopAtEnd);
-  updateStatus(`구간 미리보기 재생: ${formatTime(startTime)} ~ ${formatTime(endTime)}`);
-}
+// Note: previewAudioTrimRange is defined later for audio editing mode (line ~8350)
+// Old video-based version removed to avoid duplicate declaration
 
 async function executeTrimAudioOnly() {
   if (!currentVideo) {
