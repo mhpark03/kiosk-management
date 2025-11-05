@@ -58,8 +58,8 @@ server:
   #   key-alias: kioskapp
 
 jwt:
-  secret: your-256-bit-secret-key-here-make-it-very-long-and-secure-at-least-32-characters
-  expiration: 86400000 # 24 hours in milliseconds
+  secret: ${JWT_SECRET}  # Must be set via environment variable
+  expiration: ${JWT_EXPIRATION:86400000} # 24 hours in milliseconds (default)
 
 aws:
   s3:
