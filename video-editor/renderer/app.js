@@ -173,6 +173,30 @@ window.saveVeoVideoToS3 = function() { return saveVeoVideoToS3(); };
 
 // Toggle operations exports
 window.toggleColorHistory = toggleColorHistory;
+window.toggleAudioSourceUI = toggleAudioSourceUI;
+
+// Update/Display operations exports (for onchange, oninput handlers)
+window.updateSpeedDisplay = updateSpeedDisplay;
+window.updateAudioSpeedDisplay = updateAudioSpeedDisplay;
+window.updateVolumeDisplay = updateVolumeDisplay;
+window.updateVolumeAdjustDisplay = updateVolumeAdjustDisplay;
+window.updateTrimEndMax = updateTrimEndMax;
+window.updateTextContentPreview = updateTextContentPreview;
+window.updateTextColorPreview = updateTextColorPreview;
+window.updateTextSizePreview = updateTextSizePreview;
+window.updateTextFontPreview = updateTextFontPreview;
+window.updateTextStylePreview = updateTextStylePreview;
+window.updateTextAlignPreview = updateTextAlignPreview;
+window.updateTextRangeDisplay = updateTextRangeDisplay;
+window.updateTextOverlayPreview = updateTextOverlayPreview;
+window.updateAudioRangeOverlay = updateAudioRangeOverlay;
+window.updateTtsCharCount = updateTtsCharCount;
+window.updateTtsSpeedDisplay = updateTtsSpeedDisplay;
+window.updateTtsPitchDisplay = updateTtsPitchDisplay;
+window.updateRunwayVideoModelOptions = updateRunwayVideoModelOptions;
+window.updateSelectedVideoContentInfo = updateSelectedVideoContentInfo;
+window.updateSelectedImageInfo = updateSelectedImageInfo;
+window.saveColorToHistory = saveColorToHistory;
 
 // ============================================================================
 // State management
