@@ -1,4 +1,55 @@
+// ============================================================================
+// Module Imports
+// ============================================================================
+import * as UIHelpers from './modules/utilities/UIHelpers.js';
+import * as TimelineHelpers from './modules/utilities/TimelineHelpers.js';
+import * as WaveformManager from './modules/utilities/WaveformManager.js';
+import * as FilterOperations from './modules/utilities/FilterOperations.js';
+import * as SpeedOperations from './modules/utilities/SpeedOperations.js';
+import * as PreviewHelpers from './modules/utilities/PreviewHelpers.js';
+
+// ============================================================================
+// Export module functions to window for backward compatibility
+// This allows existing code to continue using showProgress() instead of UIHelpers.showProgress()
+// ============================================================================
+
+// UIHelpers exports
+window.handleError = UIHelpers.handleError;
+window.showCustomDialog = UIHelpers.showCustomDialog;
+window.closeCustomDialog = UIHelpers.closeCustomDialog;
+window.showProgress = UIHelpers.showProgress;
+window.hideProgress = UIHelpers.hideProgress;
+window.updateProgress = UIHelpers.updateProgress;
+window.updateStatus = UIHelpers.updateStatus;
+window.confirmAction = UIHelpers.confirmAction;
+window.showAlert = UIHelpers.showAlert;
+window.clearToolProperties = UIHelpers.clearToolProperties;
+window.showToast = UIHelpers.showToast;
+
+// TimelineHelpers exports
+window.formatTime = TimelineHelpers.formatTime;
+window.updateTrimRangeOverlay = TimelineHelpers.updateTrimRangeOverlay;
+window.clearTrimRangeOverlay = TimelineHelpers.clearTrimRangeOverlay;
+window.updateZoomRangeOverlay = TimelineHelpers.updateZoomRangeOverlay;
+window.clearZoomRangeOverlay = TimelineHelpers.clearZoomRangeOverlay;
+window.updatePlayheadPosition = TimelineHelpers.updatePlayheadPosition;
+window.validateTimeRange = TimelineHelpers.validateTimeRange;
+
+// FilterOperations wrapper functions (for backward compatibility)
+window.updateFilterControls = function() {
+  const filterType = document.getElementById('filter-type')?.value;
+  if (filterType) {
+    FilterOperations.updateFilterControls(filterType);
+  }
+};
+
+window.updateFilterValue = function(paramName) {
+  FilterOperations.updateFilterValue(paramName);
+};
+
+// ============================================================================
 // State management
+// ============================================================================
 let currentVideo = null;
 let videoInfo = null;
 let activeTool = null;
@@ -38,44 +89,7 @@ let audioPreviewListener = null;  // Store preview timeupdate listener reference
 // Note: PreviewManager class is now loaded from modules/PreviewManager.js
 // ============================================================================
 
-// 공통 오류 처리 함수
-function handleError(operation, error, userMessage) {
-  // 콘솔에 상세한 오류 정보 기록
-  console.error(`=== ${operation} 오류 ===`);
-  console.error('오류 메시지:', error.message);
-  console.error('전체 오류 객체:', error);
-  if (error.stack) {
-    console.error('스택 트레이스:', error.stack);
-  }
-  console.error('=====================');
-
-  // 사용자에게는 간단한 한글 메시지 표시
-  showCustomDialog(`${userMessage}\n\n상세한 오류 내용은 개발자 도구(F12)의 콘솔에서 확인해주세요.`);
-  updateStatus(`${operation} 실패`);
-}
-
-// Custom dialog that doesn't break input focus
-function showCustomDialog(message) {
-  const overlay = document.getElementById('modal-overlay');
-  const content = document.getElementById('modal-content');
-
-  content.innerHTML = `
-    <div style="background: #2a2a2a; padding: 20px; border-radius: 8px; max-width: 500px; color: #e0e0e0;">
-      <p style="margin: 0 0 20px 0; white-space: pre-wrap; line-height: 1.5;">${message}</p>
-      <button onclick="closeCustomDialog()" style="padding: 10px 20px; background: #667eea; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; font-weight: 600;">확인</button>
-    </div>
-  `;
-
-  overlay.style.display = 'flex';
-}
-
-function closeCustomDialog() {
-  const overlay = document.getElementById('modal-overlay');
-  overlay.style.display = 'none';
-}
-
-// Make closeCustomDialog global
-window.closeCustomDialog = closeCustomDialog;
+// Note: handleError, showCustomDialog, closeCustomDialog are now imported from UIHelpers module
 
 // Initialize app
 console.log('[APP.JS] Script loaded');
@@ -2749,27 +2763,7 @@ function updateTrimDurationDisplay() {
   updateTrimRangeOverlay(startTime, endTime, maxDuration);
 }
 
-// Update trim range overlay on timeline
-function updateTrimRangeOverlay(startTime, endTime, maxDuration) {
-  const overlay = document.getElementById('trim-range-overlay');
-  if (!overlay || !videoInfo) return;
-
-  // Show overlay only in trim mode
-  if (activeTool === 'trim') {
-    overlay.style.display = 'block';
-
-    // Calculate percentages
-    const startPercent = (startTime / maxDuration) * 100;
-    const endPercent = (endTime / maxDuration) * 100;
-    const widthPercent = endPercent - startPercent;
-
-    // Update overlay position and size
-    overlay.style.left = `${startPercent}%`;
-    overlay.style.width = `${widthPercent}%`;
-  } else {
-    overlay.style.display = 'none';
-  }
-}
+// Note: updateTrimRangeOverlay is now imported from TimelineHelpers module
 
 // Update text range overlay on timeline
 function updateTextRangeOverlay(startTime, endTime, maxDuration) {
@@ -5280,61 +5274,8 @@ async function executeVolumeAdjust() {
 }
 
 // Filter controls
-function updateFilterControls() {
-  const filterType = document.getElementById('filter-type').value;
-  const controlsDiv = document.getElementById('filter-controls');
-
-  switch (filterType) {
-    case 'brightness':
-      controlsDiv.innerHTML = `
-        <div class="property-group">
-          <label>밝기 <span class="property-value" id="brightness-value">0</span></label>
-          <input type="range" id="brightness" min="-1" max="1" step="0.1" value="0" oninput="updateFilterValue('brightness')">
-          <small style="color: #888;">-1 = 어둡게, 0 = 원본, 1 = 밝게</small>
-        </div>
-      `;
-      break;
-    case 'contrast':
-      controlsDiv.innerHTML = `
-        <div class="property-group">
-          <label>대비 <span class="property-value" id="contrast-value">1</span></label>
-          <input type="range" id="contrast" min="0" max="3" step="0.1" value="1" oninput="updateFilterValue('contrast')">
-          <small style="color: #888;">1 = 원본, 2 = 대비 2배</small>
-        </div>
-      `;
-      break;
-    case 'saturation':
-      controlsDiv.innerHTML = `
-        <div class="property-group">
-          <label>채도 <span class="property-value" id="saturation-value">1</span></label>
-          <input type="range" id="saturation" min="0" max="3" step="0.1" value="1" oninput="updateFilterValue('saturation')">
-          <small style="color: #888;">0 = 흑백, 1 = 원본, 2 = 채도 2배</small>
-        </div>
-      `;
-      break;
-    case 'blur':
-      controlsDiv.innerHTML = `
-        <div class="property-group">
-          <label>블러 강도 <span class="property-value" id="sigma-value">2</span></label>
-          <input type="range" id="sigma" min="0" max="10" step="0.5" value="2" oninput="updateFilterValue('sigma')">
-        </div>
-      `;
-      break;
-    case 'sharpen':
-      controlsDiv.innerHTML = `
-        <div class="property-group">
-          <label>샤픈 강도 <span class="property-value" id="amount-value">1</span></label>
-          <input type="range" id="amount" min="0" max="3" step="0.1" value="1" oninput="updateFilterValue('amount')">
-        </div>
-      `;
-      break;
-  }
-}
-
-function updateFilterValue(filterType) {
-  const value = document.getElementById(filterType).value;
-  document.getElementById(`${filterType}-value`).textContent = value;
-}
+// Note: updateFilterControls and updateFilterValue are now imported from FilterOperations module
+// Wrapper functions are defined at the top of this file for backward compatibility
 
 async function executeFilter() {
   if (!currentVideo) {
@@ -5631,26 +5572,7 @@ function setupFFmpegProgressListener() {
 
 // Log management - Removed (console log UI was removed)
 
-function showProgress() {
-  document.getElementById('progress-section').style.display = 'block';
-}
-
-function hideProgress() {
-  document.getElementById('progress-section').style.display = 'none';
-  updateProgress(0, '대기 중...');
-}
-
-function updateProgress(percent, text) {
-  document.getElementById('progress-fill').style.width = `${percent}%`;
-  document.getElementById('progress-text').textContent = text;
-}
-
-function updateStatus(text) {
-  document.getElementById('status-text').textContent = text;
-}
-
-// Expose updateStatus to window for module access
-window.updateStatus = updateStatus;
+// Note: showProgress, hideProgress, updateProgress, updateStatus are now imported from UIHelpers module
 
 // Audio file editing functions
 async function importAudioFile() {
@@ -7026,11 +6948,12 @@ function renderAudioListForInsertion(audioFiles, modalContent) {
         <table style="width: 100%; border-collapse: collapse; table-layout: fixed;">
           <thead style="position: sticky; top: 0; background: #333; z-index: 1;">
             <tr style="border-bottom: 2px solid #555;">
-              <th style="padding: 12px 8px; text-align: left; color: #e0e0e0; font-size: 13px; font-weight: 600; width: 25%;">제목</th>
-              <th style="padding: 12px 8px; text-align: left; color: #e0e0e0; font-size: 13px; font-weight: 600; width: 45%;">설명</th>
+              <th style="padding: 12px 8px; text-align: left; color: #e0e0e0; font-size: 13px; font-weight: 600; width: 23%;">제목</th>
+              <th style="padding: 12px 8px; text-align: left; color: #e0e0e0; font-size: 13px; font-weight: 600; width: 32%;">설명</th>
               <th style="padding: 12px 8px; text-align: center; color: #e0e0e0; font-size: 13px; font-weight: 600; width: 70px;">분류</th>
               <th style="padding: 12px 8px; text-align: right; color: #e0e0e0; font-size: 13px; font-weight: 600; width: 80px;">크기</th>
               <th style="padding: 12px 8px; text-align: center; color: #e0e0e0; font-size: 13px; font-weight: 600; width: 100px;">업로드일</th>
+              <th style="padding: 12px 8px; text-align: center; color: #e0e0e0; font-size: 13px; font-weight: 600; width: 100px;">미리듣기</th>
             </tr>
           </thead>
           <tbody>
@@ -7068,6 +6991,14 @@ function renderAudioListForInsertion(audioFiles, modalContent) {
                   </td>
                   <td style="padding: 12px 8px; text-align: center; color: #aaa; font-size: 12px; white-space: nowrap; cursor: pointer;">
                     ${uploadDate}
+                  </td>
+                  <td style="padding: 12px 8px; text-align: center;">
+                    <button onclick="event.stopPropagation(); previewAudioFromS3ForInsertion(${audio.id}, '${audio.title.replace(/'/g, "\\'")}')"
+                            style="padding: 6px 12px; background: #f59e0b; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: 600; white-space: nowrap; transition: background 0.2s;"
+                            onmouseover="this.style.background='#d97706'"
+                            onmouseout="this.style.background='#f59e0b'">
+                      🔊 듣기
+                    </button>
                   </td>
                 </tr>
               `;
@@ -7128,6 +7059,13 @@ window.goToAudioListPageForInsertion = function(page) {
 
 // Close audio selection modal for insertion
 window.closeAudioSelectionModalForInsertion = function() {
+  // Stop any playing preview audio
+  if (audioPreviewElement && !audioPreviewElement.paused) {
+    audioPreviewElement.pause();
+    audioPreviewElement.currentTime = 0;
+    currentPreviewAudioId = null;
+  }
+
   const modalOverlay = document.getElementById('modal-overlay');
   if (modalOverlay) {
     modalOverlay.style.display = 'none';
@@ -7203,6 +7141,88 @@ window.selectAudioFromS3ForInsertion = async function(audioId, audioTitle) {
     console.error('[Audio Insert] Failed to download audio from S3:', error);
     hideProgress();
     alert('S3에서 음성 다운로드에 실패했습니다.\n\n' + error.message);
+  }
+};
+
+// Audio preview state for insertion modal
+let audioPreviewElement = null;
+let currentPreviewAudioId = null;
+
+// Preview audio from S3 for insertion (미리듣기)
+window.previewAudioFromS3ForInsertion = async function(audioId, audioTitle) {
+  try {
+    console.log('[Audio Preview] Starting preview for audio:', audioId, audioTitle);
+
+    // Get auth token from auth module
+    const token = window.getAuthToken ? window.getAuthToken() : authToken;
+    const baseUrl = window.getBackendUrl ? window.getBackendUrl() : backendBaseUrl;
+
+    // If already playing this audio, stop it
+    if (currentPreviewAudioId === audioId && audioPreviewElement && !audioPreviewElement.paused) {
+      console.log('[Audio Preview] Stopping current preview');
+      audioPreviewElement.pause();
+      audioPreviewElement.currentTime = 0;
+      currentPreviewAudioId = null;
+      return;
+    }
+
+    // Stop any currently playing audio
+    if (audioPreviewElement) {
+      audioPreviewElement.pause();
+      audioPreviewElement.currentTime = 0;
+    }
+
+    // Get presigned URL from backend
+    const response = await fetch(`${baseUrl}/api/videos/${audioId}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to get download URL: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const audioUrl = data.s3Url;
+
+    console.log('[Audio Preview] Got presigned URL for preview');
+
+    // Create or reuse audio element
+    if (!audioPreviewElement) {
+      audioPreviewElement = new Audio();
+      audioPreviewElement.volume = 0.7; // 70% volume for preview
+
+      // Add event listeners
+      audioPreviewElement.addEventListener('ended', () => {
+        console.log('[Audio Preview] Playback ended');
+        currentPreviewAudioId = null;
+      });
+
+      audioPreviewElement.addEventListener('error', (e) => {
+        console.error('[Audio Preview] Playback error:', e);
+        alert('오디오 재생 중 오류가 발생했습니다.');
+        currentPreviewAudioId = null;
+      });
+    }
+
+    // Set source and play
+    audioPreviewElement.src = audioUrl;
+    currentPreviewAudioId = audioId;
+
+    await audioPreviewElement.play();
+    console.log('[Audio Preview] Playing audio:', audioTitle);
+
+    // Show toast notification
+    if (typeof showToast === 'function') {
+      showToast(`🔊 ${audioTitle} 미리듣기 재생 중...`, 'info', 2000);
+    }
+
+  } catch (error) {
+    console.error('[Audio Preview] Failed to preview audio:', error);
+    alert('오디오 미리듣기에 실패했습니다.\n\n' + error.message);
+    currentPreviewAudioId = null;
   }
 };
 
@@ -8838,24 +8858,7 @@ function updateModeUI() {
   }
 }
 
-// Utility functions
-function formatTime(seconds) {
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  const secs = Math.floor(seconds % 60);
-  const decimal = Math.round((seconds % 1) * 100); // 소수점 둘째 자리
-
-  // 항상 소수점 2자리 표시
-  return `${pad(hours)}:${pad(minutes)}:${pad(secs)}.${pad2(decimal)}`;
-}
-
-function pad(num) {
-  return num.toString().padStart(2, '0');
-}
-
-function pad2(num) {
-  return num.toString().padStart(2, '0');
-}
+// Note: formatTime utility function is now imported from TimelineHelpers module
 
 // ==================== TTS Functions ====================
 
