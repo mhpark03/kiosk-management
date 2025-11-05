@@ -480,12 +480,27 @@ export async function previewTTS() {
     if (previewAudioElement) {
       previewAudioElement.pause();
       previewAudioElement.src = '';
+      if (previewAudioElement.blobUrl) {
+        URL.revokeObjectURL(previewAudioElement.blobUrl);
+      }
     }
 
-    // Create and play audio element with file:// protocol
-    const audioUrl = `file:///${result.audioPath.replace(/\\/g, '/')}`;
-    console.log('[TTS Preview] Audio URL:', audioUrl);
-    previewAudioElement = new Audio(audioUrl);
+    // Read audio file as Buffer and convert to Blob URL
+    console.log('[TTS Preview] Reading audio file:', result.audioPath);
+    const fileResult = await window.electronAPI.readAudioFile(result.audioPath);
+
+    if (!fileResult.success) {
+      throw new Error('Failed to read audio file: ' + fileResult.error);
+    }
+
+    // Convert Buffer to Blob URL
+    const blob = new Blob([new Uint8Array(fileResult.buffer.data)], { type: fileResult.mimeType });
+    const blobUrl = URL.createObjectURL(blob);
+    console.log('[TTS Preview] Blob URL created');
+
+    // Create and play audio element
+    previewAudioElement = new Audio(blobUrl);
+    previewAudioElement.blobUrl = blobUrl; // Store for cleanup
 
     previewAudioElement.onended = () => {
       console.log('[TTS Preview] Playback ended');
