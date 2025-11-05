@@ -140,6 +140,15 @@ window.clearRunwayVideoImage = clearRunwayVideoImage;
 window.clearVeoImage = clearVeoImage;
 window.closeRunwayVideoS3Modal = closeRunwayVideoS3Modal;
 
+// Selection operations exports
+window.selectAudioFile = function() { return selectAudioFile(); };
+window.selectRunwayVideoImageSource = function(imageNumber, source) { return selectRunwayVideoImageSource(imageNumber, source); };
+window.selectRunwayVideoS3Image = function(imageNumber, imageId, imageTitle, imageUrl) { return selectRunwayVideoS3Image(imageNumber, imageId, imageTitle, imageUrl); };
+window.selectVeoRefImageSource = function(source) { return selectVeoRefImageSource(source); };
+window.selectVeoVideoImageSource = function(source) { return selectVeoVideoImageSource(source); };
+window.selectColorFromHistory = selectColorFromHistory;
+window.selectTool = selectTool;
+
 // ============================================================================
 // State management
 // ============================================================================
