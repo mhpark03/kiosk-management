@@ -485,7 +485,7 @@ export async function previewTTS() {
       }
     }
 
-    // Read audio file as Buffer and convert to Blob URL
+    // Read audio file as Base64 and convert to Blob URL
     console.log('[TTS Preview] Reading audio file:', result.audioPath);
     const fileResult = await window.electronAPI.readAudioFile(result.audioPath);
 
@@ -493,10 +493,17 @@ export async function previewTTS() {
       throw new Error('Failed to read audio file: ' + fileResult.error);
     }
 
-    // Convert Buffer to Blob URL
-    const blob = new Blob([new Uint8Array(fileResult.buffer.data)], { type: fileResult.mimeType });
+    // Convert Base64 to binary data
+    const binaryString = atob(fileResult.base64);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+
+    // Create Blob URL
+    const blob = new Blob([bytes], { type: fileResult.mimeType });
     const blobUrl = URL.createObjectURL(blob);
-    console.log('[TTS Preview] Blob URL created');
+    console.log('[TTS Preview] Blob URL created:', blobUrl);
 
     // Create and play audio element
     previewAudioElement = new Audio(blobUrl);
