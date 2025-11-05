@@ -7127,8 +7127,7 @@ window.selectAudioFromS3ForInsertion = async function(audioId, audioTitle) {
   }
 };
 
-// Audio preview state for insertion modal
-let audioPreviewElement = null;
+// Audio preview state for insertion modal (reusing existing audioPreviewElement from line 4773)
 let currentPreviewAudioId = null;
 
 // Preview audio from S3 for insertion (미리듣기)
