@@ -7454,6 +7454,12 @@ async function loadAudioFile(audioPath) {
         // Enable play/pause buttons for audio playback
         if (playBtn) playBtn.disabled = false;
         if (pauseBtn) pauseBtn.disabled = false;
+
+        // Also enable controls via PreviewManager
+        if (typeof previewManager !== 'undefined' && previewManager.enableControls) {
+          previewManager.enableControls();
+          console.log('[loadAudioFile] PreviewManager controls enabled');
+        }
       }, { once: true });
 
       audioEl.load();
