@@ -3399,3 +3399,23 @@ logInfo('SYSTEM', 'Kiosk Video Editor initialized');
 ipcMain.handle('generate-imagen-image', async (event, params) => {
   return await imagenHelper.generateImagenImage(params, logInfo, logError);
 });
+
+/**
+ * Read audio file and return as Buffer for blob URL creation
+ */
+ipcMain.handle('read-audio-file', async (event, filePath) => {
+  try {
+    const buffer = await fs.promises.readFile(filePath);
+    return {
+      success: true,
+      buffer: buffer,
+      mimeType: 'audio/mpeg' // Assuming MP3 for TTS
+    };
+  } catch (error) {
+    logError('FILE', `Failed to read audio file: ${error.message}`);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+});
