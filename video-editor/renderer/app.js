@@ -7026,11 +7026,12 @@ function renderAudioListForInsertion(audioFiles, modalContent) {
         <table style="width: 100%; border-collapse: collapse; table-layout: fixed;">
           <thead style="position: sticky; top: 0; background: #333; z-index: 1;">
             <tr style="border-bottom: 2px solid #555;">
-              <th style="padding: 12px 8px; text-align: left; color: #e0e0e0; font-size: 13px; font-weight: 600; width: 25%;">제목</th>
-              <th style="padding: 12px 8px; text-align: left; color: #e0e0e0; font-size: 13px; font-weight: 600; width: 45%;">설명</th>
+              <th style="padding: 12px 8px; text-align: left; color: #e0e0e0; font-size: 13px; font-weight: 600; width: 23%;">제목</th>
+              <th style="padding: 12px 8px; text-align: left; color: #e0e0e0; font-size: 13px; font-weight: 600; width: 32%;">설명</th>
               <th style="padding: 12px 8px; text-align: center; color: #e0e0e0; font-size: 13px; font-weight: 600; width: 70px;">분류</th>
               <th style="padding: 12px 8px; text-align: right; color: #e0e0e0; font-size: 13px; font-weight: 600; width: 80px;">크기</th>
               <th style="padding: 12px 8px; text-align: center; color: #e0e0e0; font-size: 13px; font-weight: 600; width: 100px;">업로드일</th>
+              <th style="padding: 12px 8px; text-align: center; color: #e0e0e0; font-size: 13px; font-weight: 600; width: 100px;">미리듣기</th>
             </tr>
           </thead>
           <tbody>
@@ -7068,6 +7069,14 @@ function renderAudioListForInsertion(audioFiles, modalContent) {
                   </td>
                   <td style="padding: 12px 8px; text-align: center; color: #aaa; font-size: 12px; white-space: nowrap; cursor: pointer;">
                     ${uploadDate}
+                  </td>
+                  <td style="padding: 12px 8px; text-align: center;">
+                    <button onclick="event.stopPropagation(); previewAudioFromS3ForInsertion(${audio.id}, '${audio.title.replace(/'/g, "\\'")}')"
+                            style="padding: 6px 12px; background: #f59e0b; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: 600; white-space: nowrap; transition: background 0.2s;"
+                            onmouseover="this.style.background='#d97706'"
+                            onmouseout="this.style.background='#f59e0b'">
+                      🔊 듣기
+                    </button>
                   </td>
                 </tr>
               `;
@@ -7128,6 +7137,13 @@ window.goToAudioListPageForInsertion = function(page) {
 
 // Close audio selection modal for insertion
 window.closeAudioSelectionModalForInsertion = function() {
+  // Stop any playing preview audio
+  if (audioPreviewElement && !audioPreviewElement.paused) {
+    audioPreviewElement.pause();
+    audioPreviewElement.currentTime = 0;
+    currentPreviewAudioId = null;
+  }
+
   const modalOverlay = document.getElementById('modal-overlay');
   if (modalOverlay) {
     modalOverlay.style.display = 'none';
@@ -7203,6 +7219,88 @@ window.selectAudioFromS3ForInsertion = async function(audioId, audioTitle) {
     console.error('[Audio Insert] Failed to download audio from S3:', error);
     hideProgress();
     alert('S3에서 음성 다운로드에 실패했습니다.\n\n' + error.message);
+  }
+};
+
+// Audio preview state for insertion modal
+let audioPreviewElement = null;
+let currentPreviewAudioId = null;
+
+// Preview audio from S3 for insertion (미리듣기)
+window.previewAudioFromS3ForInsertion = async function(audioId, audioTitle) {
+  try {
+    console.log('[Audio Preview] Starting preview for audio:', audioId, audioTitle);
+
+    // Get auth token from auth module
+    const token = window.getAuthToken ? window.getAuthToken() : authToken;
+    const baseUrl = window.getBackendUrl ? window.getBackendUrl() : backendBaseUrl;
+
+    // If already playing this audio, stop it
+    if (currentPreviewAudioId === audioId && audioPreviewElement && !audioPreviewElement.paused) {
+      console.log('[Audio Preview] Stopping current preview');
+      audioPreviewElement.pause();
+      audioPreviewElement.currentTime = 0;
+      currentPreviewAudioId = null;
+      return;
+    }
+
+    // Stop any currently playing audio
+    if (audioPreviewElement) {
+      audioPreviewElement.pause();
+      audioPreviewElement.currentTime = 0;
+    }
+
+    // Get presigned URL from backend
+    const response = await fetch(`${baseUrl}/api/videos/${audioId}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to get download URL: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const audioUrl = data.s3Url;
+
+    console.log('[Audio Preview] Got presigned URL for preview');
+
+    // Create or reuse audio element
+    if (!audioPreviewElement) {
+      audioPreviewElement = new Audio();
+      audioPreviewElement.volume = 0.7; // 70% volume for preview
+
+      // Add event listeners
+      audioPreviewElement.addEventListener('ended', () => {
+        console.log('[Audio Preview] Playback ended');
+        currentPreviewAudioId = null;
+      });
+
+      audioPreviewElement.addEventListener('error', (e) => {
+        console.error('[Audio Preview] Playback error:', e);
+        alert('오디오 재생 중 오류가 발생했습니다.');
+        currentPreviewAudioId = null;
+      });
+    }
+
+    // Set source and play
+    audioPreviewElement.src = audioUrl;
+    currentPreviewAudioId = audioId;
+
+    await audioPreviewElement.play();
+    console.log('[Audio Preview] Playing audio:', audioTitle);
+
+    // Show toast notification
+    if (typeof showToast === 'function') {
+      showToast(`🔊 ${audioTitle} 미리듣기 재생 중...`, 'info', 2000);
+    }
+
+  } catch (error) {
+    console.error('[Audio Preview] Failed to preview audio:', error);
+    alert('오디오 미리듣기에 실패했습니다.\n\n' + error.message);
+    currentPreviewAudioId = null;
   }
 };
 
