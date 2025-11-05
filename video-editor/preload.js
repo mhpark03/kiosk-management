@@ -70,4 +70,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   focusWebContents: () => ipcRenderer.invoke('focus-webcontents'),
   // Imagen operations (using Gemini API with API Key)
   generateImagenImage: (params) => ipcRenderer.invoke('generate-imagen-image', params),
+
+  // File reading for audio preview
+  readAudioFile: (filePath) => ipcRenderer.invoke('read-audio-file', filePath),
 });
