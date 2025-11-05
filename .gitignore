@@ -19,8 +19,10 @@ firstapp/node_modules/
 firstapp/dist/
 firstapp/build/
 firstapp/.env.local
+firstapp/.env.development
 firstapp/.env.development.local
 firstapp/.env.test.local
+firstapp/.env.production
 firstapp/.env.production.local
 firstapp/npm-debug.log*
 firstapp/yarn-debug.log*
