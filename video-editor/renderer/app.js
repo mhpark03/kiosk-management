@@ -149,6 +149,31 @@ window.selectVeoVideoImageSource = function(source) { return selectVeoVideoImage
 window.selectColorFromHistory = selectColorFromHistory;
 window.selectTool = selectTool;
 
+// Preview operations exports (additional)
+window.previewTrimRange = previewTrimRange;
+window.previewTextRange = previewTextRange;
+window.previewVideoVolume = previewVideoVolume;
+window.previewTTS = function() { return previewTTS(); };
+
+// Set time operations exports
+window.setStartFromCurrentTime = setStartFromCurrentTime;
+window.setEndFromCurrentTime = setEndFromCurrentTime;
+window.setTextStartFromCurrentTime = setTextStartFromCurrentTime;
+window.setTextEndFromCurrentTime = setTextEndFromCurrentTime;
+window.setAudioStartFromCurrentTime = setAudioStartFromCurrentTime;
+window.setAudioStartFromSlider = setAudioStartFromSlider;
+window.setAudioEndFromSlider = setAudioEndFromSlider;
+
+// Upload/Save operations exports
+window.uploadVideoContentToS3 = function() { return uploadVideoContentToS3(); };
+window.uploadImageToS3 = function() { return uploadImageToS3(); };
+window.saveGeneratedImageToS3 = function() { return saveGeneratedImageToS3(); };
+window.saveRunwayVideoToS3 = function() { return saveRunwayVideoToS3(); };
+window.saveVeoVideoToS3 = function() { return saveVeoVideoToS3(); };
+
+// Toggle operations exports
+window.toggleColorHistory = toggleColorHistory;
+
 // ============================================================================
 // State management
 // ============================================================================
