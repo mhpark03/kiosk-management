@@ -1441,6 +1441,15 @@ function setupVideoControls() {
         updateStatus('일시정지');
       } else {
         // Play
+        const mediaElement = previewManager.getMediaElement();
+
+        if (mediaElement && mediaElement.duration) {
+          // If near the end (within 1 second), restart from beginning
+          if (mediaElement.duration - mediaElement.currentTime < 1.0) {
+            mediaElement.currentTime = 0;
+          }
+        }
+
         previewManager.play()
           .then(() => {
             previewManager.updatePlayPauseButton(true);
@@ -6277,8 +6286,12 @@ async function showVideoListFromS3() {
 
     const videos = await response.json();
 
-    // Filter only video files (check mediaType is VIDEO)
-    const videoFiles = videos.filter(v => v.mediaType === 'VIDEO');
+    // Filter only video files (check mediaType is VIDEO and contentType is video/*)
+    const videoFiles = videos.filter(v => {
+      const isVideoMediaType = v.mediaType === 'VIDEO';
+      const isVideoContentType = v.contentType && v.contentType.startsWith('video/');
+      return isVideoMediaType && isVideoContentType;
+    });
 
     console.log('[Video Import] Found video files:', videoFiles.length);
 
@@ -6624,8 +6637,12 @@ async function showVideoListForMerge() {
 
     const videos = await response.json();
 
-    // Filter only video files (check mediaType is VIDEO)
-    const videoFiles = videos.filter(v => v.mediaType === 'VIDEO');
+    // Filter only video files (check mediaType is VIDEO and contentType is video/*)
+    const videoFiles = videos.filter(v => {
+      const isVideoMediaType = v.mediaType === 'VIDEO';
+      const isVideoContentType = v.contentType && v.contentType.startsWith('video/');
+      return isVideoMediaType && isVideoContentType;
+    });
 
     console.log('[Video Merge] Found video files:', videoFiles.length);
 
@@ -11724,6 +11741,7 @@ async function uploadAudioToS3() {
     formData.append('file', audioBlob, filename);
     formData.append('title', title);
     formData.append('description', description);
+    formData.append('mediaType', 'AUDIO');  // Explicitly set media type
 
     // Upload to backend
     const uploadResponse = await fetch(`${baseUrl}/api/videos/upload`, {
@@ -11736,7 +11754,19 @@ async function uploadAudioToS3() {
 
     if (!uploadResponse.ok) {
       const errorText = await uploadResponse.text();
-      throw new Error(`Upload failed: ${uploadResponse.status} ${errorText}`);
+
+      // Try to parse JSON error response for clearer error message
+      let errorMessage = errorText;
+      try {
+        const errorJson = JSON.parse(errorText);
+        if (errorJson.error) {
+          errorMessage = errorJson.error;
+        }
+      } catch (e) {
+        // If not JSON, use the raw text
+      }
+
+      throw new Error(errorMessage);
     }
 
     const uploadResult = await uploadResponse.json();

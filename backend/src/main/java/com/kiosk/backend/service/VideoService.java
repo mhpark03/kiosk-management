@@ -81,7 +81,16 @@ public class VideoService {
             "image/gif",
             "image/webp",
             "image/bmp",
-            "image/svg+xml"
+            "image/svg+xml",
+            "audio/mpeg",
+            "audio/mp3",
+            "audio/wav",
+            "audio/wave",
+            "audio/x-wav",
+            "audio/aac",
+            "audio/ogg",
+            "audio/webm",
+            "audio/flac"
     );
 
     /**
@@ -265,18 +274,30 @@ public class VideoService {
             throw new IllegalArgumentException("Description is required");
         }
 
-        // Check for duplicate by original filename
-        String originalFilename = file.getOriginalFilename();
-        if (originalFilename != null && videoRepository.existsByOriginalFilename(originalFilename)) {
-            log.warn("Duplicate video file detected: {}", originalFilename);
-            throw new IllegalArgumentException("동일한 파일명의 영상이 이미 업로드되어 있습니다: " + originalFilename);
-        }
-
-        // Determine mediaType based on contentType
+        // Determine mediaType based on contentType (BEFORE duplicate check for better error message)
         String contentType = file.getContentType();
         Video.MediaType mediaType = Video.MediaType.VIDEO; // default
-        if (contentType != null && contentType.toLowerCase().startsWith("image/")) {
-            mediaType = Video.MediaType.IMAGE;
+        if (contentType != null) {
+            String lowerContentType = contentType.toLowerCase();
+            if (lowerContentType.startsWith("image/")) {
+                mediaType = Video.MediaType.IMAGE;
+            } else if (lowerContentType.startsWith("audio/")) {
+                mediaType = Video.MediaType.AUDIO;
+            }
+        }
+
+        // Check for duplicate by original filename (with media-type-specific error message)
+        String originalFilename = file.getOriginalFilename();
+        if (originalFilename != null && videoRepository.existsByOriginalFilename(originalFilename)) {
+            String mediaTypeKorean = switch (mediaType) {
+                case VIDEO -> "영상";
+                case IMAGE -> "이미지";
+                case AUDIO -> "음성";
+            };
+            log.warn("Duplicate {} file detected: {}", mediaTypeKorean, originalFilename);
+            throw new IllegalArgumentException(
+                String.format("동일한 파일명의 %s이 이미 업로드되어 있습니다: %s", mediaTypeKorean, originalFilename)
+            );
         }
 
         // Read file bytes ONCE to avoid MultipartFile InputStream exhaustion
@@ -291,7 +312,7 @@ public class VideoService {
             if (mediaType == Video.MediaType.IMAGE) {
                 thumbnailBytes = fileBytes;
                 log.info("Using original image as thumbnail");
-            } else {
+            } else if (mediaType == Video.MediaType.VIDEO) {
                 // For videos, generate thumbnail using FFmpeg
                 log.info("Generating thumbnail from video bytes...");
                 thumbnailBytes = generateThumbnailFromBytes(fileBytes, file.getOriginalFilename());
@@ -300,6 +321,9 @@ public class VideoService {
                 } else {
                     log.warn("Thumbnail generation returned null");
                 }
+            } else {
+                // For audio, no thumbnail needed
+                log.info("Audio file detected, skipping thumbnail generation");
             }
         } catch (Exception e) {
             log.error("Failed to generate thumbnail, continuing without thumbnail: {}", e.getMessage(), e);
