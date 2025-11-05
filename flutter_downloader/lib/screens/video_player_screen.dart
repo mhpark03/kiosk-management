@@ -1,6 +1,8 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
+import '../widgets/coffee_kiosk_overlay.dart';
+import '../models/coffee_order.dart';
 
 class VideoPlayerScreen extends StatefulWidget {
   final String videoPath;
@@ -21,6 +23,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   bool _isInitialized = false;
   bool _hasError = false;
   String? _errorMessage;
+  bool _showKioskOverlay = false;
 
   @override
   void initState() {
@@ -73,6 +76,12 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       return '$hours:${twoDigits(minutes)}:${twoDigits(seconds)}';
     }
     return '${twoDigits(minutes)}:${twoDigits(seconds)}';
+  }
+
+  void _handleOrderComplete(CoffeeOrder order) {
+    print('[COFFEE ORDER] Order completed: ${order.toJson()}');
+    // TODO: Send order to backend API
+    setState(() => _showKioskOverlay = false);
   }
 
   @override
@@ -221,8 +230,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                 ),
               ),
 
-            // Close button (landscape only) - Must be last in Stack to be on top
-            if (isLandscape)
+            // Close button (landscape only)
+            if (isLandscape && !_showKioskOverlay)
               Positioned(
                 top: 16,
                 left: 16,
@@ -233,6 +242,31 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                     backgroundColor: Colors.black54,
                     padding: const EdgeInsets.all(12),
                   ),
+                ),
+              ),
+
+            // Coffee Kiosk button (right bottom)
+            if (_isInitialized && !_hasError && !_showKioskOverlay)
+              Positioned(
+                right: 16,
+                bottom: 80,
+                child: FloatingActionButton(
+                  onPressed: () {
+                    setState(() => _showKioskOverlay = true);
+                  },
+                  backgroundColor: Colors.brown.shade700,
+                  child: const Icon(Icons.coffee, color: Colors.white, size: 28),
+                ),
+              ),
+
+            // Coffee Kiosk Overlay - Must be last to be on top
+            if (_showKioskOverlay)
+              Positioned.fill(
+                child: CoffeeKioskOverlay(
+                  onClose: () {
+                    setState(() => _showKioskOverlay = false);
+                  },
+                  onOrderComplete: _handleOrderComplete,
                 ),
               ),
           ],
