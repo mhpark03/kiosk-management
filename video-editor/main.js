@@ -334,6 +334,51 @@ app.on('window-all-closed', () => {
   }
 });
 
+// Helper function to get video information using ffprobe
+function getVideoInfo(videoPath) {
+  return new Promise((resolve, reject) => {
+    const args = [
+      '-v', 'quiet',
+      '-print_format', 'json',
+      '-show_format',
+      '-show_streams',
+      videoPath
+    ];
+
+    const ffprobe = spawn(ffprobePath, args, {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true
+    });
+    let output = '';
+    let errorOutput = '';
+
+    ffprobe.stdout.on('data', (data) => {
+      output += data.toString('utf8');
+    });
+
+    ffprobe.stderr.on('data', (data) => {
+      errorOutput += data.toString('utf8');
+    });
+
+    ffprobe.on('close', (code) => {
+      if (code === 0) {
+        try {
+          const info = JSON.parse(output);
+          resolve(info);
+        } catch (e) {
+          reject(new Error('Failed to parse video info'));
+        }
+      } else {
+        reject(new Error(errorOutput || 'FFprobe failed'));
+      }
+    });
+
+    ffprobe.on('error', (err) => {
+      reject(new Error(`FFprobe error: ${err.message}`));
+    });
+  });
+}
+
 // IPC Handlers
 
 // Select video file
