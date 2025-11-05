@@ -151,6 +151,7 @@ window.selectTool = selectTool;
 
 // Preview operations exports (additional)
 window.previewTrimRange = previewTrimRange;
+window.previewAudioTrimRange = function() { return previewAudioTrimRange(); };
 window.previewTextRange = previewTextRange;
 window.previewVideoVolume = previewVideoVolume;
 window.previewTTS = function() { return previewTTS(); };
