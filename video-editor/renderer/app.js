@@ -3129,6 +3129,64 @@ function selectColorFromHistory(color) {
   }
 }
 
+// Update selected image info (for content import)
+function updateSelectedImageInfo() {
+  const fileInput = document.getElementById('import-image-file');
+  const infoDiv = document.getElementById('selected-image-info');
+
+  if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+    if (infoDiv) {
+      infoDiv.innerHTML = '파일이 선택되지 않았습니다';
+    }
+    return;
+  }
+
+  const file = fileInput.files[0];
+  const filename = file.name;
+  const fileSize = (file.size / (1024 * 1024)).toFixed(2);
+
+  if (infoDiv) {
+    infoDiv.innerHTML = `
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <span style="color: #4ade80;">✓</span>
+        <div style="flex: 1; overflow: hidden;">
+          <div style="color: #e0e0e0; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${filename}</div>
+          <div style="color: #888; font-size: 12px; margin-top: 2px;">${fileSize} MB</div>
+        </div>
+      </div>
+    `;
+  }
+}
+
+// Update selected video content info (for content import)
+function updateSelectedVideoContentInfo() {
+  const fileInput = document.getElementById('import-video-content-file');
+  const infoDiv = document.getElementById('selected-video-content-info');
+
+  if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+    if (infoDiv) {
+      infoDiv.innerHTML = '파일이 선택되지 않았습니다';
+    }
+    return;
+  }
+
+  const file = fileInput.files[0];
+  const filename = file.name;
+  const fileSize = (file.size / (1024 * 1024)).toFixed(2);
+
+  if (infoDiv) {
+    infoDiv.innerHTML = `
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <span style="color: #4ade80;">✓</span>
+        <div style="flex: 1; overflow: hidden;">
+          <div style="color: #e0e0e0; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${filename}</div>
+          <div style="color: #888; font-size: 12px; margin-top: 2px;">${fileSize} MB</div>
+        </div>
+      </div>
+    `;
+  }
+}
+
 // Update text alignment preview
 function updateTextAlignPreview() {
   const video = document.getElementById('preview-video');
