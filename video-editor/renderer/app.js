@@ -7496,9 +7496,26 @@ async function loadAudioFile(audioPath) {
         }
       });
 
-      // Handle audio end
+      // Sync play/pause button state with audio events
+      audioEl.addEventListener('play', () => {
+        if (typeof previewManager !== 'undefined' && previewManager.updatePlayPauseButton) {
+          previewManager.updatePlayPauseButton(true);
+        }
+      });
+
+      audioEl.addEventListener('pause', () => {
+        if (typeof previewManager !== 'undefined' && previewManager.updatePlayPauseButton) {
+          previewManager.updatePlayPauseButton(false);
+        }
+      });
+
       audioEl.addEventListener('ended', () => {
         updateStatus('재생 완료');
+        // Update play button state to show play icon (not pause)
+        if (typeof previewManager !== 'undefined' && previewManager.updatePlayPauseButton) {
+          previewManager.updatePlayPauseButton(false);
+          console.log('[loadAudioFile] Audio ended, button set to play state');
+        }
       });
     }
 
