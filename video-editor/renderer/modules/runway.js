@@ -463,6 +463,43 @@ async function openRunwayVideoS3ImageSelector(imageNumber) {
     const images = await window.fetchMediaFromS3('image');
     console.log(`[Runway Video] Loaded ${images.length} images from S3`);
 
+    if (images.length === 0) {
+      alert('S3에 저장된 이미지가 없습니다.');
+      return;
+    }
+
+    // Sort by upload date (newest first)
+    images.sort((a, b) => {
+      const dateA = new Date(a.uploadedAt || a.createdAt || 0);
+      const dateB = new Date(b.uploadedAt || b.createdAt || 0);
+      return dateB - dateA;
+    });
+
+    // Get auth token from auth module
+    const token = window.getAuthToken ? window.getAuthToken() : null;
+    const baseUrl = window.getBackendUrl ? window.getBackendUrl() : 'http://localhost:8080';
+
+    // Get presigned URLs for images
+    for (const img of images) {
+      if (!img.presignedUrl) {
+        try {
+          const response = await fetch(`${baseUrl}/api/videos/${img.id}`, {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          });
+          if (response.ok) {
+            const data = await response.json();
+            img.presignedUrl = data.s3Url;
+          }
+        } catch (error) {
+          console.error('[Runway Video] Failed to get presigned URL:', error);
+        }
+      }
+    }
+
     // Create modal
     const modal = document.createElement('div');
     modal.id = 'runway-video-s3-modal';
@@ -479,41 +516,86 @@ async function openRunwayVideoS3ImageSelector(imageNumber) {
       z-index: 10000;
     `;
 
-    const modalContent = document.createElement('div');
-    modalContent.style.cssText = `
-      background: #2d2d2d;
-      padding: 20px;
-      border-radius: 10px;
-      width: 80%;
-      max-width: 900px;
-      max-height: 80vh;
-      overflow-y: auto;
-    `;
+    modal.innerHTML = `
+      <div style="background: #2a2a2a; padding: 20px; border-radius: 8px; width: 90vw; max-width: 1200px; height: 85vh; overflow: hidden; display: flex; flex-direction: column;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+          <h2 style="margin: 0; color: #e0e0e0; font-size: 20px;">🖼️ S3에서 ${imageNumber === 1 ? '시작 이미지' : '종료 이미지'} 선택</h2>
+          <button onclick="this.closest('#runway-video-s3-modal').remove()" style="background: none; border: none; color: #aaa; font-size: 28px; cursor: pointer; padding: 0; width: 35px; height: 35px; line-height: 1;">&times;</button>
+        </div>
 
-    modalContent.innerHTML = `
-      <h3 style="color: #667eea; margin-bottom: 15px;">S3 이미지 선택</h3>
-      <div id="runway-video-s3-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px; margin-bottom: 15px;">
-        ${images.map(img => `
-          <div
-            onclick="window.selectRunwayVideoS3Image(${imageNumber}, ${img.id}, '${img.title}', '${img.s3Url}')"
-            style="cursor: pointer; border: 2px solid #444; border-radius: 8px; overflow: hidden; transition: border-color 0.2s;"
-            onmouseover="this.style.borderColor='#667eea'"
-            onmouseout="this.style.borderColor='#444'"
-          >
-            <img src="${img.thumbnailUrl || img.s3Url}" style="width: 100%; height: 120px; object-fit: cover;" />
-            <div style="padding: 8px; background: #1a1a1a;">
-              <div style="font-size: 12px; color: #e0e0e0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${img.title}</div>
-            </div>
+        <div style="margin-bottom: 12px;">
+          <div style="color: #aaa; font-size: 13px;">
+            총 ${images.length}개의 이미지 파일
           </div>
-        `).join('')}
+        </div>
+
+        <div style="flex: 1; overflow-x: hidden; overflow-y: auto; border: 1px solid #444; border-radius: 4px;">
+          <table style="width: 100%; border-collapse: collapse; table-layout: fixed;">
+            <thead style="position: sticky; top: 0; background: #333; z-index: 1;">
+              <tr style="border-bottom: 2px solid #555;">
+                <th style="padding: 12px 8px; text-align: center; color: #e0e0e0; font-size: 13px; font-weight: 600; width: 100px;">미리보기</th>
+                <th style="padding: 12px 8px; text-align: left; color: #e0e0e0; font-size: 13px; font-weight: 600; width: 25%;">제목</th>
+                <th style="padding: 12px 8px; text-align: left; color: #e0e0e0; font-size: 13px; font-weight: 600; width: 40%;">설명</th>
+                <th style="padding: 12px 8px; text-align: center; color: #e0e0e0; font-size: 13px; font-weight: 600; width: 70px;">분류</th>
+                <th style="padding: 12px 8px; text-align: right; color: #e0e0e0; font-size: 13px; font-weight: 600; width: 80px;">크기</th>
+                <th style="padding: 12px 8px; text-align: center; color: #e0e0e0; font-size: 13px; font-weight: 600; width: 100px;">업로드일</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${images.map((img, i) => {
+                const sizeInMB = img.fileSize ? (img.fileSize / (1024 * 1024)).toFixed(2) : '?';
+                let uploadDate = '날짜 없음';
+                const dateField = img.uploadedAt || img.createdAt;
+                if (dateField) {
+                  const date = new Date(dateField);
+                  if (!isNaN(date.getTime())) {
+                    uploadDate = date.toLocaleDateString('ko-KR');
+                  }
+                }
+                const folder = img.s3Key ? (img.s3Key.includes('images/ai/') ? 'AI' : img.s3Key.includes('images/uploads/') ? '업로드' : '기타') : '?';
+                const rowBg = i % 2 === 0 ? '#2d2d2d' : '#333';
+                const imageUrl = img.presignedUrl || img.s3Url || '';
+
+                return `
+                  <tr style="border-bottom: 1px solid #444; background: ${rowBg}; transition: background 0.2s; cursor: pointer;"
+                      onmouseover="this.style.background='#3a3a5a'"
+                      onmouseout="this.style.background='${rowBg}'"
+                      onclick="window.selectRunwayVideoS3Image(${imageNumber}, ${img.id}, '${(img.title || '').replace(/'/g, "\\'")}', '${imageUrl.replace(/'/g, "\\'")}')">
+                    <td style="padding: 8px; text-align: center;">
+                      <img src="${imageUrl}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 4px; border: 1px solid #555;"/>
+                    </td>
+                    <td style="padding: 12px 8px; color: #e0e0e0; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                      <div style="font-weight: 600;">${img.title || img.filename}</div>
+                    </td>
+                    <td style="padding: 12px 8px; color: #aaa; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                      ${img.description || '설명 없음'}
+                    </td>
+                    <td style="padding: 12px 8px; text-align: center; color: #aaa; font-size: 12px;">
+                      <span style="background: ${folder === 'AI' ? '#4a5568' : '#2d5a4a'}; padding: 4px 8px; border-radius: 4px; font-size: 11px;">
+                        ${folder}
+                      </span>
+                    </td>
+                    <td style="padding: 12px 8px; text-align: right; color: #aaa; font-size: 12px;">
+                      ${sizeInMB} MB
+                    </td>
+                    <td style="padding: 12px 8px; text-align: center; color: #aaa; font-size: 12px;">
+                      ${uploadDate}
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+
+        <div style="margin-top: 15px; text-align: right;">
+          <button onclick="this.closest('#runway-video-s3-modal').remove()" class="property-btn" style="padding: 10px 20px; background: #555;">
+            닫기
+          </button>
+        </div>
       </div>
-      <button
-        onclick="window.closeRunwayVideoS3Modal()"
-        style="width: 100%; padding: 10px; background: #dc3545; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 14px;"
-      >닫기</button>
     `;
 
-    modal.appendChild(modalContent);
     document.body.appendChild(modal);
 
   } catch (error) {
