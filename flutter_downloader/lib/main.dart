@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:window_manager/window_manager.dart';
 import 'services/api_service.dart';
 import 'services/storage_service.dart';
 import 'models/kiosk_config.dart';
@@ -9,6 +10,9 @@ import 'screens/video_list_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize window manager
+  await windowManager.ensureInitialized();
 
   // Allow all orientations (auto-rotation)
   await SystemChrome.setPreferredOrientations([

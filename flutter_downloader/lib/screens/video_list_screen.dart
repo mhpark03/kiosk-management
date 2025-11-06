@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:window_manager/window_manager.dart';
 import '../services/api_service.dart';
 import '../services/storage_service.dart';
 import '../services/download_service.dart';
@@ -9,6 +10,8 @@ import '../services/event_logger.dart';
 import '../utils/device_info_util.dart';
 import '../models/video.dart';
 import '../models/kiosk.dart';
+import '../models/coffee_order.dart';
+import '../widgets/coffee_kiosk_overlay.dart';
 import 'settings_screen.dart';
 import 'login_screen.dart';
 import 'video_player_screen.dart';
@@ -39,6 +42,7 @@ class _VideoListScreenState extends State<VideoListScreen> {
   Timer? _statusHeartbeatTimer; // Timer for periodic status reporting
   bool _isLoggedIn = false;
   Kiosk? _kiosk; // Store kiosk info for display
+  bool _showKioskOverlay = false; // Coffee kiosk overlay state
 
   @override
   void initState() {
@@ -1037,11 +1041,13 @@ class _VideoListScreenState extends State<VideoListScreen> {
                     ],
                   ),
                 )
-              : _videos.isEmpty
-                  ? const Center(
-                      child: Text('할당된 영상이 없습니다'),
-                    )
-                  : ListView.builder(
+              : Stack(
+                  children: [
+                    _videos.isEmpty
+                        ? const Center(
+                            child: Text('할당된 영상이 없습니다'),
+                          )
+                        : ListView.builder(
                       itemCount: _videos.length,
                       padding: const EdgeInsets.all(16),
                       itemBuilder: (context, index) {
@@ -1372,6 +1378,43 @@ class _VideoListScreenState extends State<VideoListScreen> {
                         );
                       },
                     ),
+
+                    // Coffee Kiosk Overlay
+                    if (_showKioskOverlay)
+                      Positioned.fill(
+                        child: CoffeeKioskOverlay(
+                          onClose: () async {
+                            // Exit fullscreen mode
+                            await windowManager.setFullScreen(false);
+                            setState(() => _showKioskOverlay = false);
+                          },
+                          onOrderComplete: (order) async {
+                            // Exit fullscreen mode
+                            await windowManager.setFullScreen(false);
+                            setState(() => _showKioskOverlay = false);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('주문이 완료되었습니다! (총 ${order.totalPrice}원)'),
+                                backgroundColor: Colors.green,
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                  ],
+                ),
+      floatingActionButton: !_showKioskOverlay
+          ? FloatingActionButton.extended(
+              onPressed: () async {
+                // Enter fullscreen mode
+                await windowManager.setFullScreen(true);
+                setState(() => _showKioskOverlay = true);
+              },
+              icon: const Icon(Icons.coffee),
+              label: const Text('커피 키오스크'),
+              backgroundColor: Colors.brown,
+            )
+          : null,
     );
   }
 }
