@@ -3420,29 +3420,40 @@ ipcMain.handle('generate-video-runway', async (event, params) => {
     const image1Base64 = await convertImageToBase64(params.image1Path);
     const image2Base64 = params.image2Path ? await convertImageToBase64(params.image2Path) : null;
 
-    // Prepare request body
+    // Map resolution to Runway API ratio format
+    let ratio = '1280:720'; // Default 720p landscape
+    if (params.resolution === '1080p') {
+      ratio = '1920:1080';
+    } else if (params.resolution === '720p') {
+      ratio = '1280:720';
+    }
+
+    // Prepare request body for Runway image_to_video API
     const requestBody = {
       model: params.model || 'gen3a_turbo',
       promptText: params.prompt,
-      duration: parseInt(params.duration) || 5
+      duration: parseInt(params.duration) || 5,
+      ratio: ratio
     };
 
-    // Add init_image (first frame)
+    // Add promptImage (required field for image-to-video)
     if (image1Base64) {
-      requestBody.init_image = image1Base64;
+      requestBody.promptImage = image1Base64;
     }
 
-    // Add last_frame if provided (for interpolation between two images)
+    // If second image is provided, add it (check if API supports this)
     if (image2Base64) {
-      requestBody.last_frame = image2Base64;
+      // Note: Runway may not support interpolation in gen3, but keep for future
+      requestBody.lastFrameImage = image2Base64;
     }
 
     logInfo('RUNWAY_VIDEO', 'Calling Runway ML API', {
       url: 'https://api.dev.runwayml.com/v1/image_to_video',
       model: requestBody.model,
       duration: requestBody.duration,
-      hasInitImage: !!requestBody.init_image,
-      hasLastFrame: !!requestBody.last_frame
+      ratio: requestBody.ratio,
+      hasPromptImage: !!requestBody.promptImage,
+      hasLastFrameImage: !!requestBody.lastFrameImage
     });
 
     // Call Runway ML API
