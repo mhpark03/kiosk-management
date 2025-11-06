@@ -177,7 +177,7 @@ window.setAudioEndFromSlider = setAudioEndFromSlider;
 window.uploadVideoContentToS3 = function() { return uploadVideoContentToS3(); };
 window.uploadImageToS3 = function() { return uploadImageToS3(); };
 window.saveGeneratedImageToS3 = function() { return saveGeneratedImageToS3(); };
-window.saveRunwayVideoToS3 = function() { return saveRunwayVideoToS3(); };
+window.saveRunwayVideoToS3 = RunwayModule.saveRunwayVideoToS3;  // Use module function
 window.saveVeoVideoToS3 = function() { return saveVeoVideoToS3(); };
 
 // Toggle operations exports
