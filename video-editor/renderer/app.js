@@ -8,6 +8,7 @@ import * as FilterOperations from './modules/utilities/FilterOperations.js';
 import * as SpeedOperations from './modules/utilities/SpeedOperations.js';
 import * as PreviewHelpers from './modules/utilities/PreviewHelpers.js';
 import * as VeoModule from './modules/veo.js';
+import * as RunwayModule from './modules/runway.js';
 
 // ============================================================================
 // Export module functions to window for backward compatibility
@@ -16,6 +17,7 @@ import * as VeoModule from './modules/veo.js';
 
 // Export entire modules for direct access
 window.VeoModule = VeoModule;
+window.RunwayModule = RunwayModule;
 
 // UIHelpers exports
 window.handleError = UIHelpers.handleError;
@@ -1228,50 +1230,24 @@ function showToolProperties(tool) {
           <!-- Image Upload Section -->
           <div class="property-group">
             <label>시작 이미지 *</label>
-            <div style="display: flex; gap: 8px; margin-bottom: 10px;">
-              <button
-                id="video-img1-source-local"
-                class="property-btn"
-                onclick="selectRunwayVideoImageSource(1, 'local')"
-                style="flex: 1; padding: 8px; font-size: 13px; background: #667eea;"
-              >
-                📁 PC
-              </button>
-              <button
-                id="video-img1-source-s3"
-                class="property-btn"
-                onclick="selectRunwayVideoImageSource(1, 's3')"
-                style="flex: 1; padding: 8px; font-size: 13px; background: #444;"
-              >
-                🖼️ 서버
-              </button>
+            <div style="background: #2a2a3e; padding: 8px 12px; border-radius: 5px; margin-bottom: 10px; border-left: 3px solid #667eea;">
+              <div style="color: #aaa; font-size: 12px;">
+                🖼️ 클릭하여 서버에서 이미지를 선택하세요
+              </div>
             </div>
-            <div id="video-img1-preview" style="width: 100%; height: 150px; background: #2d2d2d; border: 1px solid #444; border-radius: 5px; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden;">
+            <div id="video-img1-preview" onclick="window.RunwayModule.selectRunwayVideoImageSource(1, 's3')" style="width: 100%; height: 150px; background: #2d2d2d; border: 1px solid #444; border-radius: 5px; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; cursor: pointer;">
               <span style="color: #888; font-size: 13px;">이미지를 선택하세요</span>
             </div>
           </div>
 
           <div class="property-group">
             <label>종료 이미지 *</label>
-            <div style="display: flex; gap: 8px; margin-bottom: 10px;">
-              <button
-                id="video-img2-source-local"
-                class="property-btn"
-                onclick="selectRunwayVideoImageSource(2, 'local')"
-                style="flex: 1; padding: 8px; font-size: 13px; background: #667eea;"
-              >
-                📁 PC
-              </button>
-              <button
-                id="video-img2-source-s3"
-                class="property-btn"
-                onclick="selectRunwayVideoImageSource(2, 's3')"
-                style="flex: 1; padding: 8px; font-size: 13px; background: #444;"
-              >
-                🖼️ 서버
-              </button>
+            <div style="background: #2a2a3e; padding: 8px 12px; border-radius: 5px; margin-bottom: 10px; border-left: 3px solid #667eea;">
+              <div style="color: #aaa; font-size: 12px;">
+                🖼️ 클릭하여 서버에서 이미지를 선택하세요
+              </div>
             </div>
-            <div id="video-img2-preview" style="width: 100%; height: 150px; background: #2d2d2d; border: 1px solid #444; border-radius: 5px; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden;">
+            <div id="video-img2-preview" onclick="window.RunwayModule.selectRunwayVideoImageSource(2, 's3')" style="width: 100%; height: 150px; background: #2d2d2d; border: 1px solid #444; border-radius: 5px; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; cursor: pointer;">
               <span style="color: #888; font-size: 13px;">이미지를 선택하세요</span>
             </div>
           </div>
@@ -1367,25 +1343,12 @@ function showToolProperties(tool) {
           <!-- Image Upload Section -->
           <div class="property-group">
             <label>시작 이미지 *</label>
-            <div style="display: flex; gap: 8px; margin-bottom: 10px;">
-              <button
-                id="veo-video-img-source-local"
-                class="property-btn"
-                onclick="selectVeoVideoImageSource('local')"
-                style="flex: 1; padding: 8px; font-size: 13px; background: #667eea;"
-              >
-                📁 PC
-              </button>
-              <button
-                id="veo-video-img-source-s3"
-                class="property-btn"
-                onclick="selectVeoVideoImageSource('s3')"
-                style="flex: 1; padding: 8px; font-size: 13px; background: #444;"
-              >
-                🖼️ 서버
-              </button>
+            <div style="background: #2a2a3e; padding: 8px 12px; border-radius: 5px; margin-bottom: 10px; border-left: 3px solid #667eea;">
+              <div style="color: #aaa; font-size: 12px;">
+                🖼️ 클릭하여 서버에서 이미지를 선택하세요
+              </div>
             </div>
-            <div id="veo-video-img-preview" style="width: 100%; height: 150px; background: #2d2d2d; border: 1px solid #444; border-radius: 5px; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden;">
+            <div id="veo-video-img-preview" onclick="window.VeoModule.selectVeoVideoImageSource('s3')" style="width: 100%; height: 150px; background: #2d2d2d; border: 1px solid #444; border-radius: 5px; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; cursor: pointer;">
               <span style="color: #888; font-size: 13px;">이미지를 선택하세요</span>
             </div>
           </div>
