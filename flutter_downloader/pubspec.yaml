@@ -69,6 +69,9 @@ dependencies:
   # Video player
   video_player: ^2.8.2
 
+  # Window management for fullscreen mode
+  window_manager: ^0.3.8
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

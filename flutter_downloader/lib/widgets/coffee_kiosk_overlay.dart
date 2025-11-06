@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../models/coffee_menu_item.dart';
 import '../models/coffee_order.dart';
 import '../services/coffee_menu_service.dart';
@@ -22,6 +23,7 @@ class _CoffeeKioskOverlayState extends State<CoffeeKioskOverlay> {
   String _selectedCategory = 'coffee';
   List<OrderItem> _cartItems = [];
   CoffeeMenuItem? _selectedMenuItem;
+  final FocusNode _focusNode = FocusNode();
 
   // Options for selected item
   String _selectedSize = 'medium';
@@ -29,34 +31,60 @@ class _CoffeeKioskOverlayState extends State<CoffeeKioskOverlay> {
   List<String> _selectedExtras = [];
 
   @override
+  void initState() {
+    super.initState();
+    // Request focus when overlay is shown
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _focusNode.requestFocus();
+    });
+  }
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Container(
-      color: Colors.black.withOpacity(0.85),
-      child: SafeArea(
-        child: Column(
-          children: [
-            // Header
-            _buildHeader(),
+    return Focus(
+      focusNode: _focusNode,
+      autofocus: true,
+      onKeyEvent: (node, event) {
+        if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.escape) {
+          widget.onClose();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: Container(
+        color: const Color(0xFF1a1a1a), // Fully opaque dark background
+        child: SafeArea(
+          child: Column(
+            children: [
+              // Header
+              _buildHeader(),
 
-            // Main content
-            Expanded(
-              child: Row(
-                children: [
-                  // Menu section (left side)
-                  Expanded(
-                    flex: 3,
-                    child: _buildMenuSection(),
-                  ),
+              // Main content
+              Expanded(
+                child: Row(
+                  children: [
+                    // Menu section (left side)
+                    Expanded(
+                      flex: 3,
+                      child: _buildMenuSection(),
+                    ),
 
-                  // Cart section (right side)
-                  Expanded(
-                    flex: 2,
-                    child: _buildCartSection(),
-                  ),
-                ],
+                    // Cart section (right side)
+                    Expanded(
+                      flex: 2,
+                      child: _buildCartSection(),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
