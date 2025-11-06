@@ -16,6 +16,8 @@ import com.kiosk.backend.repository.StoreRepository;
 import com.kiosk.backend.repository.VideoRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -165,9 +167,10 @@ public class KioskService {
     }
 
     /**
-     * Get kiosk by Kiosk ID
+     * Get kiosk by Kiosk ID (Cached for performance)
      */
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "kiosks", key = "#kioskid")
     public KioskDTO getKioskByKioskid(String kioskid) {
         Kiosk kiosk = kioskRepository.findByKioskid(kioskid)
                 .orElseThrow(() -> new RuntimeException("Kiosk not found with kioskid: " + kioskid));
@@ -187,6 +190,7 @@ public class KioskService {
     /**
      * Update kiosk
      */
+    @CacheEvict(cacheNames = "kiosks", key = "#result.kioskid")
     public KioskDTO updateKiosk(Long id, UpdateKioskRequest request, String userEmail, String username) {
         Kiosk kiosk = kioskRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Kiosk not found with id: " + id));

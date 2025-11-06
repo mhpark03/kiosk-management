@@ -1,15 +1,42 @@
 #!/usr/bin/env python3
 """
-Script to check and delete AI-generated videos from the database
+DEPRECATED: This script has security issues and incorrect deletion logic.
+
+Use cleanup_old_enum_values.py instead!
+
+Issues with this script:
+1. Hardcoded database password (security risk)
+2. Deletes ALL AI_GENERATED videos (incorrect - should keep them!)
+3. Should only delete RUNWAY_GENERATED and VEO_GENERATED
+
+See: backend/CLEANUP_OLD_ENUMS.md for proper cleanup guide
 """
 
-import pymysql
 import sys
+
+print("=" * 70)
+print("ERROR: This script is DEPRECATED and should not be used!")
+print("=" * 70)
+print()
+print("This script has the following issues:")
+print("  1. Hardcoded database password (security risk)")
+print("  2. Deletes AI_GENERATED videos (should be kept!)")
+print()
+print("Please use the new script instead:")
+print("  backend/cleanup_old_enum_values.py")
+print()
+print("Or see the full guide:")
+print("  backend/CLEANUP_OLD_ENUMS.md")
+print()
+sys.exit(1)
+
+# Legacy code below - DO NOT USE
+import pymysql
 
 # Database connection details
 DB_HOST = "kiosk-db.cj0k46yy6vv6.ap-northeast-2.rds.amazonaws.com"
 DB_USER = "admin"
-DB_PASSWORD = "aioztesting"
+DB_PASSWORD = "REMOVED_FOR_SECURITY"  # Use environment variable instead!
 DB_NAME = "kioskdb"
 
 def main():

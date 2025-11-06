@@ -8,6 +8,8 @@ import com.kiosk.backend.repository.EntityHistoryRepository;
 import com.kiosk.backend.repository.StoreRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -127,9 +129,10 @@ public class StoreService {
     }
 
     /**
-     * Get store by POS ID
+     * Get store by POS ID (Cached for performance)
      */
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "stores", key = "#posid")
     public StoreDTO getStoreByPosid(String posid) {
         Store store = storeRepository.findByPosid(posid)
                 .orElseThrow(() -> new RuntimeException("Store not found with posid: " + posid));
@@ -139,6 +142,7 @@ public class StoreService {
     /**
      * Update store
      */
+    @CacheEvict(cacheNames = "stores", key = "#result.posid")
     public StoreDTO updateStore(Long id, CreateStoreRequest request, String userEmail, String username) {
         Store store = storeRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Store not found with id: " + id));

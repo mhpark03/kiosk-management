@@ -1550,6 +1550,26 @@ function showToolProperties(tool) {
     default:
       propertiesPanel.innerHTML = '<p class="placeholder-text">이 도구는 아직 구현되지 않았습니다.</p>';
   }
+
+  // Restore Runway video generation state after panel re-render
+  if (tool === 'generate-video-runway') {
+    // Restore selected images
+    if (window.runwayVideoImages) {
+      if (window.runwayVideoImages.image1) {
+        window.RunwayModule.updateRunwayVideoImagePreview(1);
+      }
+      if (window.runwayVideoImages.image2) {
+        window.RunwayModule.updateRunwayVideoImagePreview(2);
+      }
+    }
+
+    // Show preview section if video was generated
+    if (generatedRunwayVideo) {
+      setTimeout(() => {
+        displayRunwayVideoPreview();
+      }, 50);
+    }
+  }
 }
 
 // Setup video controls
