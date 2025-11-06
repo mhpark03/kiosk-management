@@ -7,6 +7,7 @@ import * as WaveformManager from './modules/utilities/WaveformManager.js';
 import * as FilterOperations from './modules/utilities/FilterOperations.js';
 import * as SpeedOperations from './modules/utilities/SpeedOperations.js';
 import * as PreviewHelpers from './modules/utilities/PreviewHelpers.js';
+import * as VeoModule from './modules/veo.js';
 
 // ============================================================================
 // Export module functions to window for backward compatibility
@@ -138,14 +139,15 @@ window.closeSilenceInputModal = closeSilenceInputModal;
 // AI modal operations exports
 window.clearRunwayVideoImage = clearRunwayVideoImage;
 window.clearVeoImage = clearVeoImage;
+window.clearVeoRefImage = VeoModule.clearVeoRefImage;
 window.closeRunwayVideoS3Modal = closeRunwayVideoS3Modal;
 
 // Selection operations exports
 window.selectAudioFile = function() { return selectAudioFile(); };
 window.selectRunwayVideoImageSource = function(imageNumber, source) { return selectRunwayVideoImageSource(imageNumber, source); };
 window.selectRunwayVideoS3Image = function(imageNumber, imageId, imageTitle, imageUrl) { return selectRunwayVideoS3Image(imageNumber, imageId, imageTitle, imageUrl); };
-window.selectVeoRefImageSource = function(source) { return selectVeoRefImageSource(source); };
-window.selectVeoVideoImageSource = function(source) { return selectVeoVideoImageSource(source); };
+window.selectVeoRefImageSource = VeoModule.selectVeoRefImageSource;
+window.selectVeoVideoImageSource = VeoModule.selectVeoVideoImageSource;
 window.selectColorFromHistory = selectColorFromHistory;
 window.selectTool = selectTool;
 
