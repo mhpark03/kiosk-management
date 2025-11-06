@@ -684,6 +684,11 @@ export async function selectVeoVideoImageSource(source) {
         preview: `file://${filePath}`
       };
 
+      // Also update window.veoImage (shared with app.js)
+      if (window.veoImage !== undefined) {
+        window.veoImage = veoVideoImage;
+      }
+
       // Update preview
       updateVeoVideoImagePreview();
 
@@ -782,6 +787,10 @@ export function updateVeoVideoImagePreview() {
  */
 export function clearVeoVideoImage() {
   veoVideoImage = null;
+  // Also clear window.veoImage (shared with app.js)
+  if (window.veoImage !== undefined) {
+    window.veoImage = null;
+  }
   updateVeoVideoImagePreview();
   console.log('[VEO Video] Cleared video image');
 }
@@ -987,7 +996,10 @@ export async function executeGenerateVideoVeo() {
     return;
   }
 
-  if (!veoVideoImage) {
+  // Check both veoVideoImage and window.veoImage for compatibility
+  const imageToUse = veoVideoImage || window.veoImage;
+
+  if (!imageToUse) {
     alert('시작 이미지를 선택해주세요.');
     return;
   }
@@ -998,7 +1010,7 @@ export async function executeGenerateVideoVeo() {
     console.log('[VEO Video] Duration:', duration);
     console.log('[VEO Video] Resolution:', resolution);
     console.log('[VEO Video] Aspect Ratio:', aspectRatio);
-    console.log('[VEO Video] Image source:', veoVideoImage.source);
+    console.log('[VEO Video] Image source:', imageToUse.source);
 
     if (typeof window.updateProgress === 'function') {
       window.updateProgress(10, '영상 생성 준비 중...');
@@ -1016,8 +1028,8 @@ export async function executeGenerateVideoVeo() {
 
     let imageMimeType = 'image/png'; // Default
 
-    if (veoVideoImage.source === 'local') {
-      const imageResponse = await fetch(`file://${veoVideoImage.filePath}`);
+    if (imageToUse.source === 'local') {
+      const imageResponse = await fetch(`file://${imageToUse.filePath}`);
       const imageBlob = await imageResponse.blob();
       imageMimeType = imageBlob.type || 'image/png'; // Use original mime type
       console.log(`[VEO Video] Image size: ${imageBlob.size} bytes, type: ${imageMimeType}`);
@@ -1033,8 +1045,8 @@ export async function executeGenerateVideoVeo() {
         reader.onerror = reject;
         reader.readAsDataURL(imageBlob);
       });
-    } else if (veoVideoImage.source === 's3') {
-      const imageResponse = await fetch(veoVideoImage.filePath);
+    } else if (imageToUse.source === 's3') {
+      const imageResponse = await fetch(imageToUse.filePath);
       const imageBlob = await imageResponse.blob();
       imageMimeType = imageBlob.type || 'image/png'; // Use original mime type
       console.log(`[VEO Video] Image size: ${imageBlob.size} bytes, type: ${imageMimeType}`);
