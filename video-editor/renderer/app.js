@@ -14,6 +14,9 @@ import * as VeoModule from './modules/veo.js';
 // This allows existing code to continue using showProgress() instead of UIHelpers.showProgress()
 // ============================================================================
 
+// Export entire modules for direct access
+window.VeoModule = VeoModule;
+
 // UIHelpers exports
 window.handleError = UIHelpers.handleError;
 window.showCustomDialog = UIHelpers.showCustomDialog;
@@ -1149,32 +1152,19 @@ function showToolProperties(tool) {
 
           <div class="property-group">
             <label>참조 이미지 (1~3개)</label>
-            <div style="display: flex; gap: 8px; margin-bottom: 10px;">
-              <button
-                id="veo-ref-img-source-local"
-                class="property-btn"
-                onclick="selectVeoRefImageSource('local')"
-                style="flex: 1; padding: 8px; font-size: 13px; background: #667eea;"
-              >
-                📁 PC
-              </button>
-              <button
-                id="veo-ref-img-source-s3"
-                class="property-btn"
-                onclick="selectVeoRefImageSource('s3')"
-                style="flex: 1; padding: 8px; font-size: 13px; background: #444;"
-              >
-                🖼️ 서버
-              </button>
+            <div style="background: #2a2a3e; padding: 8px 12px; border-radius: 5px; margin-bottom: 10px; border-left: 3px solid #667eea;">
+              <div style="color: #aaa; font-size: 12px;">
+                🖼️ 클릭하여 서버에서 이미지를 선택하세요
+              </div>
             </div>
             <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 10px;">
-              <div id="veo-ref-img-slot-0" style="border: 2px dashed #444; border-radius: 8px; padding: 6px; aspect-ratio: 1/1; cursor: pointer; display: flex; align-items: center; justify-content: center; background: #2a2a2a; position: relative;">
+              <div id="veo-ref-img-slot-0" onclick="window.VeoModule.selectVeoRefImage(0, 's3')" style="border: 2px dashed #444; border-radius: 8px; padding: 6px; aspect-ratio: 1/1; cursor: pointer; display: flex; align-items: center; justify-content: center; background: #2a2a2a; position: relative;">
                 <span style="font-size: 24px;">🖼️</span>
               </div>
-              <div id="veo-ref-img-slot-1" style="border: 2px dashed #444; border-radius: 8px; padding: 6px; aspect-ratio: 1/1; cursor: pointer; display: flex; align-items: center; justify-content: center; background: #2a2a2a; position: relative;">
+              <div id="veo-ref-img-slot-1" onclick="window.VeoModule.selectVeoRefImage(1, 's3')" style="border: 2px dashed #444; border-radius: 8px; padding: 6px; aspect-ratio: 1/1; cursor: pointer; display: flex; align-items: center; justify-content: center; background: #2a2a2a; position: relative;">
                 <span style="font-size: 24px;">🖼️</span>
               </div>
-              <div id="veo-ref-img-slot-2" style="border: 2px dashed #444; border-radius: 8px; padding: 6px; aspect-ratio: 1/1; cursor: pointer; display: flex; align-items: center; justify-content: center; background: #2a2a2a; position: relative;">
+              <div id="veo-ref-img-slot-2" onclick="window.VeoModule.selectVeoRefImage(2, 's3')" style="border: 2px dashed #444; border-radius: 8px; padding: 6px; aspect-ratio: 1/1; cursor: pointer; display: flex; align-items: center; justify-content: center; background: #2a2a2a; position: relative;">
                 <span style="font-size: 24px;">🖼️</span>
               </div>
             </div>
