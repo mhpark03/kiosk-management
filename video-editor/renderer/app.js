@@ -129,8 +129,8 @@ window.executeExportAudioToS3 = function() { return executeExportAudioToS3(); };
 window.executeExtractAudioToS3 = function() { return executeExtractAudioToS3(); };
 
 // AI generation exports
-window.executeGenerateImageRunway = function() { return executeGenerateImageRunway(); };
-window.executeGenerateImageVeo = function() { return executeGenerateImageVeo(); };
+window.executeGenerateImageRunway = RunwayModule.executeGenerateImageRunway;  // Use module
+window.executeGenerateImageVeo = VeoModule.executeGenerateImageVeo;  // Use module
 window.executeGenerateVideoRunway = RunwayModule.executeGenerateVideoRunway;  // Use module
 window.executeGenerateVideoVeo = VeoModule.executeGenerateVideoVeo;  // Use module
 
@@ -143,15 +143,15 @@ window.createSilenceFile = createSilenceFile;
 window.closeSilenceInputModal = closeSilenceInputModal;
 
 // AI modal operations exports
-window.clearRunwayVideoImage = clearRunwayVideoImage;
+window.clearRunwayVideoImage = RunwayModule.clearRunwayVideoImage;  // Use module
 window.clearVeoImage = VeoModule.clearVeoVideoImage;  // Use module
 window.clearVeoRefImage = VeoModule.clearVeoRefImage;
-window.closeRunwayVideoS3Modal = closeRunwayVideoS3Modal;
+window.closeRunwayVideoS3Modal = RunwayModule.closeRunwayVideoS3Modal;  // Use module
 
 // Selection operations exports
 window.selectAudioFile = function() { return selectAudioFile(); };
-window.selectRunwayVideoImageSource = function(imageNumber, source) { return selectRunwayVideoImageSource(imageNumber, source); };
-window.selectRunwayVideoS3Image = function(imageNumber, imageId, imageTitle, imageUrl) { return selectRunwayVideoS3Image(imageNumber, imageId, imageTitle, imageUrl); };
+window.selectRunwayVideoImageSource = RunwayModule.selectRunwayVideoImageSource;  // Use module
+window.selectRunwayVideoS3Image = RunwayModule.selectRunwayVideoS3Image;  // Use module
 window.selectVeoRefImageSource = VeoModule.selectVeoRefImageSource;
 window.selectVeoVideoImageSource = VeoModule.selectVeoVideoImageSource;
 window.selectVeoVideoS3Image = VeoModule.selectVeoVideoS3Image;
@@ -210,7 +210,7 @@ window.updateAudioRangeOverlay = updateAudioRangeOverlay;
 window.updateTtsCharCount = TTSModule.updateTtsCharCount;
 window.updateTtsSpeedDisplay = TTSModule.updateTtsSpeedDisplay;
 window.updateTtsPitchDisplay = TTSModule.updateTtsPitchDisplay;
-window.updateRunwayVideoModelOptions = updateRunwayVideoModelOptions;
+window.updateRunwayVideoModelOptions = RunwayModule.updateRunwayVideoModelOptions;  // Use module
 window.updateSelectedVideoContentInfo = updateSelectedVideoContentInfo;
 window.updateSelectedImageInfo = updateSelectedImageInfo;
 window.saveColorToHistory = saveColorToHistory;
