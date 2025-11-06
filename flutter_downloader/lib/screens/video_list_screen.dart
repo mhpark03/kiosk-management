@@ -15,6 +15,7 @@ import '../widgets/coffee_kiosk_overlay.dart';
 import 'settings_screen.dart';
 import 'login_screen.dart';
 import 'video_player_screen.dart';
+import 'kiosk_split_screen.dart';
 
 class VideoListScreen extends StatefulWidget {
   final ApiService apiService;
@@ -42,7 +43,6 @@ class _VideoListScreenState extends State<VideoListScreen> {
   Timer? _statusHeartbeatTimer; // Timer for periodic status reporting
   bool _isLoggedIn = false;
   Kiosk? _kiosk; // Store kiosk info for display
-  bool _showKioskOverlay = false; // Coffee kiosk overlay state
 
   @override
   void initState() {
@@ -843,7 +843,7 @@ class _VideoListScreenState extends State<VideoListScreen> {
     final isLargeScreen = screenWidth >= 600; // 태블릿 크기 (600dp 이상)
 
     return Scaffold(
-      appBar: _showKioskOverlay ? null : AppBar(
+      appBar: AppBar(
         automaticallyImplyLeading: false, // Remove back button from main screen
         title: Row(
           children: [
@@ -1378,43 +1378,39 @@ class _VideoListScreenState extends State<VideoListScreen> {
                         );
                       },
                     ),
-
-                    // Coffee Kiosk Overlay
-                    if (_showKioskOverlay)
-                      Positioned.fill(
-                        child: CoffeeKioskOverlay(
-                          onClose: () async {
-                            // Exit fullscreen mode
-                            await windowManager.setFullScreen(false);
-                            setState(() => _showKioskOverlay = false);
-                          },
-                          onOrderComplete: (order) async {
-                            // Exit fullscreen mode
-                            await windowManager.setFullScreen(false);
-                            setState(() => _showKioskOverlay = false);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('주문이 완료되었습니다! (총 ${order.totalPrice}원)'),
-                                backgroundColor: Colors.green,
-                              ),
-                            );
-                          },
-                        ),
-                      ),
                   ],
                 ),
-      floatingActionButton: !_showKioskOverlay
-          ? FloatingActionButton.extended(
-              onPressed: () async {
-                // Enter fullscreen mode
-                await windowManager.setFullScreen(true);
-                setState(() => _showKioskOverlay = true);
-              },
-              icon: const Icon(Icons.coffee),
-              label: const Text('커피 키오스크'),
-              backgroundColor: Colors.brown,
-            )
-          : null,
+      floatingActionButton: FloatingActionButton.extended(
+          onPressed: () async {
+            // Get videos with local paths
+            final availableVideos = _videos.where((v) => v.localPath != null).toList();
+
+            if (availableVideos.isEmpty) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('다운로드된 영상이 없습니다. 영상을 먼저 다운로드해주세요.'),
+                  backgroundColor: Colors.orange,
+                ),
+              );
+              return;
+            }
+
+            // Enter fullscreen mode and navigate to split screen
+            await windowManager.setFullScreen(true);
+            if (mounted) {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => KioskSplitScreen(
+                    videos: availableVideos,
+                  ),
+                ),
+              );
+            }
+          },
+          icon: const Icon(Icons.coffee),
+          label: const Text('커피 키오스크'),
+          backgroundColor: Colors.brown,
+        ),
     );
   }
 }

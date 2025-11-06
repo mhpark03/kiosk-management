@@ -34,6 +34,19 @@ public class VideoController {
     private final EntityHistoryService entityHistoryService;
 
     /**
+     * Helper method to extract actual user email from authentication
+     * Removes KIOSK_ prefix if present (for kiosk authentication tokens)
+     */
+    private String extractUserEmail(Authentication authentication) {
+        String userEmail = authentication.getName();
+        // Remove KIOSK_ prefix if present
+        if (userEmail.startsWith("KIOSK_")) {
+            userEmail = userEmail.substring(6); // Remove "KIOSK_" prefix
+        }
+        return userEmail;
+    }
+
+    /**
      * Upload a video file (Admin only)
      * POST /api/videos/upload
      */
@@ -50,7 +63,7 @@ public class VideoController {
             @RequestParam("description") String description,
             Authentication authentication) {
         try {
-            String userEmail = authentication.getName();
+            String userEmail = extractUserEmail(authentication);
             User user = userRepository.findByEmail(userEmail)
                     .orElseThrow(() -> new RuntimeException("User not found: " + userEmail));
 
@@ -166,7 +179,7 @@ public class VideoController {
             @RequestParam(required = false) String type,
             Authentication authentication) {
         try {
-            String userEmail = authentication.getName();
+            String userEmail = extractUserEmail(authentication);
             User user = userRepository.findByEmail(userEmail)
                     .orElseThrow(() -> new RuntimeException("User not found: " + userEmail));
 
@@ -290,7 +303,7 @@ public class VideoController {
             @RequestParam(value = "duration", defaultValue = "60") int durationMinutes,
             Authentication authentication) {
         try {
-            String userEmail = authentication.getName();
+            String userEmail = extractUserEmail(authentication);
             User user = userRepository.findByEmail(userEmail)
                     .orElseThrow(() -> new RuntimeException("User not found: " + userEmail));
 
@@ -325,7 +338,7 @@ public class VideoController {
             @RequestBody Map<String, Object> request,
             Authentication authentication) {
         try {
-            String userEmail = authentication.getName();
+            String userEmail = extractUserEmail(authentication);
             User user = userRepository.findByEmail(userEmail)
                     .orElseThrow(() -> new RuntimeException("User not found: " + userEmail));
 
@@ -356,7 +369,7 @@ public class VideoController {
             @RequestBody Map<String, Boolean> request,
             Authentication authentication) {
         try {
-            String userEmail = authentication.getName();
+            String userEmail = extractUserEmail(authentication);
             User user = userRepository.findByEmail(userEmail)
                     .orElseThrow(() -> new RuntimeException("User not found: " + userEmail));
 
@@ -391,7 +404,7 @@ public class VideoController {
             @RequestBody Map<String, String> request,
             Authentication authentication) {
         try {
-            String userEmail = authentication.getName();
+            String userEmail = extractUserEmail(authentication);
             User user = userRepository.findByEmail(userEmail)
                     .orElseThrow(() -> new RuntimeException("User not found: " + userEmail));
 
@@ -417,7 +430,7 @@ public class VideoController {
     @PostMapping("/{id}/regenerate-thumbnail")
     public ResponseEntity<?> regenerateThumbnail(@PathVariable Long id, Authentication authentication) {
         try {
-            String userEmail = authentication.getName();
+            String userEmail = extractUserEmail(authentication);
             User user = userRepository.findById(userRepository.findByEmail(userEmail)
                     .orElseThrow(() -> new RuntimeException("User not found: " + userEmail))
                     .getId())
@@ -476,7 +489,7 @@ public class VideoController {
     )
     public ResponseEntity<?> deleteVideo(@PathVariable Long id, Authentication authentication) {
         try {
-            String userEmail = authentication.getName();
+            String userEmail = extractUserEmail(authentication);
             User user = userRepository.findByEmail(userEmail)
                     .orElseThrow(() -> new RuntimeException("User not found: " + userEmail));
 

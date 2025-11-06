@@ -58,7 +58,7 @@ class _CoffeeKioskOverlayState extends State<CoffeeKioskOverlay> {
         return KeyEventResult.ignored;
       },
       child: Container(
-        color: const Color(0xFF1a1a1a), // Fully opaque dark background
+        color: Colors.white, // White background for kiosk menu
         child: SafeArea(
           child: Row(
             children: [
