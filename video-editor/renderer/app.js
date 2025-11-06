@@ -1607,38 +1607,13 @@ function setupVideoControls() {
         previewManager.updatePlayPauseButton(false);
         updateStatus('일시정지');
       } else {
-        // Play
+        // Play - normal full playback (trim range is only for preview button)
         const mediaElement = previewManager.getMediaElement();
 
         if (mediaElement && mediaElement.duration) {
-          // Check if in audio trim mode
-          if (currentMode === 'audio' && activeTool === 'trim-audio') {
-            const trimStart = parseFloat(document.getElementById('audio-trim-start')?.value);
-            const trimEnd = parseFloat(document.getElementById('audio-trim-end')?.value);
-
-            if (!isNaN(trimStart) && !isNaN(trimEnd) && trimEnd > trimStart) {
-              // Set playback to start of trim range
-              mediaElement.currentTime = trimStart;
-              console.log(`[Play] Audio trim mode: playing from ${trimStart}s to ${trimEnd}s`);
-
-              // Add one-time listener to stop at trim end
-              const stopAtTrimEnd = () => {
-                if (mediaElement.currentTime >= trimEnd) {
-                  mediaElement.pause();
-                  mediaElement.currentTime = trimStart; // Reset to trim start
-                  previewManager.updatePlayPauseButton(false);
-                  updateStatus('구간 재생 완료');
-                  mediaElement.removeEventListener('timeupdate', stopAtTrimEnd);
-                  console.log('[Play] Stopped at trim end:', trimEnd);
-                }
-              };
-              mediaElement.addEventListener('timeupdate', stopAtTrimEnd);
-            }
-          } else {
-            // Normal playback: if near the end, restart from beginning
-            if (mediaElement.duration - mediaElement.currentTime < 1.0) {
-              mediaElement.currentTime = 0;
-            }
+          // If near the end (within 1 second), restart from beginning
+          if (mediaElement.duration - mediaElement.currentTime < 1.0) {
+            mediaElement.currentTime = 0;
           }
         }
 
