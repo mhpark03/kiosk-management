@@ -927,14 +927,25 @@ async function loadVideoToPreview(videoPath) {
  * Display generated video preview info in properties panel
  */
 export function displayRunwayVideoPreview() {
-  const previewSection = document.getElementById('runway-video-preview-section');
+  console.log('[Runway Video] displayRunwayVideoPreview called');
+  console.log('[Runway Video] generatedRunwayVideo:', generatedRunwayVideo);
 
-  if (!previewSection || !generatedRunwayVideo) {
+  const previewSection = document.getElementById('runway-video-preview-section');
+  console.log('[Runway Video] previewSection element:', previewSection);
+
+  if (!previewSection) {
+    console.error('[Runway Video] Preview section element not found!');
+    return;
+  }
+
+  if (!generatedRunwayVideo) {
+    console.error('[Runway Video] No generated video data!');
     return;
   }
 
   // Show the preview section
   previewSection.style.display = 'block';
+  console.log('[Runway Video] Preview section display set to block');
 
   // Set default title and description
   const titleInput = document.getElementById('ai-video-title-runway');
