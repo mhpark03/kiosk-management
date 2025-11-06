@@ -3462,7 +3462,20 @@ ipcMain.handle('generate-video-runway', async (event, params) => {
       }
     );
 
-    const taskId = response.data.id;
+    // Log full response for debugging
+    logInfo('RUNWAY_VIDEO', 'API response received', {
+      responseData: JSON.stringify(response.data)
+    });
+
+    // Extract task ID - Runway API may use different field names
+    const taskId = response.data.id || response.data.taskId || response.data.task_id;
+
+    if (!taskId) {
+      logError('RUNWAY_VIDEO_ERROR', 'No task ID in response', {
+        responseData: response.data
+      });
+      throw new Error('API 응답에서 작업 ID를 찾을 수 없습니다.');
+    }
 
     logInfo('RUNWAY_VIDEO', 'Task created successfully', {
       taskId,
