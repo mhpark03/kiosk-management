@@ -821,28 +821,38 @@ public class VideoService {
             Path tempThumbnailPath = Files.createTempFile("thumbnail_", ".jpg");
 
             // Convert paths to absolute strings for FFmpeg (Windows-compatible)
-            String videoPathStr = tempVideoPath.toAbsolutePath().toString();
-            String thumbnailPathStr = tempThumbnailPath.toAbsolutePath().toString();
+            // Use forward slashes for FFmpeg compatibility on Windows
+            String videoPathStr = tempVideoPath.toAbsolutePath().toString().replace("\\", "/");
+            String thumbnailPathStr = tempThumbnailPath.toAbsolutePath().toString().replace("\\", "/");
 
             log.info("Regenerating thumbnail - Video path: {}, Thumbnail path: {}", videoPathStr, thumbnailPathStr);
 
             // Use -loglevel error to minimize output and prevent buffer issues
             ProcessBuilder processBuilder = new ProcessBuilder(
                 "ffmpeg",
-                "-loglevel", "error",  // Only output errors, drastically reduces output
+                "-loglevel", "error",  // Only output errors
+                "-ss", "00:00:00.100",  // Seek to 0.1 second (works better for short videos)
                 "-i", videoPathStr,
-                "-ss", "00:00:01.000",
                 "-vframes", "1",
                 "-vf", "scale=320:-1",
+                "-q:v", "2",  // High quality JPEG (scale 2-31, 2 is best)
                 "-y",
                 thumbnailPathStr
             );
 
-            // Discard stdout/stderr to prevent buffer blocking
+            // Capture stderr to log FFmpeg errors
             processBuilder.redirectOutput(ProcessBuilder.Redirect.DISCARD);
-            processBuilder.redirectError(ProcessBuilder.Redirect.DISCARD);
-
             Process process = processBuilder.start();
+
+            // Capture stderr for error logging
+            StringBuilder errorOutput = new StringBuilder();
+            try (java.io.BufferedReader errorReader = new java.io.BufferedReader(
+                    new java.io.InputStreamReader(process.getErrorStream()))) {
+                String line;
+                while ((line = errorReader.readLine()) != null) {
+                    errorOutput.append(line).append("\n");
+                }
+            }
 
             // Wait for FFmpeg process with 30 second timeout
             boolean completed = process.waitFor(30, java.util.concurrent.TimeUnit.SECONDS);
@@ -856,8 +866,11 @@ public class VideoService {
             int exitCode = process.exitValue();
 
             if (exitCode != 0 || !Files.exists(tempThumbnailPath)) {
-                log.error("FFmpeg failed - Exit code: {}, Thumbnail exists: {}", exitCode, Files.exists(tempThumbnailPath));
-                throw new RuntimeException("Failed to generate thumbnail with FFmpeg, exit code: " + exitCode);
+                String errorMsg = errorOutput.toString().trim();
+                log.error("FFmpeg failed - Exit code: {}, Thumbnail exists: {}, Error output: {}",
+                         exitCode, Files.exists(tempThumbnailPath), errorMsg);
+                throw new RuntimeException("Failed to generate thumbnail with FFmpeg, exit code: " + exitCode +
+                                         (errorMsg.isEmpty() ? "" : ", error: " + errorMsg));
             }
 
             byte[] thumbnailBytes = Files.readAllBytes(tempThumbnailPath);

@@ -391,7 +391,40 @@ function showToolProperties(tool) {
 
   switch (tool) {
     case 'import':
-      importVideo();
+      // Show import options in properties panel
+      const token = window.getAuthToken ? window.getAuthToken() : authToken;
+      const user = window.getCurrentUser ? window.getCurrentUser() : currentUser;
+
+      if (!token || !user) {
+        // Not logged in - show only local file option
+        propertiesPanel.innerHTML = `
+          <div class="property-group">
+            <h3 style="margin-top: 0;">영상 가져오기</h3>
+            <p style="color: #666; font-size: 14px; margin-bottom: 20px;">로컬 파일에서 영상을 선택하세요</p>
+            <button onclick="selectLocalVideoFile()" class="property-btn" style="width: 100%; padding: 15px; font-size: 16px; display: flex; align-items: center; justify-content: center; gap: 10px; background: #2196F3;">
+              <span style="font-size: 20px;">📁</span>
+              <span>로컬 파일 선택</span>
+            </button>
+            <p style="color: #888; font-size: 12px; margin-top: 15px; text-align: center;">S3에서 가져오려면 로그인이 필요합니다</p>
+          </div>
+        `;
+      } else {
+        // Logged in - show both options
+        propertiesPanel.innerHTML = `
+          <div class="property-group">
+            <h3 style="margin-top: 0;">영상 가져오기</h3>
+            <p style="color: #666; font-size: 14px; margin-bottom: 20px;">영상을 가져올 위치를 선택하세요</p>
+            <button onclick="selectS3Video()" class="property-btn" style="width: 100%; padding: 15px; font-size: 16px; display: flex; align-items: center; justify-content: center; gap: 10px; background: #4CAF50; margin-bottom: 12px;">
+              <span style="font-size: 20px;">☁️</span>
+              <span>S3에서 가져오기</span>
+            </button>
+            <button onclick="selectLocalVideoFile()" class="property-btn" style="width: 100%; padding: 15px; font-size: 16px; display: flex; align-items: center; justify-content: center; gap: 10px; background: #2196F3;">
+              <span style="font-size: 20px;">📁</span>
+              <span>로컬 파일 선택</span>
+            </button>
+          </div>
+        `;
+      }
       break;
 
     case 'import-audio':
@@ -2071,6 +2104,19 @@ function setupVideoControls() {
   });
 }
 
+// Select S3 video (called from properties panel button)
+async function selectS3Video() {
+  await showVideoListFromS3();
+}
+
+// Select local video file (called from properties panel button)
+async function selectLocalVideoFile() {
+  const videoPath = await window.electronAPI.selectVideo();
+  if (videoPath) {
+    await loadVideoWithAudioCheck(videoPath);
+  }
+}
+
 // Import video
 async function importVideo() {
   // Get auth token from auth module
@@ -2091,8 +2137,75 @@ async function importVideo() {
     return;
   }
 
-  // Show video list from S3
-  await showVideoListFromS3();
+  // User is logged in - give them a choice between S3 and local file
+  await showVideoSourceSelectionModal();
+}
+
+// Show modal to select video source (S3 or Local)
+async function showVideoSourceSelectionModal() {
+  const modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.innerHTML = `
+    <div class="modal-content" style="max-width: 400px; padding: 30px;">
+      <h2 style="margin-top: 0; margin-bottom: 20px; text-align: center;">영상 가져오기</h2>
+      <p style="text-align: center; margin-bottom: 30px; color: #666;">영상을 가져올 위치를 선택하세요</p>
+      <div style="display: flex; flex-direction: column; gap: 15px;">
+        <button id="select-s3-video-btn" class="modal-btn" style="padding: 15px 30px; font-size: 16px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px;">
+          <span style="font-size: 20px;">☁️</span>
+          <span>S3에서 가져오기</span>
+        </button>
+        <button id="select-local-video-btn" class="modal-btn" style="padding: 15px 30px; font-size: 16px; background: #2196F3; color: white; border: none; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px;">
+          <span style="font-size: 20px;">📁</span>
+          <span>로컬 파일 선택</span>
+        </button>
+        <button id="cancel-source-selection-btn" class="modal-btn" style="padding: 15px 30px; font-size: 16px; background: #999; color: white; border: none; border-radius: 4px; cursor: pointer;">
+          취소
+        </button>
+      </div>
+    </div>
+  `;
+
+  // Add hover effects
+  const style = document.createElement('style');
+  style.textContent = `
+    .modal-btn:hover {
+      opacity: 0.9;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    }
+    .modal-btn:active {
+      transform: translateY(0);
+    }
+  `;
+  document.head.appendChild(style);
+
+  document.body.appendChild(modal);
+
+  // Handle S3 selection
+  const s3Btn = document.getElementById('select-s3-video-btn');
+  s3Btn.addEventListener('click', async () => {
+    document.body.removeChild(modal);
+    document.head.removeChild(style);
+    await showVideoListFromS3();
+  });
+
+  // Handle local file selection
+  const localBtn = document.getElementById('select-local-video-btn');
+  localBtn.addEventListener('click', async () => {
+    document.body.removeChild(modal);
+    document.head.removeChild(style);
+    const videoPath = await window.electronAPI.selectVideo();
+    if (videoPath) {
+      await loadVideoWithAudioCheck(videoPath);
+    }
+  });
+
+  // Handle cancel
+  const cancelBtn = document.getElementById('cancel-source-selection-btn');
+  cancelBtn.addEventListener('click', () => {
+    document.body.removeChild(modal);
+    document.head.removeChild(style);
+  });
 }
 
 // Load video with audio check (helper function)
@@ -8375,18 +8488,33 @@ async function executeExportVideoToS3() {
     formData.append('title', title);
     formData.append('description', description);
 
-    // Upload to backend (videos folder)
-    const uploadResponse = await fetch(`${baseUrl}/api/videos/upload`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`
-      },
-      body: formData
-    });
+    // Upload to backend (videos folder) with timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 600000); // 10 minutes timeout
 
-    if (!uploadResponse.ok) {
-      const errorText = await uploadResponse.text();
-      throw new Error(`Upload failed: ${uploadResponse.status} ${errorText}`);
+    let uploadResponse;
+    try {
+      uploadResponse = await fetch(`${baseUrl}/api/videos/upload`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData,
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!uploadResponse.ok) {
+        const errorText = await uploadResponse.text();
+        throw new Error(`Upload failed: ${uploadResponse.status} ${errorText}`);
+      }
+    } catch (error) {
+      clearTimeout(timeoutId);
+      if (error.name === 'AbortError') {
+        throw new Error('업로드 시간이 초과되었습니다. 파일 크기가 너무 크거나 네트워크 속도가 느립니다.');
+      }
+      throw error;
     }
 
     const result = await uploadResponse.json();
