@@ -727,9 +727,13 @@ export async function executeGenerateVideoRunway() {
     console.log('[Runway Video] API call result:', JSON.stringify(result, null, 2));
 
     if (!result.success) {
-      const errorMsg = result.error || result.details || '알 수 없는 오류';
-      console.error('[Runway Video] API call failed:', errorMsg);
-      throw new Error(`Runway API 호출 실패: ${errorMsg}`);
+      console.error('[Runway Video] API call failed!');
+      console.error('[Runway Video] Error:', result.error);
+      console.error('[Runway Video] Details:', JSON.stringify(result.details, null, 2));
+
+      const errorMsg = result.error || '알 수 없는 오류';
+      const details = result.details ? `\n상세: ${JSON.stringify(result.details, null, 2)}` : '';
+      throw new Error(`Runway API 호출 실패: ${errorMsg}${details}`);
     }
 
     if (!result.taskId) {
