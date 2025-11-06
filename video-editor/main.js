@@ -3379,6 +3379,178 @@ ipcMain.handle('generate-image-runway', async (event, params) => {
 });
 
 /**
+ * Generate video with Runway ML (Image to Video)
+ */
+ipcMain.handle('generate-video-runway', async (event, params) => {
+  logInfo('RUNWAY_VIDEO', 'Starting Runway video generation', {
+    model: params.model,
+    duration: params.duration,
+    hasImage1: !!params.image1Path,
+    hasImage2: !!params.image2Path
+  });
+
+  try {
+    const RUNWAY_API_KEY = process.env.RUNWAY_API_KEY;
+
+    if (!RUNWAY_API_KEY) {
+      throw new Error('RUNWAY_API_KEY 환경변수가 설정되지 않았습니다.\n\n환경변수를 설정하거나 .env 파일을 생성하세요.');
+    }
+
+    const https = require('https');
+    const axios = require('axios');
+
+    // Read and convert images to base64
+    const convertImageToBase64 = async (imagePath) => {
+      if (!imagePath) return null;
+
+      // Check if it's a URL (S3 presigned URL)
+      if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+        // For S3 URLs, fetch the image and convert to base64
+        const imageResponse = await axios.get(imagePath, { responseType: 'arraybuffer' });
+        const base64 = Buffer.from(imageResponse.data).toString('base64');
+        return `data:image/jpeg;base64,${base64}`;
+      } else {
+        // For local files
+        const imageBuffer = fs.readFileSync(imagePath);
+        const base64 = imageBuffer.toString('base64');
+        return `data:image/jpeg;base64,${base64}`;
+      }
+    };
+
+    const image1Base64 = await convertImageToBase64(params.image1Path);
+    const image2Base64 = params.image2Path ? await convertImageToBase64(params.image2Path) : null;
+
+    // Prepare request body
+    const requestBody = {
+      model: params.model || 'gen3a_turbo',
+      promptText: params.prompt,
+      duration: parseInt(params.duration) || 5
+    };
+
+    // Add init_image (first frame)
+    if (image1Base64) {
+      requestBody.init_image = image1Base64;
+    }
+
+    // Add last_frame if provided (for interpolation between two images)
+    if (image2Base64) {
+      requestBody.last_frame = image2Base64;
+    }
+
+    logInfo('RUNWAY_VIDEO', 'Calling Runway ML API', {
+      url: 'https://api.dev.runwayml.com/v1/image_to_video',
+      model: requestBody.model,
+      duration: requestBody.duration,
+      hasInitImage: !!requestBody.init_image,
+      hasLastFrame: !!requestBody.last_frame
+    });
+
+    // Call Runway ML API
+    const response = await axios.post(
+      'https://api.dev.runwayml.com/v1/image_to_video',
+      requestBody,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${RUNWAY_API_KEY}`,
+          'X-Runway-Version': '2024-11-06'
+        },
+        timeout: 60000,
+        httpsAgent: new https.Agent({
+          rejectUnauthorized: false
+        })
+      }
+    );
+
+    const taskId = response.data.id;
+
+    logInfo('RUNWAY_VIDEO', 'Task created successfully', {
+      taskId,
+      status: response.data.status
+    });
+
+    return {
+      success: true,
+      taskId: taskId,
+      status: response.data.status
+    };
+
+  } catch (error) {
+    logError('RUNWAY_VIDEO_ERROR', 'Failed to generate video', {
+      error: error.message,
+      response: error.response?.data
+    });
+
+    return {
+      success: false,
+      error: error.message,
+      details: error.response?.data
+    };
+  }
+});
+
+/**
+ * Download Runway ML generated video
+ */
+ipcMain.handle('download-runway-video', async (event, videoUrl) => {
+  logInfo('RUNWAY_DOWNLOAD', 'Downloading generated video', { videoUrl });
+
+  try {
+    const axios = require('axios');
+    const path = require('path');
+    const os = require('os');
+
+    // Create temp directory if it doesn't exist
+    const tempDir = path.join(os.tmpdir(), 'kiosk-video-editor');
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
+
+    // Generate unique filename
+    const timestamp = Date.now();
+    const filename = `runway_video_${timestamp}.mp4`;
+    const filePath = path.join(tempDir, filename);
+
+    // Download video
+    const response = await axios({
+      method: 'GET',
+      url: videoUrl,
+      responseType: 'stream',
+      timeout: 120000 // 2 minutes
+    });
+
+    // Save to file
+    const writer = fs.createWriteStream(filePath);
+    response.data.pipe(writer);
+
+    await new Promise((resolve, reject) => {
+      writer.on('finish', resolve);
+      writer.on('error', reject);
+    });
+
+    logInfo('RUNWAY_DOWNLOAD', 'Video downloaded successfully', {
+      filePath,
+      size: fs.statSync(filePath).size
+    });
+
+    return {
+      success: true,
+      filePath: filePath
+    };
+
+  } catch (error) {
+    logError('RUNWAY_DOWNLOAD_ERROR', 'Failed to download video', {
+      error: error.message
+    });
+
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+});
+
+/**
  * Poll Runway ML task status
  */
 ipcMain.handle('poll-runway-task', async (event, taskId) => {
