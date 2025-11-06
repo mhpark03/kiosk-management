@@ -237,6 +237,7 @@ let hasSilentAudio = false;  // Flag to track if current video has auto-generate
 
 // Audio preview listener tracking
 let audioPreviewListener = null;  // Store preview timeupdate listener reference for explicit removal
+let skipTrimRangeListener = null;  // Store skip trim range listener reference for explicit removal
 
 // ============================================================================
 // Note: PreviewManager class is now loaded from modules/PreviewManager.js
@@ -1607,13 +1608,51 @@ function setupVideoControls() {
         previewManager.updatePlayPauseButton(false);
         updateStatus('일시정지');
       } else {
-        // Play - normal full playback (trim range is only for preview button)
+        // Play
         const mediaElement = previewManager.getMediaElement();
 
         if (mediaElement && mediaElement.duration) {
           // If near the end (within 1 second), restart from beginning
           if (mediaElement.duration - mediaElement.currentTime < 1.0) {
             mediaElement.currentTime = 0;
+          }
+
+          // In audio trim mode, skip the selected trim range during playback
+          if (currentMode === 'audio' && activeTool === 'trim-audio') {
+            const trimStart = parseFloat(document.getElementById('audio-trim-start')?.value);
+            const trimEnd = parseFloat(document.getElementById('audio-trim-end')?.value);
+
+            if (!isNaN(trimStart) && !isNaN(trimEnd) && trimEnd > trimStart) {
+              // Remove previous skip listener if exists
+              if (skipTrimRangeListener) {
+                mediaElement.removeEventListener('timeupdate', skipTrimRangeListener);
+                skipTrimRangeListener = null;
+              }
+
+              // Create listener to skip trim range
+              skipTrimRangeListener = () => {
+                if (mediaElement.currentTime >= trimStart && mediaElement.currentTime < trimEnd) {
+                  console.log(`[Play] Skipping trim range: ${trimStart}s ~ ${trimEnd}s, jumping to ${trimEnd}s`);
+                  mediaElement.currentTime = trimEnd;
+                }
+              };
+
+              mediaElement.addEventListener('timeupdate', skipTrimRangeListener);
+              console.log(`[Play] Audio trim mode: will skip ${trimStart}s ~ ${trimEnd}s during playback`);
+
+              // Remove listener when playback ends or pauses
+              const cleanup = () => {
+                if (skipTrimRangeListener) {
+                  mediaElement.removeEventListener('timeupdate', skipTrimRangeListener);
+                  skipTrimRangeListener = null;
+                  console.log('[Play] Removed skip trim range listener');
+                }
+                mediaElement.removeEventListener('ended', cleanup);
+                mediaElement.removeEventListener('pause', cleanup);
+              };
+              mediaElement.addEventListener('ended', cleanup, { once: true });
+              mediaElement.addEventListener('pause', cleanup, { once: true });
+            }
           }
         }
 
