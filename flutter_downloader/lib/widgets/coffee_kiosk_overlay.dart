@@ -60,28 +60,18 @@ class _CoffeeKioskOverlayState extends State<CoffeeKioskOverlay> {
       child: Container(
         color: const Color(0xFF1a1a1a), // Fully opaque dark background
         child: SafeArea(
-          child: Column(
+          child: Row(
             children: [
-              // Header
-              _buildHeader(),
-
-              // Main content
+              // Menu section (left side)
               Expanded(
-                child: Row(
-                  children: [
-                    // Menu section (left side)
-                    Expanded(
-                      flex: 3,
-                      child: _buildMenuSection(),
-                    ),
+                flex: 3,
+                child: _buildMenuSection(),
+              ),
 
-                    // Cart section (right side)
-                    Expanded(
-                      flex: 2,
-                      child: _buildCartSection(),
-                    ),
-                  ],
-                ),
+              // Cart section (right side)
+              Expanded(
+                flex: 2,
+                child: _buildCartSection(),
               ),
             ],
           ),
@@ -725,8 +715,15 @@ class _CoffeeKioskOverlayState extends State<CoffeeKioskOverlay> {
           TextButton(
             onPressed: () {
               Navigator.pop(context); // Close dialog
-              widget.onOrderComplete(order);
-              setState(() => _cartItems.clear());
+              setState(() => _cartItems.clear()); // Clear cart and stay in kiosk
+              // Show success message
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('주문이 완료되었습니다. 준비되면 호출하겠습니다.'),
+                  duration: const Duration(seconds: 2),
+                  backgroundColor: Colors.green.shade700,
+                ),
+              );
             },
             child: const Text('확인'),
           ),

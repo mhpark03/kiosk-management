@@ -843,7 +843,7 @@ class _VideoListScreenState extends State<VideoListScreen> {
     final isLargeScreen = screenWidth >= 600; // 태블릿 크기 (600dp 이상)
 
     return Scaffold(
-      appBar: AppBar(
+      appBar: _showKioskOverlay ? null : AppBar(
         automaticallyImplyLeading: false, // Remove back button from main screen
         title: Row(
           children: [
