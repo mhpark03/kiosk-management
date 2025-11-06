@@ -724,11 +724,20 @@ export async function executeGenerateVideoRunway() {
       resolution: resolution
     });
 
-    console.log('[Runway Video] API call successful, taskId:', result.taskId);
+    console.log('[Runway Video] API call result:', JSON.stringify(result, null, 2));
 
-    if (!result.success || !result.taskId) {
+    if (!result.success) {
+      const errorMsg = result.error || result.details || '알 수 없는 오류';
+      console.error('[Runway Video] API call failed:', errorMsg);
+      throw new Error(`Runway API 호출 실패: ${errorMsg}`);
+    }
+
+    if (!result.taskId) {
+      console.error('[Runway Video] No taskId in result:', result);
       throw new Error('작업 ID를 받지 못했습니다.');
     }
+
+    console.log('[Runway Video] Task created successfully, taskId:', result.taskId);
 
     // Poll for completion
     if (typeof window.updateProgress === 'function') {
