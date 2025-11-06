@@ -130,7 +130,7 @@ window.executeExtractAudioToS3 = function() { return executeExtractAudioToS3(); 
 // AI generation exports
 window.executeGenerateImageRunway = function() { return executeGenerateImageRunway(); };
 window.executeGenerateImageVeo = function() { return executeGenerateImageVeo(); };
-window.executeGenerateVideoRunway = function() { return executeGenerateVideoRunway(); };
+window.executeGenerateVideoRunway = RunwayModule.executeGenerateVideoRunway;  // Use module
 window.executeGenerateVideoVeo = function() { return executeGenerateVideoVeo(); };
 
 // Preview operations exports
