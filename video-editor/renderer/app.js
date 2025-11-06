@@ -153,6 +153,7 @@ window.selectRunwayVideoImageSource = function(imageNumber, source) { return sel
 window.selectRunwayVideoS3Image = function(imageNumber, imageId, imageTitle, imageUrl) { return selectRunwayVideoS3Image(imageNumber, imageId, imageTitle, imageUrl); };
 window.selectVeoRefImageSource = VeoModule.selectVeoRefImageSource;
 window.selectVeoVideoImageSource = VeoModule.selectVeoVideoImageSource;
+window.selectVeoVideoS3Image = VeoModule.selectVeoVideoS3Image;
 window.selectColorFromHistory = selectColorFromHistory;
 window.selectTool = selectTool;
 
