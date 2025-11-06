@@ -1542,6 +1542,26 @@ function showToolProperties(tool) {
     default:
       propertiesPanel.innerHTML = '<p class="placeholder-text">이 도구는 아직 구현되지 않았습니다.</p>';
   }
+
+  // Restore Runway video generation state after panel re-render
+  if (tool === 'generate-video-runway') {
+    // Restore selected images
+    if (window.runwayVideoImages) {
+      if (window.runwayVideoImages.image1) {
+        window.RunwayModule.updateRunwayVideoImagePreview(1);
+      }
+      if (window.runwayVideoImages.image2) {
+        window.RunwayModule.updateRunwayVideoImagePreview(2);
+      }
+    }
+
+    // Show preview section if video was generated
+    if (generatedRunwayVideo) {
+      setTimeout(() => {
+        displayRunwayVideoPreview();
+      }, 50);
+    }
+  }
 }
 
 // Setup video controls
@@ -10789,8 +10809,10 @@ async function executeGenerateVideoRunway() {
     updateProgress(100, 'AI 영상 생성 완료!');
     updateStatus('AI 영상 생성 완료!');
 
-    // Show preview section in properties panel
-    displayRunwayVideoPreview();
+    // Show preview section in properties panel (delayed to ensure DOM is ready)
+    setTimeout(() => {
+      displayRunwayVideoPreview();
+    }, 100);
 
     console.log('[Runway Video] Generation completed successfully');
 
