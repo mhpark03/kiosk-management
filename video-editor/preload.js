@@ -55,7 +55,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Runway ML operations
   generateImageRunway: (params) => ipcRenderer.invoke('generate-image-runway', params),
+  generateVideoRunway: (params) => ipcRenderer.invoke('generate-video-runway', params),
   pollRunwayTask: (taskId) => ipcRenderer.invoke('poll-runway-task', taskId),
+  downloadRunwayVideo: (videoUrl) => ipcRenderer.invoke('download-runway-video', videoUrl),
 
   // Google VEO operations (using Gemini API with API Key - matching backend)
   generateVeoVideo: (params) => ipcRenderer.invoke('generate-veo-video', params),
