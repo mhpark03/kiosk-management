@@ -894,33 +894,33 @@ async function openVeoVideoS3ImageSelector() {
                 const rowBg = i % 2 === 0 ? '#2d2d2d' : '#333';
                 const imageUrl = img.presignedUrl || img.s3Url || '';
 
-                return \`
-                  <tr style="border-bottom: 1px solid #444; background: \${rowBg}; transition: background 0.2s; cursor: pointer;"
+                return `
+                  <tr style="border-bottom: 1px solid #444; background: ${rowBg}; transition: background 0.2s; cursor: pointer;"
                       onmouseover="this.style.background='#3a3a5a'"
-                      onmouseout="this.style.background='\${rowBg}'"
-                      onclick="window.selectVeoVideoS3Image('\${imageUrl.replace(/'/g, "\\'")}')">
+                      onmouseout="this.style.background='${rowBg}'"
+                      onclick="window.selectVeoVideoS3Image('${imageUrl.replace(/'/g, "\\'")}')">
                     <td style="padding: 8px; text-align: center;">
-                      <img src="\${imageUrl}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 4px; border: 1px solid #555;"/>
+                      <img src="${imageUrl}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 4px; border: 1px solid #555;"/>
                     </td>
                     <td style="padding: 12px 8px; color: #e0e0e0; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                      <div style="font-weight: 600;">\${img.title || img.filename}</div>
+                      <div style="font-weight: 600;">${img.title || img.filename}</div>
                     </td>
                     <td style="padding: 12px 8px; color: #aaa; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                      \${img.description || '설명 없음'}
+                      ${img.description || '설명 없음'}
                     </td>
                     <td style="padding: 12px 8px; text-align: center; color: #aaa; font-size: 12px;">
-                      <span style="background: \${folder === 'AI' ? '#4a5568' : '#2d5a4a'}; padding: 4px 8px; border-radius: 4px; font-size: 11px;">
-                        \${folder}
+                      <span style="background: ${folder === 'AI' ? '#4a5568' : '#2d5a4a'}; padding: 4px 8px; border-radius: 4px; font-size: 11px;">
+                        ${folder}
                       </span>
                     </td>
                     <td style="padding: 12px 8px; text-align: right; color: #aaa; font-size: 12px;">
-                      \${sizeInMB} MB
+                      ${sizeInMB} MB
                     </td>
                     <td style="padding: 12px 8px; text-align: center; color: #aaa; font-size: 12px;">
-                      \${uploadDate}
+                      ${uploadDate}
                     </td>
                   </tr>
-                \`;
+                `;
               }).join('')}
             </tbody>
           </table>
