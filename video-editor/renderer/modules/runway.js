@@ -615,13 +615,21 @@ export function selectRunwayVideoS3Image(imageNumber, imageId, imageTitle, image
   console.log(`[Runway Video] Selected S3 image ${imageId} for slot ${imageNumber}`);
 
   const imageKey = `image${imageNumber}`;
-  runwayVideoImages[imageKey] = {
+  const imageData = {
     source: 's3',
     filePath: imageUrl,
     preview: imageUrl,
     id: imageId,
     title: imageTitle
   };
+
+  // Update module-level state
+  runwayVideoImages[imageKey] = imageData;
+
+  // Also update window.runwayVideoImages (shared with app.js)
+  if (window.runwayVideoImages) {
+    window.runwayVideoImages[imageKey] = imageData;
+  }
 
   updateRunwayVideoImagePreview(imageNumber);
   closeRunwayVideoS3Modal();
