@@ -947,11 +947,20 @@ async function openVeoVideoS3ImageSelector() {
  * @param {string} imageUrl - The presigned URL of the selected image
  */
 export function selectVeoVideoS3Image(imageUrl) {
-  veoVideoImage = {
+  const imageData = {
     source: 's3',
     filePath: imageUrl,
     preview: imageUrl
   };
+
+  // Update module-level state
+  veoVideoImage = imageData;
+
+  // Also update window.veoImage (shared with app.js)
+  if (window.veoImage !== undefined) {
+    window.veoImage = imageData;
+  }
+
   updateVeoVideoImagePreview();
 
   // Close the modal
