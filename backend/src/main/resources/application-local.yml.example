@@ -1,0 +1,29 @@
+# Local Development Environment
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:mysql://localhost:3306/kioskdb?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:your_database_password_here}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+    show-sql: true  # Enable SQL logging for local dev
+
+# JWT Configuration with default values for local development
+jwt:
+  secret: ${JWT_SECRET:your-256-bit-secret-key-here-make-it-very-long-and-secure-at-least-32-characters-for-local-dev}
+  expiration: ${JWT_EXPIRATION:86400000}
+
+# AWS S3 Configuration (optional for local, will use defaults if not provided)
+aws:
+  s3:
+    access-key: ${AWS_ACCESS_KEY_ID:}
+    secret-key: ${AWS_SECRET_ACCESS_KEY:}
+
+logging:
+  level:
+    com.kiosk.backend: DEBUG
+    org.springframework.security: DEBUG
