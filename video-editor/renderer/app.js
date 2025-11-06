@@ -9732,6 +9732,8 @@ let generatedRunwayVideo = null;  // {filePath: string, url: string, metadata: o
 
 // Global state for VEO image
 let veoImage = null;  // {source: 'local'|'s3', filePath: string, preview: string}
+// Expose to window for VEO module
+window.veoImage = veoImage;
 
 // Global state for generated VEO video
 let generatedVeoVideo = null;  // {url: string, taskId: string}
@@ -10996,6 +10998,7 @@ async function selectVeoImageSource(source) {
         filePath: filePath,
         preview: `file://${filePath}`
       };
+      window.veoImage = veoImage;
 
       // Update preview
       updateVeoImagePreview();
@@ -11068,6 +11071,7 @@ function updateVeoImagePreview() {
  */
 function clearVeoImage() {
   veoImage = null;
+  window.veoImage = null;
   updateVeoImagePreview();
   console.log('[VEO Video] Cleared image');
 }
@@ -11163,6 +11167,7 @@ async function openVeoS3ImageSelector() {
           filePath: image.url,
           preview: image.url
         };
+        window.veoImage = veoImage;
         updateVeoImagePreview();
         document.body.removeChild(modal);
         console.log('[VEO Video] Selected S3 image:', image.url);
