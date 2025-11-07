@@ -109,6 +109,12 @@ public enum MediaType {
     IMAGE,           // Image files
     AUDIO            // Audio files (TTS, user uploads)
 }
+
+public enum ImagePurpose {
+    GENERAL,         // General purpose images (default)
+    REFERENCE,       // Reference images for video generation (Runway, Veo)
+    MENU             // Coffee kiosk menu product images
+}
 ```
 
 **S3 Folder Structure:**
@@ -295,6 +301,7 @@ Content-Type: multipart/form-data
 - file: video/image/audio file
 - title: string
 - description: string
+- imagePurpose: GENERAL|REFERENCE|MENU (optional, default: GENERAL for images)
 ```
 
 **AI Content Upload (from editor):**
@@ -305,6 +312,14 @@ Content-Type: multipart/form-data
 - title: string
 - description: string
 - mediaType: VIDEO|IMAGE|AUDIO
+- imagePurpose: GENERAL|REFERENCE|MENU (optional, for images)
+```
+
+**Query Images by Purpose:**
+```bash
+GET /api/videos?mediaType=IMAGE&imagePurpose=REFERENCE
+GET /api/videos?mediaType=IMAGE&imagePurpose=MENU
+GET /api/videos?mediaType=IMAGE&imagePurpose=GENERAL
 ```
 
 ### Presigned URLs
