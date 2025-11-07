@@ -22,6 +22,8 @@ import KioskVideoManagement from './components/KioskVideoManagement';
 import KioskEventHistory from './components/KioskEventHistory';
 import UserGuide from './components/UserGuide';
 import DownloaderGuide from './components/DownloaderGuide';
+import MenuList from './components/MenuList';
+import MenuEditor from './components/MenuEditor';
 import ProtectedRoute from './components/ProtectedRoute';
 import './App.css';
 
@@ -107,6 +109,22 @@ function App() {
             element={
               <ProtectedRoute>
                 <StoreManagement />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/menus"
+            element={
+              <ProtectedRoute>
+                <MenuList />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/menus/edit/:id"
+            element={
+              <ProtectedRoute>
+                <MenuEditor />
               </ProtectedRoute>
             }
           />
