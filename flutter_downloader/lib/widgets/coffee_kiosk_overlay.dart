@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../models/coffee_menu_item.dart';
 import '../models/coffee_order.dart';
 import '../services/coffee_menu_service.dart';
@@ -33,10 +34,17 @@ class _CoffeeKioskOverlayState extends State<CoffeeKioskOverlay> {
   @override
   void initState() {
     super.initState();
+    // Load menu from XML
+    _loadMenu();
     // Request focus when overlay is shown
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _focusNode.requestFocus();
     });
+  }
+
+  Future<void> _loadMenu() async {
+    await _menuService.loadMenuFromXml();
+    setState(() {}); // Rebuild UI with loaded menu
   }
 
   @override
@@ -225,41 +233,85 @@ class _CoffeeKioskOverlayState extends State<CoffeeKioskOverlay> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Icon/Image placeholder
-            Container(
-              width: 60,
-              height: 60,
-              decoration: BoxDecoration(
-                color: Colors.brown.shade100,
-                shape: BoxShape.circle,
+            // Product Image or Icon
+            if (item.imageUrl != null && item.imageUrl!.isNotEmpty)
+              // Show cached network image
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: CachedNetworkImage(
+                  imageUrl: item.imageUrl!,
+                  width: 100,
+                  height: 100,
+                  fit: BoxFit.cover,
+                  placeholder: (context, url) => Container(
+                    width: 100,
+                    height: 100,
+                    color: Colors.brown.shade100,
+                    child: const Center(
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  ),
+                  errorWidget: (context, url, error) => Container(
+                    width: 100,
+                    height: 100,
+                    decoration: BoxDecoration(
+                      color: Colors.brown.shade100,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      _getCategoryIcon(item.category),
+                      size: 40,
+                      color: Colors.brown.shade700,
+                    ),
+                  ),
+                ),
+              )
+            else
+              // Fallback: Show icon
+              Container(
+                width: 100,
+                height: 100,
+                decoration: BoxDecoration(
+                  color: Colors.brown.shade100,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  _getCategoryIcon(item.category),
+                  size: 40,
+                  color: Colors.brown.shade700,
+                ),
               ),
-              child: Icon(
-                _getCategoryIcon(item.category),
-                size: 32,
-                color: Colors.brown.shade700,
-              ),
-            ),
             const SizedBox(height: 12),
 
             // Name
-            Text(
-              item.name,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8.0),
+              child: Text(
+                item.name,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
-              textAlign: TextAlign.center,
             ),
             const SizedBox(height: 4),
 
             // Name (English)
-            Text(
-              item.nameEn,
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey.shade600,
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8.0),
+              child: Text(
+                item.nameEn,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey.shade600,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
-              textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
 

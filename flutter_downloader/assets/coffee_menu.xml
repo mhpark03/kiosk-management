@@ -1,0 +1,174 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kioskMenu>
+  <!-- 메타데이터 -->
+  <metadata>
+    <name>커피숍 프로토타입 메뉴</name>
+    <version>1.0.0</version>
+    <lastModified>2025-11-07T12:00:00</lastModified>
+  </metadata>
+
+  <!-- 카테고리 정의 -->
+  <categories>
+    <category id="coffee" name="커피" nameEn="Coffee" icon="coffee" order="1" />
+    <category id="beverage" name="음료" nameEn="Beverage" icon="local_drink" order="2" />
+    <category id="dessert" name="디저트" nameEn="Dessert" icon="cake" order="3" />
+  </categories>
+
+  <!-- 메뉴 아이템 -->
+  <menuItems>
+    <!-- 커피 카테고리 -->
+    <item id="coffee_americano" category="coffee" order="1">
+      <name>아메리카노</name>
+      <nameEn>Americano</nameEn>
+      <price>4000</price>
+      <description>진한 에스프레소에 물을 더한 커피</description>
+      <thumbnailUrl>https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=300&amp;h=300&amp;fit=crop</thumbnailUrl>
+      <available>true</available>
+      <sizeEnabled>true</sizeEnabled>
+      <temperatureEnabled>true</temperatureEnabled>
+      <extrasEnabled>true</extrasEnabled>
+    </item>
+
+    <item id="coffee_latte" category="coffee" order="2">
+      <name>카페 라떼</name>
+      <nameEn>Cafe Latte</nameEn>
+      <price>4500</price>
+      <description>부드러운 우유와 에스프레소의 조화</description>
+      <thumbnailUrl>https://images.unsplash.com/photo-1561882468-9110e03e0f78?w=300&amp;h=300&amp;fit=crop</thumbnailUrl>
+      <available>true</available>
+      <sizeEnabled>true</sizeEnabled>
+      <temperatureEnabled>true</temperatureEnabled>
+      <extrasEnabled>true</extrasEnabled>
+    </item>
+
+    <item id="coffee_cappuccino" category="coffee" order="3">
+      <name>카푸치노</name>
+      <nameEn>Cappuccino</nameEn>
+      <price>4500</price>
+      <description>풍부한 우유 거품이 특징인 커피</description>
+      <thumbnailUrl>https://images.unsplash.com/photo-1572442388796-11668a67e53d?w=300&amp;h=300&amp;fit=crop</thumbnailUrl>
+      <available>true</available>
+      <sizeEnabled>true</sizeEnabled>
+      <temperatureEnabled>true</temperatureEnabled>
+      <extrasEnabled>true</extrasEnabled>
+    </item>
+
+    <item id="coffee_caramel" category="coffee" order="4">
+      <name>카라멜 마끼아또</name>
+      <nameEn>Caramel Macchiato</nameEn>
+      <price>5000</price>
+      <description>달콤한 카라멜과 에스프레소의 만남</description>
+      <thumbnailUrl>https://images.unsplash.com/photo-1599639957043-f3aa5c986398?w=300&amp;h=300&amp;fit=crop</thumbnailUrl>
+      <available>true</available>
+      <sizeEnabled>true</sizeEnabled>
+      <temperatureEnabled>true</temperatureEnabled>
+      <extrasEnabled>true</extrasEnabled>
+    </item>
+
+    <item id="coffee_vanilla" category="coffee" order="5">
+      <name>바닐라 라떼</name>
+      <nameEn>Vanilla Latte</nameEn>
+      <price>5000</price>
+      <description>부드러운 바닐라 향이 가득한 라떼</description>
+      <thumbnailUrl>https://images.unsplash.com/photo-1485808191679-5f86510681a2?w=300&amp;h=300&amp;fit=crop</thumbnailUrl>
+      <available>true</available>
+      <sizeEnabled>true</sizeEnabled>
+      <temperatureEnabled>true</temperatureEnabled>
+      <extrasEnabled>true</extrasEnabled>
+    </item>
+
+    <!-- 음료 카테고리 -->
+    <item id="bev_greentea" category="beverage" order="1">
+      <name>녹차 라떼</name>
+      <nameEn>Green Tea Latte</nameEn>
+      <price>5000</price>
+      <description>진한 녹차와 우유의 조화</description>
+      <thumbnailUrl>https://images.unsplash.com/photo-1564890369478-c89ca6d9cde9?w=300&amp;h=300&amp;fit=crop</thumbnailUrl>
+      <available>true</available>
+      <sizeEnabled>true</sizeEnabled>
+      <temperatureEnabled>true</temperatureEnabled>
+      <extrasEnabled>false</extrasEnabled>
+    </item>
+
+    <item id="bev_choco" category="beverage" order="2">
+      <name>초코 라떼</name>
+      <nameEn>Chocolate Latte</nameEn>
+      <price>5000</price>
+      <description>달콤한 초콜릿 음료</description>
+      <thumbnailUrl>https://images.unsplash.com/photo-1542990253-0d0f5be5f0ed?w=300&amp;h=300&amp;fit=crop</thumbnailUrl>
+      <available>true</available>
+      <sizeEnabled>true</sizeEnabled>
+      <temperatureEnabled>true</temperatureEnabled>
+      <extrasEnabled>true</extrasEnabled>
+    </item>
+
+    <item id="bev_strawberry" category="beverage" order="3">
+      <name>딸기 스무디</name>
+      <nameEn>Strawberry Smoothie</nameEn>
+      <price>5500</price>
+      <description>신선한 딸기로 만든 시원한 스무디</description>
+      <thumbnailUrl>https://images.unsplash.com/photo-1505252585461-04db1eb84625?w=300&amp;h=300&amp;fit=crop</thumbnailUrl>
+      <available>true</available>
+      <sizeEnabled>true</sizeEnabled>
+      <temperatureEnabled>false</temperatureEnabled>
+      <extrasEnabled>false</extrasEnabled>
+    </item>
+
+    <!-- 디저트 카테고리 -->
+    <item id="dessert_cookie" category="dessert" order="1">
+      <name>초콜릿 쿠키</name>
+      <nameEn>Chocolate Cookie</nameEn>
+      <price>3000</price>
+      <description>바삭한 초콜릿 쿠키</description>
+      <thumbnailUrl>https://images.unsplash.com/photo-1499636136210-6f4ee915583e?w=300&amp;h=300&amp;fit=crop</thumbnailUrl>
+      <available>true</available>
+      <sizeEnabled>false</sizeEnabled>
+      <temperatureEnabled>false</temperatureEnabled>
+      <extrasEnabled>false</extrasEnabled>
+    </item>
+
+    <item id="dessert_cake" category="dessert" order="2">
+      <name>치즈 케이크</name>
+      <nameEn>Cheese Cake</nameEn>
+      <price>6000</price>
+      <description>부드러운 뉴욕 스타일 치즈케이크</description>
+      <thumbnailUrl>https://images.unsplash.com/photo-1524351199678-941a58a3df50?w=300&amp;h=300&amp;fit=crop</thumbnailUrl>
+      <available>true</available>
+      <sizeEnabled>false</sizeEnabled>
+      <temperatureEnabled>false</temperatureEnabled>
+      <extrasEnabled>false</extrasEnabled>
+    </item>
+
+    <item id="dessert_muffin" category="dessert" order="3">
+      <name>블루베리 머핀</name>
+      <nameEn>Blueberry Muffin</nameEn>
+      <price>3500</price>
+      <description>촉촉한 블루베리 머핀</description>
+      <thumbnailUrl>https://images.unsplash.com/photo-1607958996333-41aef7caefaa?w=300&amp;h=300&amp;fit=crop</thumbnailUrl>
+      <available>true</available>
+      <sizeEnabled>false</sizeEnabled>
+      <temperatureEnabled>false</temperatureEnabled>
+      <extrasEnabled>false</extrasEnabled>
+    </item>
+  </menuItems>
+
+  <!-- 옵션 정의 -->
+  <options>
+    <sizes>
+      <size id="small" name="Small" nameKo="스몰" additionalPrice="0" />
+      <size id="medium" name="Medium (R)" nameKo="미디움" additionalPrice="500" />
+      <size id="large" name="Large" nameKo="라지" additionalPrice="1000" />
+    </sizes>
+
+    <temperatures>
+      <temperature id="hot" name="Hot" nameKo="따뜻하게" />
+      <temperature id="iced" name="Iced" nameKo="차갑게" />
+    </temperatures>
+
+    <extras>
+      <extra id="shot" name="샷 추가" nameEn="Extra Shot" additionalPrice="500" />
+      <extra id="syrup" name="시럽 추가" nameEn="Syrup" additionalPrice="500" />
+      <extra id="whipped" name="휘핑크림" nameEn="Whipped Cream" additionalPrice="500" />
+    </extras>
+  </options>
+</kioskMenu>
