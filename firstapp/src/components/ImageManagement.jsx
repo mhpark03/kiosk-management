@@ -15,6 +15,7 @@ export default function ImageManagement() {
   const [success, setSuccess] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
+  const [imagePurposeFilter, setImagePurposeFilter] = useState('ALL');
   const [filteredImages, setFilteredImages] = useState([]);
   const itemsPerPage = 10;
 
@@ -28,7 +29,7 @@ export default function ImageManagement() {
 
   useEffect(() => {
     loadImages();
-  }, []);
+  }, [imagePurposeFilter]);
 
   // Apply search filter
   useEffect(() => {
@@ -55,7 +56,9 @@ export default function ImageManagement() {
   const loadImages = async () => {
     try {
       setLoading(true);
-      const data = await videoService.getAllImages();
+      // Pass imagePurpose filter to API (null if ALL)
+      const purpose = imagePurposeFilter === 'ALL' ? null : imagePurposeFilter;
+      const data = await videoService.getAllImages(purpose);
       // Sort by ID in descending order (newest first)
       const sortedData = [...data].sort((a, b) => b.id - a.id);
       setImages(sortedData);
@@ -225,17 +228,19 @@ export default function ImageManagement() {
       <div className="store-header">
         <h1>이미지 관리</h1>
 
-        {/* 검색 입력창 */}
+        {/* 검색 및 필터 */}
         <div style={{
           display: 'flex',
           alignItems: 'center',
           gap: '10px',
           margin: '15px 0',
-          maxWidth: '500px'
+          flexWrap: 'wrap'
         }}>
+          {/* 검색 입력창 */}
           <div style={{
             position: 'relative',
-            flex: 1
+            flex: 1,
+            minWidth: '250px'
           }}>
             <FiImage style={{
               position: 'absolute',
@@ -263,6 +268,28 @@ export default function ImageManagement() {
               onBlur={(e) => e.target.style.borderColor = '#cbd5e0'}
             />
           </div>
+
+          {/* Purpose 필터 드롭다운 */}
+          <select
+            value={imagePurposeFilter}
+            onChange={(e) => setImagePurposeFilter(e.target.value)}
+            style={{
+              padding: '10px 15px',
+              fontSize: '14px',
+              border: '1px solid #cbd5e0',
+              borderRadius: '6px',
+              outline: 'none',
+              backgroundColor: 'white',
+              cursor: 'pointer',
+              minWidth: '150px'
+            }}
+          >
+            <option value="ALL">전체 이미지</option>
+            <option value="GENERAL">일반 이미지</option>
+            <option value="REFERENCE">참조 이미지</option>
+            <option value="MENU">메뉴 이미지</option>
+          </select>
+
           {searchTerm && (
             <div style={{
               fontSize: '13px',

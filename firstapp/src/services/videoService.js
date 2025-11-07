@@ -2,7 +2,7 @@ import api from './api';
 
 export const videoService = {
   // Upload a video file
-  async uploadVideo(file, title = '', description = '') {
+  async uploadVideo(file, title = '', description = '', imagePurpose = null) {
     try {
       const formData = new FormData();
       formData.append('file', file);
@@ -11,6 +11,9 @@ export const videoService = {
       }
       if (description) {
         formData.append('description', description);
+      }
+      if (imagePurpose) {
+        formData.append('imagePurpose', imagePurpose);
       }
 
       const response = await api.post('/videos/upload', formData, {
@@ -27,7 +30,7 @@ export const videoService = {
   },
 
   // Upload an image file
-  async uploadImage(file, title = '', description = '') {
+  async uploadImage(file, title = '', description = '', imagePurpose = 'GENERAL') {
     try {
       const formData = new FormData();
       formData.append('file', file);
@@ -36,6 +39,9 @@ export const videoService = {
       }
       if (description) {
         formData.append('description', description);
+      }
+      if (imagePurpose) {
+        formData.append('imagePurpose', imagePurpose);
       }
 
       const response = await api.post('/videos/upload', formData, {
@@ -81,13 +87,18 @@ export const videoService = {
   },
 
   // Get all images (mediaType=IMAGE)
-  async getAllImages() {
+  // Optional imagePurpose filter: 'GENERAL', 'REFERENCE', 'MENU'
+  async getAllImages(imagePurpose = null) {
     try {
-      const response = await api.get('/videos', {
-        params: {
-          mediaType: 'IMAGE'
-        }
-      });
+      const params = {
+        mediaType: 'IMAGE'
+      };
+
+      if (imagePurpose) {
+        params.imagePurpose = imagePurpose;
+      }
+
+      const response = await api.get('/videos', { params });
       return response.data;
     } catch (error) {
       console.error('Get images error:', error);
