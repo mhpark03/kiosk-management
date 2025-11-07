@@ -1,0 +1,45 @@
+name: coffee_menu_editor
+description: Coffee Kiosk Menu XML Editor Application
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.9.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8
+
+  # XML generation and parsing
+  xml: ^6.5.0
+
+  # File picking
+  file_picker: ^10.3.3
+
+  # Path provider for file operations
+  path_provider: ^2.1.1
+
+  # State management
+  provider: ^6.1.1
+
+  # HTTP client for backend API
+  dio: ^5.4.0
+
+  # Network image caching
+  cached_network_image: ^3.3.1
+
+  # UUID generation
+  uuid: ^4.3.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/
