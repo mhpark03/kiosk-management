@@ -9,6 +9,8 @@ export const menuService = {
           imagePurpose: 'MENU'
         }
       });
+      console.log('API Response from /videos?imagePurpose=MENU:', response.data);
+      console.log('Number of menus returned:', response.data?.length || 0);
       return response.data;
     } catch (error) {
       console.error('Get menus from S3 error:', error);
@@ -19,9 +21,10 @@ export const menuService = {
   // Upload menu XML file to S3
   async uploadMenuXML(xmlContent, title, description) {
     try {
-      // Create a Blob from XML string
+      // Create a Blob from XML string with timestamp to ensure uniqueness
+      const timestamp = Date.now();
       const blob = new Blob([xmlContent], { type: 'text/xml' });
-      const file = new File([blob], `${title.replace(/\s+/g, '_')}.xml`, { type: 'text/xml' });
+      const file = new File([blob], `${title.replace(/\s+/g, '_')}_${timestamp}.xml`, { type: 'text/xml' });
 
       const formData = new FormData();
       formData.append('file', file);
@@ -29,12 +32,15 @@ export const menuService = {
       formData.append('description', description);
       formData.append('imagePurpose', 'MENU'); // Set purpose as MENU
 
+      console.log('Uploading menu with imagePurpose=MENU:', { title, description });
+
       const response = await api.post('/videos/upload', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
       });
 
+      console.log('Upload response:', response.data);
       return response.data;
     } catch (error) {
       console.error('Menu XML upload error:', error);
@@ -53,7 +59,7 @@ export const menuService = {
     }
   },
 
-  // Get single menu by ID
+  // Get single menu by ID (content included for XML files)
   async getMenuById(menuId) {
     try {
       const response = await api.get(`/videos/${menuId}`);
@@ -70,9 +76,10 @@ export const menuService = {
       // Delete existing menu
       await this.deleteMenu(menuId);
 
-      // Upload new version
+      // Upload new version with timestamp to ensure uniqueness
+      const timestamp = Date.now();
       const blob = new Blob([xmlContent], { type: 'text/xml' });
-      const file = new File([blob], `${title.replace(/\s+/g, '_')}.xml`, { type: 'text/xml' });
+      const file = new File([blob], `${title.replace(/\s+/g, '_')}_${timestamp}.xml`, { type: 'text/xml' });
 
       const formData = new FormData();
       formData.append('file', file);

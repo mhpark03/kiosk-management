@@ -40,10 +40,27 @@ function MenuEditor() {
         // Load existing menu from S3
         const menuData = await menuService.getMenuById(id);
 
+        // Fix XML content by escaping unescaped & characters in URLs and other places
+        let xmlContent = menuData.content;
+
+        // This regex finds & that are not part of existing XML entities (&amp;, &lt;, &gt;, &quot;, &apos;)
+        xmlContent = xmlContent.replace(/&(?!(amp|lt|gt|quot|apos);)/g, '&amp;');
+
         // Parse XML content
         const parser = new DOMParser();
-        const xmlDoc = parser.parseFromString(menuData.content, 'text/xml');
+        const xmlDoc = parser.parseFromString(xmlContent, 'text/xml');
+
+        // Check for parsing errors
+        const parserError = xmlDoc.getElementsByTagName('parsererror');
+        if (parserError.length > 0) {
+          console.error('XML Parser Error:', parserError[0].textContent);
+          alert('XML 파싱 에러: ' + parserError[0].textContent);
+          navigate('/menus');
+          return;
+        }
+
         const parsedMenu = parseXMLToMenu(xmlDoc);
+
         parsedMenu.id = id;
         parsedMenu.s3Key = menuData.s3Key;
         parsedMenu.description = menuData.description; // Store description from S3 metadata
@@ -60,11 +77,11 @@ function MenuEditor() {
   };
 
   const parseXMLToMenu = (xmlDoc) => {
-    const metadata = xmlDoc.querySelector('metadata');
-    const name = metadata?.querySelector('name')?.textContent || '불러온 메뉴';
-    const version = metadata?.querySelector('version')?.textContent || '1.0.0';
+    const metadata = xmlDoc.getElementsByTagName('metadata')[0];
+    const name = metadata?.getElementsByTagName('name')[0]?.textContent || '불러온 메뉴';
+    const version = metadata?.getElementsByTagName('version')[0]?.textContent || '1.0.0';
 
-    const categories = Array.from(xmlDoc.querySelectorAll('category')).map(cat => ({
+    const categories = Array.from(xmlDoc.getElementsByTagName('category')).map(cat => ({
       id: cat.getAttribute('id'),
       name: cat.getAttribute('name'),
       nameEn: cat.getAttribute('nameEn'),
@@ -72,35 +89,35 @@ function MenuEditor() {
       order: parseInt(cat.getAttribute('order') || '0'),
     }));
 
-    const menuItems = Array.from(xmlDoc.querySelectorAll('menuItems item')).map(item => ({
+    const menuItems = Array.from(xmlDoc.getElementsByTagName('item')).map(item => ({
       id: item.getAttribute('id'),
       category: item.getAttribute('category'),
       order: parseInt(item.getAttribute('order') || '0'),
-      name: item.querySelector('name')?.textContent || '',
-      nameEn: item.querySelector('nameEn')?.textContent || '',
-      price: parseInt(item.querySelector('price')?.textContent || '0'),
-      description: item.querySelector('description')?.textContent || '',
-      thumbnailUrl: item.querySelector('thumbnailUrl')?.textContent || null,
-      available: item.querySelector('available')?.textContent === 'true',
-      sizeEnabled: item.querySelector('sizeEnabled')?.textContent === 'true',
-      temperatureEnabled: item.querySelector('temperatureEnabled')?.textContent === 'true',
-      extrasEnabled: item.querySelector('extrasEnabled')?.textContent === 'true',
+      name: item.getElementsByTagName('name')[0]?.textContent || '',
+      nameEn: item.getElementsByTagName('nameEn')[0]?.textContent || '',
+      price: parseInt(item.getElementsByTagName('price')[0]?.textContent || '0'),
+      description: item.getElementsByTagName('description')[0]?.textContent || '',
+      thumbnailUrl: item.getElementsByTagName('thumbnailUrl')[0]?.textContent || null,
+      available: item.getElementsByTagName('available')[0]?.textContent === 'true',
+      sizeEnabled: item.getElementsByTagName('sizeEnabled')[0]?.textContent === 'true',
+      temperatureEnabled: item.getElementsByTagName('temperatureEnabled')[0]?.textContent === 'true',
+      extrasEnabled: item.getElementsByTagName('extrasEnabled')[0]?.textContent === 'true',
     }));
 
-    const sizes = Array.from(xmlDoc.querySelectorAll('sizes size')).map(size => ({
+    const sizes = Array.from(xmlDoc.getElementsByTagName('size')).map(size => ({
       id: size.getAttribute('id'),
       name: size.getAttribute('name'),
       nameKo: size.getAttribute('nameKo'),
       additionalPrice: parseInt(size.getAttribute('additionalPrice') || '0'),
     }));
 
-    const temperatures = Array.from(xmlDoc.querySelectorAll('temperatures temperature')).map(temp => ({
+    const temperatures = Array.from(xmlDoc.getElementsByTagName('temperature')).map(temp => ({
       id: temp.getAttribute('id'),
       name: temp.getAttribute('name'),
       nameKo: temp.getAttribute('nameKo'),
     }));
 
-    const extras = Array.from(xmlDoc.querySelectorAll('extras extra')).map(extra => ({
+    const extras = Array.from(xmlDoc.getElementsByTagName('extra')).map(extra => ({
       id: extra.getAttribute('id'),
       name: extra.getAttribute('name'),
       nameEn: extra.getAttribute('nameEn'),
@@ -169,7 +186,7 @@ function MenuEditor() {
       setTimeout(() => {
         setShowS3Modal(false);
         setSaveSuccess('');
-        navigate('/menus'); // Return to menu list
+        navigate('/menus', { state: { reload: true } }); // Return to menu list with reload flag
       }, 2000);
     } catch (error) {
       setSaveError(error.message || 'S3 저장 중 오류가 발생했습니다.');
@@ -198,33 +215,44 @@ function MenuEditor() {
     URL.revokeObjectURL(url);
   };
 
+  // Helper function to escape XML special characters
+  const escapeXML = (str) => {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&apos;');
+  };
+
   const generateXML = (menu) => {
     let xml = '<?xml version="1.0" encoding="UTF-8"?>\n<kioskMenu>\n';
 
     // Metadata
     xml += '  <metadata>\n';
-    xml += `    <name>${menu.name}</name>\n`;
-    xml += `    <version>${menu.version}</version>\n`;
-    xml += `    <lastModified>${menu.lastModified}</lastModified>\n`;
+    xml += `    <name>${escapeXML(menu.name)}</name>\n`;
+    xml += `    <version>${escapeXML(menu.version)}</version>\n`;
+    xml += `    <lastModified>${escapeXML(menu.lastModified)}</lastModified>\n`;
     xml += '  </metadata>\n\n';
 
     // Categories
     xml += '  <categories>\n';
     menu.categories.forEach(cat => {
-      xml += `    <category id="${cat.id}" name="${cat.name}" nameEn="${cat.nameEn}" icon="${cat.icon}" order="${cat.order}" />\n`;
+      xml += `    <category id="${escapeXML(cat.id)}" name="${escapeXML(cat.name)}" nameEn="${escapeXML(cat.nameEn)}" icon="${escapeXML(cat.icon)}" order="${cat.order}" />\n`;
     });
     xml += '  </categories>\n\n';
 
     // Menu Items
     xml += '  <menuItems>\n';
     menu.menuItems.forEach(item => {
-      xml += `    <item id="${item.id}" category="${item.category}" order="${item.order}">\n`;
-      xml += `      <name>${item.name}</name>\n`;
-      xml += `      <nameEn>${item.nameEn}</nameEn>\n`;
+      xml += `    <item id="${escapeXML(item.id)}" category="${escapeXML(item.category)}" order="${item.order}">\n`;
+      xml += `      <name>${escapeXML(item.name)}</name>\n`;
+      xml += `      <nameEn>${escapeXML(item.nameEn)}</nameEn>\n`;
       xml += `      <price>${item.price}</price>\n`;
-      xml += `      <description>${item.description}</description>\n`;
+      xml += `      <description>${escapeXML(item.description)}</description>\n`;
       if (item.thumbnailUrl) {
-        xml += `      <thumbnailUrl>${item.thumbnailUrl}</thumbnailUrl>\n`;
+        xml += `      <thumbnailUrl>${escapeXML(item.thumbnailUrl)}</thumbnailUrl>\n`;
       }
       xml += `      <available>${item.available}</available>\n`;
       xml += `      <sizeEnabled>${item.sizeEnabled}</sizeEnabled>\n`;
@@ -238,17 +266,17 @@ function MenuEditor() {
     xml += '  <options>\n';
     xml += '    <sizes>\n';
     menu.options.sizes.forEach(size => {
-      xml += `      <size id="${size.id}" name="${size.name}" nameKo="${size.nameKo}" additionalPrice="${size.additionalPrice}" />\n`;
+      xml += `      <size id="${escapeXML(size.id)}" name="${escapeXML(size.name)}" nameKo="${escapeXML(size.nameKo)}" additionalPrice="${size.additionalPrice}" />\n`;
     });
     xml += '    </sizes>\n';
     xml += '    <temperatures>\n';
     menu.options.temperatures.forEach(temp => {
-      xml += `      <temperature id="${temp.id}" name="${temp.name}" nameKo="${temp.nameKo}" />\n`;
+      xml += `      <temperature id="${escapeXML(temp.id)}" name="${escapeXML(temp.name)}" nameKo="${escapeXML(temp.nameKo)}" />\n`;
     });
     xml += '    </temperatures>\n';
     xml += '    <extras>\n';
     menu.options.extras.forEach(extra => {
-      xml += `      <extra id="${extra.id}" name="${extra.name}" nameEn="${extra.nameEn}" additionalPrice="${extra.additionalPrice}" />\n`;
+      xml += `      <extra id="${escapeXML(extra.id)}" name="${escapeXML(extra.name)}" nameEn="${escapeXML(extra.nameEn)}" additionalPrice="${extra.additionalPrice}" />\n`;
     });
     xml += '    </extras>\n';
     xml += '  </options>\n';

@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { FiEdit, FiCopy, FiTrash2, FiPlus, FiFolder } from 'react-icons/fi';
 import menuService from '../services/menuService';
 import './MenuList.css';
 
 function MenuList() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [menus, setMenus] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -15,6 +16,15 @@ function MenuList() {
   useEffect(() => {
     loadMenus();
   }, []);
+
+  // Reload when returning from editor with reload flag
+  useEffect(() => {
+    if (location.state?.reload) {
+      loadMenus();
+      // Clear the state to prevent reload on subsequent renders
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
 
   const loadMenus = async () => {
     try {
@@ -110,11 +120,11 @@ function MenuList() {
   };
 
   const parseXMLToMenu = (xmlDoc) => {
-    const metadata = xmlDoc.querySelector('metadata');
-    const name = metadata?.querySelector('name')?.textContent || '불러온 메뉴';
-    const version = metadata?.querySelector('version')?.textContent || '1.0.0';
+    const metadata = xmlDoc.getElementsByTagName('metadata')[0];
+    const name = metadata?.getElementsByTagName('name')[0]?.textContent || '불러온 메뉴';
+    const version = metadata?.getElementsByTagName('version')[0]?.textContent || '1.0.0';
 
-    const categories = Array.from(xmlDoc.querySelectorAll('category')).map(cat => ({
+    const categories = Array.from(xmlDoc.getElementsByTagName('category')).map(cat => ({
       id: cat.getAttribute('id'),
       name: cat.getAttribute('name'),
       nameEn: cat.getAttribute('nameEn'),
@@ -122,35 +132,35 @@ function MenuList() {
       order: parseInt(cat.getAttribute('order') || '0'),
     }));
 
-    const menuItems = Array.from(xmlDoc.querySelectorAll('menuItems item')).map(item => ({
+    const menuItems = Array.from(xmlDoc.getElementsByTagName('item')).map(item => ({
       id: item.getAttribute('id'),
       category: item.getAttribute('category'),
       order: parseInt(item.getAttribute('order') || '0'),
-      name: item.querySelector('name')?.textContent || '',
-      nameEn: item.querySelector('nameEn')?.textContent || '',
-      price: parseInt(item.querySelector('price')?.textContent || '0'),
-      description: item.querySelector('description')?.textContent || '',
-      thumbnailUrl: item.querySelector('thumbnailUrl')?.textContent || null,
-      available: item.querySelector('available')?.textContent === 'true',
-      sizeEnabled: item.querySelector('sizeEnabled')?.textContent === 'true',
-      temperatureEnabled: item.querySelector('temperatureEnabled')?.textContent === 'true',
-      extrasEnabled: item.querySelector('extrasEnabled')?.textContent === 'true',
+      name: item.getElementsByTagName('name')[0]?.textContent || '',
+      nameEn: item.getElementsByTagName('nameEn')[0]?.textContent || '',
+      price: parseInt(item.getElementsByTagName('price')[0]?.textContent || '0'),
+      description: item.getElementsByTagName('description')[0]?.textContent || '',
+      thumbnailUrl: item.getElementsByTagName('thumbnailUrl')[0]?.textContent || null,
+      available: item.getElementsByTagName('available')[0]?.textContent === 'true',
+      sizeEnabled: item.getElementsByTagName('sizeEnabled')[0]?.textContent === 'true',
+      temperatureEnabled: item.getElementsByTagName('temperatureEnabled')[0]?.textContent === 'true',
+      extrasEnabled: item.getElementsByTagName('extrasEnabled')[0]?.textContent === 'true',
     }));
 
-    const sizes = Array.from(xmlDoc.querySelectorAll('sizes size')).map(size => ({
+    const sizes = Array.from(xmlDoc.getElementsByTagName('size')).map(size => ({
       id: size.getAttribute('id'),
       name: size.getAttribute('name'),
       nameKo: size.getAttribute('nameKo'),
       additionalPrice: parseInt(size.getAttribute('additionalPrice') || '0'),
     }));
 
-    const temperatures = Array.from(xmlDoc.querySelectorAll('temperatures temperature')).map(temp => ({
+    const temperatures = Array.from(xmlDoc.getElementsByTagName('temperature')).map(temp => ({
       id: temp.getAttribute('id'),
       name: temp.getAttribute('name'),
       nameKo: temp.getAttribute('nameKo'),
     }));
 
-    const extras = Array.from(xmlDoc.querySelectorAll('extras extra')).map(extra => ({
+    const extras = Array.from(xmlDoc.getElementsByTagName('extra')).map(extra => ({
       id: extra.getAttribute('id'),
       name: extra.getAttribute('name'),
       nameEn: extra.getAttribute('nameEn'),
@@ -213,13 +223,13 @@ function MenuList() {
 
   const formatDate = (isoString) => {
     const date = new Date(isoString);
-    return date.toLocaleString('ko-KR', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const seconds = String(date.getSeconds()).padStart(2, '0');
+    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
   };
 
   // Pagination logic
@@ -288,8 +298,8 @@ function MenuList() {
             <tr>
               <th style={{width: '80px', textAlign: 'center'}}>순서</th>
               <th>메뉴 이름</th>
-              <th style={{width: '180px'}}>설명</th>
-              <th style={{width: '180px'}}>수정일</th>
+              <th style={{width: '350px'}}>설명</th>
+              <th style={{width: '200px'}}>수정일</th>
               <th style={{width: '150px', textAlign: 'center'}}>작업</th>
             </tr>
           </thead>
