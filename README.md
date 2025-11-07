@@ -128,6 +128,17 @@ Flutter Kiosk App             │                             │               
 - ✅ 내장 비디오 플레이어
 - ✅ 반응형 Material Design UI
 
+### 커피 메뉴 관리 (Coffee Menu Management)
+- ✅ 웹 기반 메뉴 편집기 (React)
+- ✅ XML 기반 메뉴 구성 (카테고리/메뉴/가격/이미지/영상)
+- ✅ 트리 구조 네비게이션 (Menu → Category → Item)
+- ✅ 실시간 인라인 편집 (왼쪽 트리 + 오른쪽 속성 패널)
+- ✅ 메뉴 CRUD: 생성, 복사, 가져오기(XML), 내보내기(XML)
+- ✅ 상품 이미지 URL 지원 (썸네일 + 상세 이미지)
+- ✅ 옵션 관리 (HOT/ICE, 샷 추가, 시럽 등)
+- ✅ localStorage 기반 자동 저장
+- ✅ Flutter 데스크톱 편집 앱 (Windows/macOS/Linux)
+
 ### 대시보드 (Dashboard)
 - ✅ 월별 키오스크 설치 현황 차트
 - ✅ 주간 상태별 추이 그래프
