@@ -244,15 +244,57 @@ flutter build apk --release
 1. **백엔드**: AWS Elastic Beanstalk으로 배포
 2. **프론트엔드**: AWS S3로 배포
 
-자세한 내용은 [배포 가이드](AWS_DEPLOYMENT_CHECKLIST.md)를 참조하세요.
+자세한 내용은 [배포 가이드](docs/aws/AWS_DEPLOYMENT_CHECKLIST.md)를 참조하세요.
 
 ## 📚 문서
 
-- [백엔드 상세 가이드](backend/README.md)
-- [환경 설정 가이드](backend/ENVIRONMENT_SETUP.md)
-- [AWS 배포 체크리스트](AWS_DEPLOYMENT_CHECKLIST.md)
-- [배포 빠른 참조](DEPLOYMENT_QUICK_REFERENCE.md)
-- [Claude Code 가이드](CLAUDE.md)
+### 핵심 문서
+- 📘 [CLAUDE.md](CLAUDE.md) - AI 코딩 가이드 (Claude Code 사용)
+- 🔒 [SECURITY.md](SECURITY.md) - 보안 정책 및 가이드
+- 📖 [백엔드 상세 가이드](backend/README.md)
+- 🎨 [프론트엔드 가이드](firstapp/README.md)
+- 📱 [Flutter 앱 개발 가이드](flutter_downloader/CLAUDE.md)
+
+### AWS 배포 문서 (`docs/aws/`)
+- [AWS 배포 체크리스트](docs/aws/AWS_DEPLOYMENT_CHECKLIST.md)
+- [AWS 배포 가이드](docs/aws/AWS_DEPLOYMENT_GUIDE.md)
+- [AWS 환경 변수 설정](docs/aws/AWS_ENVIRONMENT_VARIABLES_SETUP.md)
+- [CloudFront 설정 가이드](docs/aws/CLOUDFRONT_SETUP_GUIDE.md)
+- [AWS 지원 요청](docs/aws/AWS_SUPPORT_REQUEST.md)
+
+### 배포 가이드 (`docs/deployment/`)
+- [배포 빠른 참조](docs/deployment/DEPLOYMENT_QUICK_REFERENCE.md)
+- [수동 배포 가이드](docs/deployment/MANUAL_DEPLOYMENT_GUIDE.md)
+- [빠른 배포 가이드](docs/deployment/QUICK_DEPLOY_GUIDE.md)
+- [PR 워크플로우](docs/deployment/PR_WORKFLOW_GUIDE.md)
+- [배포 승인 설정](docs/deployment/DEPLOYMENT_APPROVAL_SETUP.md)
+- [배포 상태](docs/deployment/DEPLOYMENT_STATUS.md)
+
+### 기술 가이드 (`docs/guides/`)
+- [HTTPS 백엔드 설정](docs/guides/BACKEND_HTTPS_GUIDE.md)
+- [HashRouter 수정 가이드](docs/guides/HASHROUTER_FIX.md)
+- [Google TTS 설정](docs/guides/GOOGLE_TTS_SETUP.md)
+- [관리자 업그레이드](docs/guides/ADMIN_UPGRADE_GUIDE.md)
+- [GitHub Secrets 설정](docs/guides/GITHUB_SECRETS_STEP_BY_STEP.md)
+- [키오스크 이벤트 기록 계획](docs/guides/KIOSK_EVENT_RECORDING_PLAN.md)
+- [키오스크 URL](docs/guides/KIOSK_URLS.md)
+
+### 커피 메뉴 시스템 (`docs/`)
+- [커피 메뉴 스키마](docs/coffee_menu_schema.md)
+- [커피 메뉴 샘플 XML](docs/coffee_menu_sample.xml)
+- [커피 메뉴 구현 계획](docs/coffee_menu_implementation_plan.md)
+
+### 설정 파일 (`docs/config/`)
+- AWS S3 버킷 정책
+- CloudFront 설정
+- IAM 정책
+- S3 라우팅 규칙
+
+### 유틸리티 스크립트 (`docs/scripts/`)
+- Elastic Beanstalk 정보 확인 스크립트
+- 사용자 확인 SQL
+- 키오스크 오픈 배치 파일
+- 북마크 HTML
 
 ## 🔐 보안
 
@@ -293,7 +335,7 @@ kiosk-management/
 │   │   └── App.jsx
 │   └── .env.production
 │
-├── flutter_downloader/    # Flutter 모바일/데스크톱 앱
+├── flutter_downloader/    # Flutter 키오스크 앱 (Windows/Android)
 │   ├── lib/
 │   │   ├── main.dart       # 앱 진입점
 │   │   ├── models/         # 데이터 모델
@@ -305,8 +347,33 @@ kiosk-management/
 │   ├── pubspec.yaml        # Flutter 의존성
 │   └── CLAUDE.md           # 개발 가이드
 │
-└── .github/
-    └── workflows/         # GitHub Actions CI/CD
+├── coffee_menu_editor/    # Flutter 메뉴 편집기 (Windows/macOS/Linux)
+│   ├── lib/
+│   │   ├── services/       # 메뉴 서비스
+│   │   ├── widgets/        # 트리 뷰, 디테일 패널
+│   │   └── main.dart
+│   └── pubspec.yaml
+│
+├── video-editor/          # Electron 비디오 에디터 (AI 통합)
+│   ├── renderer/
+│   │   └── modules/       # TTS, Imagen, Runway, Veo
+│   └── package.json
+│
+├── docs/                  # 📚 프로젝트 문서
+│   ├── aws/              # AWS 배포 관련
+│   ├── deployment/       # 배포 가이드
+│   ├── guides/           # 기술 가이드
+│   ├── config/           # 설정 파일 (JSON)
+│   ├── scripts/          # 유틸리티 스크립트
+│   ├── coffee_menu_schema.md
+│   └── coffee_menu_sample.xml
+│
+├── .github/
+│   └── workflows/         # GitHub Actions CI/CD
+│
+├── CLAUDE.md             # AI 코딩 가이드
+├── SECURITY.md           # 보안 정책
+└── README.md             # 이 파일
 ```
 
 ### API 엔드포인트
