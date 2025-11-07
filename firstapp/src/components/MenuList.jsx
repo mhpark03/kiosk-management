@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { FiEdit, FiCopy, FiTrash2, FiPlus, FiFolder } from 'react-icons/fi';
 import './MenuList.css';
 
 function MenuList() {
   const navigate = useNavigate();
   const [menus, setMenus] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   useEffect(() => {
     loadMenus();
@@ -208,68 +211,184 @@ function MenuList() {
     });
   };
 
+  // Pagination logic
+  const totalPages = Math.ceil(menus.length / itemsPerPage);
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentMenus = menus.slice(indexOfFirstItem, indexOfLastItem);
+
+  const handlePageChange = (pageNumber) => {
+    setCurrentPage(pageNumber);
+  };
+
+  const handlePreviousPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+
+  // Reset to page 1 when menus changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [menus.length]);
+
   return (
-    <div className="menu-list-container">
-      <div className="menu-list-header">
+    <div className="store-management">
+      <div className="store-header">
         <h1>메뉴 관리</h1>
-        <div className="menu-list-actions">
-          <button className="btn btn-primary" onClick={handleNewMenu}>
-            <span className="icon">➕</span> 새 메뉴
+        <div className="header-actions">
+          <button onClick={handleNewMenu} className="btn-add">
+            <FiPlus /> 새 메뉴
           </button>
-          <button className="btn btn-secondary" onClick={handleOpenMenu}>
-            <span className="icon">📁</span> 메뉴 열기
+          <button onClick={handleOpenMenu} className="btn-secondary-action">
+            <FiFolder /> 메뉴 열기
           </button>
         </div>
       </div>
 
-      <div className="menu-list-grid">
-        {menus.map(menu => (
-          <div key={menu.id} className="menu-card" onClick={() => handleEditMenu(menu.id)}>
-            <div className="menu-card-header">
-              <h3>{menu.name}</h3>
-              <div className="menu-card-actions">
-                <button
-                  className="btn-icon"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleCopyMenu(menu);
-                  }}
-                  title="복사"
-                >
-                  📋
-                </button>
-                <button
-                  className="btn-icon"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDeleteMenu(menu.id);
-                  }}
-                  title="삭제"
-                >
-                  🗑️
-                </button>
-              </div>
-            </div>
-            <div className="menu-card-body">
-              <div className="menu-card-stat">
-                <span className="label">버전:</span>
-                <span className="value">{menu.version}</span>
-              </div>
-              <div className="menu-card-stat">
-                <span className="label">카테고리:</span>
-                <span className="value">{menu.categories.length}개</span>
-              </div>
-              <div className="menu-card-stat">
-                <span className="label">메뉴 아이템:</span>
-                <span className="value">{menu.menuItems.length}개</span>
-              </div>
-              <div className="menu-card-stat">
-                <span className="label">수정일:</span>
-                <span className="value">{formatDate(menu.lastModified)}</span>
-              </div>
-            </div>
+      <div className="store-table-container">
+        <table className="store-table">
+          <thead>
+            <tr>
+              <th style={{width: '80px', textAlign: 'center'}}>순서</th>
+              <th>메뉴 이름</th>
+              <th style={{width: '120px', textAlign: 'center'}}>버전</th>
+              <th style={{width: '120px', textAlign: 'center'}}>카테고리</th>
+              <th style={{width: '120px', textAlign: 'center'}}>메뉴 아이템</th>
+              <th style={{width: '180px'}}>수정일</th>
+              <th style={{width: '150px', textAlign: 'center'}}>작업</th>
+            </tr>
+          </thead>
+          <tbody>
+            {currentMenus.length === 0 ? (
+              <tr>
+                <td colSpan="7" className="no-data">등록된 메뉴가 없습니다</td>
+              </tr>
+            ) : (
+              currentMenus.map((menu, index) => (
+                <tr key={menu.id}>
+                  <td style={{textAlign: 'center', fontWeight: '600'}}>
+                    {indexOfFirstItem + index + 1}
+                  </td>
+                  <td>
+                    <span style={{fontWeight: '500', color: '#333'}}>{menu.name}</span>
+                  </td>
+                  <td style={{textAlign: 'center'}}>{menu.version}</td>
+                  <td style={{textAlign: 'center'}}>{menu.categories.length}개</td>
+                  <td style={{textAlign: 'center'}}>{menu.menuItems.length}개</td>
+                  <td>{formatDate(menu.lastModified)}</td>
+                  <td>
+                    <div className="action-buttons">
+                      <button
+                        onClick={() => handleEditMenu(menu.id)}
+                        className="btn-edit"
+                        title="편집"
+                      >
+                        <FiEdit />
+                      </button>
+                      <button
+                        onClick={() => handleCopyMenu(menu)}
+                        className="btn-copy"
+                        title="복사"
+                      >
+                        <FiCopy />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteMenu(menu.id)}
+                        className="btn-deactivate"
+                        title="삭제"
+                      >
+                        <FiTrash2 />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Pagination */}
+      {menus.length > 0 && totalPages > 1 && (
+        <div style={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          margin: '20px 0',
+          gap: '10px'
+        }}>
+          <button
+            onClick={handlePreviousPage}
+            disabled={currentPage === 1}
+            style={{
+              padding: '8px 16px',
+              border: '1px solid #cbd5e0',
+              borderRadius: '4px',
+              background: currentPage === 1 ? '#f7fafc' : '#fff',
+              color: currentPage === 1 ? '#a0aec0' : '#2d3748',
+              cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
+              fontSize: '14px',
+              fontWeight: '500'
+            }}
+          >
+            이전
+          </button>
+
+          <div style={{display: 'flex', gap: '5px'}}>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map(pageNum => (
+              <button
+                key={pageNum}
+                onClick={() => handlePageChange(pageNum)}
+                style={{
+                  padding: '8px 12px',
+                  border: pageNum === currentPage ? '2px solid #667eea' : '1px solid #cbd5e0',
+                  borderRadius: '4px',
+                  background: pageNum === currentPage ? '#667eea' : '#fff',
+                  color: pageNum === currentPage ? '#fff' : '#2d3748',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: pageNum === currentPage ? '600' : '500',
+                  minWidth: '36px'
+                }}
+              >
+                {pageNum}
+              </button>
+            ))}
           </div>
-        ))}
+
+          <button
+            onClick={handleNextPage}
+            disabled={currentPage === totalPages}
+            style={{
+              padding: '8px 16px',
+              border: '1px solid #cbd5e0',
+              borderRadius: '4px',
+              background: currentPage === totalPages ? '#f7fafc' : '#fff',
+              color: currentPage === totalPages ? '#a0aec0' : '#2d3748',
+              cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
+              fontSize: '14px',
+              fontWeight: '500'
+            }}
+          >
+            다음
+          </button>
+        </div>
+      )}
+
+      <div style={{
+        textAlign: 'center',
+        color: '#718096',
+        fontSize: '14px',
+        margin: '10px 0 20px'
+      }}>
+        전체 {menus.length}개 메뉴 {menus.length > 0 && `(${currentPage} / ${totalPages} 페이지)`}
       </div>
     </div>
   );

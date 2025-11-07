@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { getHistoryByUser } from '../services/historyService';
 import { getAllStores } from '../services/storeService';
 import { getAllUsers } from '../services/userService';
+import { FiSearch, FiRefreshCw } from 'react-icons/fi';
 import './StoreHistory.css';
 
 function UserHistory() {
@@ -440,12 +441,12 @@ function UserHistory() {
           </div>
         </div>
 
-        <button onClick={handleSearch} className="btn-refresh" title="검색" style={{marginLeft: '5px', fontSize: '18px', background: 'none', border: 'none', cursor: 'pointer'}}>
-          🔍
+        <button onClick={handleSearch} className="btn-refresh" title="검색" style={{marginLeft: '5px', padding: '8px 16px', background: 'none', border: '1px solid #ddd', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', color: '#666'}}>
+          <FiSearch size={16} /> 검색
         </button>
 
-        <button onClick={handleReset} className="btn-refresh" title="초기화" style={{marginLeft: '5px', fontSize: '18px', background: 'none', border: 'none', cursor: 'pointer'}}>
-          🔄
+        <button onClick={handleReset} className="btn-refresh" title="초기화" style={{marginLeft: '5px', padding: '8px 16px', background: 'none', border: '1px solid #ddd', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', color: '#666'}}>
+          <FiRefreshCw size={16} /> 초기화
         </button>
       </div>
 

@@ -178,9 +178,52 @@
   flex-wrap: wrap;
 }
 
+/* Icon Button Styles for User Management */
+.store-management .action-buttons .btn-edit,
+.store-management .action-buttons .btn-view,
+.store-management .action-buttons .btn-deactivate {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+  font-size: 18px;
+  border-radius: 4px;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.store-management .action-buttons .btn-edit {
+  color: #667eea;
+}
+
+.store-management .action-buttons .btn-edit:hover {
+  background: rgba(102, 126, 234, 0.1);
+  transform: scale(1.1);
+}
+
+.store-management .action-buttons .btn-view {
+  color: #48bb78;
+}
+
+.store-management .action-buttons .btn-view:hover {
+  background: rgba(72, 187, 120, 0.1);
+  transform: scale(1.1);
+}
+
+.store-management .action-buttons .btn-deactivate {
+  color: #f56565;
+}
+
+.store-management .action-buttons .btn-deactivate:hover {
+  background: rgba(245, 101, 101, 0.1);
+  transform: scale(1.1);
+}
+
+/* Legacy Button Styles for Store Management */
 .btn-history,
 .btn-edit,
-.btn-deactivate,
 .btn-restore,
 .btn-permanent-delete {
   padding: 6px 12px;

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getAllUsers, suspendUser, activateUser, deleteUser, updateUserRole, updateUserProfileByAdmin } from '../services/userService';
+import { FiEdit, FiEye, FiTrash2, FiRefreshCw } from 'react-icons/fi';
 import './StoreManagement.css';
 import { formatKSTDate } from '../utils/dateUtils';
 
@@ -368,15 +369,31 @@ function UserManagement() {
     <div className="store-management">
       <div className="store-header">
         <h1>사용자 관리</h1>
-        <button onClick={loadUsers} className="btn-refresh" title="새로고침" style={{background: 'none', border: 'none', cursor: 'pointer'}}>
-          🔄
+        <button
+          onClick={loadUsers}
+          className="btn-refresh"
+          title="새로고침"
+          style={{
+            background: 'none',
+            border: '1px solid #ddd',
+            borderRadius: '6px',
+            padding: '8px 16px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            fontSize: '14px',
+            color: '#666'
+          }}
+        >
+          <FiRefreshCw size={16} /> 새로고침
         </button>
       </div>
 
       {error && <div className="alert alert-error">{error}</div>}
       {message && <div className="alert alert-success">{message}</div>}
 
-      <div className="table-container">
+      <div className="store-table-container">
         <table className="store-table">
           <thead>
             <tr>
@@ -413,9 +430,8 @@ function UserManagement() {
                         onClick={() => handleEditClick(user)}
                         className="btn-edit"
                         title="편집"
-                        style={{fontSize: '18px', padding: '6px 12px', background: 'none', border: 'none', cursor: 'pointer'}}
                       >
-                        ✏️
+                        <FiEdit />
                       </button>
                       <button
                         onClick={() => navigate('/user-history', {
@@ -429,17 +445,15 @@ function UserManagement() {
                         })}
                         className="btn-view"
                         title="이력보기"
-                        style={{fontSize: '18px', padding: '6px 12px', background: 'none', border: 'none', cursor: 'pointer'}}
                       >
-                        📋
+                        <FiEye />
                       </button>
                       <button
                         onClick={() => handleDelete(user.email)}
-                        className="btn-delete"
+                        className="btn-deactivate"
                         title="삭제"
-                        style={{fontSize: '18px', padding: '6px 12px', background: 'none', border: 'none', cursor: 'pointer'}}
                       >
-                        🗑️
+                        <FiTrash2 />
                       </button>
                     </div>
                   </td>
@@ -485,14 +499,14 @@ function UserManagement() {
                   onClick={() => handlePageChange(pageNumber)}
                   style={{
                     padding: '8px 12px',
-                    border: '1px solid #cbd5e0',
+                    border: pageNumber === currentPage ? '2px solid #667eea' : '1px solid #cbd5e0',
                     borderRadius: '4px',
-                    background: currentPage === pageNumber ? '#4299e1' : 'white',
+                    background: currentPage === pageNumber ? '#667eea' : 'white',
                     color: currentPage === pageNumber ? 'white' : '#2d3748',
                     cursor: 'pointer',
                     fontSize: '14px',
                     fontWeight: currentPage === pageNumber ? '600' : '500',
-                    minWidth: '40px'
+                    minWidth: '36px'
                   }}
                 >
                   {pageNumber}

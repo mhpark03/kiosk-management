@@ -4,6 +4,7 @@ import { Navigate } from 'react-router-dom';
 import { getAllKioskEvents } from '../services/kioskEventService';
 import { getAllStores } from '../services/storeService';
 import { getAllKiosks } from '../services/kioskService';
+import { FiSearch, FiRefreshCw } from 'react-icons/fi';
 import './StoreHistory.css';
 
 function KioskEventHistory() {
@@ -263,8 +264,24 @@ function KioskEventHistory() {
             키오스크 장치에서 발생한 모든 이벤트를 조회할 수 있습니다.
           </p>
         </div>
-        <button onClick={loadData} className="btn-refresh" title="새로고침">
-          🔄
+        <button
+          onClick={loadData}
+          className="btn-refresh"
+          title="새로고침"
+          style={{
+            background: 'none',
+            border: '1px solid #ddd',
+            borderRadius: '6px',
+            padding: '8px 16px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            fontSize: '14px',
+            color: '#666'
+          }}
+        >
+          <FiRefreshCw size={16} /> 새로고침
         </button>
       </div>
 
@@ -410,11 +427,11 @@ function KioskEventHistory() {
           </div>
         </div>
 
-        <button onClick={handleSearch} className="btn-refresh" title="검색" style={{fontSize: '18px', background: 'none', border: 'none', cursor: 'pointer'}}>
-          🔍
+        <button onClick={handleSearch} className="btn-refresh" title="검색" style={{padding: '8px 16px', background: 'none', border: '1px solid #ddd', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', color: '#666'}}>
+          <FiSearch size={16} /> 검색
         </button>
-        <button onClick={handleReset} className="btn-refresh" title="초기화" style={{marginLeft: '5px', fontSize: '18px', background: 'none', border: 'none', cursor: 'pointer'}}>
-          🔄
+        <button onClick={handleReset} className="btn-refresh" title="초기화" style={{marginLeft: '5px', padding: '8px 16px', background: 'none', border: '1px solid #ddd', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', color: '#666'}}>
+          <FiRefreshCw size={16} /> 초기화
         </button>
       </div>
 

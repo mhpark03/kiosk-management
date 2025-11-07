@@ -1,7 +1,9 @@
 .video-management {
-  padding: 20px;
-  max-width: 1400px;
-  margin: 0 auto;
+  min-height: 100vh;
+  background: #f5f5f5;
+  padding: 20px 10px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .video-header {

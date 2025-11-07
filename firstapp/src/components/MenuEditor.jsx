@@ -178,11 +178,11 @@ function MenuEditor() {
   return (
     <div className="menu-editor-container">
       <div className="menu-editor-header">
+        <button className="btn btn-back" onClick={() => navigate('/menus')}>
+          ← 목록으로
+        </button>
         <h1>{menu.name} 편집</h1>
         <div className="menu-editor-actions">
-          <button className="btn btn-secondary" onClick={() => navigate('/menus')}>
-            ← 목록으로
-          </button>
           <button className="btn btn-primary" onClick={exportXML}>
             💾 XML 저장
           </button>
