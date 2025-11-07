@@ -47,6 +47,26 @@ A modern React-based admin dashboard for managing kiosks, videos, and AI-generat
 - Configurable duration and resolution
 - Save generated videos to S3 and database
 
+### ☕ Coffee Menu Management
+- **Web-based XML menu editor** for coffee kiosk screens
+- **Tree navigation** with Menu → Category → Menu Item hierarchy
+- **Split-panel interface**: Tree view (left) + Detail editor (right)
+- **Menu CRUD operations**:
+  - 📝 Create new menu
+  - 📂 Import XML menu file
+  - 📋 Copy existing menu
+  - 💾 Export to XML file
+- **Real-time inline editing**: Edit item properties without page navigation
+- **Rich menu item properties**:
+  - Name (Korean/English)
+  - Price and description
+  - Product images (thumbnail + detail URLs)
+  - Options (HOT/ICE, shots, syrup, milk alternatives)
+  - Availability toggle
+- **localStorage persistence**: Auto-save changes
+- **Category management**: Custom icons, ordering, Korean/English names
+- **XML-based configuration**: Easy integration with kiosk apps
+
 ### 📊 Admin Features
 - User management dashboard
 - User activation/deactivation
@@ -138,6 +158,8 @@ firstapp/
 │   │   ├── S3ImageSelector.jsx
 │   │   ├── UserManagement.jsx
 │   │   ├── AdminVideoAssignment.jsx
+│   │   ├── MenuList.jsx           # Coffee menu list page
+│   │   ├── MenuEditor.jsx         # Coffee menu editor
 │   │   ├── ProtectedRoute.jsx
 │   │   └── *.css (component styles)
 │   ├── services/
@@ -153,6 +175,70 @@ firstapp/
 ```
 
 ## Key Features Explained
+
+### Coffee Menu Management
+
+A powerful web-based editor for creating and managing XML-based coffee kiosk menus.
+
+#### How It Works
+
+1. **Menu List Page** (`/menus`):
+   - Grid view showing all saved menus
+   - Each card displays: name, version, category/item count, last modified date
+   - Actions:
+     - **New Menu**: Create empty menu with default categories
+     - **Open Menu**: Import XML file from local file system
+     - **Copy Menu**: Duplicate existing menu for variations
+     - Click any menu card to open in editor
+
+2. **Menu Editor Page** (`/menus/edit/:id`):
+   - **Left Panel**: Tree navigation
+     - Expandable categories
+     - Menu items listed under categories
+     - [+] buttons to add categories/items
+     - Click item to edit in right panel
+   - **Right Panel**: Detail editor
+     - Context-aware forms based on selection
+     - Item properties: name, price, description, images, options
+     - Auto-save changes to localStorage
+   - **Header Actions**:
+     - Back button to return to list
+     - Export to XML file
+
+3. **XML Schema**:
+   ```xml
+   <coffeeMenu version="1.0" name="My Cafe Menu">
+     <metadata>
+       <created>2025-01-15</created>
+       <lastModified>2025-01-15</lastModified>
+     </metadata>
+     <categories>
+       <category id="coffee" name="커피" nameEn="Coffee" icon="☕" order="1"/>
+     </categories>
+     <menuItems>
+       <item id="americano" category="coffee" available="true">
+         <name>아메리카노</name>
+         <nameEn>Americano</nameEn>
+         <price>4500</price>
+         <description>진한 에스프레소에 물을 더한 깔끔한 커피</description>
+         <thumbnailUrl>https://example.com/thumb.jpg</thumbnailUrl>
+         <detailUrl>https://example.com/detail.jpg</detailUrl>
+         <options>
+           <hasHot>true</hasHot>
+           <hasIce>true</hasIce>
+           <hasShot>true</hasShot>
+           <hasSyrup>false</hasSyrup>
+         </options>
+       </item>
+     </menuItems>
+   </coffeeMenu>
+   ```
+
+4. **Integration with Kiosk Apps**:
+   - Export XML from web editor
+   - Place XML in Flutter kiosk app's `assets/` folder
+   - Kiosk reads XML to render menu dynamically
+   - Update menus without app recompilation
 
 ### Dual Image Source Selection
 
@@ -224,6 +310,7 @@ VITE_API_URL=http://localhost:8080/api
 3. **Generate AI Images**: Use Runway ML to create images from references
 4. **Generate AI Videos**: Create videos from image sequences
 5. **Manage Library**: View, edit, and delete your content
+6. **Coffee Menu Editor**: Create and manage kiosk menus via web interface
 
 ### For Administrators
 
@@ -231,6 +318,20 @@ VITE_API_URL=http://localhost:8080/api
 2. **Video Assignment**: Assign videos to specific users
 3. **Content Moderation**: Review and manage all uploaded content
 4. **System Monitoring**: Track usage and system health
+5. **Menu Management**: Create/edit coffee kiosk menus for deployment
+
+### For Menu Editors
+
+1. **Access Menu Management**: Click "메뉴 관리" in navigation bar
+2. **Create New Menu**: Click "New Menu" button, edit categories and items
+3. **Import Existing**: Click "Open Menu" to import XML file
+4. **Edit Menu**:
+   - Click menu card to open editor
+   - Use tree view to navigate categories/items
+   - Edit properties in right panel
+   - Changes auto-save to localStorage
+5. **Export Menu**: Click "XML 저장" to download XML file
+6. **Deploy to Kiosk**: Place exported XML in Flutter kiosk app assets folder
 
 ## AI Generation Tips
 
@@ -300,4 +401,8 @@ mhpark03
 
 - Backend API: [kiosk-backend](../backend)
 - Kiosk App: [kiosk-downloader](../kiosk-downloader)
-# Updated 2025년 10월 26일 일 오전 11:58:33
+- Coffee Menu Editor (Desktop): [coffee_menu_editor](../coffee_menu_editor)
+
+---
+
+**Last Updated**: 2025-11-07 - Added Coffee Menu Management feature
