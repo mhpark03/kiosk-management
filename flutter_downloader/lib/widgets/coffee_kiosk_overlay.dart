@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../models/coffee_menu_item.dart';
 import '../models/coffee_order.dart';
@@ -8,11 +7,13 @@ import '../services/coffee_menu_service.dart';
 class CoffeeKioskOverlay extends StatefulWidget {
   final VoidCallback onClose;
   final Function(CoffeeOrder) onOrderComplete;
+  final bool showCloseButton;
 
   const CoffeeKioskOverlay({
     super.key,
     required this.onClose,
     required this.onOrderComplete,
+    this.showCloseButton = false,
   });
 
   @override
@@ -24,7 +25,6 @@ class _CoffeeKioskOverlayState extends State<CoffeeKioskOverlay> {
   String _selectedCategory = 'coffee';
   List<OrderItem> _cartItems = [];
   CoffeeMenuItem? _selectedMenuItem;
-  final FocusNode _focusNode = FocusNode();
 
   // Options for selected item
   String _selectedSize = 'medium';
@@ -36,10 +36,6 @@ class _CoffeeKioskOverlayState extends State<CoffeeKioskOverlay> {
     super.initState();
     // Load menu from XML
     _loadMenu();
-    // Request focus when overlay is shown
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _focusNode.requestFocus();
-    });
   }
 
   Future<void> _loadMenu() async {
@@ -48,41 +44,24 @@ class _CoffeeKioskOverlayState extends State<CoffeeKioskOverlay> {
   }
 
   @override
-  void dispose() {
-    _focusNode.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return Focus(
-      focusNode: _focusNode,
-      autofocus: true,
-      onKeyEvent: (node, event) {
-        if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.escape) {
-          widget.onClose();
-          return KeyEventResult.handled;
-        }
-        return KeyEventResult.ignored;
-      },
-      child: Container(
-        color: Colors.white, // White background for kiosk menu
-        child: SafeArea(
-          child: Row(
-            children: [
-              // Menu section (left side)
-              Expanded(
-                flex: 3,
-                child: _buildMenuSection(),
-              ),
+    return Container(
+      color: Colors.white, // White background for kiosk menu
+      child: SafeArea(
+        child: Row(
+          children: [
+            // Menu section (left side)
+            Expanded(
+              flex: 3,
+              child: _buildMenuSection(),
+            ),
 
-              // Cart section (right side)
-              Expanded(
-                flex: 2,
-                child: _buildCartSection(),
-              ),
-            ],
-          ),
+            // Cart section (right side)
+            Expanded(
+              flex: 2,
+              child: _buildCartSection(),
+            ),
+          ],
         ),
       ),
     );
@@ -510,6 +489,14 @@ class _CoffeeKioskOverlayState extends State<CoffeeKioskOverlay> {
                       ),
                     ),
                   ),
+                if (widget.showCloseButton) ...[
+                  const SizedBox(width: 8),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white, size: 24),
+                    onPressed: widget.onClose,
+                    tooltip: '닫기',
+                  ),
+                ],
               ],
             ),
           ),

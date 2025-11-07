@@ -43,6 +43,7 @@ class _VideoListScreenState extends State<VideoListScreen> {
   Timer? _statusHeartbeatTimer; // Timer for periodic status reporting
   bool _isLoggedIn = false;
   Kiosk? _kiosk; // Store kiosk info for display
+  bool _isNavigating = false; // Flag to prevent duplicate navigation
 
   @override
   void initState() {
@@ -1065,8 +1066,13 @@ class _VideoListScreenState extends State<VideoListScreen> {
                                 // 썸네일
                                 GestureDetector(
                                   onTap: () {
+                                    print('[VIDEO LIST] Thumbnail tapped for video: ${video.id}');
+                                    print('[VIDEO LIST] Video status: ${video.downloadStatus}');
+                                    print('[VIDEO LIST] Video localPath: ${video.localPath}');
+
                                     // 다운로드 완료된 동영상만 재생 가능
                                     if (video.downloadStatus == 'completed' && video.localPath != null) {
+                                      print('[VIDEO LIST] Opening video player...');
                                       Navigator.of(context).push(
                                         MaterialPageRoute(
                                           builder: (_) => VideoPlayerScreen(
@@ -1076,6 +1082,7 @@ class _VideoListScreenState extends State<VideoListScreen> {
                                         ),
                                       );
                                     } else if (video.downloadStatus == 'pending' || video.downloadStatus == 'failed') {
+                                      print('[VIDEO LIST] Video not downloaded yet');
                                       ScaffoldMessenger.of(context).showSnackBar(
                                         const SnackBar(
                                           content: Text('동영상을 먼저 다운로드해주세요'),
@@ -1083,10 +1090,19 @@ class _VideoListScreenState extends State<VideoListScreen> {
                                         ),
                                       );
                                     } else if (video.downloadStatus == 'downloading') {
+                                      print('[VIDEO LIST] Video is downloading');
                                       ScaffoldMessenger.of(context).showSnackBar(
                                         const SnackBar(
                                           content: Text('동영상 다운로드 중입니다'),
                                           duration: Duration(seconds: 2),
+                                        ),
+                                      );
+                                    } else {
+                                      print('[VIDEO LIST] Unexpected video status: ${video.downloadStatus}, localPath: ${video.localPath}');
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text('재생할 수 없습니다. 상태: ${video.downloadStatus}'),
+                                          duration: const Duration(seconds: 2),
                                         ),
                                       );
                                     }
@@ -1382,6 +1398,9 @@ class _VideoListScreenState extends State<VideoListScreen> {
                 ),
       floatingActionButton: FloatingActionButton.extended(
           onPressed: () async {
+            // Prevent duplicate navigation
+            if (_isNavigating) return;
+
             // Get videos with local paths
             final availableVideos = _videos.where((v) => v.localPath != null).toList();
 
@@ -1395,16 +1414,32 @@ class _VideoListScreenState extends State<VideoListScreen> {
               return;
             }
 
-            // Enter fullscreen mode and navigate to split screen
-            await windowManager.setFullScreen(true);
-            if (mounted) {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => KioskSplitScreen(
-                    videos: availableVideos,
+            // Set navigation flag
+            setState(() {
+              _isNavigating = true;
+            });
+
+            try {
+              // Enter fullscreen mode and navigate to split screen
+              await windowManager.setFullScreen(true);
+              if (mounted) {
+                await Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => KioskSplitScreen(
+                      videos: availableVideos,
+                    ),
                   ),
-                ),
-              );
+                );
+                // When returning from kiosk screen, ensure we're not in fullscreen
+                await windowManager.setFullScreen(false);
+              }
+            } finally {
+              // Clear navigation flag
+              if (mounted) {
+                setState(() {
+                  _isNavigating = false;
+                });
+              }
             }
           },
           icon: const Icon(Icons.coffee),
