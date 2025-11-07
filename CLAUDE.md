@@ -11,6 +11,7 @@ Multi-component kiosk management system with Spring Boot backend, React admin da
 2. `firstapp/` - React admin dashboard (Vite + React 19)
 3. `flutter_downloader/` - Flutter kiosk app (Windows/Android)
 4. `video-editor/` - Electron video editor with AI integrations
+5. `coffee_menu_editor/` - Flutter desktop menu editor (Windows/macOS/Linux)
 
 ## Build & Run Commands
 
@@ -50,6 +51,26 @@ npm run lint
 cd video-editor
 npm install
 npm start  # Run in development
+```
+
+### Coffee Menu Editor (Flutter Desktop)
+```bash
+cd coffee_menu_editor
+
+# Install dependencies
+flutter pub get
+
+# Run on Windows
+flutter run -d windows
+
+# Run on macOS
+flutter run -d macos
+
+# Run on Linux
+flutter run -d linux
+
+# Build release
+flutter build windows --release  # or macos/linux
 ```
 
 ## Critical Architecture Patterns
@@ -301,12 +322,17 @@ GET /api/videos/{id}/download-url    # Download with filename
 - `ImageManagement.jsx` - Images only
 - `AudioManagement.jsx` - Audio only
 
+**Coffee Menu Management:**
+- `MenuList.jsx` - Grid view of all menus with CRUD operations
+- `MenuEditor.jsx` - Split-panel editor (tree + detail)
+
 **Navigation:**
 ```javascript
 // Navbar.jsx
 <Link to="/videos">영상 관리</Link>
 <Link to="/audios">음성 관리</Link>  // Between videos and images
 <Link to="/images">이미지 관리</Link>
+<Link to="/menus">메뉴 관리</Link>    // After stores
 ```
 
 ### API Services
@@ -350,6 +376,134 @@ const response = await fetch(`${baseUrl}/api/ai/upload`, {
   body: formData  // file, title, description, mediaType=VIDEO
 });
 ```
+
+## Coffee Menu Management
+
+### XML-Based Menu System
+
+Coffee kiosk menus are configured using XML files that define categories, menu items, prices, images, and options.
+
+**XML Schema Structure:**
+```xml
+<coffeeMenu version="1.0" name="Menu Name">
+  <metadata>
+    <created>2025-01-15</created>
+    <lastModified>2025-01-15</lastModified>
+  </metadata>
+  <categories>
+    <category id="coffee" name="커피" nameEn="Coffee" icon="☕" order="1"/>
+  </categories>
+  <menuItems>
+    <item id="americano" category="coffee" available="true">
+      <name>아메리카노</name>
+      <nameEn>Americano</nameEn>
+      <price>4500</price>
+      <description>진한 에스프레소에 물을 더한 깔끔한 커피</description>
+      <thumbnailUrl>https://example.com/thumb.jpg</thumbnailUrl>
+      <detailUrl>https://example.com/detail.jpg</detailUrl>
+      <options>
+        <hasHot>true</hasHot>
+        <hasIce>true</hasIce>
+        <hasShot>true</hasShot>
+        <hasSyrup>false</hasSyrup>
+      </options>
+    </item>
+  </menuItems>
+</coffeeMenu>
+```
+
+### Web-Based Menu Editor (firstapp)
+
+**Menu List Page** (`/menus`):
+- Grid view of all menus stored in localStorage
+- Menu cards show: name, version, category/item counts, last modified
+- Actions: New Menu, Open Menu (import XML), Copy Menu, Delete Menu
+- Click card → Navigate to editor
+
+**Menu Editor Page** (`/menus/edit/:id`):
+- **Left Panel**: Tree navigation
+  - Menu → Category → Menu Item hierarchy
+  - Expandable/collapsible categories
+  - [+] buttons to add categories/items inline
+  - Click item to select for editing
+- **Right Panel**: Detail editor
+  - Context-aware forms based on selection
+  - Edit properties: name, price, description, images, options
+  - Auto-save to localStorage on change
+- **Export**: "XML 저장" button exports to XML file
+
+**Key Files:**
+```javascript
+// firstapp/src/components/MenuList.jsx
+- Grid layout with menu cards
+- CRUD operations (Create, Copy, Delete)
+- XML import via file picker
+- Navigate to editor on card click
+
+// firstapp/src/components/MenuEditor.jsx
+- Split-panel layout (tree + detail)
+- Tree view with categories and items
+- Detail editor with inline property editing
+- XML export functionality
+- localStorage persistence
+```
+
+### Desktop Menu Editor (coffee_menu_editor)
+
+Flutter-based desktop application for Windows/macOS/Linux with same functionality as web editor:
+
+- Multi-menu management with tabbed interface
+- Tree-based navigation with ExpansionTile
+- Detail panel for inline editing
+- XML import/export
+- Provider-based state management
+
+**Key Files:**
+```dart
+// lib/services/menu_service.dart
+- MenuService with ChangeNotifier
+- Multi-menu array management
+- Selection state tracking (menu/category/item)
+
+// lib/widgets/menu_tree_view.dart
+- Hierarchical tree navigation
+- [+] buttons at each level
+- Visual selection highlighting
+
+// lib/widgets/detail_panel.dart
+- Context-aware detail editor
+- Menu settings, category editor, item editor
+```
+
+### Integration with Flutter Kiosk App
+
+**Workflow:**
+1. Create/edit menu in web dashboard or desktop editor
+2. Export XML file (e.g., `coffee_menu.xml`)
+3. Place XML in `flutter_downloader/assets/coffee_menu.xml`
+4. Kiosk app reads XML on startup using `XmlMenuParser`
+5. Renders menu dynamically based on XML configuration
+
+**Kiosk App Files:**
+```dart
+// flutter_downloader/lib/services/xml_menu_parser.dart
+- Parses XML into MenuConfig model
+- Validates schema and data types
+
+// flutter_downloader/lib/models/menu_config.dart
+- Data models: MenuConfig, Category, MenuItem, MenuOptions
+
+// flutter_downloader/lib/screens/coffee_kiosk_screen.dart
+- Renders menu UI from parsed XML
+- Category tabs, menu grid, item details
+- Image loading with cached_network_image
+```
+
+**Benefits:**
+- Update menus without app recompilation
+- Easy localization (Korean/English names)
+- Dynamic image/video content
+- Centralized menu management
 
 ## Common Issues
 
@@ -462,5 +616,8 @@ npm run lint
 
 - `backend/README.md` - Detailed backend API documentation
 - `README.md` - Project overview and setup
+- `firstapp/README.md` - React admin dashboard features and usage
 - `AWS_DEPLOYMENT_CHECKLIST.md` - AWS deployment guide
-- `flutter_downloader/CLAUDE.md` - Flutter app development guide
+- `flutter_downloader/CLAUDE.md` - Flutter kiosk app development guide
+- `docs/coffee_menu_schema.md` - Coffee menu XML schema specification
+- `docs/coffee_menu_sample.xml` - Sample coffee menu XML file
