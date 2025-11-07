@@ -1,0 +1,315 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kioskMenu>
+  <!-- 메타데이터 -->
+  <metadata>
+    <name>커피숍 메뉴</name>
+    <version>1.0.0</version>
+    <lastModified>2025-11-07T12:00:00</lastModified>
+    <storeId>00000001</storeId>
+    <kioskId>000000000001</kioskId>
+  </metadata>
+
+  <!-- 카테고리 정의 -->
+  <categories>
+    <category id="coffee" name="커피" nameEn="Coffee" icon="coffee" order="1" />
+    <category id="beverage" name="음료" nameEn="Beverage" icon="local_drink" order="2" />
+    <category id="dessert" name="디저트" nameEn="Dessert" icon="cake" order="3" />
+  </categories>
+
+  <!-- 메뉴 아이템 -->
+  <menuItems>
+    <!-- 커피 카테고리 -->
+    <item id="coffee_americano" category="coffee" order="1">
+      <name>아메리카노</name>
+      <nameEn>Americano</nameEn>
+      <price>4000</price>
+      <description>진한 에스프레소에 물을 더한 커피</description>
+
+      <!-- 이미지 -->
+      <images>
+        <!-- 썸네일: 메뉴 그리드에 표시 (300x300px 권장) -->
+        <thumbnailUrl>https://kiosk-video-bucket.s3.ap-northeast-2.amazonaws.com/images/menu/americano_thumb.jpg</thumbnailUrl>
+        <!-- 상세 이미지: 옵션 선택 화면에 표시 (800x600px 권장) -->
+        <detailUrl>https://kiosk-video-bucket.s3.ap-northeast-2.amazonaws.com/images/menu/americano_detail.jpg</detailUrl>
+        <!-- 백엔드 이미지 ID (선택사항) -->
+        <imageId>101</imageId>
+      </images>
+
+      <!-- 영상 -->
+      <video>
+        <!-- 백엔드 영상 ID -->
+        <videoId>123</videoId>
+        <!-- 또는 직접 URL -->
+        <videoUrl>https://kiosk-video-bucket.s3.ap-northeast-2.amazonaws.com/videos/menu/americano_ad.mp4</videoUrl>
+        <!-- 자동 재생 여부 -->
+        <autoPlay>true</autoPlay>
+      </video>
+
+      <available>true</available>
+
+      <!-- 옵션 활성화 설정 -->
+      <options>
+        <sizeEnabled>true</sizeEnabled>
+        <temperatureEnabled>true</temperatureEnabled>
+        <extrasEnabled>true</extrasEnabled>
+      </options>
+    </item>
+
+    <item id="coffee_latte" category="coffee" order="2">
+      <name>카페 라떼</name>
+      <nameEn>Cafe Latte</nameEn>
+      <price>4500</price>
+      <description>부드러운 우유와 에스프레소의 조화</description>
+      <images>
+        <thumbnailUrl>https://kiosk-video-bucket.s3.ap-northeast-2.amazonaws.com/images/menu/latte_thumb.jpg</thumbnailUrl>
+        <detailUrl>https://kiosk-video-bucket.s3.ap-northeast-2.amazonaws.com/images/menu/latte_detail.jpg</detailUrl>
+        <imageId>102</imageId>
+      </images>
+      <video>
+        <videoId>124</videoId>
+        <autoPlay>true</autoPlay>
+      </video>
+      <available>true</available>
+      <options>
+        <sizeEnabled>true</sizeEnabled>
+        <temperatureEnabled>true</temperatureEnabled>
+        <extrasEnabled>true</extrasEnabled>
+      </options>
+    </item>
+
+    <item id="coffee_cappuccino" category="coffee" order="3">
+      <name>카푸치노</name>
+      <nameEn>Cappuccino</nameEn>
+      <price>4500</price>
+      <description>풍부한 우유 거품이 특징인 커피</description>
+      <images>
+        <thumbnailUrl>https://kiosk-video-bucket.s3.ap-northeast-2.amazonaws.com/images/menu/cappuccino_thumb.jpg</thumbnailUrl>
+        <detailUrl>https://kiosk-video-bucket.s3.ap-northeast-2.amazonaws.com/images/menu/cappuccino_detail.jpg</detailUrl>
+      </images>
+      <video>
+        <videoId>125</videoId>
+        <autoPlay>true</autoPlay>
+      </video>
+      <available>true</available>
+      <options>
+        <sizeEnabled>true</sizeEnabled>
+        <temperatureEnabled>true</temperatureEnabled>
+        <extrasEnabled>true</extrasEnabled>
+      </options>
+    </item>
+
+    <item id="coffee_caramel" category="coffee" order="4">
+      <name>카라멜 마끼아또</name>
+      <nameEn>Caramel Macchiato</nameEn>
+      <price>5000</price>
+      <description>달콤한 카라멜과 에스프레소의 만남</description>
+      <images>
+        <thumbnailUrl>https://kiosk-video-bucket.s3.ap-northeast-2.amazonaws.com/images/menu/caramel_thumb.jpg</thumbnailUrl>
+        <detailUrl>https://kiosk-video-bucket.s3.ap-northeast-2.amazonaws.com/images/menu/caramel_detail.jpg</detailUrl>
+      </images>
+      <video>
+        <videoId>126</videoId>
+        <autoPlay>true</autoPlay>
+      </video>
+      <available>true</available>
+      <options>
+        <sizeEnabled>true</sizeEnabled>
+        <temperatureEnabled>true</temperatureEnabled>
+        <extrasEnabled>true</extrasEnabled>
+      </options>
+    </item>
+
+    <item id="coffee_vanilla" category="coffee" order="5">
+      <name>바닐라 라떼</name>
+      <nameEn>Vanilla Latte</nameEn>
+      <price>5000</price>
+      <description>부드러운 바닐라 향이 가득한 라떼</description>
+      <images>
+        <thumbnailUrl>https://kiosk-video-bucket.s3.ap-northeast-2.amazonaws.com/images/menu/vanilla_thumb.jpg</thumbnailUrl>
+        <detailUrl>https://kiosk-video-bucket.s3.ap-northeast-2.amazonaws.com/images/menu/vanilla_detail.jpg</detailUrl>
+      </images>
+      <video>
+        <videoId>127</videoId>
+        <autoPlay>false</autoPlay>
+      </video>
+      <available>true</available>
+      <options>
+        <sizeEnabled>true</sizeEnabled>
+        <temperatureEnabled>true</temperatureEnabled>
+        <extrasEnabled>true</extrasEnabled>
+      </options>
+    </item>
+
+    <!-- 음료 카테고리 -->
+    <item id="bev_greentea" category="beverage" order="1">
+      <name>녹차 라떼</name>
+      <nameEn>Green Tea Latte</nameEn>
+      <price>5000</price>
+      <description>진한 녹차와 우유의 조화</description>
+      <images>
+        <thumbnailUrl>https://kiosk-video-bucket.s3.ap-northeast-2.amazonaws.com/images/menu/greentea_thumb.jpg</thumbnailUrl>
+        <detailUrl>https://kiosk-video-bucket.s3.ap-northeast-2.amazonaws.com/images/menu/greentea_detail.jpg</detailUrl>
+      </images>
+      <video>
+        <videoId>128</videoId>
+        <autoPlay>true</autoPlay>
+      </video>
+      <available>true</available>
+      <options>
+        <sizeEnabled>true</sizeEnabled>
+        <temperatureEnabled>true</temperatureEnabled>
+        <extrasEnabled>false</extrasEnabled>
+      </options>
+    </item>
+
+    <item id="bev_choco" category="beverage" order="2">
+      <name>초코 라떼</name>
+      <nameEn>Chocolate Latte</nameEn>
+      <price>5000</price>
+      <description>달콤한 초콜릿 음료</description>
+      <images>
+        <thumbnailUrl>https://kiosk-video-bucket.s3.ap-northeast-2.amazonaws.com/images/menu/choco_thumb.jpg</thumbnailUrl>
+        <detailUrl>https://kiosk-video-bucket.s3.ap-northeast-2.amazonaws.com/images/menu/choco_detail.jpg</detailUrl>
+      </images>
+      <video>
+        <videoId>129</videoId>
+        <autoPlay>true</autoPlay>
+      </video>
+      <available>true</available>
+      <options>
+        <sizeEnabled>true</sizeEnabled>
+        <temperatureEnabled>true</temperatureEnabled>
+        <extrasEnabled>true</extrasEnabled>
+      </options>
+    </item>
+
+    <item id="bev_strawberry" category="beverage" order="3">
+      <name>딸기 스무디</name>
+      <nameEn>Strawberry Smoothie</nameEn>
+      <price>5500</price>
+      <description>신선한 딸기로 만든 시원한 스무디</description>
+      <images>
+        <thumbnailUrl>https://kiosk-video-bucket.s3.ap-northeast-2.amazonaws.com/images/menu/strawberry_thumb.jpg</thumbnailUrl>
+        <detailUrl>https://kiosk-video-bucket.s3.ap-northeast-2.amazonaws.com/images/menu/strawberry_detail.jpg</detailUrl>
+      </images>
+      <video>
+        <videoId>130</videoId>
+        <autoPlay>true</autoPlay>
+      </video>
+      <available>true</available>
+      <options>
+        <sizeEnabled>true</sizeEnabled>
+        <temperatureEnabled>false</temperatureEnabled>
+        <extrasEnabled>false</extrasEnabled>
+      </options>
+    </item>
+
+    <!-- 디저트 카테고리 -->
+    <item id="dessert_cookie" category="dessert" order="1">
+      <name>초콜릿 쿠키</name>
+      <nameEn>Chocolate Cookie</nameEn>
+      <price>3000</price>
+      <description>바삭한 초콜릿 쿠키</description>
+      <images>
+        <thumbnailUrl>https://kiosk-video-bucket.s3.ap-northeast-2.amazonaws.com/images/menu/cookie_thumb.jpg</thumbnailUrl>
+        <detailUrl>https://kiosk-video-bucket.s3.ap-northeast-2.amazonaws.com/images/menu/cookie_detail.jpg</detailUrl>
+      </images>
+      <video>
+        <videoId>131</videoId>
+        <autoPlay>false</autoPlay>
+      </video>
+      <available>true</available>
+      <options>
+        <sizeEnabled>false</sizeEnabled>
+        <temperatureEnabled>false</temperatureEnabled>
+        <extrasEnabled>false</extrasEnabled>
+      </options>
+    </item>
+
+    <item id="dessert_cake" category="dessert" order="2">
+      <name>치즈 케이크</name>
+      <nameEn>Cheese Cake</nameEn>
+      <price>6000</price>
+      <description>부드러운 뉴욕 스타일 치즈케이크</description>
+      <images>
+        <thumbnailUrl>https://kiosk-video-bucket.s3.ap-northeast-2.amazonaws.com/images/menu/cake_thumb.jpg</thumbnailUrl>
+        <detailUrl>https://kiosk-video-bucket.s3.ap-northeast-2.amazonaws.com/images/menu/cake_detail.jpg</detailUrl>
+      </images>
+      <video>
+        <videoId>132</videoId>
+        <autoPlay>false</autoPlay>
+      </video>
+      <available>true</available>
+      <options>
+        <sizeEnabled>false</sizeEnabled>
+        <temperatureEnabled>false</temperatureEnabled>
+        <extrasEnabled>false</extrasEnabled>
+      </options>
+    </item>
+
+    <item id="dessert_muffin" category="dessert" order="3">
+      <name>블루베리 머핀</name>
+      <nameEn>Blueberry Muffin</nameEn>
+      <price>3500</price>
+      <description>촉촉한 블루베리 머핀</description>
+      <images>
+        <thumbnailUrl>https://kiosk-video-bucket.s3.ap-northeast-2.amazonaws.com/images/menu/muffin_thumb.jpg</thumbnailUrl>
+        <detailUrl>https://kiosk-video-bucket.s3.ap-northeast-2.amazonaws.com/images/menu/muffin_detail.jpg</detailUrl>
+      </images>
+      <available>true</available>
+      <options>
+        <sizeEnabled>false</sizeEnabled>
+        <temperatureEnabled>false</temperatureEnabled>
+        <extrasEnabled>false</extrasEnabled>
+      </options>
+    </item>
+  </menuItems>
+
+  <!-- 옵션 정의 -->
+  <options>
+    <sizes>
+      <size id="small" name="Small" nameKo="스몰" additionalPrice="0" />
+      <size id="medium" name="Medium (R)" nameKo="미디움" additionalPrice="500" />
+      <size id="large" name="Large" nameKo="라지" additionalPrice="1000" />
+    </sizes>
+
+    <temperatures>
+      <temperature id="hot" name="Hot" nameKo="따뜻하게" />
+      <temperature id="iced" name="Iced" nameKo="차갑게" />
+    </temperatures>
+
+    <extras>
+      <extra id="shot" name="샷 추가" nameEn="Extra Shot" additionalPrice="500" />
+      <extra id="syrup" name="시럽 추가" nameEn="Syrup" additionalPrice="500" />
+      <extra id="whipped" name="휘핑크림" nameEn="Whipped Cream" additionalPrice="500" />
+    </extras>
+  </options>
+
+  <!-- 영상 재생 설정 -->
+  <videoSettings>
+    <!-- 대기 화면 영상 (메뉴를 선택하지 않았을 때) -->
+    <defaultIdleVideoId>1</defaultIdleVideoId>
+    <!-- 메뉴 선택 시 자동 재생 여부 -->
+    <menuVideoAutoPlay>true</menuVideoAutoPlay>
+    <!-- 영상 볼륨 (0-100) -->
+    <videoVolume>80</videoVolume>
+    <!-- 영상 반복 재생 -->
+    <videoLoopEnabled>true</videoLoopEnabled>
+  </videoSettings>
+
+  <!-- UI 설정 -->
+  <uiSettings>
+    <!-- 메인 테마 색상 (기본: 갈색) -->
+    <themeColor>#5D4037</themeColor>
+    <!-- 보조 색상 -->
+    <accentColor>#8D6E63</accentColor>
+    <!-- 폰트 패밀리 -->
+    <fontFamily>Noto Sans KR</fontFamily>
+    <!-- 가격 표시 여부 -->
+    <showPrices>true</showPrices>
+    <!-- 메뉴 그리드 컬럼 수 (2-4) -->
+    <gridColumns>3</gridColumns>
+    <!-- 이미지 표시 모드: icon, thumbnail, full -->
+    <imageDisplayMode>thumbnail</imageDisplayMode>
+  </uiSettings>
+</kioskMenu>
