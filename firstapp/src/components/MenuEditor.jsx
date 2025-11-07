@@ -1,43 +1,188 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import menuService from '../services/menuService';
 import './MenuEditor.css';
 
 function MenuEditor() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [menu, setMenu] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [selectedType, setSelectedType] = useState(null); // 'category' | 'item'
   const [selectedId, setSelectedId] = useState(null);
+
+  // S3 Save Modal states
+  const [showS3Modal, setShowS3Modal] = useState(false);
+  const [s3Title, setS3Title] = useState('');
+  const [s3Description, setS3Description] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
+  const [saveSuccess, setSaveSuccess] = useState('');
 
   useEffect(() => {
     loadMenu();
   }, [id]);
 
-  const loadMenu = () => {
-    const savedMenus = localStorage.getItem('coffeeMenus');
-    if (savedMenus) {
-      const menus = JSON.parse(savedMenus);
-      const foundMenu = menus.find(m => m.id === id);
-      if (foundMenu) {
-        setMenu(foundMenu);
+  const loadMenu = async () => {
+    try {
+      setLoading(true);
+
+      if (id === 'new') {
+        // New menu from state (passed from MenuList)
+        if (location.state?.newMenu) {
+          setMenu(location.state.newMenu);
+        } else {
+          alert('메뉴 데이터를 찾을 수 없습니다.');
+          navigate('/menus');
+        }
       } else {
-        alert('메뉴를 찾을 수 없습니다.');
-        navigate('/menus');
+        // Load existing menu from S3
+        const menuData = await menuService.getMenuById(id);
+
+        // Parse XML content
+        const parser = new DOMParser();
+        const xmlDoc = parser.parseFromString(menuData.content, 'text/xml');
+        const parsedMenu = parseXMLToMenu(xmlDoc);
+        parsedMenu.id = id;
+        parsedMenu.s3Key = menuData.s3Key;
+        parsedMenu.description = menuData.description; // Store description from S3 metadata
+
+        setMenu(parsedMenu);
       }
+    } catch (error) {
+      console.error('Failed to load menu:', error);
+      alert('메뉴를 불러오는데 실패했습니다: ' + error.message);
+      navigate('/menus');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const saveMenu = (updatedMenu) => {
-    const savedMenus = localStorage.getItem('coffeeMenus');
-    if (savedMenus) {
-      const menus = JSON.parse(savedMenus);
-      const index = menus.findIndex(m => m.id === id);
-      if (index >= 0) {
-        menus[index] = { ...updatedMenu, lastModified: new Date().toISOString() };
-        localStorage.setItem('coffeeMenus', JSON.stringify(menus));
-        setMenu(updatedMenu);
-      }
+  const parseXMLToMenu = (xmlDoc) => {
+    const metadata = xmlDoc.querySelector('metadata');
+    const name = metadata?.querySelector('name')?.textContent || '불러온 메뉴';
+    const version = metadata?.querySelector('version')?.textContent || '1.0.0';
+
+    const categories = Array.from(xmlDoc.querySelectorAll('category')).map(cat => ({
+      id: cat.getAttribute('id'),
+      name: cat.getAttribute('name'),
+      nameEn: cat.getAttribute('nameEn'),
+      icon: cat.getAttribute('icon'),
+      order: parseInt(cat.getAttribute('order') || '0'),
+    }));
+
+    const menuItems = Array.from(xmlDoc.querySelectorAll('menuItems item')).map(item => ({
+      id: item.getAttribute('id'),
+      category: item.getAttribute('category'),
+      order: parseInt(item.getAttribute('order') || '0'),
+      name: item.querySelector('name')?.textContent || '',
+      nameEn: item.querySelector('nameEn')?.textContent || '',
+      price: parseInt(item.querySelector('price')?.textContent || '0'),
+      description: item.querySelector('description')?.textContent || '',
+      thumbnailUrl: item.querySelector('thumbnailUrl')?.textContent || null,
+      available: item.querySelector('available')?.textContent === 'true',
+      sizeEnabled: item.querySelector('sizeEnabled')?.textContent === 'true',
+      temperatureEnabled: item.querySelector('temperatureEnabled')?.textContent === 'true',
+      extrasEnabled: item.querySelector('extrasEnabled')?.textContent === 'true',
+    }));
+
+    const sizes = Array.from(xmlDoc.querySelectorAll('sizes size')).map(size => ({
+      id: size.getAttribute('id'),
+      name: size.getAttribute('name'),
+      nameKo: size.getAttribute('nameKo'),
+      additionalPrice: parseInt(size.getAttribute('additionalPrice') || '0'),
+    }));
+
+    const temperatures = Array.from(xmlDoc.querySelectorAll('temperatures temperature')).map(temp => ({
+      id: temp.getAttribute('id'),
+      name: temp.getAttribute('name'),
+      nameKo: temp.getAttribute('nameKo'),
+    }));
+
+    const extras = Array.from(xmlDoc.querySelectorAll('extras extra')).map(extra => ({
+      id: extra.getAttribute('id'),
+      name: extra.getAttribute('name'),
+      nameEn: extra.getAttribute('nameEn'),
+      additionalPrice: parseInt(extra.getAttribute('additionalPrice') || '0'),
+    }));
+
+    return {
+      name,
+      version,
+      lastModified: new Date().toISOString(),
+      categories,
+      menuItems,
+      options: { sizes, temperatures, extras },
+    };
+  };
+
+  const updateMenu = (updatedMenu) => {
+    setMenu(updatedMenu);
+  };
+
+  const handleBackToList = () => {
+    navigate('/menus');
+  };
+
+  const handleS3SaveClick = () => {
+    if (!menu) return;
+
+    // For existing menus, pre-fill title and description
+    if (id !== 'new') {
+      setS3Title(menu.name);
+      setS3Description(menu.description || `${menu.name} 메뉴 설정 (버전: ${menu.version})`);
+    } else {
+      setS3Title(menu.name);
+      setS3Description(`${menu.name} 메뉴 설정 (버전: ${menu.version})`);
     }
+
+    setSaveError('');
+    setSaveSuccess('');
+    setShowS3Modal(true);
+  };
+
+  const handleS3SaveConfirm = async () => {
+    if (!menu) return;
+
+    if (!s3Title.trim()) {
+      setSaveError('제목을 입력해주세요.');
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+      setSaveError('');
+
+      const xml = generateXML(menu);
+
+      if (id === 'new') {
+        // New menu - upload
+        await menuService.uploadMenuXML(xml, s3Title, s3Description);
+        setSaveSuccess('S3에 성공적으로 저장되었습니다!');
+      } else {
+        // Existing menu - update (delete and re-upload)
+        await menuService.updateMenu(id, xml, s3Title, s3Description);
+        setSaveSuccess('메뉴가 성공적으로 업데이트되었습니다!');
+      }
+
+      setTimeout(() => {
+        setShowS3Modal(false);
+        setSaveSuccess('');
+        navigate('/menus'); // Return to menu list
+      }, 2000);
+    } catch (error) {
+      setSaveError(error.message || 'S3 저장 중 오류가 발생했습니다.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleS3ModalClose = () => {
+    if (isSaving) return;
+    setShowS3Modal(false);
+    setSaveError('');
+    setSaveSuccess('');
   };
 
   const exportXML = () => {
@@ -129,7 +274,7 @@ function MenuEditor() {
         ...menu,
         categories: [...menu.categories, newCategory],
       };
-      saveMenu(updatedMenu);
+      updateMenu(updatedMenu);
     }
   };
 
@@ -157,7 +302,7 @@ function MenuEditor() {
         ...menu,
         menuItems: [...menu.menuItems, newItem],
       };
-      saveMenu(updatedMenu);
+      updateMenu(updatedMenu);
     }
   };
 
@@ -167,24 +312,33 @@ function MenuEditor() {
         ...menu,
         menuItems: menu.menuItems.filter(i => i.id !== itemId),
       };
-      saveMenu(updatedMenu);
+      updateMenu(updatedMenu);
     }
   };
 
-  if (!menu) {
-    return <div className="menu-editor-container"><p>로딩중...</p></div>;
+  if (loading || !menu) {
+    return (
+      <div className="menu-editor-container">
+        <div className="menu-editor-header">
+          <h1>메뉴 편집</h1>
+        </div>
+        <div style={{textAlign: 'center', padding: '40px'}}>
+          메뉴를 불러오는 중...
+        </div>
+      </div>
+    );
   }
 
   return (
     <div className="menu-editor-container">
       <div className="menu-editor-header">
-        <button className="btn btn-back" onClick={() => navigate('/menus')}>
+        <button className="btn btn-back" onClick={handleBackToList}>
           ← 목록으로
         </button>
         <h1>{menu.name} 편집</h1>
         <div className="menu-editor-actions">
-          <button className="btn btn-primary" onClick={exportXML}>
-            💾 XML 저장
+          <button className="btn btn-primary" onClick={handleS3SaveClick}>
+            💾 S3 저장
           </button>
         </div>
       </div>
@@ -236,7 +390,7 @@ function MenuEditor() {
                   ...menu,
                   menuItems: menu.menuItems.map(i => i.id === selectedId ? updatedItem : i),
                 };
-                saveMenu(updatedMenu);
+                updateMenu(updatedMenu);
               }}
             />
           ) : (
@@ -246,6 +400,98 @@ function MenuEditor() {
           )}
         </div>
       </div>
+
+      {/* S3 Save Modal */}
+      {showS3Modal && (
+        <div className="video-modal" onClick={handleS3ModalClose}>
+          <div className="video-modal-content" onClick={(e) => e.stopPropagation()} style={{maxWidth: '500px'}}>
+            <button className="modal-close" onClick={handleS3ModalClose}>×</button>
+            <h3>S3에 메뉴 저장</h3>
+
+            {saveError && <div className="alert alert-error" style={{marginTop: '15px'}}>{saveError}</div>}
+            {saveSuccess && <div className="alert alert-success" style={{marginTop: '15px'}}>{saveSuccess}</div>}
+
+            <div style={{padding: '20px 0'}}>
+              <div style={{marginBottom: '20px'}}>
+                <label style={{display: 'block', marginBottom: '8px', fontWeight: '600', color: '#2d3748'}}>
+                  제목 <span style={{color: '#f56565'}}>*</span>
+                </label>
+                <input
+                  type="text"
+                  value={s3Title}
+                  onChange={(e) => setS3Title(e.target.value)}
+                  placeholder="메뉴 제목을 입력하세요"
+                  disabled={isSaving}
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    border: '1px solid #cbd5e0',
+                    borderRadius: '4px',
+                    fontSize: '14px'
+                  }}
+                />
+              </div>
+
+              <div style={{marginBottom: '20px'}}>
+                <label style={{display: 'block', marginBottom: '8px', fontWeight: '600', color: '#2d3748'}}>
+                  설명
+                </label>
+                <textarea
+                  value={s3Description}
+                  onChange={(e) => setS3Description(e.target.value)}
+                  rows={4}
+                  placeholder="메뉴에 대한 설명을 입력하세요 (선택사항)"
+                  disabled={isSaving}
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    border: '1px solid #cbd5e0',
+                    borderRadius: '4px',
+                    fontSize: '14px',
+                    resize: 'vertical'
+                  }}
+                />
+              </div>
+
+              <div style={{display: 'flex', gap: '10px', justifyContent: 'flex-end'}}>
+                <button
+                  onClick={handleS3ModalClose}
+                  disabled={isSaving}
+                  style={{
+                    padding: '10px 20px',
+                    border: '1px solid #cbd5e0',
+                    borderRadius: '4px',
+                    background: '#fff',
+                    color: '#2d3748',
+                    cursor: isSaving ? 'not-allowed' : 'pointer',
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    opacity: isSaving ? 0.5 : 1
+                  }}
+                >
+                  취소
+                </button>
+                <button
+                  onClick={handleS3SaveConfirm}
+                  disabled={isSaving}
+                  style={{
+                    padding: '10px 20px',
+                    border: 'none',
+                    borderRadius: '4px',
+                    background: isSaving ? '#a0aec0' : '#667eea',
+                    color: '#fff',
+                    cursor: isSaving ? 'not-allowed' : 'pointer',
+                    fontSize: '14px',
+                    fontWeight: '500'
+                  }}
+                >
+                  {isSaving ? '저장 중...' : 'S3에 저장'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

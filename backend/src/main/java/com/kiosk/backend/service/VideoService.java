@@ -92,7 +92,9 @@ public class VideoService {
             "audio/aac",
             "audio/ogg",
             "audio/webm",
-            "audio/flac"
+            "audio/flac",
+            "text/xml",
+            "application/xml"
     );
 
     /**

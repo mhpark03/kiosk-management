@@ -1,11 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FiEdit, FiCopy, FiTrash2, FiPlus, FiFolder } from 'react-icons/fi';
+import menuService from '../services/menuService';
 import './MenuList.css';
 
 function MenuList() {
   const navigate = useNavigate();
   const [menus, setMenus] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
@@ -13,55 +16,49 @@ function MenuList() {
     loadMenus();
   }, []);
 
-  const loadMenus = () => {
-    const savedMenus = localStorage.getItem('coffeeMenus');
-    if (savedMenus) {
-      setMenus(JSON.parse(savedMenus));
-    } else {
-      // Create default menu if none exists
-      const defaultMenu = {
-        id: Date.now().toString(),
-        name: '기본 메뉴',
-        version: '1.0.0',
-        lastModified: new Date().toISOString(),
-        categories: [
-          { id: 'coffee', name: '커피', nameEn: 'Coffee', icon: 'coffee', order: 1 },
-          { id: 'beverage', name: '음료', nameEn: 'Beverage', icon: 'local_drink', order: 2 },
-          { id: 'dessert', name: '디저트', nameEn: 'Dessert', icon: 'cake', order: 3 },
-        ],
+  const loadMenus = async () => {
+    try {
+      setLoading(true);
+      const s3Menus = await menuService.getMenusFromS3();
+
+      // Transform S3 response to menu format
+      const transformedMenus = s3Menus.map(s3File => ({
+        id: s3File.id.toString(),
+        name: s3File.title,
+        version: '1.0.0', // Extract from description or default
+        lastModified: s3File.uploadedAt,
+        s3Key: s3File.s3Key,
+        description: s3File.description,
+        originalFilename: s3File.originalFilename,
+        // We'll load full menu data when editing
+        categories: [],
         menuItems: [],
-        options: {
-          sizes: [
-            { id: 'small', name: 'Small', nameKo: '스몰', additionalPrice: 0 },
-            { id: 'medium', name: 'Medium (R)', nameKo: '미디움', additionalPrice: 500 },
-            { id: 'large', name: 'Large', nameKo: '라지', additionalPrice: 1000 },
-          ],
-          temperatures: [
-            { id: 'hot', name: 'Hot', nameKo: '따뜻하게' },
-            { id: 'iced', name: 'Iced', nameKo: '차갑게' },
-          ],
-          extras: [
-            { id: 'shot', name: '샷 추가', nameEn: 'Extra Shot', additionalPrice: 500 },
-            { id: 'syrup', name: '시럽 추가', nameEn: 'Syrup', additionalPrice: 500 },
-            { id: 'whipped', name: '휘핑크림', nameEn: 'Whipped Cream', additionalPrice: 500 },
-          ],
-        },
-      };
-      const initialMenus = [defaultMenu];
-      localStorage.setItem('coffeeMenus', JSON.stringify(initialMenus));
-      setMenus(initialMenus);
+        options: { sizes: [], temperatures: [], extras: [] }
+      }));
+
+      setMenus(transformedMenus);
+      setError('');
+    } catch (err) {
+      console.error('Failed to load menus:', err);
+      setError('메뉴 목록을 불러오는데 실패했습니다.');
+      setMenus([]);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const saveMenus = (updatedMenus) => {
-    localStorage.setItem('coffeeMenus', JSON.stringify(updatedMenus));
-    setMenus(updatedMenus);
-  };
-
   const handleNewMenu = () => {
+    // Generate unique menu name
+    let menuNumber = 1;
+    let menuName = `새 메뉴 ${menuNumber}`;
+    while (menus.some(m => m.name === menuName)) {
+      menuNumber++;
+      menuName = `새 메뉴 ${menuNumber}`;
+    }
+
     const newMenu = {
-      id: Date.now().toString(),
-      name: `새 메뉴 ${menus.length + 1}`,
+      id: 'new',
+      name: menuName,
       version: '1.0.0',
       lastModified: new Date().toISOString(),
       categories: [
@@ -87,9 +84,7 @@ function MenuList() {
         ],
       },
     };
-    const updatedMenus = [...menus, newMenu];
-    saveMenus(updatedMenus);
-    navigate(`/menus/edit/${newMenu.id}`);
+    navigate(`/menus/edit/new`, { state: { newMenu } });
   };
 
   const handleOpenMenu = () => {
@@ -104,10 +99,8 @@ function MenuList() {
           const parser = new DOMParser();
           const xmlDoc = parser.parseFromString(text, 'text/xml');
           const menu = parseXMLToMenu(xmlDoc);
-          menu.id = Date.now().toString();
-          const updatedMenus = [...menus, menu];
-          saveMenus(updatedMenus);
-          navigate(`/menus/edit/${menu.id}`);
+          menu.id = 'new';
+          navigate(`/menus/edit/new`, { state: { newMenu: menu } });
         } catch (error) {
           alert('XML 파일을 불러오는데 실패했습니다: ' + error.message);
         }
@@ -174,25 +167,43 @@ function MenuList() {
     };
   };
 
-  const handleCopyMenu = (menu) => {
-    const copiedMenu = {
-      ...JSON.parse(JSON.stringify(menu)), // Deep copy
-      id: Date.now().toString(),
-      name: `${menu.name} (복사본)`,
-      lastModified: new Date().toISOString(),
-    };
-    const updatedMenus = [...menus, copiedMenu];
-    saveMenus(updatedMenus);
+  const handleCopyMenu = async (menu) => {
+    try {
+      // Load full menu data from S3
+      const fullMenuData = await menuService.getMenuById(menu.id);
+
+      // Generate unique copy name
+      let copyNumber = 1;
+      let copyName = `${menu.name} (복사본 ${copyNumber})`;
+      while (menus.some(m => m.name === copyName)) {
+        copyNumber++;
+        copyName = `${menu.name} (복사본 ${copyNumber})`;
+      }
+
+      // Parse XML content to get menu structure
+      const parser = new DOMParser();
+      const xmlDoc = parser.parseFromString(fullMenuData.content, 'text/xml');
+      const copiedMenu = parseXMLToMenu(xmlDoc);
+      copiedMenu.id = 'new';
+      copiedMenu.name = copyName;
+
+      navigate(`/menus/edit/new`, { state: { newMenu: copiedMenu } });
+    } catch (error) {
+      console.error('Failed to copy menu:', error);
+      alert('메뉴 복사에 실패했습니다: ' + error.message);
+    }
   };
 
-  const handleDeleteMenu = (menuId) => {
-    if (menus.length === 1) {
-      alert('마지막 메뉴는 삭제할 수 없습니다.');
-      return;
-    }
-    if (window.confirm('이 메뉴를 삭제하시겠습니까?')) {
-      const updatedMenus = menus.filter(m => m.id !== menuId);
-      saveMenus(updatedMenus);
+  const handleDeleteMenu = async (menuId) => {
+    if (window.confirm('이 메뉴를 삭제하시겠습니까?\n삭제된 메뉴는 복구할 수 없습니다.')) {
+      try {
+        await menuService.deleteMenu(menuId);
+        alert('메뉴가 삭제되었습니다.');
+        loadMenus(); // Reload menu list
+      } catch (error) {
+        console.error('Failed to delete menu:', error);
+        alert('메뉴 삭제에 실패했습니다: ' + error.message);
+      }
     }
   };
 
@@ -238,6 +249,19 @@ function MenuList() {
     setCurrentPage(1);
   }, [menus.length]);
 
+  if (loading) {
+    return (
+      <div className="store-management">
+        <div className="store-header">
+          <h1>메뉴 관리</h1>
+        </div>
+        <div className="loading" style={{textAlign: 'center', padding: '40px'}}>
+          메뉴 목록을 불러오는 중...
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="store-management">
       <div className="store-header">
@@ -252,15 +276,19 @@ function MenuList() {
         </div>
       </div>
 
+      {error && (
+        <div className="alert alert-error" style={{margin: '20px 0'}}>
+          {error}
+        </div>
+      )}
+
       <div className="store-table-container">
         <table className="store-table">
           <thead>
             <tr>
               <th style={{width: '80px', textAlign: 'center'}}>순서</th>
               <th>메뉴 이름</th>
-              <th style={{width: '120px', textAlign: 'center'}}>버전</th>
-              <th style={{width: '120px', textAlign: 'center'}}>카테고리</th>
-              <th style={{width: '120px', textAlign: 'center'}}>메뉴 아이템</th>
+              <th style={{width: '180px'}}>설명</th>
               <th style={{width: '180px'}}>수정일</th>
               <th style={{width: '150px', textAlign: 'center'}}>작업</th>
             </tr>
@@ -268,7 +296,10 @@ function MenuList() {
           <tbody>
             {currentMenus.length === 0 ? (
               <tr>
-                <td colSpan="7" className="no-data">등록된 메뉴가 없습니다</td>
+                <td colSpan="5" className="no-data">
+                  S3에 저장된 메뉴가 없습니다.<br />
+                  "새 메뉴" 버튼을 눌러 메뉴를 생성하고 S3에 저장하세요.
+                </td>
               </tr>
             ) : (
               currentMenus.map((menu, index) => (
@@ -279,9 +310,9 @@ function MenuList() {
                   <td>
                     <span style={{fontWeight: '500', color: '#333'}}>{menu.name}</span>
                   </td>
-                  <td style={{textAlign: 'center'}}>{menu.version}</td>
-                  <td style={{textAlign: 'center'}}>{menu.categories.length}개</td>
-                  <td style={{textAlign: 'center'}}>{menu.menuItems.length}개</td>
+                  <td style={{fontSize: '13px', color: '#666'}}>
+                    {menu.description || '-'}
+                  </td>
                   <td>{formatDate(menu.lastModified)}</td>
                   <td>
                     <div className="action-buttons">
