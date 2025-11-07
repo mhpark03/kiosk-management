@@ -1,4 +1,7 @@
+import 'package:flutter/services.dart';
 import '../models/coffee_menu_item.dart';
+import '../models/menu_config.dart';
+import 'xml_menu_parser.dart';
 
 class CoffeeMenuService {
   // Singleton pattern
@@ -6,7 +9,47 @@ class CoffeeMenuService {
   factory CoffeeMenuService() => _instance;
   CoffeeMenuService._internal();
 
-  // Sample menu data (will be replaced with backend API later)
+  MenuConfig? _menuConfig;
+  bool _isXmlLoaded = false;
+
+  /// Load menu from XML file
+  Future<void> loadMenuFromXml() async {
+    try {
+      final xmlString = await rootBundle.loadString('assets/coffee_menu.xml');
+      _menuConfig = XmlMenuParser.parseXml(xmlString);
+      _isXmlLoaded = true;
+      print('Menu loaded from XML: ${_menuConfig!.menuItems.length} items');
+    } catch (e) {
+      print('Error loading XML menu: $e');
+      _isXmlLoaded = false;
+    }
+  }
+
+  /// Convert MenuItem to CoffeeMenuItem
+  CoffeeMenuItem _toCoffeeMenuItem(MenuItem item) {
+    return CoffeeMenuItem(
+      id: item.id,
+      name: item.name,
+      nameEn: item.nameEn,
+      price: item.price,
+      category: item.category,
+      imageUrl: item.thumbnailUrl,
+      description: item.description,
+      isAvailable: item.available,
+    );
+  }
+
+  /// Get menu from XML or fallback to sample
+  List<CoffeeMenuItem> getMenu() {
+    if (_isXmlLoaded && _menuConfig != null) {
+      return _menuConfig!.menuItems
+          .map((item) => _toCoffeeMenuItem(item))
+          .toList();
+    }
+    return getSampleMenu();
+  }
+
+  // Sample menu data (fallback if XML is not loaded)
   List<CoffeeMenuItem> getSampleMenu() {
     return [
       // Coffee
@@ -106,22 +149,37 @@ class CoffeeMenuService {
   }
 
   List<CoffeeMenuItem> getMenuByCategory(String category) {
-    return getSampleMenu().where((item) => item.category == category).toList();
+    return getMenu().where((item) => item.category == category).toList();
   }
 
   CoffeeMenuItem? getMenuItemById(String id) {
     try {
-      return getSampleMenu().firstWhere((item) => item.id == id);
+      return getMenu().firstWhere((item) => item.id == id);
     } catch (e) {
       return null;
     }
   }
 
   List<String> getCategories() {
+    if (_isXmlLoaded && _menuConfig != null) {
+      return _menuConfig!.categories
+          .map((cat) => cat.id)
+          .toList();
+    }
     return ['coffee', 'beverage', 'dessert'];
   }
 
   String getCategoryDisplayName(String category) {
+    if (_isXmlLoaded && _menuConfig != null) {
+      try {
+        final cat = _menuConfig!.categories.firstWhere((c) => c.id == category);
+        return cat.name;
+      } catch (e) {
+        // Fallback to default
+      }
+    }
+
+    // Default fallback
     switch (category) {
       case 'coffee':
         return '커피';
