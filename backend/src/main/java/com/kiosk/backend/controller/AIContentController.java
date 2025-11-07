@@ -43,6 +43,11 @@ public class AIContentController {
      * - image/* -> MediaType.IMAGE
      * - video/* -> MediaType.VIDEO
      * - audio/* -> MediaType.AUDIO
+     *
+     * Optional imagePurpose parameter for images:
+     * - GENERAL (default)
+     * - REFERENCE (for video generation)
+     * - MENU (for kiosk menu items)
      */
     @PostMapping("/upload")
     @PreAuthorize("hasRole('ADMIN')")
@@ -55,6 +60,7 @@ public class AIContentController {
             @RequestParam("file") MultipartFile file,
             @RequestParam("title") String title,
             @RequestParam("description") String description,
+            @RequestParam(value = "imagePurpose", required = false) String imagePurpose,
             Authentication authentication) {
         try {
             String userEmail = authentication.getName();
@@ -89,8 +95,19 @@ public class AIContentController {
                         .body(Map.of("error", "Unsupported media type: " + contentType));
             }
 
+            // Parse imagePurpose if provided (only for images)
+            Video.ImagePurpose purposeEnum = null;
+            if (imagePurpose != null && !imagePurpose.trim().isEmpty()) {
+                try {
+                    purposeEnum = Video.ImagePurpose.valueOf(imagePurpose.toUpperCase());
+                } catch (IllegalArgumentException e) {
+                    return ResponseEntity.badRequest()
+                            .body(Map.of("error", "Invalid image purpose. Use GENERAL, REFERENCE, or MENU"));
+                }
+            }
+
             // Upload using VideoService with AI_GENERATED type
-            Video video = videoService.uploadAIContent(file, user.getId(), title, description, mediaType);
+            Video video = videoService.uploadAIContent(file, user.getId(), title, description, mediaType, purposeEnum);
 
             // Event recording is automatic via @RecordActivity annotation
 

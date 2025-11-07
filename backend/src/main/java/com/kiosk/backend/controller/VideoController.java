@@ -61,13 +61,25 @@ public class VideoController {
             @RequestParam("file") MultipartFile file,
             @RequestParam("title") String title,
             @RequestParam("description") String description,
+            @RequestParam(value = "imagePurpose", required = false) String imagePurpose,
             Authentication authentication) {
         try {
             String userEmail = extractUserEmail(authentication);
             User user = userRepository.findByEmail(userEmail)
                     .orElseThrow(() -> new RuntimeException("User not found: " + userEmail));
 
-            Video video = videoService.uploadVideo(file, user.getId(), title, description);
+            // Parse imagePurpose if provided
+            Video.ImagePurpose purposeEnum = null;
+            if (imagePurpose != null && !imagePurpose.trim().isEmpty()) {
+                try {
+                    purposeEnum = Video.ImagePurpose.valueOf(imagePurpose.toUpperCase());
+                } catch (IllegalArgumentException e) {
+                    return ResponseEntity.badRequest()
+                            .body(Map.of("error", "Invalid image purpose. Use GENERAL, REFERENCE, or MENU"));
+                }
+            }
+
+            Video video = videoService.uploadVideo(file, user.getId(), title, description, purposeEnum);
 
             Map<String, Object> response = new HashMap<>();
             response.put("message", "Video uploaded successfully");
@@ -89,13 +101,14 @@ public class VideoController {
     /**
      * Get all videos (Admin only)
      * GET /api/videos
-     * Optional query param: type (e.g., UPLOAD, AI_GENERATED)
+     * Optional query params: type (e.g., UPLOAD, AI_GENERATED), mediaType (VIDEO, IMAGE, AUDIO), imagePurpose (GENERAL, REFERENCE, MENU)
      */
     @GetMapping
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> getAllVideos(
             @RequestParam(required = false) String type,
-            @RequestParam(required = false) String mediaType) {
+            @RequestParam(required = false) String mediaType,
+            @RequestParam(required = false) String imagePurpose) {
         try {
             List<Video> videos;
 
@@ -121,7 +134,20 @@ public class VideoController {
                             .collect(java.util.stream.Collectors.toList());
                 } catch (IllegalArgumentException e) {
                     return ResponseEntity.badRequest()
-                            .body(Map.of("error", "Invalid media type. Use VIDEO or IMAGE"));
+                            .body(Map.of("error", "Invalid media type. Use VIDEO, IMAGE, or AUDIO"));
+                }
+            }
+
+            // Further filter by imagePurpose if provided (only for images)
+            if (imagePurpose != null && !imagePurpose.isEmpty()) {
+                try {
+                    Video.ImagePurpose purposeEnum = Video.ImagePurpose.valueOf(imagePurpose.toUpperCase());
+                    videos = videos.stream()
+                            .filter(v -> v.getMediaType() == Video.MediaType.IMAGE && v.getImagePurpose() == purposeEnum)
+                            .collect(java.util.stream.Collectors.toList());
+                } catch (IllegalArgumentException e) {
+                    return ResponseEntity.badRequest()
+                            .body(Map.of("error", "Invalid image purpose. Use GENERAL, REFERENCE, or MENU"));
                 }
             }
 
@@ -130,6 +156,7 @@ public class VideoController {
                 videoMap.put("id", video.getId());
                 videoMap.put("videoType", video.getVideoType().toString());
                 videoMap.put("mediaType", video.getMediaType().toString());
+                videoMap.put("imagePurpose", video.getImagePurpose() != null ? video.getImagePurpose().toString() : null);
                 videoMap.put("filename", video.getFilename());
                 videoMap.put("originalFilename", video.getOriginalFilename());
                 videoMap.put("fileSize", video.getFileSize());
@@ -203,6 +230,7 @@ public class VideoController {
                 videoMap.put("id", video.getId());
                 videoMap.put("videoType", video.getVideoType().toString());
                 videoMap.put("mediaType", video.getMediaType().toString());
+                videoMap.put("imagePurpose", video.getImagePurpose() != null ? video.getImagePurpose().toString() : null);
                 videoMap.put("filename", video.getFilename());
                 videoMap.put("originalFilename", video.getOriginalFilename());
                 videoMap.put("fileSize", video.getFileSize());
