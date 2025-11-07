@@ -28,6 +28,12 @@ public class Video {
         AUDIO             // Audio file
     }
 
+    public enum ImagePurpose {
+        GENERAL,          // General purpose image
+        REFERENCE,        // Reference image for video generation (Runway, Veo)
+        MENU              // Coffee kiosk menu product image
+    }
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -40,6 +46,11 @@ public class Video {
     @Column(nullable = false, length = 20)
     @Builder.Default
     private MediaType mediaType = MediaType.VIDEO;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    @Builder.Default
+    private ImagePurpose imagePurpose = ImagePurpose.GENERAL;
 
     @Column(nullable = false, length = 255)
     private String filename;
