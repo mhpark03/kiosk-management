@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { videoService } from '../services/videoService';
 import './S3ImageSelector.css';
 
-function S3ImageSelector({ onSelect, onClose }) {
+function S3ImageSelector({ onSelect, onClose, purpose = null }) {
   const [images, setImages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -10,13 +10,14 @@ function S3ImageSelector({ onSelect, onClose }) {
 
   useEffect(() => {
     loadImages();
-  }, []);
+  }, [purpose]);
 
   const loadImages = async () => {
     try {
       setLoading(true);
       setError('');
-      const data = await videoService.getAllImages();
+      // Pass purpose filter to API
+      const data = await videoService.getAllImages(purpose);
       setImages(data);
     } catch (err) {
       console.error('Failed to load images:', err);
