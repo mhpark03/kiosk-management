@@ -1133,18 +1133,11 @@ function showToolProperties(tool) {
           <label>설명 *</label>
           <textarea id="export-video-description" rows="3" placeholder="설명을 입력하세요">${exportVideoDescription.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</textarea>
         </div>
-        <div id="export-quality-container" style="margin-top: 15px; margin-bottom: 15px;"></div>
         <button class="property-btn" onclick="executeExportVideoToS3()">S3에 저장</button>
         <div style="background: #3a3a3a; padding: 10px; border-radius: 5px; margin-top: 10px;">
           <small style="color: #aaa;">💡 편집된 영상 파일을 S3에 저장합니다</small>
         </div>
       `;
-
-      // Add quality and resolution controls
-      const exportQualityContainer = document.getElementById('export-quality-container');
-      if (exportQualityContainer) {
-        ExportQuality.createExportQualityUI(exportQualityContainer);
-      }
       break;
 
     // Import tools for content mode
