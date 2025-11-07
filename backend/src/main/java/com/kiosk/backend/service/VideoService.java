@@ -261,10 +261,11 @@ public class VideoService {
      * @param uploadedById User ID of the user uploading the video
      * @param title Title of the video
      * @param description Optional description of the video
+     * @param imagePurpose Purpose of the image (only applies to images)
      * @return Saved Video entity
      */
     @Transactional
-    public Video uploadVideo(MultipartFile file, Long uploadedById, String title, String description) throws IOException {
+    public Video uploadVideo(MultipartFile file, Long uploadedById, String title, String description, Video.ImagePurpose imagePurpose) throws IOException {
         // Validate file
         validateFile(file);
 
@@ -367,7 +368,7 @@ public class VideoService {
 
         // Save metadata to database with UPLOAD type
         log.info("Saving video metadata to database...");
-        Video video = Video.builder()
+        Video.VideoBuilder videoBuilder = Video.builder()
                 .videoType(Video.VideoType.UPLOAD)
                 .mediaType(mediaType)
                 .filename(truncate(extractFilename(s3Key), MAX_FILENAME_LENGTH))
@@ -380,8 +381,14 @@ public class VideoService {
                 .thumbnailUrl(thumbnailUrl)
                 .uploadedById(uploadedById)
                 .title(truncate(title, MAX_TITLE_LENGTH))
-                .description(description) // TEXT column - no limit
-                .build();
+                .description(description); // TEXT column - no limit
+
+        // Set imagePurpose for images
+        if (mediaType == Video.MediaType.IMAGE && imagePurpose != null) {
+            videoBuilder.imagePurpose(imagePurpose);
+        }
+
+        Video video = videoBuilder.build();
 
         Video savedVideo = videoRepository.save(video);
         log.info("Video uploaded successfully: {} (ID: {}) by user ID {}", savedVideo.getOriginalFilename(), savedVideo.getId(), uploadedById);
@@ -396,10 +403,11 @@ public class VideoService {
      * @param title Title of the content
      * @param description Description of the content
      * @param mediaType Media type (IMAGE, VIDEO, or AUDIO)
+     * @param imagePurpose Purpose of the image (only applies to images)
      * @return Saved Video entity with AI_GENERATED type
      * @throws IOException if upload fails
      */
-    public Video uploadAIContent(MultipartFile file, Long uploadedById, String title, String description, Video.MediaType mediaType) throws IOException {
+    public Video uploadAIContent(MultipartFile file, Long uploadedById, String title, String description, Video.MediaType mediaType, Video.ImagePurpose imagePurpose) throws IOException {
         // Validate file
         validateFile(file);
 
@@ -501,7 +509,7 @@ public class VideoService {
 
         // Save metadata to database with AI_GENERATED type
         log.info("Saving AI content metadata to database...");
-        Video video = Video.builder()
+        Video.VideoBuilder videoBuilder = Video.builder()
                 .videoType(Video.VideoType.AI_GENERATED)
                 .mediaType(mediaType)
                 .filename(truncate(extractFilename(s3Key), MAX_FILENAME_LENGTH))
@@ -514,8 +522,14 @@ public class VideoService {
                 .thumbnailUrl(thumbnailUrl)
                 .uploadedById(uploadedById)
                 .title(truncate(title, MAX_TITLE_LENGTH))
-                .description(description) // TEXT column - no limit
-                .build();
+                .description(description); // TEXT column - no limit
+
+        // Set imagePurpose for images
+        if (mediaType == Video.MediaType.IMAGE && imagePurpose != null) {
+            videoBuilder.imagePurpose(imagePurpose);
+        }
+
+        Video video = videoBuilder.build();
 
         Video savedVideo = videoRepository.save(video);
         log.info("AI-generated {} uploaded successfully: {} (ID: {}) by user ID {}", mediaType, savedVideo.getOriginalFilename(), savedVideo.getId(), uploadedById);
