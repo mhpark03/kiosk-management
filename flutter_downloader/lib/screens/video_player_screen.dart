@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:video_player/video_player.dart';
+import 'package:media_kit/media_kit.dart';
+import 'package:media_kit_video/media_kit_video.dart' as media_kit_video;
 import '../widgets/coffee_kiosk_overlay.dart';
 import '../models/coffee_order.dart';
 
@@ -19,11 +20,15 @@ class VideoPlayerScreen extends StatefulWidget {
 }
 
 class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
-  late VideoPlayerController _controller;
+  late final Player _player;
+  late final media_kit_video.VideoController _controller;
   bool _isInitialized = false;
   bool _hasError = false;
   String? _errorMessage;
   bool _showKioskOverlay = false;
+  bool _isPlaying = false;
+  Duration _position = Duration.zero;
+  Duration _duration = Duration.zero;
 
   @override
   void initState() {
@@ -33,10 +38,30 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
   Future<void> _initializeVideo() async {
     try {
-      _controller = VideoPlayerController.file(File(widget.videoPath));
-      await _controller.initialize();
-      await _controller.setLooping(false);
-      await _controller.play();
+      _player = Player();
+      _controller = media_kit_video.VideoController(_player);
+
+      // Listen to player state changes
+      _player.stream.playing.listen((playing) {
+        if (mounted) {
+          setState(() => _isPlaying = playing);
+        }
+      });
+
+      _player.stream.position.listen((position) {
+        if (mounted) {
+          setState(() => _position = position);
+        }
+      });
+
+      _player.stream.duration.listen((duration) {
+        if (mounted) {
+          setState(() => _duration = duration);
+        }
+      });
+
+      await _player.open(Media('file:///${widget.videoPath}'));
+      await _player.play();
 
       setState(() {
         _isInitialized = true;
@@ -52,17 +77,13 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
   @override
   void dispose() {
-    _controller.dispose();
+    _player.dispose();
     super.dispose();
   }
 
   void _togglePlayPause() {
     setState(() {
-      if (_controller.value.isPlaying) {
-        _controller.pause();
-      } else {
-        _controller.play();
-      }
+      _player.playOrPause();
     });
   }
 
@@ -126,9 +147,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                       ],
                     )
                   : _isInitialized
-                      ? AspectRatio(
-                          aspectRatio: _controller.value.aspectRatio,
-                          child: VideoPlayer(_controller),
+                      ? media_kit_video.Video(
+                          controller: _controller,
+                          controls: media_kit_video.NoVideoControls,
                         )
                       : const CircularProgressIndicator(),
             ),
@@ -142,7 +163,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                     color: Colors.transparent,
                     child: Center(
                       child: AnimatedOpacity(
-                        opacity: _controller.value.isPlaying ? 0.0 : 1.0,
+                        opacity: _isPlaying ? 0.0 : 1.0,
                         duration: const Duration(milliseconds: 300),
                         child: Container(
                           decoration: BoxDecoration(
@@ -151,7 +172,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                           ),
                           padding: const EdgeInsets.all(16),
                           child: Icon(
-                            _controller.value.isPlaying
+                            _isPlaying
                                 ? Icons.pause
                                 : Icons.play_arrow,
                             color: Colors.white,
@@ -186,37 +207,36 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       // Progress bar
-                      VideoProgressIndicator(
-                        _controller,
-                        allowScrubbing: true,
-                        colors: const VideoProgressColors(
-                          playedColor: Colors.blue,
-                          bufferedColor: Colors.grey,
-                          backgroundColor: Colors.white24,
-                        ),
+                      Slider(
+                        value: _duration.inMilliseconds > 0
+                            ? _position.inMilliseconds / _duration.inMilliseconds
+                            : 0.0,
+                        onChanged: (value) {
+                          final position = Duration(
+                            milliseconds: (value * _duration.inMilliseconds).round(),
+                          );
+                          _player.seek(position);
+                        },
+                        activeColor: Colors.blue,
+                        inactiveColor: Colors.white24,
                       ),
                       const SizedBox(height: 8),
                       // Time and controls
                       Row(
                         children: [
                           // Current time / Total time
-                          ValueListenableBuilder(
-                            valueListenable: _controller,
-                            builder: (context, VideoPlayerValue value, child) {
-                              return Text(
-                                '${_formatDuration(value.position)} / ${_formatDuration(value.duration)}',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                ),
-                              );
-                            },
+                          Text(
+                            '${_formatDuration(_position)} / ${_formatDuration(_duration)}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                            ),
                           ),
                           const Spacer(),
                           // Play/Pause button
                           IconButton(
                             icon: Icon(
-                              _controller.value.isPlaying
+                              _isPlaying
                                   ? Icons.pause
                                   : Icons.play_arrow,
                               color: Colors.white,

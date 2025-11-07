@@ -1,7 +1,8 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:video_player/video_player.dart';
+import 'package:media_kit/media_kit.dart';
+import 'package:media_kit_video/media_kit_video.dart' as media_kit_video;
 import 'package:window_manager/window_manager.dart';
 import '../models/video.dart';
 import '../models/coffee_order.dart';
@@ -20,12 +21,16 @@ class KioskSplitScreen extends StatefulWidget {
 }
 
 class _KioskSplitScreenState extends State<KioskSplitScreen> {
-  VideoPlayerController? _controller;
+  Player? _player;
+  media_kit_video.VideoController? _controller;
   bool _isInitialized = false;
   bool _hasError = false;
   String? _errorMessage;
   int _currentVideoIndex = 0;
   final FocusNode _focusNode = FocusNode();
+  bool _isPlaying = false;
+  Duration _position = Duration.zero;
+  Duration _duration = Duration.zero;
 
   @override
   void initState() {
@@ -47,18 +52,62 @@ class _KioskSplitScreenState extends State<KioskSplitScreen> {
 
     try {
       final video = widget.videos[_currentVideoIndex];
-      _controller = VideoPlayerController.file(File(video.localPath!));
-      await _controller!.initialize();
-      await _controller!.setLooping(false);
-      await _controller!.play();
 
-      // Listen for video completion to play next video
-      _controller!.addListener(_videoListener);
+      // Check if localPath exists
+      if (video.localPath == null || video.localPath!.isEmpty) {
+        throw Exception('영상 파일 경로가 없습니다. 영상을 먼저 다운로드해주세요.');
+      }
+
+      final videoFile = File(video.localPath!);
+      print('[KIOSK SPLIT] Loading video from: ${video.localPath}');
+
+      // Check if file exists
+      if (!await videoFile.exists()) {
+        throw Exception('영상 파일을 찾을 수 없습니다:\n${video.localPath}');
+      }
+
+      // Get file size to verify it's accessible
+      final fileSize = await videoFile.length();
+      print('[KIOSK SPLIT] Video file size: ${fileSize / (1024 * 1024)} MB');
+
+      _player = Player();
+      _controller = media_kit_video.VideoController(_player!);
+
+      // Listen to player state changes
+      _player!.stream.playing.listen((playing) {
+        if (mounted) {
+          setState(() => _isPlaying = playing);
+        }
+      });
+
+      _player!.stream.position.listen((position) {
+        if (mounted) {
+          setState(() => _position = position);
+        }
+      });
+
+      _player!.stream.duration.listen((duration) {
+        if (mounted) {
+          setState(() => _duration = duration);
+        }
+      });
+
+      // Listen for video completion
+      _player!.stream.completed.listen((completed) {
+        if (completed) {
+          _playNextVideo();
+        }
+      });
+
+      await _player!.open(Media('file:///${video.localPath}'));
+      await _player!.play();
 
       setState(() {
         _isInitialized = true;
         _hasError = false;
       });
+
+      print('[KIOSK SPLIT] Video initialized successfully: ${video.title}');
     } catch (e) {
       print('[KIOSK SPLIT] Error initializing video: $e');
       setState(() {
@@ -68,17 +117,9 @@ class _KioskSplitScreenState extends State<KioskSplitScreen> {
     }
   }
 
-  void _videoListener() {
-    if (_controller != null &&
-        _controller!.value.position >= _controller!.value.duration) {
-      // Video finished, play next
-      _playNextVideo();
-    }
-  }
-
   Future<void> _playNextVideo() async {
     _currentVideoIndex = (_currentVideoIndex + 1) % widget.videos.length;
-    await _controller?.dispose();
+    await _player?.dispose();
     setState(() {
       _isInitialized = false;
     });
@@ -87,21 +128,14 @@ class _KioskSplitScreenState extends State<KioskSplitScreen> {
 
   @override
   void dispose() {
-    _controller?.removeListener(_videoListener);
-    _controller?.dispose();
+    _player?.dispose();
     _focusNode.dispose();
     super.dispose();
   }
 
   void _togglePlayPause() {
-    if (_controller == null) return;
-    setState(() {
-      if (_controller!.value.isPlaying) {
-        _controller!.pause();
-      } else {
-        _controller!.play();
-      }
-    });
+    if (_player == null) return;
+    _player!.playOrPause();
   }
 
   Future<void> _exitKiosk() async {
@@ -109,6 +143,13 @@ class _KioskSplitScreenState extends State<KioskSplitScreen> {
     if (mounted) {
       Navigator.of(context).pop();
     }
+  }
+
+  String _formatDuration(Duration duration) {
+    String twoDigits(int n) => n.toString().padLeft(2, '0');
+    final minutes = twoDigits(duration.inMinutes.remainder(60));
+    final seconds = twoDigits(duration.inSeconds.remainder(60));
+    return '$minutes:$seconds';
   }
 
   @override
@@ -119,6 +160,7 @@ class _KioskSplitScreenState extends State<KioskSplitScreen> {
       onKeyEvent: (node, event) {
         if (event is KeyDownEvent &&
             event.logicalKey == LogicalKeyboardKey.escape) {
+          // Exit to video list screen
           _exitKiosk();
           return KeyEventResult.handled;
         }
@@ -133,39 +175,127 @@ class _KioskSplitScreenState extends State<KioskSplitScreen> {
               flex: 1,
               child: Container(
                 color: Colors.black,
-                child: Center(
-                  child: _hasError
-                      ? Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(
-                              Icons.error_outline,
-                              color: Colors.red,
-                              size: 64,
-                            ),
-                            const SizedBox(height: 16),
-                            const Text(
-                              '동영상을 재생할 수 없습니다',
-                              style: TextStyle(color: Colors.white, fontSize: 18),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              _errorMessage ?? '',
-                              style: TextStyle(
-                                  color: Colors.grey.shade400, fontSize: 12),
-                              textAlign: TextAlign.center,
-                            ),
-                          ],
+                child: Stack(
+                  children: [
+                    Center(
+                      child: _hasError
+                      ? Padding(
+                          padding: const EdgeInsets.all(32.0),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(
+                                Icons.error_outline,
+                                color: Colors.red,
+                                size: 64,
+                              ),
+                              const SizedBox(height: 24),
+                              const Text(
+                                '동영상을 재생할 수 없습니다',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                _errorMessage ?? '',
+                                style: TextStyle(
+                                  color: Colors.grey.shade400,
+                                  fontSize: 14,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 32),
+                              ElevatedButton.icon(
+                                onPressed: () {
+                                  // Try to skip to next video
+                                  if (widget.videos.length > 1) {
+                                    _playNextVideo();
+                                  }
+                                },
+                                icon: const Icon(Icons.skip_next),
+                                label: const Text('다음 영상'),
+                                style: ElevatedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 24,
+                                    vertical: 12,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         )
                       : _isInitialized && _controller != null
                           ? GestureDetector(
                               onTap: _togglePlayPause,
-                              child: AspectRatio(
-                                aspectRatio: _controller!.value.aspectRatio,
-                                child: VideoPlayer(_controller!),
+                              child: media_kit_video.Video(
+                                controller: _controller!,
+                                controls: media_kit_video.NoVideoControls,
                               ),
                             )
                           : const CircularProgressIndicator(),
+                    ),
+
+                    // Video info overlay (bottom)
+                    if (_isInitialized && !_hasError)
+                      Positioned(
+                        bottom: 0,
+                        left: 0,
+                        right: 0,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.bottomCenter,
+                              end: Alignment.topCenter,
+                              colors: [
+                                Colors.black.withOpacity(0.8),
+                                Colors.transparent,
+                              ],
+                            ),
+                          ),
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                widget.videos[_currentVideoIndex].title,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  Text(
+                                    '${_currentVideoIndex + 1} / ${widget.videos.length}',
+                                    style: TextStyle(
+                                      color: Colors.grey.shade300,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  if (_player != null)
+                                    Text(
+                                      '${_formatDuration(_position)} / ${_formatDuration(_duration)}',
+                                      style: TextStyle(
+                                        color: Colors.grey.shade300,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ),
             ),
