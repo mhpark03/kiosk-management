@@ -5,15 +5,82 @@ import 'xml_generator.dart';
 import 'xml_menu_parser.dart';
 
 class MenuService extends ChangeNotifier {
-  MenuConfig _config = MenuConfig.empty();
+  List<MenuConfig> _menus = [MenuConfig.empty()];
+  int _activeMenuIndex = 0;
   final Uuid _uuid = const Uuid();
 
-  MenuConfig get config => _config;
+  // Selection state
+  String? _selectedNodeId; // 'menu:0', 'category:coffee', 'item:coffee_abc123'
+  String? _selectedNodeType; // 'menu', 'category', 'item'
 
-  // Load menu from XML string
+  // Getters
+  List<MenuConfig> get menus => _menus;
+  MenuConfig get activeMenu => _menus[_activeMenuIndex];
+  int get activeMenuIndex => _activeMenuIndex;
+  String? get selectedNodeId => _selectedNodeId;
+  String? get selectedNodeType => _selectedNodeType;
+
+  // For backward compatibility
+  MenuConfig get config => activeMenu;
+
+  // Selection operations
+  void selectMenu(int index) {
+    _selectedNodeType = 'menu';
+    _selectedNodeId = 'menu:$index';
+    _activeMenuIndex = index;
+    notifyListeners();
+  }
+
+  void selectCategory(String categoryId) {
+    _selectedNodeType = 'category';
+    _selectedNodeId = 'category:$categoryId';
+    notifyListeners();
+  }
+
+  void selectItem(String itemId) {
+    _selectedNodeType = 'item';
+    _selectedNodeId = 'item:$itemId';
+    notifyListeners();
+  }
+
+  void clearSelection() {
+    _selectedNodeType = null;
+    _selectedNodeId = null;
+    notifyListeners();
+  }
+
+  // Menu operations
+  void addMenu(MenuConfig menu) {
+    _menus.add(menu);
+    _activeMenuIndex = _menus.length - 1;
+    notifyListeners();
+  }
+
+  void deleteMenu(int index) {
+    if (index >= 0 && index < _menus.length && _menus.length > 1) {
+      _menus.removeAt(index);
+      if (_activeMenuIndex >= _menus.length) {
+        _activeMenuIndex = _menus.length - 1;
+      }
+      clearSelection();
+      notifyListeners();
+    }
+  }
+
+  void setActiveMenu(int index) {
+    if (index >= 0 && index < _menus.length) {
+      _activeMenuIndex = index;
+      clearSelection();
+      notifyListeners();
+    }
+  }
+
+  // Load menu from XML string (replaces active menu)
   void loadFromXml(String xmlContent) {
     try {
-      _config = XmlMenuParser.parseXml(xmlContent);
+      final loadedMenu = XmlMenuParser.parseXml(xmlContent);
+      _menus[_activeMenuIndex] = loadedMenu;
+      clearSelection();
       notifyListeners();
     } catch (e) {
       print('Error loading XML: $e');
@@ -21,64 +88,68 @@ class MenuService extends ChangeNotifier {
     }
   }
 
-  // Generate XML from current config
+  // Generate XML from active menu
   String generateXml() {
-    return XmlGenerator.generateXml(_config);
+    return XmlGenerator.generateXml(activeMenu);
   }
 
   // Create new empty menu
   void createNewMenu() {
-    _config = MenuConfig.empty();
+    final newMenu = MenuConfig.empty();
+    newMenu.metadata.name = '새 메뉴 ${_menus.length + 1}';
+    _menus.add(newMenu);
+    _activeMenuIndex = _menus.length - 1;
+    selectMenu(_activeMenuIndex);
     notifyListeners();
   }
 
   // Update metadata
   void updateMetadata(String name, String version) {
-    _config.metadata.name = name;
-    _config.metadata.version = version;
-    _config.metadata.lastModified = DateTime.now().toIso8601String();
+    activeMenu.metadata.name = name;
+    activeMenu.metadata.version = version;
+    activeMenu.metadata.lastModified = DateTime.now().toIso8601String();
     notifyListeners();
   }
 
   // Category operations
   void addCategory(MenuCategory category) {
-    _config.categories.add(category);
+    activeMenu.categories.add(category);
     notifyListeners();
   }
 
   void updateCategory(int index, MenuCategory category) {
-    if (index >= 0 && index < _config.categories.length) {
-      _config.categories[index] = category;
+    if (index >= 0 && index < activeMenu.categories.length) {
+      activeMenu.categories[index] = category;
       notifyListeners();
     }
   }
 
   void deleteCategory(int index) {
-    if (index >= 0 && index < _config.categories.length) {
-      final categoryId = _config.categories[index].id;
-      _config.categories.removeAt(index);
+    if (index >= 0 && index < activeMenu.categories.length) {
+      final categoryId = activeMenu.categories[index].id;
+      activeMenu.categories.removeAt(index);
       // Also remove menu items in this category
-      _config.menuItems.removeWhere((item) => item.category == categoryId);
+      activeMenu.menuItems.removeWhere((item) => item.category == categoryId);
       notifyListeners();
     }
   }
 
   // Menu item operations
   void addMenuItem(MenuItem item) {
-    _config.menuItems.add(item);
+    activeMenu.menuItems.add(item);
     notifyListeners();
   }
 
   void updateMenuItem(int index, MenuItem item) {
-    if (index >= 0 && index < _config.menuItems.length) {
-      _config.menuItems[index] = item;
+    if (index >= 0 && index < activeMenu.menuItems.length) {
+      activeMenu.menuItems[index] = item;
       notifyListeners();
     }
   }
 
   void deleteMenuItem(int index) {
-    if (index >= 0 && index < _config.menuItems.length) {
-      _config.menuItems.removeAt(index);
+    if (index >= 0 && index < activeMenu.menuItems.length) {
+      activeMenu.menuItems.removeAt(index);
       notifyListeners();
     }
   }
@@ -87,19 +158,19 @@ class MenuService extends ChangeNotifier {
     if (oldIndex < newIndex) {
       newIndex -= 1;
     }
-    final item = _config.menuItems.removeAt(oldIndex);
-    _config.menuItems.insert(newIndex, item);
+    final item = activeMenu.menuItems.removeAt(oldIndex);
+    activeMenu.menuItems.insert(newIndex, item);
 
     // Update order values
-    for (int i = 0; i < _config.menuItems.length; i++) {
-      _config.menuItems[i].order = i + 1;
+    for (int i = 0; i < activeMenu.menuItems.length; i++) {
+      activeMenu.menuItems[i].order = i + 1;
     }
     notifyListeners();
   }
 
   // Get menu items by category
   List<MenuItem> getMenuItemsByCategory(String categoryId) {
-    return _config.menuItems
+    return activeMenu.menuItems
         .where((item) => item.category == categoryId)
         .toList()
       ..sort((a, b) => a.order.compareTo(b.order));
