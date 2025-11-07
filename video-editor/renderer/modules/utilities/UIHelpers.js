@@ -315,6 +315,72 @@ export function hideModal(modalId) {
 }
 
 // ============================================================================
+// Button State Management
+// ============================================================================
+
+/**
+ * Disable all interactive buttons during processing
+ */
+export function disableAllButtons() {
+  console.log('[UIHelpers] Disabling all buttons');
+
+  // Disable all property buttons
+  const propertyButtons = document.querySelectorAll('.property-btn');
+  propertyButtons.forEach(btn => {
+    btn.disabled = true;
+    btn.style.opacity = '0.5';
+    btn.style.cursor = 'not-allowed';
+  });
+
+  // Disable all tool buttons
+  const toolButtons = document.querySelectorAll('.tool-btn');
+  toolButtons.forEach(btn => {
+    btn.disabled = true;
+    btn.style.opacity = '0.5';
+    btn.style.cursor = 'not-allowed';
+  });
+
+  // Disable mode buttons
+  const modeButtons = document.querySelectorAll('.mode-btn');
+  modeButtons.forEach(btn => {
+    btn.disabled = true;
+    btn.style.opacity = '0.5';
+    btn.style.cursor = 'not-allowed';
+  });
+}
+
+/**
+ * Enable all interactive buttons after processing
+ */
+export function enableAllButtons() {
+  console.log('[UIHelpers] Enabling all buttons');
+
+  // Enable all property buttons
+  const propertyButtons = document.querySelectorAll('.property-btn');
+  propertyButtons.forEach(btn => {
+    btn.disabled = false;
+    btn.style.opacity = '';
+    btn.style.cursor = '';
+  });
+
+  // Enable all tool buttons
+  const toolButtons = document.querySelectorAll('.tool-btn');
+  toolButtons.forEach(btn => {
+    btn.disabled = false;
+    btn.style.opacity = '';
+    btn.style.cursor = '';
+  });
+
+  // Enable mode buttons
+  const modeButtons = document.querySelectorAll('.mode-btn');
+  modeButtons.forEach(btn => {
+    btn.disabled = false;
+    btn.style.opacity = '';
+    btn.style.cursor = '';
+  });
+}
+
+// ============================================================================
 // Exports for Window (for backwards compatibility)
 // ============================================================================
 

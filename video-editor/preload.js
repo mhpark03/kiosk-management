@@ -15,6 +15,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Video operations
   trimVideo: (options) => ipcRenderer.invoke('trim-video', options),
+  reEncodeVideo: (options) => ipcRenderer.invoke('re-encode-video', options),
   trimVideoOnly: (options) => ipcRenderer.invoke('trim-video-only', options),
   trimAudioOnly: (options) => ipcRenderer.invoke('trim-audio-only', options),
   trimAudioFile: (options) => ipcRenderer.invoke('trim-audio-file', options),
