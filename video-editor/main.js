@@ -278,9 +278,9 @@ function createWindow() {
   createMenu();
 
   // Open DevTools in development
-  if (process.env.NODE_ENV === 'development') {
+  // if (process.env.NODE_ENV === 'development') {
     mainWindow.webContents.openDevTools();
-  }
+  // }
 
   mainWindow.on('closed', () => {
     mainWindow = null;
@@ -984,6 +984,131 @@ ipcMain.handle('trim-video', async (event, options) => {
       } else {
         logError('TRIM_FAILED', 'Video trim failed', { error: errorOutput });
         reject(new Error(errorOutput || 'FFmpeg failed'));
+      }
+    });
+  });
+});
+
+// Re-encode video with quality and resolution settings
+ipcMain.handle('re-encode-video', async (event, options) => {
+  const { inputPath, qualitySettings } = options;
+
+  // Create temp file for output
+  const os = require('os');
+  const tempDir = os.tmpdir();
+  const timestamp = Date.now();
+  const fileName = path.basename(inputPath, path.extname(inputPath));
+  const outputPath = path.join(tempDir, `${fileName}_reencoded_${timestamp}.mp4`);
+
+  logInfo('REENCODE_START', 'Starting video re-encoding', { inputPath, outputPath, qualitySettings });
+
+  // Check if input has audio stream
+  const hasAudio = await new Promise((resolve) => {
+    const ffprobe = spawn(ffprobePath, [
+      '-v', 'error',
+      '-select_streams', 'a:0',
+      '-show_entries', 'stream=codec_type',
+      '-of', 'default=noprint_wrappers=1:nokey=1',
+      inputPath
+    ], {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true
+    });
+
+    let output = '';
+    ffprobe.stdout.on('data', (data) => {
+      output += data.toString('utf8');
+    });
+
+    ffprobe.on('close', (code) => {
+      const audioExists = output.trim() === 'audio';
+      resolve(audioExists);
+    });
+  });
+
+  return new Promise((resolve, reject) => {
+    // Build FFmpeg args with quality settings
+    const args = [
+      '-i', inputPath
+    ];
+
+    // Build video filters array
+    const videoFilters = [];
+
+    // Add resolution scaling filter
+    if (qualitySettings.resolution && qualitySettings.resolution.width && qualitySettings.resolution.height) {
+      videoFilters.push(`scale=${qualitySettings.resolution.width}:${qualitySettings.resolution.height}:force_original_aspect_ratio=decrease`);
+    }
+
+    // Add FPS filter
+    if (qualitySettings.fps && qualitySettings.fps.fps) {
+      videoFilters.push(`fps=${qualitySettings.fps.fps}`);
+    }
+
+    // Apply video filters if any
+    if (videoFilters.length > 0) {
+      args.push('-vf', videoFilters.join(','));
+    }
+
+    // Video codec and quality settings
+    args.push(
+      '-c:v', 'libx264',                         // H.264 codec
+      '-crf', qualitySettings.quality.crf.toString(),  // CRF value (quality)
+      '-preset', qualitySettings.quality.preset,  // Encoding preset (speed vs compression)
+      '-pix_fmt', 'yuv420p'                      // Pixel format for compatibility
+    );
+
+    // Add FPS output flag if specified
+    if (qualitySettings.fps && qualitySettings.fps.fps) {
+      args.push('-r', qualitySettings.fps.fps.toString());
+    }
+
+    // Audio settings (only if audio exists)
+    if (hasAudio) {
+      args.push(
+        '-c:a', 'aac',      // AAC audio codec
+        '-b:a', '192k',     // Audio bitrate
+        '-ar', '48000',     // Sample rate
+        '-ac', '2'          // Stereo channels
+      );
+      logInfo('REENCODE_AUDIO', 'Re-encoding with audio', { hasAudio });
+    } else {
+      args.push('-an');  // No audio
+      logInfo('REENCODE_NO_AUDIO', 'Re-encoding video only (no audio)', { hasAudio });
+    }
+
+    args.push('-y', outputPath);
+
+    logInfo('REENCODE_FFMPEG_CMD', 'FFmpeg re-encode command', {
+      hasAudio,
+      args: args.join(' '),
+      quality: qualitySettings.quality,
+      resolution: qualitySettings.resolution,
+      fps: qualitySettings.fps
+    });
+
+    const ffmpeg = spawn(ffmpegPath, args, {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true
+    });
+
+    let errorOutput = '';
+
+    ffmpeg.stderr.on('data', (data) => {
+      const message = data.toString('utf8');
+      errorOutput += message;
+
+      // Send progress updates
+      mainWindow.webContents.send('ffmpeg-progress', message);
+    });
+
+    ffmpeg.on('close', (code) => {
+      if (code === 0) {
+        logInfo('REENCODE_SUCCESS', 'Video re-encoding completed', { outputPath, hasAudio });
+        resolve({ success: true, outputPath });
+      } else {
+        logError('REENCODE_FAILED', 'Video re-encoding failed', { error: errorOutput });
+        reject(new Error(errorOutput || 'FFmpeg re-encoding failed'));
       }
     });
   });

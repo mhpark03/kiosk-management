@@ -8,6 +8,7 @@ import * as TTS from './tts.js';
 import * as VEO from './veo.js';
 import * as Runway from './runway.js';
 import * as Imagen from './imagen.js';
+import * as ExportQuality from './core/ExportQualitySettings.js';
 
 /**
  * Initialize all modules
@@ -88,8 +89,17 @@ export function initializeModules() {
   window.saveRunwayVideoToS3 = Runway.saveRunwayVideoToS3;
   window.getGeneratedRunwayVideo = Runway.getGeneratedRunwayVideo;
 
+  // Expose ExportQuality functions to window for global access
+  window.createExportQualityUI = ExportQuality.createExportQualityUI;
+  window.getQualitySettings = ExportQuality.getQualitySettings;
+  window.getResolutionSettings = ExportQuality.getResolutionSettings;
+  window.getAllExportSettings = ExportQuality.getAllExportSettings;
+  window.getFFmpegEncodingArgs = ExportQuality.getFFmpegEncodingArgs;
+  window.resetExportQualitySettings = ExportQuality.resetSettings;
+  window.logCurrentExportSettings = ExportQuality.logCurrentSettings;
+
   console.log('[Module Loader] All modules initialized successfully');
 }
 
 // Export individual modules for direct access if needed
-export { Auth, TTS, VEO, Runway, Imagen };
+export { Auth, TTS, VEO, Runway, Imagen, ExportQuality };

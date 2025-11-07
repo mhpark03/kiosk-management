@@ -10,6 +10,13 @@ import * as PreviewHelpers from './modules/utilities/PreviewHelpers.js';
 import * as VeoModule from './modules/veo.js';
 import * as RunwayModule from './modules/runway.js';
 import * as TTSModule from './modules/tts.js';
+import * as ExportQuality from './modules/core/ExportQualitySettings.js';
+
+console.log('[App.js] ExportQuality module imported:', {
+  ExportQuality,
+  hasCreateFunction: !!ExportQuality.createExportQualityUI,
+  functions: Object.keys(ExportQuality)
+});
 
 // ============================================================================
 // Export module functions to window for backward compatibility
@@ -32,6 +39,8 @@ window.confirmAction = UIHelpers.confirmAction;
 window.showAlert = UIHelpers.showAlert;
 window.clearToolProperties = UIHelpers.clearToolProperties;
 window.showToast = UIHelpers.showToast;
+window.disableAllButtons = UIHelpers.disableAllButtons;
+window.enableAllButtons = UIHelpers.enableAllButtons;
 
 // TimelineHelpers exports
 window.formatTime = TimelineHelpers.formatTime;
@@ -93,6 +102,130 @@ window.stopAudioSpeedPreview = function() {
   updateStatus('미리보기 중지됨 (속도 1.0x로 복원)');
 };
 
+// Quality preview functions
+let previewTempPath = null;
+
+window.previewQuality = async function() {
+  if (!currentVideo) {
+    alert('먼저 영상을 가져와주세요.');
+    return;
+  }
+
+  const settings = ExportQuality.getAllExportSettings();
+  console.log('[Quality Preview] Current settings:', settings);
+
+  const qualityLabel = settings.qualityPreset.label;
+  const resolutionLabel = settings.resolutionPreset.label;
+  const fpsLabel = settings.fpsPreset.label;
+
+  const confirmed = confirm(
+    `선택한 설정으로 처음 5초를 미리보기합니다.\n\n` +
+    `품질: ${qualityLabel}\n` +
+    `해상도: ${resolutionLabel}\n` +
+    `FPS: ${fpsLabel}\n\n` +
+    `미리보기를 생성하시겠습니까?`
+  );
+
+  if (!confirmed) return;
+
+  UIHelpers.disableAllButtons();
+  showProgress();
+  updateProgress(0, '미리보기 생성 중...');
+  updateStatus('🔄 품질 미리보기 생성 중...');
+
+  try {
+    // Get video duration
+    const maxDuration = videoInfo ? parseFloat(videoInfo.format.duration) : 5;
+    const previewDuration = Math.min(5, maxDuration); // Preview first 5 seconds or less
+
+    // Step 1: Trim first 5 seconds
+    updateProgress(30, '처음 5초 추출 중...');
+    console.log('[Quality Preview] Step 1: Trimming to', previewDuration, 'seconds');
+
+    const trimResult = await window.electronAPI.trimVideo({
+      inputPath: currentVideo,
+      outputPath: null, // temp file
+      startTime: 0,
+      duration: previewDuration
+    });
+
+    if (!trimResult.success || !trimResult.outputPath) {
+      throw new Error('Failed to trim video for preview');
+    }
+
+    console.log('[Quality Preview] Step 1 complete:', trimResult.outputPath);
+
+    // Step 2: Apply quality settings to trimmed video
+    updateProgress(60, '품질 설정 적용 중...');
+    console.log('[Quality Preview] Step 2: Applying quality settings');
+
+    const result = await window.electronAPI.reEncodeVideo({
+      inputPath: trimResult.outputPath,
+      qualitySettings: {
+        quality: settings.qualityPreset,
+        resolution: settings.resolutionPreset,
+        fps: settings.fpsPreset
+      }
+    });
+
+    // Delete the intermediate trim file
+    if (trimResult.outputPath) {
+      await window.electronAPI.deleteTempFile(trimResult.outputPath);
+    }
+
+    hideProgress();
+    UIHelpers.enableAllButtons();
+
+    if (result.success && result.outputPath) {
+      previewTempPath = result.outputPath;
+
+      console.log('[Quality Preview] Step 2 complete:', result.outputPath);
+
+      // Load preview video
+      const video = document.getElementById('preview-video');
+      if (video) {
+        video.src = `file:///${result.outputPath.replace(/\\/g, '/')}`;
+        video.load();
+        video.play();
+      }
+
+      showToast(`✅ 미리보기 생성 완료\n${qualityLabel} | ${resolutionLabel} | ${fpsLabel}`, 'success', 3000);
+      updateStatus(`✅ 품질 미리보기 재생 중 (처음 ${previewDuration}초)`);
+      ExportQuality.logCurrentSettings();
+    } else {
+      throw new Error('Preview generation failed');
+    }
+  } catch (error) {
+    hideProgress();
+    UIHelpers.enableAllButtons();
+    console.error('[Quality Preview] Error:', error);
+    handleError('미리보기 생성', error, '미리보기 생성에 실패했습니다.');
+    updateStatus('❌ 미리보기 생성 실패');
+  }
+};
+
+window.stopQualityPreview = async function() {
+  // Restore original video
+  const video = document.getElementById('preview-video');
+  if (video && currentVideo) {
+    video.src = `file:///${currentVideo.replace(/\\/g, '/')}`;
+    video.load();
+  }
+
+  // Delete preview temp file if exists
+  if (previewTempPath) {
+    try {
+      await window.electronAPI.deleteTempFile(previewTempPath);
+      previewTempPath = null;
+    } catch (error) {
+      console.error('[Quality Preview] Error deleting temp file:', error);
+    }
+  }
+
+  updateStatus('원본 비디오로 복원됨');
+  showToast('⏹️ 미리보기 중지 - 원본 비디오로 복원', 'info', 2000);
+};
+
 // Merge operations exports (forward declarations - functions defined later in file)
 window.addVideoToMerge = function() { return addVideoToMerge(); };
 window.updateMergeFileList = updateMergeFileList;
@@ -124,6 +257,7 @@ window.executeFilter = function() { return executeFilter(); };
 window.executeAddText = function() { return executeAddText(); };
 window.executeSpeed = function() { return executeSpeed(); };
 window.executeAudioSpeed = function() { return executeAudioSpeed(); };
+window.executeApplyQuality = function() { return executeApplyQuality(); };
 window.executeExportVideoToS3 = function() { return executeExportVideoToS3(); };
 window.executeExportAudioToS3 = function() { return executeExportAudioToS3(); };
 window.executeExtractAudioToS3 = function() { return executeExtractAudioToS3(); };
@@ -150,6 +284,8 @@ window.closeRunwayVideoS3Modal = RunwayModule.closeRunwayVideoS3Modal;  // Use m
 
 // Selection operations exports
 window.selectAudioFile = function() { return selectAudioFile(); };
+window.selectS3Video = function() { return selectS3Video(); };
+window.selectLocalVideoFile = function() { return selectLocalVideoFile(); };
 window.selectRunwayVideoImageSource = RunwayModule.selectRunwayVideoImageSource;  // Use module
 window.selectRunwayVideoS3Image = RunwayModule.selectRunwayVideoS3Image;  // Use module
 window.selectVeoRefImageSource = VeoModule.selectVeoRefImageSource;
@@ -925,6 +1061,50 @@ function showToolProperties(tool) {
       `;
       break;
 
+    case 'quality':
+      if (!currentVideo) {
+        alert('먼저 영상을 가져와주세요.');
+        return;
+      }
+
+      propertiesPanel.innerHTML = `
+        <div class="property-group">
+          <label>현재 영상 파일</label>
+          <div style="background: #2d2d2d; padding: 15px; border-radius: 5px; margin-top: 10px;">
+            <div style="color: #e0e0e0; font-size: 14px; margin-bottom: 8px;">📄 ${currentVideo.split('\\').pop()}</div>
+            <div style="color: #888; font-size: 12px;">
+              ${videoInfo ? `길이: ${formatTime(parseFloat(videoInfo.format.duration))} | 크기: ${(parseFloat(videoInfo.format.size || 0) / (1024 * 1024)).toFixed(2)}MB` : ''}
+            </div>
+          </div>
+        </div>
+        <div id="quality-settings-container" style="margin-top: 15px;"></div>
+        <div style="display: flex; gap: 10px; margin-top: 10px;">
+          <button class="property-btn secondary" onclick="previewQuality()" style="flex: 1;">🎬 미리보기</button>
+          <button class="property-btn secondary" onclick="stopQualityPreview()" style="flex: 1;">⏹️ 중지</button>
+        </div>
+        <button class="property-btn" onclick="executeApplyQuality()">품질 적용</button>
+        <div style="background: #3a3a3a; padding: 10px; border-radius: 5px; margin-top: 10px;">
+          <small style="color: #aaa;">💡 선택한 품질과 해상도로 영상을 재인코딩합니다</small>
+        </div>
+      `;
+
+      // Add quality and resolution controls
+      console.log('[Quality Tool] Looking for quality-settings-container...');
+      const qualityContainer = document.getElementById('quality-settings-container');
+      console.log('[Quality Tool] Container found:', {
+        container: qualityContainer,
+        exists: !!qualityContainer,
+        id: qualityContainer?.id
+      });
+
+      if (qualityContainer) {
+        console.log('[Quality Tool] Calling ExportQuality.createExportQualityUI...');
+        ExportQuality.createExportQualityUI(qualityContainer);
+      } else {
+        console.error('[Quality Tool] quality-settings-container NOT FOUND!');
+      }
+      break;
+
     case 'export':
       if (!currentVideo) {
         alert('먼저 영상을 가져와주세요.');
@@ -953,11 +1133,18 @@ function showToolProperties(tool) {
           <label>설명 *</label>
           <textarea id="export-video-description" rows="3" placeholder="설명을 입력하세요">${exportVideoDescription.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</textarea>
         </div>
+        <div id="export-quality-container" style="margin-top: 15px; margin-bottom: 15px;"></div>
         <button class="property-btn" onclick="executeExportVideoToS3()">S3에 저장</button>
         <div style="background: #3a3a3a; padding: 10px; border-radius: 5px; margin-top: 10px;">
           <small style="color: #aaa;">💡 편집된 영상 파일을 S3에 저장합니다</small>
         </div>
       `;
+
+      // Add quality and resolution controls
+      const exportQualityContainer = document.getElementById('export-quality-container');
+      if (exportQualityContainer) {
+        ExportQuality.createExportQualityUI(exportQualityContainer);
+      }
       break;
 
     // Import tools for content mode
@@ -3936,8 +4123,10 @@ async function executeTrim() {
     return;
   }
 
+  UIHelpers.disableAllButtons();
   showProgress();
   updateProgress(0, '영상 자르는 중...');
+  updateStatus('🔄 영상 자르기 작업 진행 중...');
 
   // Save previous video file path for cleanup
   const previousVideo = currentVideo;
@@ -3951,6 +4140,7 @@ async function executeTrim() {
     });
 
     hideProgress();
+    UIHelpers.enableAllButtons();
     alert('영상 자르기 완료!\n\n편집된 내용은 임시 저장되었습니다.\n최종 저장하려면 "비디오 내보내기"를 사용하세요.');
 
     // Wait a bit for file to be fully written
@@ -3964,9 +4154,12 @@ async function executeTrim() {
     if (previousVideo && previousVideo !== result.outputPath) {
       await window.electronAPI.deleteTempFile(previousVideo);
     }
+    updateStatus('✅ 영상 자르기 완료');
   } catch (error) {
     hideProgress();
+    UIHelpers.enableAllButtons();
     handleError('영상 자르기', error, '영상 자르기에 실패했습니다.');
+    updateStatus('❌ 영상 자르기 실패');
   }
 }
 
@@ -4806,8 +4999,10 @@ async function executeMerge() {
   const transition = document.getElementById('merge-transition').value;
   const transitionDuration = parseFloat(document.getElementById('merge-duration').value);
 
+  UIHelpers.disableAllButtons();
   showProgress();
   updateProgress(0, '영상 병합 중...');
+  updateStatus('🔄 영상 병합 작업 진행 중...');
 
   // Save previous video file path for cleanup
   const previousVideo = currentVideo;
@@ -4821,6 +5016,7 @@ async function executeMerge() {
     });
 
     hideProgress();
+    UIHelpers.enableAllButtons();
     alert('영상 병합 완료!\n\n편집된 내용은 임시 저장되었습니다.\n최종 저장하려면 "비디오 내보내기"를 사용하세요.');
     loadVideo(result.outputPath);
     currentVideo = result.outputPath;
@@ -4832,9 +5028,12 @@ async function executeMerge() {
     }
 
     mergeVideos = [];
+    updateStatus('✅ 영상 병합 완료');
   } catch (error) {
     hideProgress();
+    UIHelpers.enableAllButtons();
     handleError('영상 병합', error, '영상 병합에 실패했습니다.');
+    updateStatus('❌ 영상 병합 실패');
   }
 }
 
@@ -5721,6 +5920,139 @@ async function executeAddText() {
   } catch (error) {
     hideProgress();
     handleError('텍스트 추가', error, '텍스트 추가에 실패했습니다.');
+  }
+}
+
+// Apply quality and resolution settings
+async function executeApplyQuality() {
+  console.log('[Apply Quality] Function called');
+
+  if (!currentVideo) {
+    alert('먼저 영상을 가져와주세요.');
+    return;
+  }
+
+  // Get quality settings
+  const exportSettings = ExportQuality.getAllExportSettings();
+  console.log('[Apply Quality] Export settings:', exportSettings);
+
+  const qualityLabel = exportSettings.qualityPreset.label;
+  const resolutionLabel = exportSettings.resolutionPreset.label;
+  const fpsLabel = exportSettings.fpsPreset.label;
+
+  // Get video info for better progress indication
+  const videoDuration = videoInfo ? parseFloat(videoInfo.format.duration) : 0;
+  const videoSize = videoInfo ? (parseFloat(videoInfo.format.size || 0) / (1024 * 1024)).toFixed(2) : 0;
+
+  // Show confirmation with settings
+  const confirmed = confirm(
+    `다음 설정으로 전체 영상을 재인코딩합니다:\n\n` +
+    `품질: ${qualityLabel}\n` +
+    `해상도: ${resolutionLabel}\n` +
+    `FPS: ${fpsLabel}\n\n` +
+    `영상 길이: ${formatTime(videoDuration)}\n` +
+    `원본 크기: ${videoSize}MB\n\n` +
+    `⚠️ 영상 길이에 따라 시간이 오래 걸릴 수 있습니다.\n` +
+    `계속하시겠습니까?`
+  );
+
+  if (!confirmed) return;
+
+  // Disable all buttons to prevent multiple operations
+  UIHelpers.disableAllButtons();
+
+  // Save previous video file path for cleanup
+  const previousVideo = currentVideo;
+
+  // Show initial progress
+  showProgress();
+  updateProgress(0, '준비 중...');
+  updateStatus('🔄 품질 적용 작업 진행 중... 잠시만 기다려주세요.');
+
+  // Wait for UI to update
+  await new Promise(resolve => setTimeout(resolve, 100));
+
+  let progressInterval = null;
+
+  try {
+    updateProgress(10, `품질 설정 분석 중... (${qualityLabel}, ${resolutionLabel}, ${fpsLabel})`);
+    await new Promise(resolve => setTimeout(resolve, 300));
+
+    updateProgress(20, `비디오 인코딩 시작 중... (${formatTime(videoDuration)})`);
+    await new Promise(resolve => setTimeout(resolve, 300));
+
+    // Start progress simulation
+    let currentProgress = 25;
+
+    progressInterval = setInterval(() => {
+      // Gradually increase progress (slower as it gets higher)
+      if (currentProgress < 80) {
+        currentProgress += Math.random() * 2; // Random increment 0-2%
+        const messages = [
+          `비디오 인코딩 진행 중... (${Math.floor(currentProgress)}%)`,
+          `품질 적용 중... (${qualityLabel})`,
+          `해상도 변환 중... (${resolutionLabel})`,
+          `프레임레이트 조정 중... (${fpsLabel})`
+        ];
+        const message = messages[Math.floor(Math.random() * messages.length)];
+        updateProgress(Math.min(currentProgress, 80), message);
+      }
+    }, 1000); // Update every second
+
+    const result = await window.electronAPI.reEncodeVideo({
+      inputPath: currentVideo,
+      qualitySettings: {
+        quality: exportSettings.qualityPreset,
+        resolution: exportSettings.resolutionPreset,
+        fps: exportSettings.fpsPreset
+      }
+    });
+
+    // Stop progress simulation
+    if (progressInterval) {
+      clearInterval(progressInterval);
+      progressInterval = null;
+    }
+
+    updateProgress(90, '최종 처리 중...');
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    hideProgress();
+    UIHelpers.enableAllButtons();
+
+    if (result.success && result.outputPath) {
+      // Get new file size
+      const newVideoSize = result.fileSize ? (result.fileSize / (1024 * 1024)).toFixed(2) : '?';
+
+      alert(`품질 적용 완료!\n\n품질: ${qualityLabel}\n해상도: ${resolutionLabel}\nFPS: ${fpsLabel}\n\n원본 크기: ${videoSize}MB\n변환 후: ${newVideoSize}MB\n\n편집된 내용은 임시 저장되었습니다.\n최종 저장하려면 "비디오 내보내기"를 사용하세요.`);
+
+      loadVideo(result.outputPath);
+      currentVideo = result.outputPath;
+      hasSilentAudio = false;
+
+      // Delete previous temp file if it exists
+      if (previousVideo && previousVideo !== result.outputPath) {
+        await window.electronAPI.deleteTempFile(previousVideo);
+      }
+
+      // Log current settings for debugging
+      ExportQuality.logCurrentSettings();
+      updateStatus('✅ 품질 적용 완료');
+    } else {
+      throw new Error('Re-encoding failed');
+    }
+  } catch (error) {
+    // Stop progress simulation if still running
+    if (progressInterval) {
+      clearInterval(progressInterval);
+      progressInterval = null;
+    }
+
+    hideProgress();
+    UIHelpers.enableAllButtons();
+    console.error('[Apply Quality] Error:', error);
+    handleError('품질 적용', error, '비디오 재인코딩에 실패했습니다.');
+    updateStatus('❌ 품질 적용 실패');
   }
 }
 
@@ -8443,8 +8775,10 @@ async function executeExportVideoToS3() {
     return;
   }
 
+  UIHelpers.disableAllButtons();
   showProgress();
   updateProgress(0, '제목 중복 확인 중...');
+  updateStatus('🔄 비디오 내보내기 작업 진행 중...');
 
   try {
     // Check for duplicate title using my-videos endpoint
@@ -8467,18 +8801,67 @@ async function executeExportVideoToS3() {
 
     if (duplicateTitle) {
       hideProgress();
+      UIHelpers.enableAllButtons();
       alert(`같은 제목의 영상 파일이 이미 존재합니다.\n\n제목: ${title}\n\n다른 제목을 사용해주세요.`);
       if (titleInput) titleInput.focus();
+      updateStatus('❌ 제목 중복');
       return;
+    }
+
+    // Get quality settings and re-encode video if needed
+    updateProgress(30, '품질 설정에 따라 비디오 인코딩 중...');
+
+    let videoToUpload = currentVideo;
+    let needsReencoding = false;
+
+    // Check if quality settings are available and not using defaults
+    const exportSettings = ExportQuality.getAllExportSettings();
+    if (exportSettings) {
+      console.log('[Export Video S3] Export settings:', exportSettings);
+
+      // Check if settings are different from "just copy" (non-default quality or resolution)
+      const isCustomQuality = exportSettings.quality !== 'high';  // 'high' is default
+      const isCustomResolution = exportSettings.resolution !== 'original';
+
+      if (isCustomQuality || isCustomResolution) {
+        needsReencoding = true;
+        console.log('[Export Video S3] Re-encoding required:', { isCustomQuality, isCustomResolution });
+
+        try {
+          const reencodeResult = await window.electronAPI.reEncodeVideo({
+            inputPath: currentVideo,
+            qualitySettings: {
+              quality: exportSettings.qualityPreset,
+              resolution: exportSettings.resolutionPreset
+            }
+          });
+
+          if (reencodeResult.success && reencodeResult.outputPath) {
+            videoToUpload = reencodeResult.outputPath;
+            console.log('[Export Video S3] Video re-encoded successfully:', videoToUpload);
+          } else {
+            throw new Error('Re-encoding failed');
+          }
+        } catch (encodeError) {
+          hideProgress();
+          UIHelpers.enableAllButtons();
+          console.error('[Export Video S3] Re-encoding error:', encodeError);
+          alert(`비디오 인코딩 중 오류가 발생했습니다:\n${encodeError.message}`);
+          updateStatus('❌ 인코딩 실패');
+          return;
+        }
+      } else {
+        console.log('[Export Video S3] Using default settings, no re-encoding needed');
+      }
     }
 
     updateProgress(50, 'S3에 영상 파일 업로드 중...');
 
     // Read file and create FormData
-    const fileUrl = `file:///${currentVideo.replace(/\\/g, '/')}`;
+    const fileUrl = `file:///${videoToUpload.replace(/\\/g, '/')}`;
     const fileResponse = await fetch(fileUrl);
     const videoBlob = await fileResponse.blob();
-    const fileName = currentVideo.split('\\').pop().split('/').pop();
+    const fileName = videoToUpload.split('\\').pop().split('/').pop();
 
     console.log('[Export Video S3] Uploading to S3:', { title, description, fileName, size: videoBlob.size });
 
@@ -8522,17 +8905,20 @@ async function executeExportVideoToS3() {
 
     updateProgress(100, '영상 파일 업로드 완료!');
     hideProgress();
+    UIHelpers.enableAllButtons();
 
     alert(`S3 업로드 완료!\n\n제목: ${title}\n파일명: ${fileName}\n\n클라우드에 성공적으로 저장되었습니다.`);
-    updateStatus(`S3 업로드 완료: ${title}`);
+    updateStatus(`✅ S3 업로드 완료: ${title}`);
 
     // Clear input fields after successful upload
     if (titleInput) titleInput.value = '';
     if (descriptionInput) descriptionInput.value = '';
   } catch (error) {
     hideProgress();
+    UIHelpers.enableAllButtons();
     console.error('[Export Video S3] Error:', error);
     handleError('영상 내보내기 및 S3 업로드', error, 'S3 업로드에 실패했습니다.');
+    updateStatus('❌ S3 업로드 실패');
   }
 }
 
@@ -9092,6 +9478,10 @@ function updateModeUI() {
         <button class="tool-btn" data-tool="filter">
           <span class="icon">🎨</span>
           필터/색상 조정
+        </button>
+        <button class="tool-btn" data-tool="quality">
+          <span class="icon">⚙️</span>
+          품질/해상도 조절
         </button>
         <button class="tool-btn" data-tool="text">
           <span class="icon">📝</span>
