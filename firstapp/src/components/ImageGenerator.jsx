@@ -488,6 +488,7 @@ function ImageGenerator() {
         <S3ImageSelector
           onSelect={handleS3ImageSelect}
           onClose={() => setS3SelectorOpen(false)}
+          purpose="REFERENCE"
         />
       )}
     </div>
