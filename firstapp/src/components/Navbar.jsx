@@ -132,6 +132,15 @@ function Navbar() {
                 매장
               </Link>
             </li>
+            <li>
+              <Link
+                to="/menus"
+                className={location.pathname === '/menus' || location.pathname.startsWith('/menus/') ? 'active' : ''}
+                onClick={closeMenu}
+              >
+                메뉴 관리
+              </Link>
+            </li>
             <li className="dropdown">
               <button
                 className={`dropdown-toggle ${isVideosOpen ? 'active' : ''}`}
