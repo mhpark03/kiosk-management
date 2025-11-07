@@ -116,7 +116,8 @@ export async function uploadImagenImageToS3(imageBase64, title, description, pro
         title: title || '생성된 이미지',
         description: description || '',
         prompt: prompt,
-        source: 'IMAGEN'
+        source: 'IMAGEN',
+        imagePurpose: 'REFERENCE'
       })
     });
 

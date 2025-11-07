@@ -218,6 +218,7 @@ export async function saveGeneratedImageToS3() {
     formData.append('title', title);
     formData.append('description', description);
     formData.append('mediaType', 'IMAGE');  // Explicitly set media type
+    formData.append('imagePurpose', 'REFERENCE');  // For video generation reference
 
     const uploadResponse = await fetch(`${backendBaseUrl}/api/ai/upload`, {
       method: 'POST',
