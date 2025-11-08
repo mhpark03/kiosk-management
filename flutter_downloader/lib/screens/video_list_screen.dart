@@ -769,6 +769,12 @@ class _VideoListScreenState extends State<VideoListScreen> {
       final menuFile = File(menuFilePath);
       if (await menuFile.exists()) {
         print('[MENU DOWNLOAD] Menu file already exists: $filename');
+        // Update menu download status even if file already exists
+        if (mounted) {
+          setState(() {
+            _menuDownloaded = true;
+          });
+        }
         return;
       }
 
@@ -1224,21 +1230,21 @@ class _VideoListScreenState extends State<VideoListScreen> {
                                     child: isLandscape
                                       ? Row(
                                           children: [
-                                            // Menu badge
+                                            // Menu ID (same style as video)
                                             Container(
                                               padding: const EdgeInsets.symmetric(
                                                 horizontal: 6,
                                                 vertical: 2,
                                               ),
                                               decoration: BoxDecoration(
-                                                color: Colors.amber.shade200,
+                                                color: Colors.grey.shade300,
                                                 borderRadius: BorderRadius.circular(4),
                                               ),
-                                              child: const Text(
-                                                '메뉴',
+                                              child: Text(
+                                                '#${_menuVideo?.id ?? _kiosk?.menuId ?? 0}',
                                                 style: TextStyle(
                                                   fontSize: 11,
-                                                  color: Color(0xFF92400E),
+                                                  color: Colors.grey.shade700,
                                                   fontWeight: FontWeight.w600,
                                                 ),
                                               ),
@@ -1278,7 +1284,7 @@ class _VideoListScreenState extends State<VideoListScreen> {
                                       : Column(
                                           crossAxisAlignment: CrossAxisAlignment.start,
                                           children: [
-                                            // Menu badge and filename
+                                            // Menu ID and title
                                             Row(
                                               children: [
                                                 Container(
@@ -1287,14 +1293,14 @@ class _VideoListScreenState extends State<VideoListScreen> {
                                                     vertical: 2,
                                                   ),
                                                   decoration: BoxDecoration(
-                                                    color: Colors.amber.shade200,
+                                                    color: Colors.grey.shade300,
                                                     borderRadius: BorderRadius.circular(3),
                                                   ),
-                                                  child: const Text(
-                                                    '메뉴',
+                                                  child: Text(
+                                                    '#${_menuVideo?.id ?? _kiosk?.menuId ?? 0}',
                                                     style: TextStyle(
                                                       fontSize: 10,
-                                                      color: Color(0xFF92400E),
+                                                      color: Colors.grey.shade700,
                                                       fontWeight: FontWeight.w600,
                                                     ),
                                                   ),
@@ -1325,17 +1331,27 @@ class _VideoListScreenState extends State<VideoListScreen> {
                                                 overflow: TextOverflow.ellipsis,
                                               ),
                                             ],
+                                            if (_menuVideo?.fileSizeDisplay != null) ...[
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                _menuVideo!.fileSizeDisplay,
+                                                style: TextStyle(
+                                                  fontSize: 10,
+                                                  color: Colors.grey.shade500,
+                                                ),
+                                              ),
+                                            ],
                                           ],
                                         ),
                                   ),
 
-                                  // File size placeholder (landscape only)
+                                  // File size (landscape only)
                                   if (isLandscape) ...[
                                     const SizedBox(width: 8),
                                     SizedBox(
                                       width: 60,
                                       child: Text(
-                                        '',
+                                        _menuVideo?.fileSizeDisplay ?? '',
                                         style: TextStyle(
                                           fontSize: 11,
                                           color: Colors.grey.shade600,
@@ -1375,7 +1391,30 @@ class _VideoListScreenState extends State<VideoListScreen> {
                                               color: Colors.green,
                                               size: 24,
                                             )
-                                        : Container(), // Empty container when not downloaded (auto-sync will handle it)
+                                        : isLandscape
+                                          ? Row(
+                                              mainAxisAlignment: MainAxisAlignment.center,
+                                              children: [
+                                                Icon(
+                                                  Icons.pending,
+                                                  color: Colors.grey.shade600,
+                                                  size: 16,
+                                                ),
+                                                const SizedBox(width: 4),
+                                                Text(
+                                                  '대기',
+                                                  style: TextStyle(
+                                                    color: Colors.grey.shade600,
+                                                    fontSize: 12,
+                                                  ),
+                                                ),
+                                              ],
+                                            )
+                                          : Icon(
+                                              Icons.pending,
+                                              color: Colors.grey.shade600,
+                                              size: 24,
+                                            ),
                                   ),
                                 ],
                               ),

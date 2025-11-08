@@ -40,21 +40,28 @@ class _CoffeeKioskOverlayState extends State<CoffeeKioskOverlay> {
   @override
   void initState() {
     super.initState();
+    print('[COFFEE KIOSK OVERLAY] initState called');
+    print('[COFFEE KIOSK OVERLAY] downloadPath: ${widget.downloadPath}');
+    print('[COFFEE KIOSK OVERLAY] kioskId: ${widget.kioskId}');
+    print('[COFFEE KIOSK OVERLAY] menuFilename: ${widget.menuFilename}');
     // Load menu from XML
     _loadMenu();
   }
 
   Future<void> _loadMenu() async {
+    print('[COFFEE KIOSK OVERLAY] _loadMenu called');
     await _menuService.loadMenuFromXml(
       downloadPath: widget.downloadPath,
       kioskId: widget.kioskId,
       filename: widget.menuFilename,
     );
+    print('[COFFEE KIOSK OVERLAY] Menu loaded, rebuilding UI');
     setState(() {}); // Rebuild UI with loaded menu
   }
 
   @override
   Widget build(BuildContext context) {
+    print('[COFFEE KIOSK OVERLAY] build called');
     return Container(
       color: Colors.white, // White background for kiosk menu
       child: SafeArea(

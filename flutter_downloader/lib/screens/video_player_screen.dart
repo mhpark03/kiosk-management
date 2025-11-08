@@ -278,7 +278,14 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                 bottom: 80,
                 child: FloatingActionButton(
                   onPressed: () {
-                    setState(() => _showKioskOverlay = true);
+                    print('[VIDEO PLAYER] Coffee kiosk button clicked');
+                    print('[VIDEO PLAYER] downloadPath: ${widget.downloadPath}');
+                    print('[VIDEO PLAYER] kioskId: ${widget.kioskId}');
+                    print('[VIDEO PLAYER] menuFilename: ${widget.menuFilename}');
+                    setState(() {
+                      _showKioskOverlay = true;
+                      print('[VIDEO PLAYER] _showKioskOverlay set to true');
+                    });
                   },
                   backgroundColor: Colors.brown.shade700,
                   child: const Icon(Icons.coffee, color: Colors.white, size: 28),
