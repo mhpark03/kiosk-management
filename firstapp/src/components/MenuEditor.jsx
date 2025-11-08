@@ -140,6 +140,8 @@ function MenuEditor() {
   // Check if menu has been modified
   const hasChanges = () => {
     if (!menu || !originalMenu) return false;
+    // For new menus (including copied menus), always allow saving to S3
+    if (id === 'new') return true;
     return JSON.stringify(menu) !== JSON.stringify(originalMenu);
   };
 
