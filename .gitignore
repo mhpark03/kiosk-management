@@ -94,3 +94,7 @@ video-editor/waveform_debug/
 google-tts-service-account.json
 **/google-tts-service-account.json
 backend/eb-env-vars.json
+
+# Spring Boot local configuration files (may contain credentials)
+backend/src/main/resources/application-local*.yml
+backend/src/main/resources/application-local*.properties
