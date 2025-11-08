@@ -70,11 +70,15 @@ class MenuMetadata {
   String name;
   String version;
   String lastModified;
+  String description;
+  String filename;
 
   MenuMetadata({
     required this.name,
     required this.version,
     required this.lastModified,
+    this.description = '',
+    this.filename = 'coffee_menu.xml',
   });
 }
 

@@ -80,12 +80,12 @@ class _DetailPanelState extends State<DetailPanel> {
   Widget _buildMenuEditor(MenuService menuService) {
     final menu = menuService.activeMenu;
     final nameController = TextEditingController(text: menu.metadata.name);
-    final versionController = TextEditingController(text: menu.metadata.version);
+    final descriptionController = TextEditingController(text: menu.metadata.description);
+    final filenameController = TextEditingController(text: menu.metadata.filename);
 
     return Padding(
       padding: const EdgeInsets.all(24.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: ListView(
         children: [
           Row(
             children: [
@@ -112,13 +112,27 @@ class _DetailPanelState extends State<DetailPanel> {
           const SizedBox(height: 16),
 
           TextField(
-            controller: versionController,
+            controller: descriptionController,
             decoration: const InputDecoration(
-              labelText: 'Version',
+              labelText: 'Description',
               border: OutlineInputBorder(),
             ),
+            maxLines: 3,
             onChanged: (value) {
-              menu.metadata.version = value;
+              menu.metadata.description = value;
+            },
+          ),
+          const SizedBox(height: 16),
+
+          TextField(
+            controller: filenameController,
+            decoration: const InputDecoration(
+              labelText: 'Filename',
+              border: OutlineInputBorder(),
+              helperText: 'XML filename for export',
+            ),
+            onChanged: (value) {
+              menu.metadata.filename = value;
             },
           ),
           const SizedBox(height: 24),
@@ -136,23 +150,44 @@ class _DetailPanelState extends State<DetailPanel> {
             menu.metadata.lastModified.substring(0, 19).replaceAll('T', ' '),
           ),
 
-          const Spacer(),
+          const SizedBox(height: 24),
 
-          ElevatedButton.icon(
-            icon: const Icon(Icons.save),
-            label: const Text('Save Changes'),
-            style: ElevatedButton.styleFrom(
-              minimumSize: const Size(double.infinity, 48),
-            ),
-            onPressed: () {
-              menuService.updateMetadata(
-                nameController.text,
-                versionController.text,
-              );
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Menu updated')),
-              );
-            },
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  icon: const Icon(Icons.save),
+                  label: const Text('Save'),
+                  style: ElevatedButton.styleFrom(
+                    minimumSize: const Size(0, 48),
+                  ),
+                  onPressed: () {
+                    menuService.updateMetadata(
+                      nameController.text,
+                      menu.metadata.version,
+                      descriptionController.text,
+                      filenameController.text,
+                    );
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Menu updated')),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton.icon(
+                  icon: const Icon(Icons.close),
+                  label: const Text('Close'),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(0, 48),
+                  ),
+                  onPressed: () {
+                    menuService.clearSelection();
+                  },
+                ),
+              ),
+            ],
           ),
         ],
       ),

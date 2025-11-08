@@ -24,7 +24,7 @@ import {
 import { getAllStores } from '../services/storeService';
 import { useAuth } from '../context/AuthContext';
 import { Timestamp } from 'firebase/firestore';
-import { FiEdit, FiTrash2, FiClock, FiRotateCcw, FiVideo, FiSettings } from 'react-icons/fi';
+import { FiEdit, FiTrash2, FiClock, FiRotateCcw } from 'react-icons/fi';
 import './KioskManagement.css';
 import { formatKSTDate } from '../utils/dateUtils';
 
@@ -720,6 +720,7 @@ function KioskManagement() {
       await updateKioskConfigFromWeb(selectedKiosk.id, kioskConfig);
       setSuccess('키오스크 설정이 업데이트되었습니다. 키오스크 앱에 알림이 전송되었습니다.');
       setTimeout(() => setSuccess(''), 5000);
+
       setShowConfigModal(false);
       setSelectedKiosk(null);
       setKioskConfig({
@@ -1075,21 +1076,44 @@ function KioskManagement() {
                     </td>
                     <td>
                       <div className="action-buttons">
+                        <button
+                          onClick={() => handleViewHistory(kiosk)}
+                          className="btn-history"
+                          title="History"
+                        >
+                          <FiClock />
+                        </button>
                         {kiosk.state !== 'deleted' ? (
                           <>
-                            <button
-                              onClick={() => openEditModal(kiosk)}
-                              className="btn-edit"
-                              title="Edit"
-                            >
-                              <FiEdit />
-                            </button>
                             <button
                               onClick={() => handleDeleteKiosk(kiosk.id)}
                               className="btn-delete"
                               title="Delete"
                             >
                               <FiTrash2 />
+                            </button>
+                            <button
+                              onClick={() => {
+                                // Only pass serializable data (no Timestamp objects)
+                                const kioskData = {
+                                  id: kiosk.id,
+                                  kioskid: kiosk.kioskid,
+                                  posid: kiosk.posid,
+                                  kioskno: kiosk.kioskno,
+                                  state: kiosk.state,
+                                  maker: kiosk.maker,
+                                  serialno: kiosk.serialno,
+                                  regdate: kiosk.regdate?.toDate ? kiosk.regdate.toDate().toISOString() : kiosk.regdate,
+                                  setdate: kiosk.setdate?.toDate ? kiosk.setdate.toDate().toISOString() : kiosk.setdate,
+                                  deldate: kiosk.deldate?.toDate ? kiosk.deldate.toDate().toISOString() : kiosk.deldate,
+                                  storeRegdate: kiosk.storeRegdate?.toDate ? kiosk.storeRegdate.toDate().toISOString() : kiosk.storeRegdate
+                                };
+                                navigate(`/kiosks/${kiosk.id}/edit`, { state: { kiosk: kioskData } });
+                              }}
+                              className="btn-edit"
+                              title="Edit"
+                            >
+                              <FiEdit />
                             </button>
                           </>
                         ) : (
@@ -1110,36 +1134,6 @@ function KioskManagement() {
                             </button>
                           </>
                         )}
-                        <button
-                          onClick={() => handleViewHistory(kiosk)}
-                          className="btn-history"
-                          title="History"
-                        >
-                          <FiClock />
-                        </button>
-                        <button
-                          onClick={() => {
-                            console.log('Video button clicked! Kiosk state:', kiosk.state);
-                            handleManageVideos(kiosk);
-                          }}
-                          className="btn-video"
-                          title="영상 관리"
-                          style={{
-                            display: kiosk.state !== 'deleted' ? 'flex' : 'none'
-                          }}
-                        >
-                          <FiVideo />
-                        </button>
-                        <button
-                          onClick={() => handleViewConfig(kiosk)}
-                          className="btn-config"
-                          title="키오스크 설정"
-                          style={{
-                            display: kiosk.state !== 'deleted' ? 'flex' : 'none'
-                          }}
-                        >
-                          <FiSettings />
-                        </button>
                       </div>
                     </td>
                   </tr>

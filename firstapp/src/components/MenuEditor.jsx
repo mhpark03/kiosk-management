@@ -8,6 +8,7 @@ function MenuEditor() {
   const navigate = useNavigate();
   const location = useLocation();
   const [menu, setMenu] = useState(null);
+  const [originalMenu, setOriginalMenu] = useState(null); // Store original menu for comparison
   const [loading, setLoading] = useState(true);
   const [selectedType, setSelectedType] = useState(null); // 'category' | 'item'
   const [selectedId, setSelectedId] = useState(null);
@@ -32,6 +33,7 @@ function MenuEditor() {
         // New menu from state (passed from MenuList)
         if (location.state?.newMenu) {
           setMenu(location.state.newMenu);
+          setOriginalMenu(JSON.parse(JSON.stringify(location.state.newMenu))); // Deep copy for comparison
         } else {
           alert('메뉴 데이터를 찾을 수 없습니다.');
           navigate('/menus');
@@ -66,6 +68,7 @@ function MenuEditor() {
         parsedMenu.description = menuData.description; // Store description from S3 metadata
 
         setMenu(parsedMenu);
+        setOriginalMenu(JSON.parse(JSON.stringify(parsedMenu))); // Deep copy for comparison
       }
     } catch (error) {
       console.error('Failed to load menu:', error);
@@ -134,6 +137,12 @@ function MenuEditor() {
     };
   };
 
+  // Check if menu has been modified
+  const hasChanges = () => {
+    if (!menu || !originalMenu) return false;
+    return JSON.stringify(menu) !== JSON.stringify(originalMenu);
+  };
+
   const updateMenu = (updatedMenu) => {
     setMenu(updatedMenu);
   };
@@ -182,6 +191,9 @@ function MenuEditor() {
         await menuService.updateMenu(id, xml, s3Title, s3Description);
         setSaveSuccess('메뉴가 성공적으로 업데이트되었습니다!');
       }
+
+      // Update originalMenu to reflect saved state
+      setOriginalMenu(JSON.parse(JSON.stringify(menu)));
 
       setTimeout(() => {
         setShowS3Modal(false);
@@ -365,7 +377,12 @@ function MenuEditor() {
         </button>
         <h1>{menu.name} 편집</h1>
         <div className="menu-editor-actions">
-          <button className="btn btn-primary" onClick={handleS3SaveClick}>
+          <button
+            className="btn btn-primary"
+            onClick={handleS3SaveClick}
+            disabled={!hasChanges()}
+            title={!hasChanges() ? '변경사항이 없습니다' : 'S3에 저장'}
+          >
             💾 S3 저장
           </button>
         </div>

@@ -138,12 +138,12 @@ public class VideoController {
                 }
             }
 
-            // Further filter by imagePurpose if provided (only for images)
+            // Further filter by imagePurpose if provided
             if (imagePurpose != null && !imagePurpose.isEmpty()) {
                 try {
                     Video.ImagePurpose purposeEnum = Video.ImagePurpose.valueOf(imagePurpose.toUpperCase());
                     videos = videos.stream()
-                            .filter(v -> v.getMediaType() == Video.MediaType.IMAGE && v.getImagePurpose() == purposeEnum)
+                            .filter(v -> v.getImagePurpose() == purposeEnum)
                             .collect(java.util.stream.Collectors.toList());
                 } catch (IllegalArgumentException e) {
                     return ResponseEntity.badRequest()
@@ -301,6 +301,19 @@ public class VideoController {
             response.put("description", video.getDescription());
             response.put("duration", video.getDuration());
             response.put("uploadedById", video.getUploadedById());
+
+            // For XML files, include content in response
+            String contentType = video.getContentType();
+            if (contentType != null && (contentType.equals("text/xml") || contentType.equals("application/xml"))) {
+                try {
+                    byte[] fileBytes = videoService.downloadVideoFile(id);
+                    String content = new String(fileBytes, java.nio.charset.StandardCharsets.UTF_8);
+                    response.put("content", content);
+                } catch (Exception e) {
+                    log.warn("Failed to download XML content for video {}: {}", id, e.getMessage());
+                    // Don't fail the entire request if content download fails
+                }
+            }
 
             return ResponseEntity.ok(response);
         } catch (RuntimeException e) {

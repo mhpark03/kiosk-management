@@ -299,6 +299,8 @@
   gap: 8px;
   align-items: center;
   flex-wrap: wrap;
+  opacity: 1 !important;
+  visibility: visible !important;
 }
 
 .btn-edit,
@@ -318,51 +320,59 @@
 }
 
 .btn-edit {
+  background: transparent;
+  color: #3182ce;
+  border: 1px solid #3182ce;
+}
+
+.btn-edit:hover {
   background: #3182ce;
   color: white;
 }
 
-.btn-edit:hover {
-  background: #2c5aa0;
+.btn-delete {
+  background: transparent;
+  color: #e53e3e;
+  border: 1px solid #e53e3e;
 }
 
-.btn-delete {
+.btn-delete:hover {
   background: #e53e3e;
   color: white;
 }
 
-.btn-delete:hover {
-  background: #c53030;
+.btn-restore {
+  background: transparent;
+  color: #48bb78;
+  border: 1px solid #48bb78;
 }
 
-.btn-restore {
+.btn-restore:hover {
   background: #48bb78;
   color: white;
 }
 
-.btn-restore:hover {
-  background: #38a169;
-}
-
 .btn-permanent-delete {
-  background: #742a2a;
-  color: white;
-  border: 2px solid #c53030;
+  background: transparent;
+  color: #742a2a;
+  border: 1px solid #742a2a;
 }
 
 .btn-permanent-delete:hover {
-  background: #c53030;
-  transform: scale(1.05);
-  box-shadow: 0 4px 12px rgba(197, 48, 48, 0.4);
+  background: #742a2a;
+  color: white;
+  border-color: #742a2a;
 }
 
 .btn-history {
-  background: #805ad5;
-  color: white;
+  background: transparent;
+  color: #805ad5;
+  border: 1px solid #805ad5;
 }
 
 .btn-history:hover {
-  background: #6b46c1;
+  background: #805ad5;
+  color: white;
 }
 
 .btn-video {

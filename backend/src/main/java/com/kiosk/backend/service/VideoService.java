@@ -385,8 +385,8 @@ public class VideoService {
                 .title(truncate(title, MAX_TITLE_LENGTH))
                 .description(description); // TEXT column - no limit
 
-        // Set imagePurpose for images
-        if (mediaType == Video.MediaType.IMAGE && imagePurpose != null) {
+        // Set imagePurpose if provided (for any media type, including XML files)
+        if (imagePurpose != null) {
             videoBuilder.imagePurpose(imagePurpose);
         }
 
@@ -526,8 +526,8 @@ public class VideoService {
                 .title(truncate(title, MAX_TITLE_LENGTH))
                 .description(description); // TEXT column - no limit
 
-        // Set imagePurpose for images
-        if (mediaType == Video.MediaType.IMAGE && imagePurpose != null) {
+        // Set imagePurpose if provided (for any media type, including XML files)
+        if (imagePurpose != null) {
             videoBuilder.imagePurpose(imagePurpose);
         }
 
@@ -584,6 +584,16 @@ public class VideoService {
     public Video getVideoById(Long id) {
         return videoRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Video not found with id: " + id));
+    }
+
+    /**
+     * Download video file content from S3
+     * @param id Video ID
+     * @return File content as byte array
+     */
+    public byte[] downloadVideoFile(Long id) {
+        Video video = getVideoById(id);
+        return s3Service.downloadFile(video.getS3Key());
     }
 
     /**

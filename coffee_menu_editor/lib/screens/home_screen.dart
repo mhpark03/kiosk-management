@@ -28,12 +28,6 @@ class HomeScreen extends StatelessWidget {
             tooltip: 'Open XML',
             onPressed: () => _openXmlFile(context),
           ),
-          // Save XML
-          IconButton(
-            icon: const Icon(Icons.save),
-            tooltip: 'Save XML',
-            onPressed: () => _saveXmlFile(context),
-          ),
           const SizedBox(width: 8),
         ],
       ),

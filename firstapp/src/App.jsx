@@ -7,6 +7,7 @@ import Signup from './components/Signup';
 import ForgotPassword from './components/ForgotPassword';
 import Dashboard from './components/Dashboard';
 import KioskManagement from './components/KioskManagement';
+import KioskEdit from './components/KioskEdit';
 import StoreManagement from './components/StoreManagement';
 import History from './components/History';
 import Profile from './components/Profile';
@@ -93,6 +94,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <KioskManagement />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/kiosks/:id/edit"
+            element={
+              <ProtectedRoute>
+                <KioskEdit />
               </ProtectedRoute>
             }
           />

@@ -13,31 +13,6 @@ class MenuTreeView extends StatelessWidget {
         return ListView(
           padding: const EdgeInsets.all(8),
           children: [
-            // Menus header
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Row(
-                children: [
-                  const Icon(Icons.menu_book, size: 20),
-                  const SizedBox(width: 8),
-                  const Text(
-                    'Menus',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    icon: const Icon(Icons.add, size: 20),
-                    tooltip: 'Add Menu',
-                    onPressed: () => menuService.createNewMenu(),
-                  ),
-                ],
-              ),
-            ),
-            const Divider(),
-
             // Menu list
             ...menuService.menus.asMap().entries.map((entry) {
               final index = entry.key;
@@ -74,24 +49,13 @@ class MenuTreeView extends StatelessWidget {
           ),
         ),
         subtitle: Text('${menu.menuItems.length} items'),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(
-              icon: const Icon(Icons.add, size: 18),
-              tooltip: 'Add Category',
-              onPressed: () {
-                menuService.setActiveMenu(menuIndex);
-                _showAddCategoryDialog(context, menuService);
-              },
-            ),
-            if (menuService.menus.length > 1)
-              IconButton(
-                icon: const Icon(Icons.delete, size: 18, color: Colors.red),
-                tooltip: 'Delete Menu',
-                onPressed: () => _confirmDeleteMenu(context, menuService, menuIndex),
-              ),
-          ],
+        trailing: IconButton(
+          icon: const Icon(Icons.add, size: 18),
+          tooltip: 'Add Category',
+          onPressed: () {
+            menuService.setActiveMenu(menuIndex);
+            _showAddCategoryDialog(context, menuService);
+          },
         ),
         onExpansionChanged: (expanded) {
           if (expanded) {
@@ -131,25 +95,13 @@ class MenuTreeView extends StatelessWidget {
           ),
           title: Text(category.name),
           subtitle: Text('${items.length} items'),
-          trailing: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              IconButton(
-                icon: const Icon(Icons.add, size: 16),
-                tooltip: 'Add Item',
-                onPressed: () {
-                  menuService.selectCategory(category.id);
-                  _showAddItemDialog(context, menuService, category.id);
-                },
-              ),
-              IconButton(
-                icon: const Icon(Icons.edit, size: 16),
-                tooltip: 'Edit Category',
-                onPressed: () {
-                  menuService.selectCategory(category.id);
-                },
-              ),
-            ],
+          trailing: IconButton(
+            icon: const Icon(Icons.add, size: 16),
+            tooltip: 'Add Item',
+            onPressed: () {
+              menuService.selectCategory(category.id);
+              _showAddItemDialog(context, menuService, category.id);
+            },
           ),
           onExpansionChanged: (expanded) {
             if (expanded) {
