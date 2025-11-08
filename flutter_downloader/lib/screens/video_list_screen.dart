@@ -1344,7 +1344,12 @@ class _VideoListScreenState extends State<VideoListScreen> {
                                             )
                                         : isLandscape
                                           ? ElevatedButton.icon(
-                                              onPressed: _downloadMenuFile,
+                                              onPressed: () {
+                                                final config = widget.storageService.getConfig();
+                                                if (config != null) {
+                                                  _downloadMenuFile(config);
+                                                }
+                                              },
                                               icon: const Icon(Icons.download, size: 16),
                                               label: const Text('다운', style: TextStyle(fontSize: 12)),
                                               style: ElevatedButton.styleFrom(
@@ -1357,7 +1362,12 @@ class _VideoListScreenState extends State<VideoListScreen> {
                                               ),
                                             )
                                           : IconButton(
-                                              onPressed: _downloadMenuFile,
+                                              onPressed: () {
+                                                final config = widget.storageService.getConfig();
+                                                if (config != null) {
+                                                  _downloadMenuFile(config);
+                                                }
+                                              },
                                               icon: const Icon(Icons.download),
                                               color: Colors.blue,
                                               iconSize: 28,
