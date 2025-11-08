@@ -85,7 +85,7 @@ function KioskVideoManagement({ kioskProp = null, embedded = false }) {
     try {
       setLoading(true);
       const data = await videoService.getAllVideos();
-      // Filter to show only downloadable videos
+      // Filter to show only downloadable videos (메뉴는 별도로 관리됨)
       const downloadableVideos = data.filter(video => video.downloadable === true);
       const sortedData = [...downloadableVideos].sort((a, b) => b.id - a.id);
       setVideos(sortedData);
@@ -346,8 +346,8 @@ function KioskVideoManagement({ kioskProp = null, embedded = false }) {
     return menu ? menu.title : '선택 안됨';
   };
 
-  // Pagination logic for modal - exclude already assigned videos
-  const availableVideos = videos.filter(v => !selectedVideos.has(v.id));
+  // Pagination logic for modal - exclude already assigned videos and menu files
+  const availableVideos = videos.filter(v => !selectedVideos.has(v.id) && v.imagePurpose !== 'MENU');
   const totalPagesModal = Math.ceil(availableVideos.length / itemsPerPage);
   const indexOfLastItemModal = currentPage * itemsPerPage;
   const indexOfFirstItemModal = indexOfLastItemModal - itemsPerPage;
@@ -645,6 +645,20 @@ function KioskVideoManagement({ kioskProp = null, embedded = false }) {
                             />
                           )}
                           <span className="filename-text">{video.title || '제목 없음'}</span>
+                          {video.imagePurpose === 'MENU' && (
+                            <span style={{
+                              marginLeft: '8px',
+                              padding: '2px 8px',
+                              fontSize: '11px',
+                              fontWeight: '600',
+                              color: '#744210',
+                              backgroundColor: '#FEF3C7',
+                              borderRadius: '4px',
+                              border: '1px solid #F59E0B'
+                            }}>
+                              메뉴
+                            </span>
+                          )}
                         </div>
                       </td>
                       <td style={{maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}>
@@ -678,13 +692,15 @@ function KioskVideoManagement({ kioskProp = null, embedded = false }) {
                               <FiDownload />
                             </button>
                           )}
-                          <button
-                            onClick={() => handleRemoveVideo(video.id)}
-                            className="btn-icon btn-delete"
-                            title="영상 제거"
-                          >
-                            <FiTrash2 />
-                          </button>
+                          {video.imagePurpose !== 'MENU' && (
+                            <button
+                              onClick={() => handleRemoveVideo(video.id)}
+                              className="btn-icon btn-delete"
+                              title="영상 제거"
+                            >
+                              <FiTrash2 />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>

@@ -45,6 +45,11 @@ class _VideoListScreenState extends State<VideoListScreen> {
   Kiosk? _kiosk; // Store kiosk info for display
   bool _isNavigating = false; // Flag to prevent duplicate navigation
 
+  // Menu file status
+  String? _menuFilename;
+  bool _hasMenu = false;
+  bool _menuDownloaded = false;
+
   @override
   void initState() {
     super.initState();
@@ -610,10 +615,30 @@ class _VideoListScreenState extends State<VideoListScreen> {
           if (mounted) {
             setState(() {
               _kiosk = kiosk;
+              _hasMenu = kiosk.menuId != null;
+              _menuFilename = kiosk.menuFilename;
             });
           }
         } catch (e) {
           print('Failed to fetch kiosk info: $e');
+        }
+      } else if (_kiosk != null) {
+        // Update menu info from existing kiosk data
+        setState(() {
+          _hasMenu = _kiosk!.menuId != null;
+          _menuFilename = _kiosk!.menuFilename;
+        });
+      }
+
+      // Check if menu file is downloaded
+      if (_hasMenu && _menuFilename != null) {
+        final menuFilePath = '${config.downloadPath}/${config.kioskId}/menu/$_menuFilename';
+        final menuFile = File(menuFilePath);
+        final menuExists = await menuFile.exists();
+        if (mounted) {
+          setState(() {
+            _menuDownloaded = menuExists;
+          });
         }
       }
 
@@ -746,6 +771,13 @@ class _VideoListScreenState extends State<VideoListScreen> {
       );
 
       print('[MENU DOWNLOAD] Menu file downloaded successfully: $filename');
+
+      // Update menu download status
+      if (mounted) {
+        setState(() {
+          _menuDownloaded = true;
+        });
+      }
 
       // Log menu download complete
       await EventLogger().logEvent(
@@ -1122,15 +1154,105 @@ class _VideoListScreenState extends State<VideoListScreen> {
                 )
               : Stack(
                   children: [
-                    _videos.isEmpty
+                    (_videos.isEmpty && !_hasMenu)
                         ? const Center(
                             child: Text('할당된 영상이 없습니다'),
                           )
                         : ListView.builder(
-                      itemCount: _videos.length,
+                      itemCount: (_hasMenu ? 1 : 0) + _videos.length,
                       padding: const EdgeInsets.all(16),
                       itemBuilder: (context, index) {
-                        final video = _videos[index];
+                        // First item is menu card if menu exists
+                        if (_hasMenu && index == 0) {
+                          final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+                          return Card(
+                            margin: EdgeInsets.only(bottom: isLandscape ? 12 : 8),
+                            color: Colors.amber.shade50,
+                            child: Padding(
+                              padding: EdgeInsets.all(isLandscape ? 12 : 8),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // Menu icon
+                                  Container(
+                                    width: isLandscape ? 60.0 : 48.0,
+                                    height: isLandscape ? 60.0 : 48.0,
+                                    decoration: BoxDecoration(
+                                      color: Colors.amber.shade100,
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Icon(
+                                      Icons.restaurant_menu,
+                                      size: isLandscape ? 28 : 24,
+                                      color: Colors.amber.shade800,
+                                    ),
+                                  ),
+                                  SizedBox(width: isLandscape ? 16 : 12),
+                                  // Menu info
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Expanded(
+                                              child: Text(
+                                                _menuFilename ?? '메뉴 파일',
+                                                style: TextStyle(
+                                                  fontWeight: FontWeight.w600,
+                                                  fontSize: isLandscape ? 16 : 14,
+                                                ),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                              decoration: BoxDecoration(
+                                                color: Colors.amber.shade200,
+                                                borderRadius: BorderRadius.circular(4),
+                                              ),
+                                              child: const Text(
+                                                '메뉴',
+                                                style: TextStyle(
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: Color(0xFF92400E),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Row(
+                                          children: [
+                                            Icon(
+                                              _menuDownloaded ? Icons.check_circle : Icons.cloud_download,
+                                              size: 14,
+                                              color: _menuDownloaded ? Colors.green.shade700 : Colors.orange.shade700,
+                                            ),
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              _menuDownloaded ? '다운로드 완료' : '다운로드 대기중',
+                                              style: TextStyle(
+                                                fontSize: isLandscape ? 13 : 12,
+                                                color: _menuDownloaded ? Colors.green.shade700 : Colors.orange.shade700,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        }
+
+                        // Video items (adjust index if menu card is shown)
+                        final videoIndex = _hasMenu ? index - 1 : index;
+                        final video = _videos[videoIndex];
                         final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
                         final thumbnailSize = isLandscape ? 60.0 : 48.0;
 
