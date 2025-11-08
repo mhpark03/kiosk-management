@@ -49,6 +49,7 @@ class _VideoListScreenState extends State<VideoListScreen> {
   String? _menuFilename;
   bool _hasMenu = false;
   bool _menuDownloaded = false;
+  Video? _menuVideo; // Store menu video info for title/description
 
   @override
   void initState() {
@@ -618,6 +619,23 @@ class _VideoListScreenState extends State<VideoListScreen> {
               _hasMenu = kiosk.menuId != null;
               _menuFilename = kiosk.menuFilename;
             });
+
+            // Fetch menu video info if menuId exists
+            if (kiosk.menuId != null) {
+              try {
+                final response = await widget.apiService.dio.get('/videos/${kiosk.menuId}');
+                if (response.statusCode == 200) {
+                  final menuVideo = Video.fromJson(response.data);
+                  if (mounted) {
+                    setState(() {
+                      _menuVideo = menuVideo;
+                    });
+                  }
+                }
+              } catch (e) {
+                print('Failed to fetch menu video info: $e');
+              }
+            }
           }
         } catch (e) {
           print('Failed to fetch kiosk info: $e');
@@ -628,6 +646,23 @@ class _VideoListScreenState extends State<VideoListScreen> {
           _hasMenu = _kiosk!.menuId != null;
           _menuFilename = _kiosk!.menuFilename;
         });
+
+        // Fetch menu video info if menuId exists and not already loaded
+        if (_kiosk!.menuId != null && _menuVideo == null) {
+          try {
+            final response = await widget.apiService.dio.get('/videos/${_kiosk!.menuId}');
+            if (response.statusCode == 200) {
+              final menuVideo = Video.fromJson(response.data);
+              if (mounted) {
+                setState(() {
+                  _menuVideo = menuVideo;
+                });
+              }
+            }
+          } catch (e) {
+            print('Failed to fetch menu video info: $e');
+          }
+        }
       }
 
       // Check if menu file is downloaded
@@ -1215,11 +1250,11 @@ class _VideoListScreenState extends State<VideoListScreen> {
                                               ),
                                             ),
                                             const SizedBox(width: 8),
-                                            // Menu filename
+                                            // Menu title
                                             Flexible(
                                               flex: 2,
                                               child: Text(
-                                                _menuFilename ?? '메뉴 파일',
+                                                _menuVideo?.title ?? _menuFilename ?? '메뉴 파일',
                                                 style: const TextStyle(
                                                   fontSize: 16,
                                                   fontWeight: FontWeight.bold,
@@ -1228,20 +1263,22 @@ class _VideoListScreenState extends State<VideoListScreen> {
                                                 overflow: TextOverflow.ellipsis,
                                               ),
                                             ),
-                                            const SizedBox(width: 12),
-                                            // Description
-                                            Flexible(
-                                              flex: 3,
-                                              child: Text(
-                                                'XML 메뉴 파일',
-                                                style: TextStyle(
-                                                  fontSize: 13,
-                                                  color: Colors.grey.shade600,
+                                            if (_menuVideo?.description != null) ...[
+                                              const SizedBox(width: 12),
+                                              // Description
+                                              Flexible(
+                                                flex: 3,
+                                                child: Text(
+                                                  _menuVideo!.description!,
+                                                  style: TextStyle(
+                                                    fontSize: 13,
+                                                    color: Colors.grey.shade600,
+                                                  ),
+                                                  maxLines: 1,
+                                                  overflow: TextOverflow.ellipsis,
                                                 ),
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
                                               ),
-                                            ),
+                                            ],
                                           ],
                                         )
                                       : Column(
@@ -1271,7 +1308,7 @@ class _VideoListScreenState extends State<VideoListScreen> {
                                                 const SizedBox(width: 6),
                                                 Expanded(
                                                   child: Text(
-                                                    _menuFilename ?? '메뉴 파일',
+                                                    _menuVideo?.title ?? _menuFilename ?? '메뉴 파일',
                                                     style: const TextStyle(
                                                       fontSize: 14,
                                                       fontWeight: FontWeight.bold,
@@ -1282,16 +1319,18 @@ class _VideoListScreenState extends State<VideoListScreen> {
                                                 ),
                                               ],
                                             ),
-                                            const SizedBox(height: 4),
-                                            Text(
-                                              'XML 메뉴 파일',
-                                              style: TextStyle(
-                                                fontSize: 12,
-                                                color: Colors.grey.shade600,
+                                            if (_menuVideo?.description != null) ...[
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                _menuVideo!.description!,
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  color: Colors.grey.shade600,
+                                                ),
+                                                maxLines: 2,
+                                                overflow: TextOverflow.ellipsis,
                                               ),
-                                              maxLines: 2,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
+                                            ],
                                           ],
                                         ),
                                   ),
@@ -1313,7 +1352,7 @@ class _VideoListScreenState extends State<VideoListScreen> {
                                   ],
                                   const SizedBox(width: 8),
 
-                                  // Download status
+                                  // Download status (same as videos)
                                   SizedBox(
                                     width: isLandscape ? 120 : 70,
                                     child: _menuDownloaded
@@ -1342,38 +1381,7 @@ class _VideoListScreenState extends State<VideoListScreen> {
                                               color: Colors.green,
                                               size: 24,
                                             )
-                                        : isLandscape
-                                          ? ElevatedButton.icon(
-                                              onPressed: () {
-                                                final config = widget.storageService.getConfig();
-                                                if (config != null) {
-                                                  _downloadMenuFile(config);
-                                                }
-                                              },
-                                              icon: const Icon(Icons.download, size: 16),
-                                              label: const Text('다운', style: TextStyle(fontSize: 12)),
-                                              style: ElevatedButton.styleFrom(
-                                                backgroundColor: Colors.blue,
-                                                foregroundColor: Colors.white,
-                                                padding: const EdgeInsets.symmetric(
-                                                  horizontal: 8,
-                                                  vertical: 6,
-                                                ),
-                                              ),
-                                            )
-                                          : IconButton(
-                                              onPressed: () {
-                                                final config = widget.storageService.getConfig();
-                                                if (config != null) {
-                                                  _downloadMenuFile(config);
-                                                }
-                                              },
-                                              icon: const Icon(Icons.download),
-                                              color: Colors.blue,
-                                              iconSize: 28,
-                                              padding: EdgeInsets.zero,
-                                              constraints: const BoxConstraints(),
-                                            ),
+                                        : Container(), // Empty container when not downloaded (auto-sync will handle it)
                                   ),
                                 ],
                               ),
