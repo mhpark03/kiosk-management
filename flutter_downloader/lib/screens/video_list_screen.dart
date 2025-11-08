@@ -716,14 +716,23 @@ class _VideoListScreenState extends State<VideoListScreen> {
           print('[CHECK FILES] File exists but status is ${video.downloadStatus}, marking as completed: $fileName');
           video.downloadStatus = 'completed';
           video.localPath = filePath;
+
+          // Update status in backend
+          await widget.apiService.updateVideoDownloadStatus(config.kioskId, video.id, 'COMPLETED');
         } else if (!exists && video.downloadStatus == 'completed') {
           print('[CHECK FILES] File missing but status is completed, marking as pending: $fileName');
           video.downloadStatus = 'pending';
           video.localPath = null;
+
+          // Update status in backend
+          await widget.apiService.updateVideoDownloadStatus(config.kioskId, video.id, 'PENDING');
         } else if (exists) {
           print('[CHECK FILES] File exists: $fileName');
           video.downloadStatus = 'completed';
           video.localPath = filePath;
+
+          // Update status in backend
+          await widget.apiService.updateVideoDownloadStatus(config.kioskId, video.id, 'COMPLETED');
         } else {
           print('[CHECK FILES] File missing: $fileName');
           video.downloadStatus = 'pending';
@@ -784,6 +793,15 @@ class _VideoListScreenState extends State<VideoListScreen> {
       // If the current menu file exists, menu ID hasn't changed, and there are no old files, skip download
       if (menuFileExists && !menuIdChanged && !hasOldMenuFiles) {
         print('[MENU DOWNLOAD] Menu file already up-to-date: $filename (ID: $menuId)');
+
+        // Update menu download status in backend
+        try {
+          await widget.apiService.updateMenuDownloadStatus(config.kioskId, menuId, 'COMPLETED');
+          print('[MENU DOWNLOAD] Updated menu download status to COMPLETED for menu ID: $menuId');
+        } catch (e) {
+          print('[MENU DOWNLOAD] Failed to update menu download status: $e');
+        }
+
         // Update menu download status
         if (mounted) {
           setState(() {
@@ -832,6 +850,14 @@ class _VideoListScreenState extends State<VideoListScreen> {
       );
 
       print('[MENU DOWNLOAD] Menu file downloaded successfully: $filename');
+
+      // Update menu download status in backend
+      try {
+        await widget.apiService.updateMenuDownloadStatus(config.kioskId, menuId, 'COMPLETED');
+        print('[MENU DOWNLOAD] Updated menu download status to COMPLETED for menu ID: $menuId');
+      } catch (e) {
+        print('[MENU DOWNLOAD] Failed to update menu download status: $e');
+      }
 
       // Update menu download status
       if (mounted) {

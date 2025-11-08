@@ -1,4 +1,5 @@
 class Kiosk {
+  final int? id; // Database ID
   final String kioskid;
   final String? posid;
   final String? posname;
@@ -15,6 +16,7 @@ class Kiosk {
   final DateTime updatedAt;
 
   Kiosk({
+    this.id,
     required this.kioskid,
     this.posid,
     this.posname,
@@ -33,6 +35,7 @@ class Kiosk {
 
   factory Kiosk.fromJson(Map<String, dynamic> json) {
     return Kiosk(
+      id: json['id'] as int?,
       kioskid: json['kioskid'] as String,
       posid: json['posid'] as String?,
       posname: json['posname'] as String?,

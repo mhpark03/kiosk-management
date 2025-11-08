@@ -122,7 +122,7 @@ function KioskVideoManagement({ kioskProp = null, embedded = false }) {
       if (kioskInfo.data.menuId && !allVideoIds.includes(kioskInfo.data.menuId)) {
         allVideoIds.push(kioskInfo.data.menuId);
         // Add menu to status map
-        statusMap[kioskInfo.data.menuId] = 'PENDING';
+        statusMap[kioskInfo.data.menuId] = kioskInfo.data.menuDownloadStatus || 'PENDING';
       }
 
       if (allVideoIds.length > 0) {
@@ -197,20 +197,35 @@ function KioskVideoManagement({ kioskProp = null, embedded = false }) {
       await api.post(`/kiosks/${kiosk.id}/videos`, { videoIds });
       setShowModal(false);
       setTempSelectedVideos(new Set());
-      setSuccess('영상이 저장되었습니다.');
+      setSuccess('영상이 추가되었습니다.');
       setTimeout(() => setSuccess(''), 3000);
       // Reload videos with status
       await loadKioskVideos();
     } catch (err) {
       console.error('Failed to save videos:', err);
-      setError('영상 저장에 실패했습니다: ' + (err.response?.data?.error || err.message));
+      setError('영상 추가에 실패했습니다: ' + (err.response?.data?.error || err.message));
       setTimeout(() => setError(''), 3000);
     }
   };
 
   const handleRemoveVideo = async (videoId) => {
+    // Check if this is a menu file
+    const video = assignedVideos.find(v => v.id === videoId);
+    if (video && video.imagePurpose === 'MENU') {
+      setError('메뉴 파일은 삭제할 수 없습니다. 메뉴 선택 버튼을 통해 변경해주세요');
+      setTimeout(() => setError(''), 3000);
+      return;
+    }
+
+    // Check if this video is assigned as menu
+    if (selectedMenuId === videoId) {
+      setError('현재 메뉴로 지정된 영상은 삭제할 수 없습니다. 먼저 다른 메뉴를 선택하거나 메뉴 선택을 해제해주세요.');
+      setTimeout(() => setError(''), 3000);
+      return;
+    }
+
     // Show confirmation dialog
-    if (!window.confirm('이 영상을 키오스크에서 제거하시겠습니까?')) {
+    if (!window.confirm('이 영상을 키오스크에서 삭제하시겠습니까?')) {
       return;
     }
 
@@ -218,16 +233,14 @@ function KioskVideoManagement({ kioskProp = null, embedded = false }) {
       // Remove from backend
       await api.delete(`/kiosks/${kiosk.id}/videos/${videoId}`);
 
-      // Update local state
-      const newSelected = new Set(selectedVideos);
-      newSelected.delete(videoId);
-      setSelectedVideos(newSelected);
-
-      setSuccess('영상이 제거되었습니다.');
+      setSuccess('영상이 삭제되었습니다');
       setTimeout(() => setSuccess(''), 3000);
+
+      // Reload videos to update the list
+      await loadKioskVideos();
     } catch (err) {
       console.error('Failed to remove video:', err);
-      setError('영상 제거에 실패했습니다: ' + (err.response?.data?.error || err.message));
+      setError('영상 삭제에 실패했습니다: ' + (err.response?.data?.error || err.message));
       setTimeout(() => setError(''), 3000);
     }
   };
@@ -300,7 +313,7 @@ function KioskVideoManagement({ kioskProp = null, embedded = false }) {
 
       const response = await api.post(`/kiosks/${kiosk.id}/sync`);
 
-      setSuccess('키오스크에 동기화 명령을 전송했습니다. 키오스크 앱에서 동기화가 시작됩니다.');
+      setSuccess('키오스크에 동기화 명령을 전송했습니다. 키오스크 앱에서 동기화를 시작합니다');
       setTimeout(() => setSuccess(''), 5000);
 
       console.log('Sync command sent:', response.data);
@@ -399,7 +412,7 @@ function KioskVideoManagement({ kioskProp = null, embedded = false }) {
   }
 
   if (loading) {
-    return <div className="loading">영상 목록을 불러오는 중...</div>;
+    return <div className="loading">영상 목록을 불러오는 중..</div>;
   }
 
   // Use assignedVideos instead of filtering from videos
@@ -456,7 +469,7 @@ function KioskVideoManagement({ kioskProp = null, embedded = false }) {
             onMouseLeave={(e) => !syncing && (e.target.style.background = '#48bb78')}
           >
             <FiRefreshCw style={{ animation: syncing ? 'spin 1s linear infinite' : 'none' }} />
-            {syncing ? '동기화 중...' : '키오스크와 동기화'}
+            {syncing ? '동기화 중..' : '키오스크와 동기화'}
           </button>
           <button
             onClick={handleOpenModal}
@@ -496,7 +509,7 @@ function KioskVideoManagement({ kioskProp = null, embedded = false }) {
             onMouseLeave={(e) => !syncing && (e.target.style.background = '#48bb78')}
           >
             <FiRefreshCw style={{ animation: syncing ? 'spin 1s linear infinite' : 'none' }} />
-            {syncing ? '동기화 중...' : '키오스크와 동기화'}
+            {syncing ? '동기화 중..' : '키오스크와 동기화'}
           </button>
           <button
             onClick={handleOpenModal}
@@ -522,7 +535,7 @@ function KioskVideoManagement({ kioskProp = null, embedded = false }) {
             <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
               <input
                 type="text"
-                placeholder="제목 또는 설명으로 검색..."
+                placeholder="제목 또는 설명으로 검색.."
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
                 onKeyPress={handleKeyPress}
@@ -616,7 +629,7 @@ function KioskVideoManagement({ kioskProp = null, embedded = false }) {
             border: '2px dashed #cbd5e0',
             color: '#718096'
           }}>
-            선택된 영상이 없습니다. "영상 추가" 버튼을 클릭하여 영상을 추가하세요.
+            선택된 영상이 없습니다. "영상 추가" 버튼을 클릭하여 영상을 추가하세요
           </div>
         ) : filteredVideos.length === 0 ? (
           <div style={{
@@ -687,40 +700,22 @@ function KioskVideoManagement({ kioskProp = null, embedded = false }) {
                         {getStatusBadge(videoStatusMap[video.id] || 'PENDING')}
                       </td>
                       <td style={{textAlign: 'center'}}>
-                        <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
-                          {videoStatusMap[video.id] === 'FAILED' && (
-                            <button
-                              onClick={() => handleStatusChange(video.id, 'PENDING')}
-                              className="btn-icon"
-                              title="다시 다운로드"
-                              style={{
-                                color: '#3182ce',
-                                background: '#ebf8ff',
-                                border: '1px solid #3182ce',
-                                padding: '6px',
-                                borderRadius: '4px',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center'
-                              }}
-                            >
-                              <FiDownload />
-                            </button>
-                          )}
-                          <button
-                            onClick={() => handleRemoveVideo(video.id)}
-                            className="btn-icon btn-delete"
-                            title={video.imagePurpose === 'MENU' ? '메뉴 파일은 삭제할 수 없습니다' : '영상 제거'}
-                            disabled={video.imagePurpose === 'MENU'}
-                            style={{
-                              opacity: video.imagePurpose === 'MENU' ? 0.5 : 1,
-                              cursor: video.imagePurpose === 'MENU' ? 'not-allowed' : 'pointer'
-                            }}
-                          >
-                            <FiTrash2 />
-                          </button>
-                        </div>
+                        <button
+                          onClick={() => handleRemoveVideo(video.id)}
+                          className="btn-icon btn-delete"
+                          title={
+                            video.imagePurpose === 'MENU' || selectedMenuId === video.id
+                              ? '메뉴 파일은 삭제할 수 없습니다'
+                              : '영상 삭제'
+                          }
+                          disabled={video.imagePurpose === 'MENU' || selectedMenuId === video.id}
+                          style={{
+                            opacity: video.imagePurpose === 'MENU' || selectedMenuId === video.id ? 0.5 : 1,
+                            cursor: video.imagePurpose === 'MENU' || selectedMenuId === video.id ? 'not-allowed' : 'pointer'
+                          }}
+                        >
+                          <FiTrash2 />
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -828,7 +823,7 @@ function KioskVideoManagement({ kioskProp = null, embedded = false }) {
               </button>
             </div>
 
-            {/* 모달 컨텐츠 */}
+            {/* 모달 컨텐�?*/}
             <div style={{
               flex: 1,
               overflow: 'auto',
@@ -859,7 +854,7 @@ function KioskVideoManagement({ kioskProp = null, embedded = false }) {
                       <tr>
                         <td colSpan="7" className="no-data">
                           {availableVideos.length === 0 && videos.length > 0
-                            ? '추가 가능한 영상이 없습니다. 모든 영상이 이미 할당되었습니다.'
+                            ? '추가 가능한 영상이 없습니다. 모든 영상이 이미 할당되었습니다'
                             : '업로드된 비디오가 없습니다'}
                         </td>
                       </tr>
@@ -1071,7 +1066,7 @@ function KioskVideoManagement({ kioskProp = null, embedded = false }) {
                     }
                   }}
                 >
-                  <span style={{ fontSize: '16px', marginRight: '8px' }}>🚫</span>
+                  <span style={{ fontSize: '16px', marginRight: '8px' }}>✕</span>
                   선택 안함
                 </button>
               </div>

@@ -497,6 +497,68 @@ class ApiService {
     }
   }
 
+  // Update menu download status
+  Future<void> updateMenuDownloadStatus(
+    String kioskId,
+    int menuId,
+    String status,
+  ) async {
+    try {
+      // Log appropriate event based on download status
+      String eventType;
+      String eventMessage;
+
+      switch (status.toUpperCase()) {
+        case 'IN_PROGRESS':
+          eventType = 'DOWNLOAD_STARTED';
+          eventMessage = '메뉴 다운로드 시작';
+          break;
+        case 'COMPLETED':
+          eventType = 'DOWNLOAD_COMPLETED';
+          eventMessage = '메뉴 다운로드 완료';
+          break;
+        case 'FAILED':
+          eventType = 'DOWNLOAD_FAILED';
+          eventMessage = '메뉴 다운로드 실패';
+          break;
+        default:
+          eventType = 'DOWNLOAD_STATUS_UPDATE';
+          eventMessage = '메뉴 다운로드 상태 업데이트';
+      }
+
+      await _eventLogger.logEvent(
+        eventType: eventType,
+        message: eventMessage,
+        metadata: 'menuId=$menuId, status=$status',
+      );
+
+      final response = await _dio.patch(
+        '/kiosks/by-kioskid/${Uri.encodeComponent(kioskId)}/menu/status',
+        queryParameters: {
+          'menuId': menuId.toString(),
+          'status': status,
+        },
+        options: Options(
+          headers: {
+            'X-Kiosk-Id': kioskId,
+          },
+        ),
+      );
+
+      if (response.statusCode != 200) {
+        throw Exception('Failed to update menu download status: ${response.statusCode}');
+      }
+
+      print('[MENU DOWNLOAD STATUS] Updated menu $menuId status to $status');
+    } on DioException catch (e) {
+      print('[MENU DOWNLOAD STATUS] Failed to update status: ${e.message}');
+      // Don't throw error, just log it (background operation)
+    } catch (e) {
+      print('[MENU DOWNLOAD STATUS] Error updating status: $e');
+      // Don't throw error, just log it (background operation)
+    }
+  }
+
   // Report kiosk status (heartbeat) - NO AUTH REQUIRED
   // This allows monitoring even when tokens are expired
   Future<void> reportKioskStatus({

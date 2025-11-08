@@ -82,6 +82,9 @@ public class Kiosk {
     @Column(length = 255)
     private String menuFilename; // Menu file name (original filename from video)
 
+    @Column(length = 20)
+    private String menuDownloadStatus; // Menu download status (PENDING, DOWNLOADING, COMPLETED, FAILED)
+
     private LocalDateTime regdate; // Registration date
 
     private LocalDateTime setdate; // Setup date

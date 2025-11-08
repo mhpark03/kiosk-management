@@ -241,7 +241,28 @@ public class KioskController {
                 .collect(java.util.stream.Collectors.toList());
 
         log.info("POST /api/kiosks/{}/videos - assigning {} videos", id, videoIds.size());
+
+        // Get kiosk info before assigning videos
+        KioskDTO kiosk = kioskService.getKioskById(id);
+
         kioskService.assignVideosToKiosk(id, videoIds, decodedEmail);
+
+        // Send WebSocket notification to the kiosk
+        try {
+            String message = videoIds.size() == 1
+                ? "새로운 영상이 추가되었습니다. 영상 목록을 업데이트합니다."
+                : String.format("새로운 영상 %d개가 추가되었습니다. 영상 목록을 업데이트합니다.", videoIds.size());
+            messagingTemplate.convertAndSend("/topic/kiosk/" + kiosk.getKioskid(), Map.of(
+                "type", "CONFIG_UPDATE",
+                "message", message,
+                "timestamp", LocalDateTime.now().toString()
+            ));
+            log.info("Sent CONFIG_UPDATE notification to kiosk {} for video assignment (count: {})",
+                    kiosk.getKioskid(), videoIds.size());
+        } catch (Exception e) {
+            log.warn("Failed to send CONFIG_UPDATE notification to kiosk {}: {}",
+                    kiosk.getKioskid(), e.getMessage());
+        }
 
         Map<String, Object> response = new HashMap<>();
         response.put("message", "Videos assigned successfully");
@@ -275,7 +296,25 @@ public class KioskController {
         String decodedEmail = URLDecoder.decode(userEmail, StandardCharsets.UTF_8);
 
         log.info("DELETE /api/kiosks/{}/videos/{}", id, videoId);
+
+        // Get kiosk info before removing video
+        KioskDTO kiosk = kioskService.getKioskById(id);
+
         kioskService.removeVideoFromKiosk(id, videoId, decodedEmail);
+
+        // Send WebSocket notification to the kiosk
+        try {
+            messagingTemplate.convertAndSend("/topic/kiosk/" + kiosk.getKioskid(), Map.of(
+                "type", "CONFIG_UPDATE",
+                "message", "영상이 삭제되었습니다. 영상 목록을 업데이트합니다.",
+                "timestamp", LocalDateTime.now().toString()
+            ));
+            log.info("Sent CONFIG_UPDATE notification to kiosk {} for video removal (videoId: {})",
+                    kiosk.getKioskid(), videoId);
+        } catch (Exception e) {
+            log.warn("Failed to send CONFIG_UPDATE notification to kiosk {}: {}",
+                    kiosk.getKioskid(), e.getMessage());
+        }
 
         Map<String, String> response = new HashMap<>();
         response.put("message", "Video removed successfully");
@@ -366,6 +405,47 @@ public class KioskController {
         Map<String, String> response = new HashMap<>();
         response.put("message", "Download status updated successfully");
         return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Update menu download status for a kiosk by kioskid
+     * PATCH /api/kiosks/by-kioskid/{kioskid}/menu/status
+     */
+    @PatchMapping("/by-kioskid/{kioskid}/menu/status")
+    public ResponseEntity<Map<String, String>> updateMenuDownloadStatusByKioskId(
+            @PathVariable String kioskid,
+            @RequestParam Long menuId,
+            @RequestParam String status,
+            @RequestHeader(value = "X-User-Email", defaultValue = "system@kiosk.com") String userEmail) {
+        String decodedEmail = URLDecoder.decode(userEmail, StandardCharsets.UTF_8);
+
+        log.info("PATCH /api/kiosks/by-kioskid/{}/menu/status - menuId: {}, status: {}", kioskid, menuId, status);
+
+        try {
+            // Find kiosk by kioskid
+            Kiosk kiosk = kioskRepository.findByKioskid(kioskid)
+                    .orElseThrow(() -> new RuntimeException("Kiosk not found: " + kioskid));
+
+            // Verify that the menuId matches the kiosk's menuId
+            if (kiosk.getMenuId() == null || !kiosk.getMenuId().equals(menuId)) {
+                log.warn("Menu {} is not assigned to kiosk {}", menuId, kioskid);
+            }
+
+            // Update menu download status
+            kiosk.setMenuDownloadStatus(status);
+            kioskRepository.save(kiosk);
+
+            log.info("Menu {} download status updated to {} for kiosk {}", menuId, status, kioskid);
+
+            Map<String, String> response = new HashMap<>();
+            response.put("message", "Menu download status updated successfully");
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            log.error("Failed to update menu download status: {}", e.getMessage());
+            Map<String, String> response = new HashMap<>();
+            response.put("error", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        }
     }
 
     /**
