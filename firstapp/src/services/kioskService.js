@@ -286,7 +286,18 @@ function convertKioskFromAPI(apiKiosk) {
     createdAt: apiKiosk.createdAt,
     updatedAt: apiKiosk.updatedAt,
     totalVideoCount: apiKiosk.totalVideoCount || 0,
-    downloadedVideoCount: apiKiosk.downloadedVideoCount || 0
+    downloadedVideoCount: apiKiosk.downloadedVideoCount || 0,
+    // Configuration fields
+    menuId: apiKiosk.menuId || null,
+    videoId: apiKiosk.videoId || null,
+    menuFilename: apiKiosk.menuFilename || null,
+    videoFilename: apiKiosk.videoFilename || null,
+    // Status fields
+    lastSync: apiKiosk.lastSync || null,
+    lastHeartbeat: apiKiosk.lastHeartbeat || null,
+    connectionStatus: apiKiosk.connectionStatus || null,
+    isLoggedIn: apiKiosk.isLoggedIn || false,
+    configModifiedByWeb: apiKiosk.configModifiedByWeb || false
   };
 }
 
