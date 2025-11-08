@@ -85,6 +85,9 @@ function KioskVideoManagement({ kioskProp = null, embedded = false }) {
     try {
       setLoading(true);
       const data = await videoService.getAllVideosIncludingMenus();
+      console.log('[KioskVideoManagement] Loaded videos:', data);
+      console.log('[KioskVideoManagement] Total count:', data.length);
+      console.log('[KioskVideoManagement] Menu files:', data.filter(v => v.imagePurpose === 'MENU'));
       // Show all videos including menu files
       const sortedData = [...data].sort((a, b) => b.id - a.id);
       setVideos(sortedData);
@@ -112,9 +115,19 @@ function KioskVideoManagement({ kioskProp = null, embedded = false }) {
       setVideoStatusMap(statusMap);
 
       // Load full video details for assigned videos (including non-downloadable ones)
-      if (videoIds.length > 0) {
+      const allVideoIds = [...videoIds];
+
+      // Add menu video if menuId exists
+      const kioskInfo = await api.get(`/kiosks/${kiosk.id}`);
+      if (kioskInfo.data.menuId && !allVideoIds.includes(kioskInfo.data.menuId)) {
+        allVideoIds.push(kioskInfo.data.menuId);
+        // Add menu to status map
+        statusMap[kioskInfo.data.menuId] = 'PENDING';
+      }
+
+      if (allVideoIds.length > 0) {
         try {
-          const videoDetailsPromises = videoIds.map(id =>
+          const videoDetailsPromises = allVideoIds.map(id =>
             api.get(`/videos/${id}`).catch(err => {
               console.error(`Failed to load video ${id}:`, err);
               return null;
@@ -124,6 +137,7 @@ function KioskVideoManagement({ kioskProp = null, embedded = false }) {
           const videoDetails = videoDetailsResponses
             .filter(response => response !== null)
             .map(response => response.data);
+          console.log('[KioskVideoManagement] Assigned videos including menu:', videoDetails);
           setAssignedVideos(videoDetails);
         } catch (err) {
           console.error('Failed to load assigned video details:', err);
