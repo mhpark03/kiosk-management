@@ -85,9 +85,8 @@ function KioskVideoManagement({ kioskProp = null, embedded = false }) {
     try {
       setLoading(true);
       const data = await videoService.getAllVideos();
-      // Filter to show only downloadable videos (메뉴는 별도로 관리됨)
-      const downloadableVideos = data.filter(video => video.downloadable === true);
-      const sortedData = [...downloadableVideos].sort((a, b) => b.id - a.id);
+      // Show all videos including menu files
+      const sortedData = [...data].sort((a, b) => b.id - a.id);
       setVideos(sortedData);
       setError('');
     } catch (err) {
