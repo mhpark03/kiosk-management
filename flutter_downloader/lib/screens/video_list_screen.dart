@@ -623,14 +623,11 @@ class _VideoListScreenState extends State<VideoListScreen> {
             // Fetch menu video info if menuId exists
             if (kiosk.menuId != null) {
               try {
-                final response = await widget.apiService.dio.get('/videos/${kiosk.menuId}');
-                if (response.statusCode == 200) {
-                  final menuVideo = Video.fromJson(response.data);
-                  if (mounted) {
-                    setState(() {
-                      _menuVideo = menuVideo;
-                    });
-                  }
+                final menuVideo = await widget.apiService.getVideoById(kiosk.menuId!);
+                if (mounted) {
+                  setState(() {
+                    _menuVideo = menuVideo;
+                  });
                 }
               } catch (e) {
                 print('Failed to fetch menu video info: $e');
@@ -650,14 +647,11 @@ class _VideoListScreenState extends State<VideoListScreen> {
         // Fetch menu video info if menuId exists and not already loaded
         if (_kiosk!.menuId != null && _menuVideo == null) {
           try {
-            final response = await widget.apiService.dio.get('/videos/${_kiosk!.menuId}');
-            if (response.statusCode == 200) {
-              final menuVideo = Video.fromJson(response.data);
-              if (mounted) {
-                setState(() {
-                  _menuVideo = menuVideo;
-                });
-              }
+            final menuVideo = await widget.apiService.getVideoById(_kiosk!.menuId!);
+            if (mounted) {
+              setState(() {
+                _menuVideo = menuVideo;
+              });
             }
           } catch (e) {
             print('Failed to fetch menu video info: $e');

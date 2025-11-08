@@ -193,6 +193,29 @@ class ApiService {
     }
   }
 
+  // Get video info by ID
+  Future<Video> getVideoById(int videoId) async {
+    try {
+      print('[API] Fetching video info for video ID: $videoId');
+      final response = await _dio.get('/videos/$videoId');
+
+      print('[API] Video info response status: ${response.statusCode}');
+      if (response.statusCode == 200) {
+        return Video.fromJson(response.data);
+      } else {
+        throw Exception('Failed to get video info: ${response.statusCode}');
+      }
+    } on DioException catch (e) {
+      print('[API] DioException getting video info for video $videoId:');
+      print('  Status code: ${e.response?.statusCode}');
+      print('  Response data: ${e.response?.data}');
+      rethrow;
+    } catch (e) {
+      print('[API] Unexpected error getting video info for video $videoId: $e');
+      rethrow;
+    }
+  }
+
   // Get download URL for video
   Future<String> getVideoDownloadUrl(int videoId) async {
     try {
