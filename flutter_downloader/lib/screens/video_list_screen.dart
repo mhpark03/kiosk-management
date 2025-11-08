@@ -1165,18 +1165,19 @@ class _VideoListScreenState extends State<VideoListScreen> {
                         // First item is menu card if menu exists
                         if (_hasMenu && index == 0) {
                           final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+                          final thumbnailSize = isLandscape ? 60.0 : 48.0;
+
                           return Card(
                             margin: EdgeInsets.only(bottom: isLandscape ? 12 : 8),
-                            color: Colors.amber.shade50,
                             child: Padding(
                               padding: EdgeInsets.all(isLandscape ? 12 : 8),
                               child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  // Menu icon
+                                  // Menu icon (same size as video thumbnail)
                                   Container(
-                                    width: isLandscape ? 60.0 : 48.0,
-                                    height: isLandscape ? 60.0 : 48.0,
+                                    width: thumbnailSize,
+                                    height: thumbnailSize,
                                     decoration: BoxDecoration(
                                       color: Colors.amber.shade100,
                                       borderRadius: BorderRadius.circular(6),
@@ -1187,27 +1188,19 @@ class _VideoListScreenState extends State<VideoListScreen> {
                                       color: Colors.amber.shade800,
                                     ),
                                   ),
-                                  SizedBox(width: isLandscape ? 16 : 12),
-                                  // Menu info
+                                  SizedBox(width: isLandscape ? 12 : 8),
+
+                                  // Title and description
                                   Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Row(
+                                    child: isLandscape
+                                      ? Row(
                                           children: [
-                                            Expanded(
-                                              child: Text(
-                                                _menuFilename ?? '메뉴 파일',
-                                                style: TextStyle(
-                                                  fontWeight: FontWeight.w600,
-                                                  fontSize: isLandscape ? 16 : 14,
-                                                ),
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                            ),
+                                            // Menu badge
                                             Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                              padding: const EdgeInsets.symmetric(
+                                                horizontal: 6,
+                                                vertical: 2,
+                                              ),
                                               decoration: BoxDecoration(
                                                 color: Colors.amber.shade200,
                                                 borderRadius: BorderRadius.circular(4),
@@ -1216,33 +1209,161 @@ class _VideoListScreenState extends State<VideoListScreen> {
                                                 '메뉴',
                                                 style: TextStyle(
                                                   fontSize: 11,
-                                                  fontWeight: FontWeight.w600,
                                                   color: Color(0xFF92400E),
+                                                  fontWeight: FontWeight.w600,
                                                 ),
                                               ),
                                             ),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Row(
-                                          children: [
-                                            Icon(
-                                              _menuDownloaded ? Icons.check_circle : Icons.cloud_download,
-                                              size: 14,
-                                              color: _menuDownloaded ? Colors.green.shade700 : Colors.orange.shade700,
+                                            const SizedBox(width: 8),
+                                            // Menu filename
+                                            Flexible(
+                                              flex: 2,
+                                              child: Text(
+                                                _menuFilename ?? '메뉴 파일',
+                                                style: const TextStyle(
+                                                  fontSize: 16,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
                                             ),
-                                            const SizedBox(width: 4),
-                                            Text(
-                                              _menuDownloaded ? '다운로드 완료' : '다운로드 대기중',
-                                              style: TextStyle(
-                                                fontSize: isLandscape ? 13 : 12,
-                                                color: _menuDownloaded ? Colors.green.shade700 : Colors.orange.shade700,
+                                            const SizedBox(width: 12),
+                                            // Description
+                                            Flexible(
+                                              flex: 3,
+                                              child: Text(
+                                                'XML 메뉴 파일',
+                                                style: TextStyle(
+                                                  fontSize: 13,
+                                                  color: Colors.grey.shade600,
+                                                ),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
                                               ),
                                             ),
                                           ],
+                                        )
+                                      : Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            // Menu badge and filename
+                                            Row(
+                                              children: [
+                                                Container(
+                                                  padding: const EdgeInsets.symmetric(
+                                                    horizontal: 5,
+                                                    vertical: 2,
+                                                  ),
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.amber.shade200,
+                                                    borderRadius: BorderRadius.circular(3),
+                                                  ),
+                                                  child: const Text(
+                                                    '메뉴',
+                                                    style: TextStyle(
+                                                      fontSize: 10,
+                                                      color: Color(0xFF92400E),
+                                                      fontWeight: FontWeight.w600,
+                                                    ),
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 6),
+                                                Expanded(
+                                                  child: Text(
+                                                    _menuFilename ?? '메뉴 파일',
+                                                    style: const TextStyle(
+                                                      fontSize: 14,
+                                                      fontWeight: FontWeight.bold,
+                                                    ),
+                                                    maxLines: 1,
+                                                    overflow: TextOverflow.ellipsis,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              'XML 메뉴 파일',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: Colors.grey.shade600,
+                                              ),
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ],
                                         ),
-                                      ],
+                                  ),
+
+                                  // File size placeholder (landscape only)
+                                  if (isLandscape) ...[
+                                    const SizedBox(width: 8),
+                                    SizedBox(
+                                      width: 60,
+                                      child: Text(
+                                        '',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: Colors.grey.shade600,
+                                        ),
+                                        textAlign: TextAlign.right,
+                                      ),
                                     ),
+                                  ],
+                                  const SizedBox(width: 8),
+
+                                  // Download status
+                                  SizedBox(
+                                    width: isLandscape ? 120 : 70,
+                                    child: _menuDownloaded
+                                        ? isLandscape
+                                          ? Row(
+                                              mainAxisAlignment: MainAxisAlignment.center,
+                                              children: [
+                                                const Icon(
+                                                  Icons.check_circle,
+                                                  color: Colors.green,
+                                                  size: 16,
+                                                ),
+                                                const SizedBox(width: 4),
+                                                const Text(
+                                                  '완료',
+                                                  style: TextStyle(
+                                                    color: Colors.green,
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 12,
+                                                  ),
+                                                ),
+                                              ],
+                                            )
+                                          : const Icon(
+                                              Icons.check_circle,
+                                              color: Colors.green,
+                                              size: 24,
+                                            )
+                                        : isLandscape
+                                          ? ElevatedButton.icon(
+                                              onPressed: _downloadMenuFile,
+                                              icon: const Icon(Icons.download, size: 16),
+                                              label: const Text('다운', style: TextStyle(fontSize: 12)),
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor: Colors.blue,
+                                                foregroundColor: Colors.white,
+                                                padding: const EdgeInsets.symmetric(
+                                                  horizontal: 8,
+                                                  vertical: 6,
+                                                ),
+                                              ),
+                                            )
+                                          : IconButton(
+                                              onPressed: _downloadMenuFile,
+                                              icon: const Icon(Icons.download),
+                                              color: Colors.blue,
+                                              iconSize: 28,
+                                              padding: EdgeInsets.zero,
+                                              constraints: const BoxConstraints(),
+                                            ),
                                   ),
                                 ],
                               ),
