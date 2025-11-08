@@ -10,10 +10,14 @@ import '../widgets/coffee_kiosk_overlay.dart';
 
 class KioskSplitScreen extends StatefulWidget {
   final List<Video> videos;
+  final String? downloadPath;
+  final String? kioskId;
 
   const KioskSplitScreen({
     super.key,
     required this.videos,
+    this.downloadPath,
+    this.kioskId,
   });
 
   @override
@@ -315,6 +319,8 @@ class _KioskSplitScreenState extends State<KioskSplitScreen> {
                     ),
                   );
                 },
+                downloadPath: widget.downloadPath,
+                kioskId: widget.kioskId,
               ),
             ),
           ],

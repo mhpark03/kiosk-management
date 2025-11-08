@@ -8,12 +8,16 @@ class CoffeeKioskOverlay extends StatefulWidget {
   final VoidCallback onClose;
   final Function(CoffeeOrder) onOrderComplete;
   final bool showCloseButton;
+  final String? downloadPath;
+  final String? kioskId;
 
   const CoffeeKioskOverlay({
     super.key,
     required this.onClose,
     required this.onOrderComplete,
     this.showCloseButton = false,
+    this.downloadPath,
+    this.kioskId,
   });
 
   @override
@@ -39,7 +43,10 @@ class _CoffeeKioskOverlayState extends State<CoffeeKioskOverlay> {
   }
 
   Future<void> _loadMenu() async {
-    await _menuService.loadMenuFromXml();
+    await _menuService.loadMenuFromXml(
+      downloadPath: widget.downloadPath,
+      kioskId: widget.kioskId,
+    );
     setState(() {}); // Rebuild UI with loaded menu
   }
 

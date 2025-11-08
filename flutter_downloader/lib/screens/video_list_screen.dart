@@ -704,43 +704,46 @@ class _VideoListScreenState extends State<VideoListScreen> {
       }
 
       final downloadUrl = menuData['downloadUrl'] as String;
-      final filename = menuData['filename'] as String;
+      final originalFilename = menuData['filename'] as String;
       final menuId = menuData['menuId'] as int;
+
+      // Fixed filename for menu - always save as coffee_menu.xml
+      const fixedFilename = 'coffee_menu.xml';
 
       // Create menu directory path
       final menuDirPath = '${config.downloadPath}/${config.kioskId}/menu';
-      final menuFilePath = '$menuDirPath/$filename';
+      final menuFilePath = '$menuDirPath/$fixedFilename';
 
       // Check if menu file already exists
       final menuFile = File(menuFilePath);
       if (await menuFile.exists()) {
-        print('[MENU DOWNLOAD] Menu file already exists: $filename');
+        print('[MENU DOWNLOAD] Menu file already exists: $fixedFilename');
         return;
       }
 
-      print('[MENU DOWNLOAD] Downloading menu file: $filename (ID: $menuId)');
+      print('[MENU DOWNLOAD] Downloading menu file: $originalFilename -> $fixedFilename (ID: $menuId)');
 
       // Log menu download start
       await EventLogger().logEvent(
         eventType: 'DOWNLOAD_STARTED',
-        message: '메뉴 파일 다운로드 시작: $filename',
-        metadata: '{"menuId": $menuId, "filename": "$filename"}',
+        message: '메뉴 파일 다운로드 시작: $fixedFilename',
+        metadata: '{"menuId": $menuId, "originalFilename": "$originalFilename", "savedAs": "$fixedFilename"}',
       );
 
-      // Download menu file
+      // Download menu file with fixed filename
       await _downloadService.downloadFile(
         downloadUrl,
         menuDirPath,
-        filename,
+        fixedFilename,
       );
 
-      print('[MENU DOWNLOAD] Menu file downloaded successfully: $filename');
+      print('[MENU DOWNLOAD] Menu file downloaded successfully: $fixedFilename');
 
       // Log menu download complete
       await EventLogger().logEvent(
         eventType: 'DOWNLOAD_COMPLETED',
-        message: '메뉴 파일 다운로드 완료: $filename',
-        metadata: '{"menuId": $menuId, "filename": "$filename"}',
+        message: '메뉴 파일 다운로드 완료: $fixedFilename',
+        metadata: '{"menuId": $menuId, "originalFilename": "$originalFilename", "savedAs": "$fixedFilename"}',
       );
     } catch (e) {
       print('[MENU DOWNLOAD] Failed to download menu file: $e');
@@ -1140,11 +1143,14 @@ class _VideoListScreenState extends State<VideoListScreen> {
                                     // 다운로드 완료된 동영상만 재생 가능
                                     if (video.downloadStatus == 'completed' && video.localPath != null) {
                                       print('[VIDEO LIST] Opening video player...');
+                                      final config = widget.storageService.getConfig();
                                       Navigator.of(context).push(
                                         MaterialPageRoute(
                                           builder: (_) => VideoPlayerScreen(
                                             videoPath: video.localPath!,
                                             videoTitle: video.title,
+                                            downloadPath: config?.downloadPath,
+                                            kioskId: config?.kioskId,
                                           ),
                                         ),
                                       );
@@ -1490,10 +1496,13 @@ class _VideoListScreenState extends State<VideoListScreen> {
               // Enter fullscreen mode and navigate to split screen
               await windowManager.setFullScreen(true);
               if (mounted) {
+                final config = widget.storageService.getConfig();
                 await Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (_) => KioskSplitScreen(
                       videos: availableVideos,
+                      downloadPath: config?.downloadPath,
+                      kioskId: config?.kioskId,
                     ),
                   ),
                 );

@@ -8,11 +8,15 @@ import '../models/coffee_order.dart';
 class VideoPlayerScreen extends StatefulWidget {
   final String videoPath;
   final String videoTitle;
+  final String? downloadPath;
+  final String? kioskId;
 
   const VideoPlayerScreen({
     super.key,
     required this.videoPath,
     required this.videoTitle,
+    this.downloadPath,
+    this.kioskId,
   });
 
   @override
@@ -287,6 +291,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                     setState(() => _showKioskOverlay = false);
                   },
                   onOrderComplete: _handleOrderComplete,
+                  downloadPath: widget.downloadPath,
+                  kioskId: widget.kioskId,
                 ),
               ),
           ],

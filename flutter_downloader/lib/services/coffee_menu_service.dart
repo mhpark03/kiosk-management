@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/services.dart';
 import '../models/coffee_menu_item.dart';
 import '../models/menu_config.dart';
@@ -13,14 +14,36 @@ class CoffeeMenuService {
   bool _isXmlLoaded = false;
 
   /// Load menu from XML file
-  Future<void> loadMenuFromXml() async {
+  /// First tries to load from download path, then falls back to assets
+  Future<void> loadMenuFromXml({String? downloadPath, String? kioskId}) async {
     try {
-      final xmlString = await rootBundle.loadString('assets/coffee_menu.xml');
+      String xmlString;
+
+      // Try to load from download folder first if path is provided
+      if (downloadPath != null && kioskId != null) {
+        final menuFilePath = '$downloadPath/$kioskId/menu/coffee_menu.xml';
+        final menuFile = File(menuFilePath);
+
+        if (await menuFile.exists()) {
+          print('[MENU LOAD] Loading menu from downloaded file: $menuFilePath');
+          xmlString = await menuFile.readAsString();
+          _menuConfig = XmlMenuParser.parseXml(xmlString);
+          _isXmlLoaded = true;
+          print('[MENU LOAD] Menu loaded from download folder: ${_menuConfig!.menuItems.length} items');
+          return;
+        } else {
+          print('[MENU LOAD] No menu file found in download folder: $menuFilePath');
+        }
+      }
+
+      // Fallback to assets folder
+      print('[MENU LOAD] Loading menu from assets folder');
+      xmlString = await rootBundle.loadString('assets/coffee_menu.xml');
       _menuConfig = XmlMenuParser.parseXml(xmlString);
       _isXmlLoaded = true;
-      print('Menu loaded from XML: ${_menuConfig!.menuItems.length} items');
+      print('[MENU LOAD] Menu loaded from assets: ${_menuConfig!.menuItems.length} items');
     } catch (e) {
-      print('Error loading XML menu: $e');
+      print('[MENU LOAD] Error loading XML menu: $e');
       _isXmlLoaded = false;
     }
   }
