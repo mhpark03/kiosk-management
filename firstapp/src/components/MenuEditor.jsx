@@ -13,10 +13,7 @@ function MenuEditor() {
   const [selectedType, setSelectedType] = useState(null); // 'category' | 'item'
   const [selectedId, setSelectedId] = useState(null);
 
-  // S3 Save Modal states
-  const [showS3Modal, setShowS3Modal] = useState(false);
-  const [s3Title, setS3Title] = useState('');
-  const [s3Description, setS3Description] = useState('');
+  // S3 Save states (no modal needed)
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [saveSuccess, setSaveSuccess] = useState('');
@@ -32,8 +29,12 @@ function MenuEditor() {
       if (id === 'new') {
         // New menu from state (passed from MenuList)
         if (location.state?.newMenu) {
-          setMenu(location.state.newMenu);
-          setOriginalMenu(JSON.parse(JSON.stringify(location.state.newMenu))); // Deep copy for comparison
+          const newMenuData = {
+            ...location.state.newMenu,
+            description: location.state.newMenu.description || `${location.state.newMenu.name} 메뉴 설정 (버전: ${location.state.newMenu.version})`
+          };
+          setMenu(newMenuData);
+          setOriginalMenu(JSON.parse(JSON.stringify(newMenuData))); // Deep copy for comparison
         } else {
           alert('메뉴 데이터를 찾을 수 없습니다.');
           navigate('/menus');
@@ -65,7 +66,7 @@ function MenuEditor() {
 
         parsedMenu.id = id;
         parsedMenu.s3Key = menuData.s3Key;
-        parsedMenu.description = menuData.description; // Store description from S3 metadata
+        parsedMenu.description = menuData.description || `${parsedMenu.name} 메뉴 설정 (버전: ${parsedMenu.version})`; // Store description from S3 metadata
 
         setMenu(parsedMenu);
         setOriginalMenu(JSON.parse(JSON.stringify(parsedMenu))); // Deep copy for comparison
@@ -153,28 +154,12 @@ function MenuEditor() {
     navigate('/menus');
   };
 
-  const handleS3SaveClick = () => {
+  const handleS3SaveClick = async () => {
     if (!menu) return;
 
-    // For existing menus, pre-fill title and description
-    if (id !== 'new') {
-      setS3Title(menu.name);
-      setS3Description(menu.description || `${menu.name} 메뉴 설정 (버전: ${menu.version})`);
-    } else {
-      setS3Title(menu.name);
-      setS3Description(`${menu.name} 메뉴 설정 (버전: ${menu.version})`);
-    }
-
-    setSaveError('');
-    setSaveSuccess('');
-    setShowS3Modal(true);
-  };
-
-  const handleS3SaveConfirm = async () => {
-    if (!menu) return;
-
-    if (!s3Title.trim()) {
+    if (!menu.name.trim()) {
       setSaveError('제목을 입력해주세요.');
+      setTimeout(() => setSaveError(''), 3000);
       return;
     }
 
@@ -186,11 +171,11 @@ function MenuEditor() {
 
       if (id === 'new') {
         // New menu - upload
-        await menuService.uploadMenuXML(xml, s3Title, s3Description);
+        await menuService.uploadMenuXML(xml, menu.name, menu.description);
         setSaveSuccess('S3에 성공적으로 저장되었습니다!');
       } else {
         // Existing menu - update (delete and re-upload)
-        await menuService.updateMenu(id, xml, s3Title, s3Description);
+        await menuService.updateMenu(id, xml, menu.name, menu.description);
         setSaveSuccess('메뉴가 성공적으로 업데이트되었습니다!');
       }
 
@@ -198,22 +183,15 @@ function MenuEditor() {
       setOriginalMenu(JSON.parse(JSON.stringify(menu)));
 
       setTimeout(() => {
-        setShowS3Modal(false);
         setSaveSuccess('');
         navigate('/menus', { state: { reload: true } }); // Return to menu list with reload flag
       }, 2000);
     } catch (error) {
       setSaveError(error.message || 'S3 저장 중 오류가 발생했습니다.');
+      setTimeout(() => setSaveError(''), 5000);
     } finally {
       setIsSaving(false);
     }
-  };
-
-  const handleS3ModalClose = () => {
-    if (isSaving) return;
-    setShowS3Modal(false);
-    setSaveError('');
-    setSaveSuccess('');
   };
 
   const exportXML = () => {
@@ -377,18 +355,74 @@ function MenuEditor() {
         <button className="btn btn-back" onClick={handleBackToList}>
           ← 목록으로
         </button>
-        <h1>{menu.name} 편집</h1>
+        <div style={{ flex: 1, marginLeft: '20px', marginRight: '20px' }}>
+          <input
+            type="text"
+            value={menu.name}
+            onChange={(e) => updateMenu({ ...menu, name: e.target.value })}
+            placeholder="메뉴 제목을 입력하세요"
+            style={{
+              width: '100%',
+              padding: '8px 12px',
+              fontSize: '20px',
+              fontWeight: 'bold',
+              border: '2px solid #e2e8f0',
+              borderRadius: '6px',
+              marginBottom: '8px'
+            }}
+          />
+          <textarea
+            value={menu.description || ''}
+            onChange={(e) => updateMenu({ ...menu, description: e.target.value })}
+            placeholder="메뉴 설명을 입력하세요 (선택사항)"
+            rows={2}
+            style={{
+              width: '100%',
+              padding: '8px 12px',
+              fontSize: '14px',
+              border: '1px solid #e2e8f0',
+              borderRadius: '4px',
+              resize: 'vertical'
+            }}
+          />
+        </div>
         <div className="menu-editor-actions">
           <button
             className="btn btn-primary"
             onClick={handleS3SaveClick}
-            disabled={!hasChanges()}
+            disabled={!hasChanges() || isSaving}
             title={!hasChanges() ? '변경사항이 없습니다' : 'S3에 저장'}
           >
-            💾 S3 저장
+            {isSaving ? '저장 중...' : '💾 S3 저장'}
           </button>
         </div>
       </div>
+
+      {/* Error/Success messages */}
+      {saveError && (
+        <div style={{
+          padding: '12px',
+          margin: '0 20px 20px 20px',
+          backgroundColor: '#fed7d7',
+          color: '#c53030',
+          borderRadius: '6px',
+          fontSize: '14px'
+        }}>
+          {saveError}
+        </div>
+      )}
+      {saveSuccess && (
+        <div style={{
+          padding: '12px',
+          margin: '0 20px 20px 20px',
+          backgroundColor: '#c6f6d5',
+          color: '#2f855a',
+          borderRadius: '6px',
+          fontSize: '14px'
+        }}>
+          {saveSuccess}
+        </div>
+      )}
 
       <div className="menu-editor-content">
         {/* Left: Tree View */}
@@ -447,98 +481,6 @@ function MenuEditor() {
           )}
         </div>
       </div>
-
-      {/* S3 Save Modal */}
-      {showS3Modal && (
-        <div className="video-modal" onClick={handleS3ModalClose}>
-          <div className="video-modal-content" onClick={(e) => e.stopPropagation()} style={{maxWidth: '500px'}}>
-            <button className="modal-close" onClick={handleS3ModalClose}>×</button>
-            <h3>S3에 메뉴 저장</h3>
-
-            {saveError && <div className="alert alert-error" style={{marginTop: '15px'}}>{saveError}</div>}
-            {saveSuccess && <div className="alert alert-success" style={{marginTop: '15px'}}>{saveSuccess}</div>}
-
-            <div style={{padding: '20px 0'}}>
-              <div style={{marginBottom: '20px'}}>
-                <label style={{display: 'block', marginBottom: '8px', fontWeight: '600', color: '#2d3748'}}>
-                  제목 <span style={{color: '#f56565'}}>*</span>
-                </label>
-                <input
-                  type="text"
-                  value={s3Title}
-                  onChange={(e) => setS3Title(e.target.value)}
-                  placeholder="메뉴 제목을 입력하세요"
-                  disabled={isSaving}
-                  style={{
-                    width: '100%',
-                    padding: '10px',
-                    border: '1px solid #cbd5e0',
-                    borderRadius: '4px',
-                    fontSize: '14px'
-                  }}
-                />
-              </div>
-
-              <div style={{marginBottom: '20px'}}>
-                <label style={{display: 'block', marginBottom: '8px', fontWeight: '600', color: '#2d3748'}}>
-                  설명
-                </label>
-                <textarea
-                  value={s3Description}
-                  onChange={(e) => setS3Description(e.target.value)}
-                  rows={4}
-                  placeholder="메뉴에 대한 설명을 입력하세요 (선택사항)"
-                  disabled={isSaving}
-                  style={{
-                    width: '100%',
-                    padding: '10px',
-                    border: '1px solid #cbd5e0',
-                    borderRadius: '4px',
-                    fontSize: '14px',
-                    resize: 'vertical'
-                  }}
-                />
-              </div>
-
-              <div style={{display: 'flex', gap: '10px', justifyContent: 'flex-end'}}>
-                <button
-                  onClick={handleS3ModalClose}
-                  disabled={isSaving}
-                  style={{
-                    padding: '10px 20px',
-                    border: '1px solid #cbd5e0',
-                    borderRadius: '4px',
-                    background: '#fff',
-                    color: '#2d3748',
-                    cursor: isSaving ? 'not-allowed' : 'pointer',
-                    fontSize: '14px',
-                    fontWeight: '500',
-                    opacity: isSaving ? 0.5 : 1
-                  }}
-                >
-                  취소
-                </button>
-                <button
-                  onClick={handleS3SaveConfirm}
-                  disabled={isSaving}
-                  style={{
-                    padding: '10px 20px',
-                    border: 'none',
-                    borderRadius: '4px',
-                    background: isSaving ? '#a0aec0' : '#667eea',
-                    color: '#fff',
-                    cursor: isSaving ? 'not-allowed' : 'pointer',
-                    fontSize: '14px',
-                    fontWeight: '500'
-                  }}
-                >
-                  {isSaving ? '저장 중...' : 'S3에 저장'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
