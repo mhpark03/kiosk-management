@@ -634,6 +634,9 @@ class _VideoListScreenState extends State<VideoListScreen> {
         metadata: '{"videoCount": ${videos.length}}',
       );
 
+      // Download menu file if assigned to kiosk
+      await _downloadMenuFile(config);
+
       // Auto-download pending videos in background
       _downloadPendingVideosInBackground();
     } catch (e) {
@@ -685,6 +688,70 @@ class _VideoListScreenState extends State<VideoListScreen> {
         print('[CHECK FILES] Error checking file $fileName: $e');
         video.downloadStatus = 'pending';
       }
+    }
+  }
+
+  Future<void> _downloadMenuFile(dynamic config) async {
+    try {
+      print('[MENU DOWNLOAD] Checking menu file for kiosk: ${config.kioskId}');
+
+      // Get menu download URL from server
+      final menuData = await widget.apiService.getMenuDownloadUrl(config.kioskId);
+
+      if (menuData == null) {
+        print('[MENU DOWNLOAD] No menu assigned to this kiosk');
+        return;
+      }
+
+      final downloadUrl = menuData['downloadUrl'] as String;
+      final filename = menuData['filename'] as String;
+      final menuId = menuData['menuId'] as int;
+
+      // Create menu directory path
+      final menuDirPath = '${config.downloadPath}/${config.kioskId}/menu';
+      final menuFilePath = '$menuDirPath/$filename';
+
+      // Check if menu file already exists
+      final menuFile = File(menuFilePath);
+      if (await menuFile.exists()) {
+        print('[MENU DOWNLOAD] Menu file already exists: $filename');
+        return;
+      }
+
+      print('[MENU DOWNLOAD] Downloading menu file: $filename (ID: $menuId)');
+
+      // Log menu download start
+      await EventLogger().logEvent(
+        eventType: 'DOWNLOAD_STARTED',
+        message: '메뉴 파일 다운로드 시작: $filename',
+        metadata: '{"menuId": $menuId, "filename": "$filename"}',
+      );
+
+      // Download menu file
+      await _downloadService.downloadFile(
+        downloadUrl,
+        menuDirPath,
+        filename,
+      );
+
+      print('[MENU DOWNLOAD] Menu file downloaded successfully: $filename');
+
+      // Log menu download complete
+      await EventLogger().logEvent(
+        eventType: 'DOWNLOAD_COMPLETED',
+        message: '메뉴 파일 다운로드 완료: $filename',
+        metadata: '{"menuId": $menuId, "filename": "$filename"}',
+      );
+    } catch (e) {
+      print('[MENU DOWNLOAD] Failed to download menu file: $e');
+
+      // Log menu download failed
+      await EventLogger().logEvent(
+        eventType: 'DOWNLOAD_FAILED',
+        message: '메뉴 파일 다운로드 실패: ${e.toString()}',
+        metadata: '{"error": "${e.toString()}"}',
+      );
+      // Don't throw error - menu download failure should not stop video sync
     }
   }
 

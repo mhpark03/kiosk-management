@@ -9,6 +9,7 @@ class Kiosk {
   final bool? autoSyncEnabled;
   final int? syncIntervalHours;
   final DateTime? lastSyncTime;
+  final int? menuId; // Associated menu (XML file with imagePurpose=MENU)
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -23,6 +24,7 @@ class Kiosk {
     this.autoSyncEnabled,
     this.syncIntervalHours,
     this.lastSyncTime,
+    this.menuId,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -43,6 +45,7 @@ class Kiosk {
       lastSyncTime: json['last_sync_time'] != null
           ? DateTime.parse(json['last_sync_time'] as String)
           : null,
+      menuId: json['menuId'] as int?,
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'] as String)
           : DateTime.now(),
@@ -64,6 +67,7 @@ class Kiosk {
       'auto_sync_enabled': autoSyncEnabled,
       'sync_interval_hours': syncIntervalHours,
       'last_sync_time': lastSyncTime?.toIso8601String(),
+      'menuId': menuId,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
     };

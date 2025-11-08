@@ -5,9 +5,11 @@ import com.kiosk.backend.dto.KioskConfigDTO;
 import com.kiosk.backend.dto.KioskDTO;
 import com.kiosk.backend.dto.UpdateKioskRequest;
 import com.kiosk.backend.entity.Kiosk;
+import com.kiosk.backend.entity.Video;
 import com.kiosk.backend.repository.KioskRepository;
 import com.kiosk.backend.security.JwtTokenProvider;
 import com.kiosk.backend.service.KioskService;
+import com.kiosk.backend.service.VideoService;
 import com.kiosk.backend.websocket.KioskWebSocketController;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -36,6 +38,7 @@ public class KioskController {
     private final JwtTokenProvider jwtTokenProvider;
     private final com.kiosk.backend.service.KioskEventService kioskEventService;
     private final com.kiosk.backend.websocket.WebSocketSessionManager webSocketSessionManager;
+    private final VideoService videoService;
 
     // SecureRandom for generating unpredictable session versions
     private static final SecureRandom secureRandom = new SecureRandom();
@@ -677,6 +680,56 @@ public class KioskController {
             Map<String, String> response = new HashMap<>();
             response.put("error", "동기화 명령 전송에 실패했습니다: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
+    }
+
+    /**
+     * Get menu download URL for kiosk
+     * GET /api/kiosks/by-kioskid/{kioskid}/menu/download-url
+     */
+    @GetMapping("/by-kioskid/{kioskid}/menu/download-url")
+    public ResponseEntity<?> getMenuDownloadUrl(@PathVariable String kioskid) {
+        try {
+            log.info("GET /api/kiosks/by-kioskid/{}/menu/download-url", kioskid);
+
+            // Get kiosk by kioskid
+            Kiosk kiosk = kioskRepository.findByKioskid(kioskid)
+                    .orElseThrow(() -> new RuntimeException("Kiosk not found: " + kioskid));
+
+            // Check if kiosk has menuId
+            if (kiosk.getMenuId() == null) {
+                log.info("Kiosk {} has no menu assigned", kioskid);
+                return ResponseEntity.ok(Map.of(
+                        "hasMenu", false,
+                        "message", "No menu assigned to this kiosk"
+                ));
+            }
+
+            // Get menu video by ID
+            Video menu = videoService.getVideoById(kiosk.getMenuId());
+            if (menu == null) {
+                log.error("Menu not found with ID: {}", kiosk.getMenuId());
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(Map.of("error", "Menu not found with ID: " + kiosk.getMenuId()));
+            }
+
+            // Generate presigned download URL
+            String downloadUrl = videoService.getPresignedDownloadUrl(menu.getS3Key());
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("hasMenu", true);
+            response.put("menuId", menu.getId());
+            response.put("downloadUrl", downloadUrl);
+            response.put("filename", menu.getOriginalFilename());
+            response.put("title", menu.getTitle());
+
+            log.info("Menu download URL generated for kiosk {}, menu ID: {}", kioskid, menu.getId());
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("Failed to get menu download URL for kiosk {}: {}", kioskid, e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to generate menu download URL: " + e.getMessage()));
         }
     }
 }

@@ -522,4 +522,42 @@ class ApiService {
       // Don't throw error - heartbeat failure should not crash the app
     }
   }
+
+  // Get menu download URL for kiosk
+  Future<Map<String, dynamic>?> getMenuDownloadUrl(String kioskId) async {
+    try {
+      print('[API] Requesting menu download URL for kioskId: $kioskId');
+      final response = await _dio.get('/kiosks/by-kioskid/$kioskId/menu/download-url');
+
+      print('[API] Menu download URL response status: ${response.statusCode}');
+      if (response.statusCode == 200) {
+        final data = response.data as Map<String, dynamic>;
+
+        // Check if kiosk has menu assigned
+        if (data['hasMenu'] == false) {
+          print('[API] Kiosk has no menu assigned');
+          return null;
+        }
+
+        print('[API] Menu download URL received for menu ID: ${data['menuId']}');
+        return data;
+      } else {
+        throw Exception('Failed to get menu download URL: ${response.statusCode}');
+      }
+    } on DioException catch (e) {
+      print('[API] DioException getting menu download URL for kiosk $kioskId:');
+      print('  Status code: ${e.response?.statusCode}');
+      print('  Response data: ${e.response?.data}');
+      print('  Error message: ${e.message}');
+
+      if (e.response?.data != null && e.response?.data['message'] != null) {
+        throw Exception(e.response?.data['message']);
+      } else {
+        throw Exception('서버 연결에 실패했습니다: ${e.message}');
+      }
+    } catch (e) {
+      print('[API] Exception getting menu download URL for kiosk $kioskId: $e');
+      throw Exception('메뉴 다운로드 URL 조회 중 오류가 발생했습니다: $e');
+    }
+  }
 }
