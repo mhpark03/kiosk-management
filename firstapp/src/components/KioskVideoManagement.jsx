@@ -705,15 +705,18 @@ function KioskVideoManagement({ kioskProp = null, embedded = false }) {
                               <FiDownload />
                             </button>
                           )}
-                          {video.imagePurpose !== 'MENU' && (
-                            <button
-                              onClick={() => handleRemoveVideo(video.id)}
-                              className="btn-icon btn-delete"
-                              title="영상 제거"
-                            >
-                              <FiTrash2 />
-                            </button>
-                          )}
+                          <button
+                            onClick={() => handleRemoveVideo(video.id)}
+                            className="btn-icon btn-delete"
+                            title={video.imagePurpose === 'MENU' ? '메뉴 파일은 삭제할 수 없습니다' : '영상 제거'}
+                            disabled={video.imagePurpose === 'MENU'}
+                            style={{
+                              opacity: video.imagePurpose === 'MENU' ? 0.5 : 1,
+                              cursor: video.imagePurpose === 'MENU' ? 'not-allowed' : 'pointer'
+                            }}
+                          >
+                            <FiTrash2 />
+                          </button>
                         </div>
                       </td>
                     </tr>
