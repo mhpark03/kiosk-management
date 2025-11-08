@@ -765,11 +765,33 @@ class _VideoListScreenState extends State<VideoListScreen> {
       final menuDirPath = '${config.downloadPath}/${config.kioskId}/menu';
       final menuFilePath = '$menuDirPath/$filename';
 
-      // Check if menu file already exists
+      // Check if the exact menu file already exists
       final menuFile = File(menuFilePath);
-      if (await menuFile.exists()) {
-        print('[MENU DOWNLOAD] Menu file already exists: $filename');
-        // Update menu download status even if file already exists
+      final menuFileExists = await menuFile.exists();
+
+      // Check for any existing XML files in the menu directory
+      final menuDir = Directory(menuDirPath);
+      bool hasOldMenuFiles = false;
+
+      if (await menuDir.exists()) {
+        await for (final file in menuDir.list()) {
+          if (file is File && file.path.endsWith('.xml')) {
+            final existingFilename = file.path.split(Platform.pathSeparator).last;
+            if (existingFilename != filename) {
+              // Found an old menu file with different name - menu has been updated
+              hasOldMenuFiles = true;
+              print('[MENU DOWNLOAD] Found old menu file: ${file.path}');
+              print('[MENU DOWNLOAD] Current menu file should be: $filename');
+              break;
+            }
+          }
+        }
+      }
+
+      // If the current menu file exists and there are no old files, skip download
+      if (menuFileExists && !hasOldMenuFiles) {
+        print('[MENU DOWNLOAD] Menu file already up-to-date: $filename');
+        // Update menu download status
         if (mounted) {
           setState(() {
             _menuDownloaded = true;
@@ -778,18 +800,24 @@ class _VideoListScreenState extends State<VideoListScreen> {
         return;
       }
 
-      // Delete old menu files if exist (different filename = new menu)
-      final menuDir = Directory(menuDirPath);
+      // Delete all old menu files (menu has been updated)
       if (await menuDir.exists()) {
         await for (final file in menuDir.list()) {
           if (file is File && file.path.endsWith('.xml')) {
             print('[MENU DOWNLOAD] Deleting old menu file: ${file.path}');
             await file.delete();
+
+            // Log old menu file deletion
+            await EventLogger().logEvent(
+              eventType: 'MENU_UPDATED',
+              message: '이전 메뉴 파일 삭제: ${file.path.split(Platform.pathSeparator).last}',
+              metadata: '{"newMenuId": $menuId, "newFilename": "$filename"}',
+            );
           }
         }
       }
 
-      print('[MENU DOWNLOAD] Downloading menu file: $filename (ID: $menuId)');
+      print('[MENU DOWNLOAD] Downloading new menu file: $filename (ID: $menuId)');
 
       // Log menu download start
       await EventLogger().logEvent(
