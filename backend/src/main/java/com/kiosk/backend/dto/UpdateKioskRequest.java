@@ -25,6 +25,8 @@ public class UpdateKioskRequest {
 
     private String state; // ACTIVE, INACTIVE, MAINTENANCE, DELETED
 
+    private Long menuId; // Associated menu (XML file with imagePurpose=MENU)
+
     private String regdate; // ISO 8601 date string (YYYY-MM-DD or YYYY-MM-DDTHH:mm:ss)
 
     private String setdate; // ISO 8601 date string (YYYY-MM-DD or YYYY-MM-DDTHH:mm:ss)

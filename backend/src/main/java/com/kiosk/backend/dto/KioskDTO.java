@@ -34,6 +34,9 @@ public class KioskDTO {
     private String osVersion; // Operating system version (e.g., Windows 10, Android 12)
     private String deviceName; // Device name/hostname
 
+    // Menu assignment
+    private Long menuId; // Associated menu (XML file with imagePurpose=MENU)
+
     // Video statistics
     private Integer totalVideoCount; // Total number of videos assigned to this kiosk
     private Integer downloadedVideoCount; // Number of videos with COMPLETED download status
@@ -56,6 +59,7 @@ public class KioskDTO {
                 .osType(kiosk.getOsType())
                 .osVersion(kiosk.getOsVersion())
                 .deviceName(kiosk.getDeviceName())
+                .menuId(kiosk.getMenuId())
                 .build();
     }
 }

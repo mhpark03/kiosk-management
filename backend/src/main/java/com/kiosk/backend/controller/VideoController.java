@@ -181,7 +181,7 @@ public class VideoController {
 
                 // Get user information
                 userRepository.findById(video.getUploadedById()).ifPresent(user -> {
-                    videoMap.put("uploadedByEmail", user.getEmail());
+                    videoMap.put("uploadedBy", user.getEmail());
                     videoMap.put("uploadedByName", user.getDisplayName());
                 });
 
@@ -301,6 +301,14 @@ public class VideoController {
             response.put("description", video.getDescription());
             response.put("duration", video.getDuration());
             response.put("uploadedById", video.getUploadedById());
+
+            // Add uploader information
+            if (video.getUploadedById() != null) {
+                userRepository.findById(video.getUploadedById()).ifPresent(uploader -> {
+                    response.put("uploadedBy", uploader.getEmail());
+                    response.put("uploadedByName", uploader.getDisplayName());
+                });
+            }
 
             // For XML files, include content in response
             String contentType = video.getContentType();

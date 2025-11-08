@@ -3,20 +3,22 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import videoService from '../services/videoService';
 import { getAllStores } from '../services/storeService';
+import menuService from '../services/menuService';
 import api from '../services/api';
 import { FiArrowLeft, FiCheck, FiPlus, FiX, FiTrash2, FiSearch, FiDownload, FiRefreshCw } from 'react-icons/fi';
 import './VideoManagement.css';
 import { formatKSTDate } from '../utils/dateUtils';
 
-function KioskVideoManagement() {
+function KioskVideoManagement({ kioskProp = null, embedded = false }) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const kiosk = location.state?.kiosk;
+  const kiosk = kioskProp || location.state?.kiosk;
 
   const [videos, setVideos] = useState([]);
   const [assignedVideos, setAssignedVideos] = useState([]);
   const [stores, setStores] = useState([]);
+  const [menus, setMenus] = useState([]);
   const [selectedVideos, setSelectedVideos] = useState(new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -30,6 +32,8 @@ function KioskVideoManagement() {
   const [searchTerm, setSearchTerm] = useState('');
   const [videoStatusMap, setVideoStatusMap] = useState({});
   const [syncing, setSyncing] = useState(false);
+  const [showMenuModal, setShowMenuModal] = useState(false);
+  const [selectedMenuId, setSelectedMenuId] = useState(null);
 
   useEffect(() => {
     console.log('KioskVideoManagement mounted');
@@ -40,11 +44,24 @@ function KioskVideoManagement() {
       navigate('/kiosks');
       return;
     }
+    loadKioskInfo();
     loadStores();
+    loadMenus();
     loadVideos();
     loadKioskVideos();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const loadKioskInfo = async () => {
+    try {
+      const response = await api.get(`/kiosks/${kiosk.id}`);
+      setSelectedMenuId(response.data.menuId || null);
+    } catch (err) {
+      console.error('Failed to load kiosk info:', err);
+      // Fallback to kiosk data from navigation state
+      setSelectedMenuId(kiosk.menuId || null);
+    }
+  };
 
   const loadStores = async () => {
     try {
@@ -52,6 +69,15 @@ function KioskVideoManagement() {
       setStores(data);
     } catch (err) {
       console.error('Failed to load stores:', err);
+    }
+  };
+
+  const loadMenus = async () => {
+    try {
+      const data = await menuService.getMenusFromS3();
+      setMenus(data || []);
+    } catch (err) {
+      console.error('Failed to load menus:', err);
     }
   };
 
@@ -227,6 +253,30 @@ function KioskVideoManagement() {
     }
   };
 
+  const handleOpenMenuModal = () => {
+    setShowMenuModal(true);
+  };
+
+  const handleCloseMenuModal = () => {
+    setShowMenuModal(false);
+  };
+
+  const handleSelectMenu = async (menuId) => {
+    try {
+      const updateData = { menuId };
+      await api.put(`/kiosks/${kiosk.id}`, updateData);
+
+      setSelectedMenuId(menuId);
+      setShowMenuModal(false);
+      setSuccess('메뉴가 변경되었습니다.');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      console.error('Failed to update menu:', err);
+      setError('메뉴 변경에 실패했습니다: ' + (err.response?.data?.error || err.message));
+      setTimeout(() => setError(''), 3000);
+    }
+  };
+
   const handleSyncWithKiosk = async () => {
     try {
       setSyncing(true);
@@ -290,6 +340,12 @@ function KioskVideoManagement() {
     return 'N/A';
   };
 
+  const getSelectedMenuName = () => {
+    if (!selectedMenuId) return '선택 안됨';
+    const menu = menus.find(m => m.id === selectedMenuId);
+    return menu ? menu.title : '선택 안됨';
+  };
+
   // Pagination logic for modal - exclude already assigned videos
   const availableVideos = videos.filter(v => !selectedVideos.has(v.id));
   const totalPagesModal = Math.ceil(availableVideos.length / itemsPerPage);
@@ -351,16 +407,17 @@ function KioskVideoManagement() {
 
   return (
     <div className="store-management">
-      <div className="store-header">
-        <div>
-          <button onClick={handleBack} className="btn btn-back">
-            <FiArrowLeft className="icon" /> 목록으로
-          </button>
-          <h1>키오스크 영상 관리</h1>
-          <p className="store-filter-info">
-            키오스크: {getStoreName(kiosk.posid)} {kiosk.kioskno}
-          </p>
-        </div>
+      {!embedded && (
+        <div className="store-header">
+          <div>
+            <button onClick={handleBack} className="btn btn-back">
+              <FiArrowLeft className="icon" /> 목록으로
+            </button>
+            <h1>키오스크 영상 관리</h1>
+            <p className="store-filter-info">
+              키오스크: {getStoreName(kiosk.posid)} {kiosk.kioskno}
+            </p>
+          </div>
         <div style={{ display: 'flex', gap: '10px' }}>
           <button
             onClick={handleSyncWithKiosk}
@@ -397,7 +454,47 @@ function KioskVideoManagement() {
             <FiPlus /> 영상 추가
           </button>
         </div>
-      </div>
+        </div>
+      )}
+
+      {embedded && (
+        <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
+          <button
+            onClick={handleSyncWithKiosk}
+            disabled={syncing}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '10px 20px',
+              fontSize: '14px',
+              fontWeight: '500',
+              color: '#fff',
+              background: syncing ? '#a0aec0' : '#48bb78',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: syncing ? 'not-allowed' : 'pointer',
+              transition: 'background-color 0.2s'
+            }}
+            onMouseEnter={(e) => !syncing && (e.target.style.background = '#38a169')}
+            onMouseLeave={(e) => !syncing && (e.target.style.background = '#48bb78')}
+          >
+            <FiRefreshCw style={{ animation: syncing ? 'spin 1s linear infinite' : 'none' }} />
+            {syncing ? '동기화 중...' : '키오스크와 동기화'}
+          </button>
+          <button
+            onClick={handleOpenModal}
+            className="btn-add"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}
+          >
+            <FiPlus /> 영상 추가
+          </button>
+        </div>
+      )}
 
       {error && <div className="alert alert-error">{error}</div>}
       {success && <div className="alert alert-success">{success}</div>}
@@ -447,6 +544,40 @@ function KioskVideoManagement() {
               >
                 <FiSearch /> 검색
               </button>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                padding: '10px 16px',
+                background: '#f7fafc',
+                borderRadius: '6px',
+                border: '1px solid #e2e8f0'
+              }}>
+                <span style={{ fontSize: '14px', fontWeight: '600', color: '#4a5568' }}>
+                  메뉴:
+                </span>
+                <span style={{ fontSize: '14px', color: '#2d3748' }}>
+                  {getSelectedMenuName()}
+                </span>
+                <button
+                  onClick={handleOpenMenuModal}
+                  style={{
+                    padding: '6px 12px',
+                    fontSize: '13px',
+                    fontWeight: '500',
+                    color: '#fff',
+                    background: '#48bb78',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    transition: 'background-color 0.2s'
+                  }}
+                  onMouseEnter={(e) => e.target.style.background = '#38a169'}
+                  onMouseLeave={(e) => e.target.style.background = '#48bb78'}
+                >
+                  메뉴 선택
+                </button>
+              </div>
             </div>
             {searchTerm && (
               <div style={{
@@ -861,6 +992,114 @@ function KioskVideoManagement() {
               >
                 선택 완료 ({tempSelectedVideos.size - selectedVideos.size}개)
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Menu Selection Modal */}
+      {showMenuModal && (
+        <div className="modal-overlay" onClick={handleCloseMenuModal}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '600px' }}>
+            <div className="modal-header">
+              <h2>메뉴 선택</h2>
+              <button className="close-btn" onClick={handleCloseMenuModal}>×</button>
+            </div>
+            <div className="modal-body" style={{ padding: '20px' }}>
+              <div style={{ marginBottom: '16px' }}>
+                <button
+                  onClick={() => handleSelectMenu(null)}
+                  style={{
+                    width: '100%',
+                    padding: '12px 16px',
+                    marginBottom: '8px',
+                    border: selectedMenuId === null ? '2px solid #667eea' : '1px solid #e2e8f0',
+                    borderRadius: '6px',
+                    background: selectedMenuId === null ? '#f0f4ff' : '#fff',
+                    color: '#2d3748',
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    transition: 'all 0.2s'
+                  }}
+                  onMouseEnter={(e) => {
+                    if (selectedMenuId !== null) {
+                      e.target.style.background = '#f7fafc';
+                      e.target.style.borderColor = '#cbd5e0';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (selectedMenuId !== null) {
+                      e.target.style.background = '#fff';
+                      e.target.style.borderColor = '#e2e8f0';
+                    }
+                  }}
+                >
+                  <span style={{ fontSize: '16px', marginRight: '8px' }}>🚫</span>
+                  선택 안함
+                </button>
+              </div>
+              <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                {menus.length === 0 ? (
+                  <div style={{
+                    padding: '40px',
+                    textAlign: 'center',
+                    color: '#718096',
+                    background: '#f7fafc',
+                    borderRadius: '6px',
+                    border: '2px dashed #e2e8f0'
+                  }}>
+                    등록된 메뉴가 없습니다.
+                  </div>
+                ) : (
+                  menus.map(menu => (
+                    <button
+                      key={menu.id}
+                      onClick={() => handleSelectMenu(menu.id)}
+                      style={{
+                        width: '100%',
+                        padding: '12px 16px',
+                        marginBottom: '8px',
+                        border: selectedMenuId === menu.id ? '2px solid #667eea' : '1px solid #e2e8f0',
+                        borderRadius: '6px',
+                        background: selectedMenuId === menu.id ? '#f0f4ff' : '#fff',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                        transition: 'all 0.2s'
+                      }}
+                      onMouseEnter={(e) => {
+                        if (selectedMenuId !== menu.id) {
+                          e.target.style.background = '#f7fafc';
+                          e.target.style.borderColor = '#cbd5e0';
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (selectedMenuId !== menu.id) {
+                          e.target.style.background = '#fff';
+                          e.target.style.borderColor = '#e2e8f0';
+                        }
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                          <div style={{ fontSize: '15px', fontWeight: '600', color: '#2d3748', marginBottom: '4px' }}>
+                            {menu.title}
+                          </div>
+                          {menu.description && (
+                            <div style={{ fontSize: '13px', color: '#718096' }}>
+                              {menu.description}
+                            </div>
+                          )}
+                        </div>
+                        {selectedMenuId === menu.id && (
+                          <FiCheck style={{ color: '#667eea', fontSize: '20px' }} />
+                        )}
+                      </div>
+                    </button>
+                  ))
+                )}
+              </div>
             </div>
           </div>
         </div>

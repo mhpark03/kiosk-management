@@ -13,6 +13,7 @@ import { Timestamp } from 'firebase/firestore';
 import { FiEdit, FiVideo, FiSettings } from 'react-icons/fi';
 import './KioskEdit.css';
 import { formatKSTDate } from '../utils/dateUtils';
+import KioskVideoManagement from './KioskVideoManagement';
 
 function KioskEdit() {
   const { id } = useParams();
@@ -264,16 +265,7 @@ function KioskEdit() {
   };
 
   const handleManageVideos = () => {
-    const kioskData = {
-      id: kiosk.id,
-      kioskid: kiosk.kioskid,
-      posid: kiosk.posid,
-      kioskno: kiosk.kioskno,
-      state: kiosk.state,
-      maker: kiosk.maker,
-      serialno: kiosk.serialno
-    };
-    navigate(`/kiosks/${kiosk.id}/videos`, { state: { kiosk: kioskData } });
+    setActiveView('videos');
   };
 
   const handleViewConfig = async () => {
@@ -365,7 +357,7 @@ function KioskEdit() {
             </button>
             <button
               onClick={handleManageVideos}
-              className="menu-item"
+              className={`menu-item ${activeView === 'videos' ? 'active' : ''}`}
             >
               <FiVideo /> 영상 관리
             </button>
@@ -633,6 +625,10 @@ function KioskEdit() {
                 </div>
               </form>
             </div>
+          )}
+
+          {activeView === 'videos' && (
+            <KioskVideoManagement kioskProp={kiosk} embedded={true} />
           )}
         </div>
       </div>

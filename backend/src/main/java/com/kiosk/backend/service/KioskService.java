@@ -297,6 +297,14 @@ public class KioskService {
             }
         }
 
+        // Update menuId if provided
+        if (request.getMenuId() != null) {
+            if (!request.getMenuId().equals(kiosk.getMenuId())) {
+                changes.append(String.format("menuId: %s -> %s; ", kiosk.getMenuId(), request.getMenuId()));
+                kiosk.setMenuId(request.getMenuId());
+            }
+        }
+
         Kiosk updatedKiosk = kioskRepository.save(kiosk);
         log.info("Updated kiosk with kioskid: {}", updatedKiosk.getKioskid());
 

@@ -76,6 +76,9 @@ public class Kiosk {
     @Column(length = 255)
     private String deviceName; // Device name/hostname
 
+    @Column
+    private Long menuId; // Associated menu (XML file with imagePurpose=MENU)
+
     private LocalDateTime regdate; // Registration date
 
     private LocalDateTime setdate; // Setup date
