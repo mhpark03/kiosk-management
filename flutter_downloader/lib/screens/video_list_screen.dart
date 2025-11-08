@@ -564,11 +564,16 @@ class _VideoListScreenState extends State<VideoListScreen> {
 
       print('[CONFIG UPDATE] Local config updated successfully from server');
 
+      // Reload videos and menu to check for updates
+      print('[CONFIG UPDATE] Checking for menu and video updates...');
+      await _loadVideos();
+      await _downloadMenuFile();
+
       // Show notification to user
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('관리자가 설정을 변경했습니다'),
+            content: Text('관리자가 설정을 변경했습니다. 메뉴를 확인하는 중...'),
             duration: Duration(seconds: 3),
             backgroundColor: Colors.orange,
           ),
@@ -788,9 +793,12 @@ class _VideoListScreenState extends State<VideoListScreen> {
         }
       }
 
-      // If the current menu file exists and there are no old files, skip download
-      if (menuFileExists && !hasOldMenuFiles) {
-        print('[MENU DOWNLOAD] Menu file already up-to-date: $filename');
+      // Check if menu ID has changed (menu has been updated on server)
+      final bool menuIdChanged = _kiosk != null && _kiosk!.menuId != menuId;
+
+      // If the current menu file exists, menu ID hasn't changed, and there are no old files, skip download
+      if (menuFileExists && !menuIdChanged && !hasOldMenuFiles) {
+        print('[MENU DOWNLOAD] Menu file already up-to-date: $filename (ID: $menuId)');
         // Update menu download status
         if (mounted) {
           setState(() {
@@ -798,6 +806,11 @@ class _VideoListScreenState extends State<VideoListScreen> {
           });
         }
         return;
+      }
+
+      // If menu ID has changed, download the new menu even if filename is the same
+      if (menuIdChanged) {
+        print('[MENU DOWNLOAD] Menu ID changed from ${_kiosk!.menuId} to $menuId, downloading new menu');
       }
 
       // Delete all old menu files (menu has been updated)

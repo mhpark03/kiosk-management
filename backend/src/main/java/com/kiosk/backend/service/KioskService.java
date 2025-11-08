@@ -39,6 +39,7 @@ public class KioskService {
     private final VideoRepository videoRepository;
     private final VideoService videoService;
     private final KioskEventService kioskEventService;
+    private final com.kiosk.backend.websocket.KioskWebSocketController webSocketController;
 
     /**
      * Generate next sequential 12-digit Kiosk ID
@@ -913,6 +914,9 @@ public class KioskService {
             return 0;
         }
 
+        log.info("Starting menu migration: {} kiosks will be migrated from menu ID {} to menu ID {}",
+                kiosksToMigrate.size(), oldMenuId, newMenuId);
+
         // Update each kiosk to use the new menu ID
         for (Kiosk kiosk : kiosksToMigrate) {
             kiosk.setMenuId(newMenuId);
@@ -925,9 +929,78 @@ public class KioskService {
                 String.format("Menu migrated from ID %d to %d (menu updated)", oldMenuId, newMenuId));
         }
 
-        log.info("Migrated {} kiosks from menu ID {} to menu ID {}",
+        log.info("Database migration completed: {} kiosks migrated from menu ID {} to menu ID {}",
                 kiosksToMigrate.size(), oldMenuId, newMenuId);
 
+        // Send WebSocket notifications in batches (asynchronously to avoid blocking transaction)
+        sendBatchedWebSocketNotifications(kiosksToMigrate, oldMenuId, newMenuId);
+
         return kiosksToMigrate.size();
+    }
+
+    /**
+     * Send WebSocket CONFIG_UPDATE notifications in batches with load balancing
+     * to avoid overwhelming the server when many kiosks need to be notified
+     */
+    private void sendBatchedWebSocketNotifications(List<Kiosk> kiosks, Long oldMenuId, Long newMenuId) {
+        if (kiosks.isEmpty()) {
+            return;
+        }
+
+        // Run asynchronously to not block the transaction
+        new Thread(() -> {
+            final int BATCH_SIZE = 50; // Process 50 kiosks at a time
+            final int DELAY_BETWEEN_BATCHES_MS = 100; // 100ms delay between batches
+
+            int totalKiosks = kiosks.size();
+            int totalBatches = (int) Math.ceil((double) totalKiosks / BATCH_SIZE);
+
+            log.info("[BATCH NOTIFICATION] Sending CONFIG_UPDATE to {} kiosks in {} batches (batch size: {})",
+                    totalKiosks, totalBatches, BATCH_SIZE);
+
+            for (int batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
+                int startIndex = batchIndex * BATCH_SIZE;
+                int endIndex = Math.min(startIndex + BATCH_SIZE, totalKiosks);
+                List<Kiosk> batch = kiosks.subList(startIndex, endIndex);
+
+                log.info("[BATCH NOTIFICATION] Processing batch {}/{}: kiosks {}-{} of {}",
+                        batchIndex + 1, totalBatches, startIndex + 1, endIndex, totalKiosks);
+
+                // Send notifications for this batch
+                int successCount = 0;
+                int failureCount = 0;
+
+                for (Kiosk kiosk : batch) {
+                    try {
+                        webSocketController.sendNotificationToKiosk(
+                                kiosk.getKioskid(),
+                                String.format("메뉴가 업데이트되었습니다 (ID: %d -> %d). 새로운 메뉴를 다운로드합니다.", oldMenuId, newMenuId),
+                                "CONFIG_UPDATE"
+                        );
+                        successCount++;
+                    } catch (Exception e) {
+                        failureCount++;
+                        log.warn("[BATCH NOTIFICATION] Failed to send notification to kiosk {}: {}",
+                                kiosk.getKioskid(), e.getMessage());
+                    }
+                }
+
+                log.info("[BATCH NOTIFICATION] Batch {}/{} completed: {} successful, {} failed",
+                        batchIndex + 1, totalBatches, successCount, failureCount);
+
+                // Delay between batches (except for the last batch)
+                if (batchIndex < totalBatches - 1) {
+                    try {
+                        Thread.sleep(DELAY_BETWEEN_BATCHES_MS);
+                    } catch (InterruptedException e) {
+                        log.warn("[BATCH NOTIFICATION] Batch delay interrupted", e);
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
+                }
+            }
+
+            log.info("[BATCH NOTIFICATION] All batches completed for menu migration {} -> {}", oldMenuId, newMenuId);
+        }).start();
     }
 }
