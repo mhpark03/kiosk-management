@@ -704,46 +704,54 @@ class _VideoListScreenState extends State<VideoListScreen> {
       }
 
       final downloadUrl = menuData['downloadUrl'] as String;
-      final originalFilename = menuData['filename'] as String;
+      final filename = menuData['filename'] as String;
       final menuId = menuData['menuId'] as int;
-
-      // Fixed filename for menu - always save as coffee_menu.xml
-      const fixedFilename = 'coffee_menu.xml';
 
       // Create menu directory path
       final menuDirPath = '${config.downloadPath}/${config.kioskId}/menu';
-      final menuFilePath = '$menuDirPath/$fixedFilename';
+      final menuFilePath = '$menuDirPath/$filename';
 
       // Check if menu file already exists
       final menuFile = File(menuFilePath);
       if (await menuFile.exists()) {
-        print('[MENU DOWNLOAD] Menu file already exists: $fixedFilename');
+        print('[MENU DOWNLOAD] Menu file already exists: $filename');
         return;
       }
 
-      print('[MENU DOWNLOAD] Downloading menu file: $originalFilename -> $fixedFilename (ID: $menuId)');
+      // Delete old menu files if exist (different filename = new menu)
+      final menuDir = Directory(menuDirPath);
+      if (await menuDir.exists()) {
+        await for (final file in menuDir.list()) {
+          if (file is File && file.path.endsWith('.xml')) {
+            print('[MENU DOWNLOAD] Deleting old menu file: ${file.path}');
+            await file.delete();
+          }
+        }
+      }
+
+      print('[MENU DOWNLOAD] Downloading menu file: $filename (ID: $menuId)');
 
       // Log menu download start
       await EventLogger().logEvent(
         eventType: 'DOWNLOAD_STARTED',
-        message: '메뉴 파일 다운로드 시작: $fixedFilename',
-        metadata: '{"menuId": $menuId, "originalFilename": "$originalFilename", "savedAs": "$fixedFilename"}',
+        message: '메뉴 파일 다운로드 시작: $filename',
+        metadata: '{"menuId": $menuId, "filename": "$filename"}',
       );
 
-      // Download menu file with fixed filename
+      // Download menu file with original filename
       await _downloadService.downloadFile(
         downloadUrl,
         menuDirPath,
-        fixedFilename,
+        filename,
       );
 
-      print('[MENU DOWNLOAD] Menu file downloaded successfully: $fixedFilename');
+      print('[MENU DOWNLOAD] Menu file downloaded successfully: $filename');
 
       // Log menu download complete
       await EventLogger().logEvent(
         eventType: 'DOWNLOAD_COMPLETED',
-        message: '메뉴 파일 다운로드 완료: $fixedFilename',
-        metadata: '{"menuId": $menuId, "originalFilename": "$originalFilename", "savedAs": "$fixedFilename"}',
+        message: '메뉴 파일 다운로드 완료: $filename',
+        metadata: '{"menuId": $menuId, "filename": "$filename"}',
       );
     } catch (e) {
       print('[MENU DOWNLOAD] Failed to download menu file: $e');
@@ -1151,6 +1159,7 @@ class _VideoListScreenState extends State<VideoListScreen> {
                                             videoTitle: video.title,
                                             downloadPath: config?.downloadPath,
                                             kioskId: config?.kioskId,
+                                            menuFilename: _kiosk?.menuFilename,
                                           ),
                                         ),
                                       );
@@ -1503,6 +1512,7 @@ class _VideoListScreenState extends State<VideoListScreen> {
                       videos: availableVideos,
                       downloadPath: config?.downloadPath,
                       kioskId: config?.kioskId,
+                      menuFilename: _kiosk?.menuFilename,
                     ),
                   ),
                 );

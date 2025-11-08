@@ -10,6 +10,7 @@ class VideoPlayerScreen extends StatefulWidget {
   final String videoTitle;
   final String? downloadPath;
   final String? kioskId;
+  final String? menuFilename;
 
   const VideoPlayerScreen({
     super.key,
@@ -17,6 +18,7 @@ class VideoPlayerScreen extends StatefulWidget {
     required this.videoTitle,
     this.downloadPath,
     this.kioskId,
+    this.menuFilename,
   });
 
   @override
@@ -293,6 +295,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                   onOrderComplete: _handleOrderComplete,
                   downloadPath: widget.downloadPath,
                   kioskId: widget.kioskId,
+                  menuFilename: widget.menuFilename,
                 ),
               ),
           ],

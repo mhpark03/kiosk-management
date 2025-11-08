@@ -36,6 +36,7 @@ public class KioskDTO {
 
     // Menu assignment
     private Long menuId; // Associated menu (XML file with imagePurpose=MENU)
+    private String menuFilename; // Menu file name (original filename from video)
 
     // Video statistics
     private Integer totalVideoCount; // Total number of videos assigned to this kiosk
@@ -60,6 +61,7 @@ public class KioskDTO {
                 .osVersion(kiosk.getOsVersion())
                 .deviceName(kiosk.getDeviceName())
                 .menuId(kiosk.getMenuId())
+                .menuFilename(kiosk.getMenuFilename())
                 .build();
     }
 }

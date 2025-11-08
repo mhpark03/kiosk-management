@@ -79,6 +79,9 @@ public class Kiosk {
     @Column
     private Long menuId; // Associated menu (XML file with imagePurpose=MENU)
 
+    @Column(length = 255)
+    private String menuFilename; // Menu file name (original filename from video)
+
     private LocalDateTime regdate; // Registration date
 
     private LocalDateTime setdate; // Setup date

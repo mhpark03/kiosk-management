@@ -302,6 +302,12 @@ public class KioskService {
             if (!request.getMenuId().equals(kiosk.getMenuId())) {
                 changes.append(String.format("menuId: %s -> %s; ", kiosk.getMenuId(), request.getMenuId()));
                 kiosk.setMenuId(request.getMenuId());
+
+                // Also update menuFilename from video's originalFilename
+                videoRepository.findById(request.getMenuId()).ifPresent(video -> {
+                    kiosk.setMenuFilename(video.getOriginalFilename());
+                    log.info("Updated menuFilename to: {}", video.getOriginalFilename());
+                });
             }
         }
 

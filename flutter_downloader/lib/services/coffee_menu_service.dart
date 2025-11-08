@@ -15,13 +15,13 @@ class CoffeeMenuService {
 
   /// Load menu from XML file
   /// First tries to load from download path, then falls back to assets
-  Future<void> loadMenuFromXml({String? downloadPath, String? kioskId}) async {
+  Future<void> loadMenuFromXml({String? downloadPath, String? kioskId, String? filename}) async {
     try {
       String xmlString;
 
       // Try to load from download folder first if path is provided
-      if (downloadPath != null && kioskId != null) {
-        final menuFilePath = '$downloadPath/$kioskId/menu/coffee_menu.xml';
+      if (downloadPath != null && kioskId != null && filename != null) {
+        final menuFilePath = '$downloadPath/$kioskId/menu/$filename';
         final menuFile = File(menuFilePath);
 
         if (await menuFile.exists()) {
@@ -34,6 +34,24 @@ class CoffeeMenuService {
         } else {
           print('[MENU LOAD] No menu file found in download folder: $menuFilePath');
         }
+      } else if (downloadPath != null && kioskId != null) {
+        // If filename not provided, try to find any .xml file in menu folder
+        final menuDirPath = '$downloadPath/$kioskId/menu';
+        final menuDir = Directory(menuDirPath);
+
+        if (await menuDir.exists()) {
+          await for (final file in menuDir.list()) {
+            if (file is File && file.path.endsWith('.xml')) {
+              print('[MENU LOAD] Loading menu from found file: ${file.path}');
+              xmlString = await file.readAsString();
+              _menuConfig = XmlMenuParser.parseXml(xmlString);
+              _isXmlLoaded = true;
+              print('[MENU LOAD] Menu loaded from download folder: ${_menuConfig!.menuItems.length} items');
+              return;
+            }
+          }
+        }
+        print('[MENU LOAD] No menu file found in download folder: $menuDirPath');
       }
 
       // Fallback to assets folder

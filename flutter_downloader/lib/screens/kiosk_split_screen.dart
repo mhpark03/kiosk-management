@@ -12,12 +12,14 @@ class KioskSplitScreen extends StatefulWidget {
   final List<Video> videos;
   final String? downloadPath;
   final String? kioskId;
+  final String? menuFilename;
 
   const KioskSplitScreen({
     super.key,
     required this.videos,
     this.downloadPath,
     this.kioskId,
+    this.menuFilename,
   });
 
   @override
@@ -321,6 +323,7 @@ class _KioskSplitScreenState extends State<KioskSplitScreen> {
                 },
                 downloadPath: widget.downloadPath,
                 kioskId: widget.kioskId,
+                menuFilename: widget.menuFilename,
               ),
             ),
           ],

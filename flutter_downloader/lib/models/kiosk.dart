@@ -10,6 +10,7 @@ class Kiosk {
   final int? syncIntervalHours;
   final DateTime? lastSyncTime;
   final int? menuId; // Associated menu (XML file with imagePurpose=MENU)
+  final String? menuFilename; // Menu file name (original filename from video)
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -25,6 +26,7 @@ class Kiosk {
     this.syncIntervalHours,
     this.lastSyncTime,
     this.menuId,
+    this.menuFilename,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -46,6 +48,7 @@ class Kiosk {
           ? DateTime.parse(json['last_sync_time'] as String)
           : null,
       menuId: json['menuId'] as int?,
+      menuFilename: json['menuFilename'] as String?,
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'] as String)
           : DateTime.now(),
@@ -68,6 +71,7 @@ class Kiosk {
       'sync_interval_hours': syncIntervalHours,
       'last_sync_time': lastSyncTime?.toIso8601String(),
       'menuId': menuId,
+      'menuFilename': menuFilename,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
     };
