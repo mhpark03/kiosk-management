@@ -52,4 +52,7 @@ public interface KioskRepository extends JpaRepository<Kiosk, Long> {
         @Param("maker") String maker,
         @Param("includeDeleted") Boolean includeDeleted
     );
+
+    // Find all kiosks using a specific menu ID
+    List<Kiosk> findByMenuId(Long menuId);
 }

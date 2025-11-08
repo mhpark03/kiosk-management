@@ -70,13 +70,10 @@ export const menuService = {
     }
   },
 
-  // Update menu (delete and re-upload)
+  // Update menu (delete and re-upload with automatic kiosk migration)
   async updateMenu(menuId, xmlContent, title, description) {
     try {
-      // Delete existing menu
-      await this.deleteMenu(menuId);
-
-      // Upload new version with timestamp to ensure uniqueness
+      // Use new endpoint that atomically updates menu and migrates kiosks
       const timestamp = Date.now();
       const blob = new Blob([xmlContent], { type: 'text/xml' });
       const file = new File([blob], `${title.replace(/\s+/g, '_')}_${timestamp}.xml`, { type: 'text/xml' });
@@ -87,11 +84,14 @@ export const menuService = {
       formData.append('description', description);
       formData.append('imagePurpose', 'MENU');
 
-      const response = await api.post('/videos/upload', formData, {
+      const response = await api.post(`/videos/${menuId}/update-menu`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
       });
+
+      console.log('Menu updated with kiosk migration:', response.data);
+      console.log(`Migrated ${response.data.migratedKiosksCount} kiosks from menu ${response.data.oldMenuId} to ${response.data.newMenuId}`);
 
       return response.data;
     } catch (error) {

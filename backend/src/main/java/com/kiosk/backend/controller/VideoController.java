@@ -32,6 +32,7 @@ public class VideoController {
     private final VideoService videoService;
     private final UserRepository userRepository;
     private final EntityHistoryService entityHistoryService;
+    private final com.kiosk.backend.service.KioskService kioskService;
 
     /**
      * Helper method to extract actual user email from authentication
@@ -593,6 +594,87 @@ public class VideoController {
             log.error("Failed to get download URL for video ID: {}", id, e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "Failed to generate download URL: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Update menu with automatic kiosk migration
+     * POST /api/videos/{oldMenuId}/update-menu
+     * This endpoint atomically:
+     * 1. Finds all kiosks using the old menu
+     * 2. Deletes the old menu
+     * 3. Uploads the new menu
+     * 4. Migrates all kiosks to the new menu ID
+     */
+    @PostMapping("/{oldMenuId}/update-menu")
+    @PreAuthorize("hasRole('ADMIN')")
+    @org.springframework.transaction.annotation.Transactional
+    public ResponseEntity<?> updateMenuWithMigration(
+            @PathVariable Long oldMenuId,
+            @RequestParam("file") MultipartFile file,
+            @RequestParam("title") String title,
+            @RequestParam("description") String description,
+            @RequestParam(value = "imagePurpose", required = false) String imagePurpose,
+            Authentication authentication) {
+        try {
+            String userEmail = extractUserEmail(authentication);
+            User user = userRepository.findByEmail(userEmail)
+                    .orElseThrow(() -> new RuntimeException("User not found: " + userEmail));
+
+            log.info("Starting menu update with kiosk migration: oldMenuId={}, title={}", oldMenuId, title);
+
+            // Step 1: Get old menu details before deletion (for logging)
+            Video oldMenu = videoService.getVideoById(oldMenuId);
+            String oldMenuTitle = oldMenu.getTitle();
+
+            // Step 2: Delete old menu from S3 and database
+            videoService.deleteVideo(oldMenuId, user.getId());
+            log.info("Deleted old menu: id={}, title={}", oldMenuId, oldMenuTitle);
+
+            // Step 3: Upload new menu
+            Video.ImagePurpose purposeEnum = null;
+            if (imagePurpose != null && !imagePurpose.trim().isEmpty()) {
+                try {
+                    purposeEnum = Video.ImagePurpose.valueOf(imagePurpose.toUpperCase());
+                } catch (IllegalArgumentException e) {
+                    return ResponseEntity.badRequest()
+                            .body(Map.of("error", "Invalid image purpose. Use GENERAL, REFERENCE, or MENU"));
+                }
+            }
+
+            Video newMenu = videoService.uploadVideo(file, user.getId(), title, description, purposeEnum);
+            log.info("Uploaded new menu: id={}, title={}, filename={}",
+                    newMenu.getId(), newMenu.getTitle(), newMenu.getOriginalFilename());
+
+            // Step 4: Migrate all kiosks from old menu ID to new menu ID
+            int migratedCount = kioskService.migrateKiosksToNewMenu(
+                    oldMenuId,
+                    newMenu.getId(),
+                    newMenu.getOriginalFilename()
+            );
+
+            log.info("Menu update completed: {} kiosks migrated from menu {} to menu {}",
+                    migratedCount, oldMenuId, newMenu.getId());
+
+            // Return response
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", "Menu updated successfully");
+            response.put("oldMenuId", oldMenuId);
+            response.put("newMenuId", newMenu.getId());
+            response.put("newMenuTitle", newMenu.getTitle());
+            response.put("newMenuFilename", newMenu.getOriginalFilename());
+            response.put("migratedKiosksCount", migratedCount);
+            response.put("video", newMenu);
+
+            return ResponseEntity.status(HttpStatus.OK).body(response);
+        } catch (RuntimeException e) {
+            log.error("Failed to update menu with migration for oldMenuId: {}", oldMenuId, e);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            log.error("Failed to update menu with migration", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to update menu: " + e.getMessage()));
         }
     }
 

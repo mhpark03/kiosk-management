@@ -54,6 +54,9 @@ function KioskManagement() {
   const [dashboardFilterRegion, setDashboardFilterRegion] = useState(null);
   const [dashboardFilterState, setDashboardFilterState] = useState(null);
   const [dashboardFilterInstallMonth, setDashboardFilterInstallMonth] = useState(null);
+  const [dashboardFilterConnectionStatus, setDashboardFilterConnectionStatus] = useState(null);
+  const [dashboardFilterMenuNotSet, setDashboardFilterMenuNotSet] = useState(false);
+  const [dashboardFilterDownloadIncomplete, setDashboardFilterDownloadIncomplete] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -93,6 +96,15 @@ function KioskManagement() {
     }
     if (location.state?.filterInstallMonth) {
       setDashboardFilterInstallMonth(location.state.filterInstallMonth);
+    }
+    if (location.state?.filterConnectionStatus) {
+      setDashboardFilterConnectionStatus(location.state.filterConnectionStatus);
+    }
+    if (location.state?.filterMenuNotSet) {
+      setDashboardFilterMenuNotSet(location.state.filterMenuNotSet);
+    }
+    if (location.state?.filterDownloadIncomplete) {
+      setDashboardFilterDownloadIncomplete(location.state.filterDownloadIncomplete);
     }
   }, [location]);
 
@@ -331,7 +343,45 @@ function KioskManagement() {
       matchesInstallMonth = kioskMonth === dashboardFilterInstallMonth;
     }
 
-    return matchesStoreName && matchesMaker && matchesRegion && matchesState && matchesInstallMonth;
+    // Filter by connection status
+    let matchesConnectionStatus = true;
+    if (dashboardFilterConnectionStatus) {
+      const now = new Date();
+      const fiveMinutesAgo = new Date(now - 5 * 60 * 1000);
+      const lastHeartbeat = kiosk.lastHeartbeat ? new Date(kiosk.lastHeartbeat) : null;
+      const isOnline = lastHeartbeat && lastHeartbeat > fiveMinutesAgo;
+
+      if (dashboardFilterConnectionStatus === 'online') {
+        matchesConnectionStatus = isOnline && kiosk.connectionStatus !== 'ERROR';
+      } else if (dashboardFilterConnectionStatus === 'error') {
+        matchesConnectionStatus = isOnline && kiosk.connectionStatus === 'ERROR';
+      } else if (dashboardFilterConnectionStatus === 'offline') {
+        matchesConnectionStatus = lastHeartbeat && !isOnline;
+      } else if (dashboardFilterConnectionStatus === 'unknown') {
+        matchesConnectionStatus = !lastHeartbeat;
+      } else if (dashboardFilterConnectionStatus === 'loggedIn') {
+        matchesConnectionStatus = kiosk.isLoggedIn && isOnline;
+      }
+    }
+
+    // Filter by menu not set
+    let matchesMenuNotSet = true;
+    if (dashboardFilterMenuNotSet) {
+      matchesMenuNotSet = !kiosk.menuId;
+    }
+
+    // Filter by download incomplete
+    let matchesDownloadIncomplete = true;
+    if (dashboardFilterDownloadIncomplete) {
+      const now = new Date();
+      const hasAssignedResources = kiosk.videoId || kiosk.menuId;
+      const lastSync = kiosk.lastSync ? new Date(kiosk.lastSync) : null;
+      const sevenDaysAgo = new Date(now - 7 * 24 * 60 * 60 * 1000);
+
+      matchesDownloadIncomplete = hasAssignedResources && (!lastSync || lastSync < sevenDaysAgo);
+    }
+
+    return matchesStoreName && matchesMaker && matchesRegion && matchesState && matchesInstallMonth && matchesConnectionStatus && matchesMenuNotSet && matchesDownloadIncomplete;
   });
 
   // Handle search button click

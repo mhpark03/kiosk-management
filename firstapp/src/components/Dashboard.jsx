@@ -38,7 +38,10 @@ function Dashboard() {
     preparing: 0,
     active: 0,
     maintenance: 0,
-    loggedIn: 0
+    loggedIn: 0,
+    menuNotSet: 0,
+    downloadIncomplete: 0,
+    deleted: 0
   });
 
   const loadDashboardData = async () => {
@@ -79,15 +82,21 @@ function Dashboard() {
       preparing: 0,
       active: 0,
       maintenance: 0,
-      loggedIn: 0
+      loggedIn: 0,
+      menuNotSet: 0,
+      downloadIncomplete: 0,
+      deleted: 0
     };
 
     const now = new Date();
     const fiveMinutesAgo = new Date(now - 5 * 60 * 1000);
 
     kiosks.forEach(kiosk => {
-      // Skip deleted kiosks
-      if (kiosk.state === 'deleted') return;
+      // Count deleted kiosks separately
+      if (kiosk.state === 'deleted') {
+        stats.deleted++;
+        return;
+      }
 
       stats.total++;
 
@@ -115,6 +124,23 @@ function Dashboard() {
       // Count logged in kiosks
       if (kiosk.isLoggedIn && isOnline) {
         stats.loggedIn++;
+      }
+
+      // Count kiosks without menu set
+      if (!kiosk.menuId) {
+        stats.menuNotSet++;
+      }
+
+      // Count kiosks with incomplete downloads
+      // A kiosk has incomplete downloads if:
+      // 1. It has videoId or menuId assigned but never synced (lastSync is null)
+      // 2. OR it has resources assigned but last sync was more than 7 days ago (indicating possible sync issues)
+      const hasAssignedResources = kiosk.videoId || kiosk.menuId;
+      const lastSync = kiosk.lastSync ? new Date(kiosk.lastSync) : null;
+      const sevenDaysAgo = new Date(now - 7 * 24 * 60 * 60 * 1000);
+
+      if (hasAssignedResources && (!lastSync || lastSync < sevenDaysAgo)) {
+        stats.downloadIncomplete++;
       }
     });
 
@@ -406,6 +432,10 @@ function Dashboard() {
       navigate('/kiosks', { state: { filterConnectionStatus: filterValue } });
     } else if (filterType === 'operationalState') {
       navigate('/kiosks', { state: { filterState: filterValue } });
+    } else if (filterType === 'menuNotSet') {
+      navigate('/kiosks', { state: { filterMenuNotSet: true } });
+    } else if (filterType === 'downloadIncomplete') {
+      navigate('/kiosks', { state: { filterDownloadIncomplete: true } });
     } else if (filterType === 'total') {
       navigate('/kiosks');
     }
@@ -442,6 +472,28 @@ function Dashboard() {
               <div className="status-card-content">
                 <div className="status-card-label">관리자 로그인</div>
                 <div className="status-card-value">{kioskStatusStats.loggedIn}</div>
+              </div>
+            </div>
+
+            <div
+              className="status-card menu-not-set-card"
+              onClick={() => handleStatusCardClick('menuNotSet')}
+            >
+              <div className="status-card-icon">📋</div>
+              <div className="status-card-content">
+                <div className="status-card-label">메뉴 미설정</div>
+                <div className="status-card-value">{kioskStatusStats.menuNotSet}</div>
+              </div>
+            </div>
+
+            <div
+              className="status-card download-incomplete-card"
+              onClick={() => handleStatusCardClick('downloadIncomplete')}
+            >
+              <div className="status-card-icon">⬇️</div>
+              <div className="status-card-content">
+                <div className="status-card-label">다운로드 미완료</div>
+                <div className="status-card-value">{kioskStatusStats.downloadIncomplete}</div>
               </div>
             </div>
           </div>
@@ -529,6 +581,17 @@ function Dashboard() {
               <div className="status-card-content">
                 <div className="status-card-label">정비중</div>
                 <div className="status-card-value">{kioskStatusStats.maintenance}</div>
+              </div>
+            </div>
+
+            <div
+              className="status-card deleted-card"
+              onClick={() => handleStatusCardClick('operationalState', 'deleted')}
+            >
+              <div className="status-card-icon">🗑️</div>
+              <div className="status-card-content">
+                <div className="status-card-label">삭제됨</div>
+                <div className="status-card-value">{kioskStatusStats.deleted}</div>
               </div>
             </div>
           </div>

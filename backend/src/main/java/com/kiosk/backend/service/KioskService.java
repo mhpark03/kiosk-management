@@ -898,4 +898,36 @@ public class KioskService {
                 .lastSync(kiosk.getLastSync())
                 .build();
     }
+
+    /**
+     * Migrate all kiosks from old menu ID to new menu ID
+     * Used when a menu is updated (deleted and re-uploaded with new ID)
+     */
+    @Transactional
+    public int migrateKiosksToNewMenu(Long oldMenuId, Long newMenuId, String newMenuFilename) {
+        // Find all kiosks using the old menu ID
+        List<Kiosk> kiosksToMigrate = kioskRepository.findByMenuId(oldMenuId);
+
+        if (kiosksToMigrate.isEmpty()) {
+            log.info("No kiosks found using menu ID {}", oldMenuId);
+            return 0;
+        }
+
+        // Update each kiosk to use the new menu ID
+        for (Kiosk kiosk : kiosksToMigrate) {
+            kiosk.setMenuId(newMenuId);
+            kiosk.setMenuFilename(newMenuFilename);
+            kioskRepository.save(kiosk);
+
+            // Log history
+            logHistory(kiosk.getKioskid(), kiosk.getPosid(), "system", "System", "UPDATE",
+                "menuId", oldMenuId.toString(), newMenuId.toString(),
+                String.format("Menu migrated from ID %d to %d (menu updated)", oldMenuId, newMenuId));
+        }
+
+        log.info("Migrated {} kiosks from menu ID {} to menu ID {}",
+                kiosksToMigrate.size(), oldMenuId, newMenuId);
+
+        return kiosksToMigrate.size();
+    }
 }

@@ -161,6 +161,30 @@
   color: #fc8181;
 }
 
+.menu-not-set-card {
+  border-left: 4px solid #f6ad55;
+}
+
+.menu-not-set-card .status-card-value {
+  color: #f6ad55;
+}
+
+.download-incomplete-card {
+  border-left: 4px solid #ed8936;
+}
+
+.download-incomplete-card .status-card-value {
+  color: #ed8936;
+}
+
+.deleted-card {
+  border-left: 4px solid #a0aec0;
+}
+
+.deleted-card .status-card-value {
+  color: #a0aec0;
+}
+
 .charts-container {
   max-width: 1400px;
   margin: 0 auto;

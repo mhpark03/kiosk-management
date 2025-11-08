@@ -278,51 +278,82 @@ function MenuEditor() {
   };
 
   const addCategory = () => {
-    const name = prompt('카테고리 이름 (한글):');
-    const nameEn = prompt('카테고리 이름 (영문):');
-    const icon = prompt('아이콘 이름 (예: coffee, cake, local_drink):', 'coffee');
+    // Auto-generate category with default values
+    const categoryNumber = menu.categories.length + 1;
+    const name = `새 카테고리 ${categoryNumber}`;
+    const nameEn = `New Category ${categoryNumber}`;
+    const icon = 'coffee';
 
-    if (name && nameEn) {
-      const newCategory = {
-        id: name.toLowerCase().replace(/ /g, '_'),
-        name,
-        nameEn,
-        icon,
-        order: menu.categories.length + 1,
-      };
-      const updatedMenu = {
-        ...menu,
-        categories: [...menu.categories, newCategory],
-      };
-      updateMenu(updatedMenu);
-    }
+    const newCategory = {
+      id: `category_${Date.now()}`,
+      name,
+      nameEn,
+      icon,
+      order: categoryNumber,
+    };
+    const updatedMenu = {
+      ...menu,
+      categories: [...menu.categories, newCategory],
+    };
+    updateMenu(updatedMenu);
+
+    // Auto-select the new category for editing
+    setSelectedType('category');
+    setSelectedId(newCategory.id);
   };
 
   const addItem = (categoryId) => {
-    const name = prompt('메뉴 이름 (한글):');
-    const nameEn = prompt('메뉴 이름 (영문):');
-    const price = prompt('가격 (원):', '4000');
+    // Auto-generate item with default values
+    const itemsInCategory = menu.menuItems.filter(i => i.category === categoryId);
+    const itemNumber = itemsInCategory.length + 1;
+    const name = `새 메뉴 ${itemNumber}`;
+    const nameEn = `New Item ${itemNumber}`;
+    const price = 4000;
 
-    if (name && nameEn && price) {
-      const newItem = {
-        id: `${categoryId}_${Date.now()}`,
-        category: categoryId,
-        name,
-        nameEn,
-        price: parseInt(price),
-        description: '',
-        thumbnailUrl: null,
-        available: true,
-        sizeEnabled: true,
-        temperatureEnabled: true,
-        extrasEnabled: true,
-        order: menu.menuItems.filter(i => i.category === categoryId).length + 1,
-      };
+    const newItem = {
+      id: `${categoryId}_${Date.now()}`,
+      category: categoryId,
+      name,
+      nameEn,
+      price,
+      description: '',
+      thumbnailUrl: null,
+      available: true,
+      sizeEnabled: true,
+      temperatureEnabled: true,
+      extrasEnabled: true,
+      order: itemNumber,
+    };
+    const updatedMenu = {
+      ...menu,
+      menuItems: [...menu.menuItems, newItem],
+    };
+    updateMenu(updatedMenu);
+
+    // Auto-select the new item for editing
+    setSelectedType('item');
+    setSelectedId(newItem.id);
+  };
+
+  const deleteCategory = (categoryId) => {
+    const itemsInCategory = menu.menuItems.filter(i => i.category === categoryId);
+
+    if (itemsInCategory.length > 0) {
+      alert('이 카테고리에 메뉴 아이템이 있습니다. 먼저 아이템을 삭제해주세요.');
+      return;
+    }
+
+    if (window.confirm('이 카테고리를 삭제하시겠습니까?')) {
       const updatedMenu = {
         ...menu,
-        menuItems: [...menu.menuItems, newItem],
+        categories: menu.categories.filter(c => c.id !== categoryId),
       };
       updateMenu(updatedMenu);
+      // Clear selection if deleted category was selected
+      if (selectedType === 'category' && selectedId === categoryId) {
+        setSelectedType(null);
+        setSelectedId(null);
+      }
     }
   };
 
@@ -333,6 +364,11 @@ function MenuEditor() {
         menuItems: menu.menuItems.filter(i => i.id !== itemId),
       };
       updateMenu(updatedMenu);
+      // Clear selection if deleted item was selected
+      if (selectedType === 'item' && selectedId === itemId) {
+        setSelectedType(null);
+        setSelectedId(null);
+      }
     }
   };
 
@@ -434,10 +470,20 @@ function MenuEditor() {
 
           {menu.categories.map(category => (
             <div key={category.id} className="tree-category">
-              <div className="tree-category-header">
+              <div
+                className={`tree-category-header ${selectedType === 'category' && selectedId === category.id ? 'selected' : ''}`}
+                onClick={() => {
+                  setSelectedType('category');
+                  setSelectedId(category.id);
+                }}
+                style={{ cursor: 'pointer' }}
+              >
                 <span className="tree-icon">{getCategoryIcon(category.icon)}</span>
                 <span className="tree-label">{category.name}</span>
-                <button className="btn-small" onClick={() => addItem(category.id)}>+</button>
+                <div style={{ marginLeft: 'auto', display: 'flex', gap: '4px' }}>
+                  <button className="btn-small" onClick={(e) => { e.stopPropagation(); addItem(category.id); }}>+</button>
+                  <button className="btn-delete" onClick={(e) => { e.stopPropagation(); deleteCategory(category.id); }}>🗑️</button>
+                </div>
               </div>
 
               <div className="tree-items">
@@ -463,7 +509,18 @@ function MenuEditor() {
 
         {/* Right: Detail Panel */}
         <div className="menu-detail">
-          {selectedType === 'item' && selectedId ? (
+          {selectedType === 'category' && selectedId ? (
+            <CategoryEditor
+              category={menu.categories.find(c => c.id === selectedId)}
+              onUpdate={(updatedCategory) => {
+                const updatedMenu = {
+                  ...menu,
+                  categories: menu.categories.map(c => c.id === selectedId ? updatedCategory : c),
+                };
+                updateMenu(updatedMenu);
+              }}
+            />
+          ) : selectedType === 'item' && selectedId ? (
             <ItemEditor
               item={menu.menuItems.find(i => i.id === selectedId)}
               onUpdate={(updatedItem) => {
@@ -476,9 +533,73 @@ function MenuEditor() {
             />
           ) : (
             <div className="menu-detail-empty">
-              <p>왼쪽에서 메뉴 아이템을 선택하세요</p>
+              <p>왼쪽에서 카테고리 또는 메뉴 아이템을 선택하세요</p>
             </div>
           )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CategoryEditor({ category, onUpdate }) {
+  const [formData, setFormData] = useState(category);
+
+  const handleChange = (field, value) => {
+    const updated = { ...formData, [field]: value };
+    setFormData(updated);
+    onUpdate(updated);
+  };
+
+  const iconOptions = [
+    { value: 'coffee', label: '☕ 커피', emoji: '☕' },
+    { value: 'local_drink', label: '🥤 음료', emoji: '🥤' },
+    { value: 'cake', label: '🍰 케이크', emoji: '🍰' },
+    { value: 'icecream', label: '🍦 아이스크림', emoji: '🍦' },
+    { value: 'food', label: '🍽️ 음식', emoji: '🍽️' },
+  ];
+
+  return (
+    <div className="item-editor">
+      <h3>카테고리 편집</h3>
+
+      <div className="form-group">
+        <label>이름 (한글)</label>
+        <input
+          type="text"
+          value={formData.name}
+          onChange={(e) => handleChange('name', e.target.value)}
+        />
+      </div>
+
+      <div className="form-group">
+        <label>이름 (영문)</label>
+        <input
+          type="text"
+          value={formData.nameEn}
+          onChange={(e) => handleChange('nameEn', e.target.value)}
+        />
+      </div>
+
+      <div className="form-group">
+        <label>아이콘</label>
+        <select
+          value={formData.icon}
+          onChange={(e) => handleChange('icon', e.target.value)}
+          style={{ fontSize: '16px', padding: '8px' }}
+        >
+          {iconOptions.map(option => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div style={{ marginTop: '20px', padding: '12px', backgroundColor: '#f7fafc', borderRadius: '6px' }}>
+        <strong>미리보기:</strong>
+        <div style={{ marginTop: '8px', fontSize: '18px' }}>
+          {getCategoryIcon(formData.icon)} {formData.name}
         </div>
       </div>
     </div>
