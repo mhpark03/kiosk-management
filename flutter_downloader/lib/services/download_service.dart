@@ -85,6 +85,35 @@ class DownloadService {
     }
   }
 
+  // Get actual file path from potentially Android-style path
+  // On Windows, converts Android paths to actual Windows Downloads folder
+  Future<String> getActualFilePath(String path) async {
+    if (Platform.isWindows && path.startsWith('/storage/emulated')) {
+      // Convert Android path to Windows Downloads path
+      // /storage/emulated/0/Download/... -> C:\Users\<user>\Downloads\...
+      final userProfile = Platform.environment['USERPROFILE'] ?? '';
+      if (userProfile.isNotEmpty) {
+        // Extract the part after /storage/emulated/0/Download/
+        final androidDownloadPrefix = '/storage/emulated/0/Download/';
+        if (path.startsWith(androidDownloadPrefix)) {
+          final relativePath = path.substring(androidDownloadPrefix.length);
+          // Note: Android uses 'Kioskvideos' (lowercase 'v'), Windows uses 'KioskVideos'
+          final windowsPath = '$userProfile\\Downloads\\${relativePath.replaceAll('/', '\\')}';
+          // Try with original casing first
+          if (await fileExists(windowsPath)) {
+            return windowsPath;
+          }
+          // Try with capital V (KioskVideos)
+          final windowsPathCapital = windowsPath.replaceAll('Kioskvideos', 'KioskVideos');
+          if (await fileExists(windowsPathCapital)) {
+            return windowsPathCapital;
+          }
+        }
+      }
+    }
+    return path;
+  }
+
   // Calculate estimated time remaining
   String getEstimatedTime(int received, int total, int bytesPerSecond) {
     if (bytesPerSecond == 0) return '계산 중...';

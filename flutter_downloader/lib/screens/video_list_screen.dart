@@ -703,10 +703,12 @@ class _VideoListScreenState extends State<VideoListScreen> {
 
   Future<void> _checkLocalFiles(List<Video> videos, dynamic config) async {
     print('[CHECK FILES] Checking local file existence for ${videos.length} videos');
+    print('[CHECK FILES] Download path from config: ${config.downloadPath}');
 
     for (final video in videos) {
       final fileName = '${video.filename}';
       final filePath = '${config.downloadPath}/${config.kioskId}/$fileName';
+      print('[CHECK FILES] Checking: $filePath');
 
       try {
         final file = File(filePath);
@@ -716,6 +718,7 @@ class _VideoListScreenState extends State<VideoListScreen> {
           print('[CHECK FILES] File exists but status is ${video.downloadStatus}, marking as completed: $fileName');
           video.downloadStatus = 'completed';
           video.localPath = filePath;
+          print('[CHECK FILES] localPath set to: $filePath');
 
           // Update status in backend
           await widget.apiService.updateVideoDownloadStatus(config.kioskId, video.id, 'COMPLETED');
@@ -1489,7 +1492,7 @@ class _VideoListScreenState extends State<VideoListScreen> {
                               children: [
                                 // 썸네일
                                 GestureDetector(
-                                  onTap: () {
+                                  onTap: () async {
                                     print('[VIDEO LIST] Thumbnail tapped for video: ${video.id}');
                                     print('[VIDEO LIST] Video status: ${video.downloadStatus}');
                                     print('[VIDEO LIST] Video localPath: ${video.localPath}');
@@ -1498,10 +1501,16 @@ class _VideoListScreenState extends State<VideoListScreen> {
                                     if (video.downloadStatus == 'completed' && video.localPath != null) {
                                       print('[VIDEO LIST] Opening video player...');
                                       final config = widget.storageService.getConfig();
+
+                                      // Convert Android path to actual Windows path if needed
+                                      String actualPath = await _downloadService.getActualFilePath(video.localPath!);
+                                      print('[VIDEO LIST] Original path: ${video.localPath}');
+                                      print('[VIDEO LIST] Actual path: $actualPath');
+
                                       Navigator.of(context).push(
                                         MaterialPageRoute(
                                           builder: (_) => VideoPlayerScreen(
-                                            videoPath: video.localPath!,
+                                            videoPath: actualPath,
                                             videoTitle: video.title,
                                             downloadPath: config?.downloadPath,
                                             kioskId: config?.kioskId,

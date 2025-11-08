@@ -44,6 +44,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
   Future<void> _initializeVideo() async {
     try {
+      print('[VIDEO PLAYER] Received video path: ${widget.videoPath}');
+
       _player = Player();
       _controller = media_kit_video.VideoController(_player);
 
@@ -66,12 +68,31 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         }
       });
 
-      await _player.open(Media('file:///${widget.videoPath}'));
+      // Check if file exists
+      final file = File(widget.videoPath);
+      final exists = await file.exists();
+      print('[VIDEO PLAYER] File exists: $exists at ${widget.videoPath}');
+
+      if (!exists) {
+        throw Exception('Video file not found: ${widget.videoPath}');
+      }
+
+      // Get absolute path to ensure media_kit can handle it properly
+      final absolutePath = file.absolute.path;
+      print('[VIDEO PLAYER] Absolute path: $absolutePath');
+
+      // For media_kit, use the absolute path directly without file:// prefix
+      // media_kit will handle the protocol internally
+      print('[VIDEO PLAYER] Opening media with absolute path');
+
+      await _player.open(Media(absolutePath));
       await _player.play();
 
       setState(() {
         _isInitialized = true;
       });
+
+      print('[VIDEO PLAYER] Video initialized successfully');
     } catch (e) {
       print('[VIDEO PLAYER] Error initializing video: $e');
       setState(() {
@@ -129,9 +150,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         child: Stack(
           children: [
             // Video player
-            Center(
-              child: _hasError
-                  ? Column(
+            _hasError
+                ? Center(
+                    child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         const Icon(
@@ -151,14 +172,16 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                           textAlign: TextAlign.center,
                         ),
                       ],
-                    )
-                  : _isInitialized
-                      ? media_kit_video.Video(
+                    ),
+                  )
+                : _isInitialized
+                    ? SizedBox.expand(
+                        child: media_kit_video.Video(
                           controller: _controller,
                           controls: media_kit_video.NoVideoControls,
-                        )
-                      : const CircularProgressIndicator(),
-            ),
+                        ),
+                      )
+                    : const Center(child: CircularProgressIndicator()),
 
             // Play/Pause overlay
             if (_isInitialized && !_hasError)

@@ -7,6 +7,7 @@ import 'package:window_manager/window_manager.dart';
 import '../models/video.dart';
 import '../models/coffee_order.dart';
 import '../widgets/coffee_kiosk_overlay.dart';
+import '../services/download_service.dart';
 
 class KioskSplitScreen extends StatefulWidget {
   final List<Video> videos;
@@ -37,6 +38,7 @@ class _KioskSplitScreenState extends State<KioskSplitScreen> {
   bool _isPlaying = false;
   Duration _position = Duration.zero;
   Duration _duration = Duration.zero;
+  final DownloadService _downloadService = DownloadService();
 
   @override
   void initState() {
@@ -64,12 +66,17 @@ class _KioskSplitScreenState extends State<KioskSplitScreen> {
         throw Exception('영상 파일 경로가 없습니다. 영상을 먼저 다운로드해주세요.');
       }
 
-      final videoFile = File(video.localPath!);
-      print('[KIOSK SPLIT] Loading video from: ${video.localPath}');
+      // Convert Android path to actual Windows path if needed
+      final actualPath = await _downloadService.getActualFilePath(video.localPath!);
+      print('[KIOSK SPLIT] Original path: ${video.localPath}');
+      print('[KIOSK SPLIT] Actual path: $actualPath');
+
+      final videoFile = File(actualPath);
+      print('[KIOSK SPLIT] Loading video from: $actualPath');
 
       // Check if file exists
       if (!await videoFile.exists()) {
-        throw Exception('영상 파일을 찾을 수 없습니다:\n${video.localPath}');
+        throw Exception('영상 파일을 찾을 수 없습니다:\n$actualPath');
       }
 
       // Get file size to verify it's accessible
@@ -105,7 +112,7 @@ class _KioskSplitScreenState extends State<KioskSplitScreen> {
         }
       });
 
-      await _player!.open(Media('file:///${video.localPath}'));
+      await _player!.open(Media(actualPath));
       await _player!.play();
 
       setState(() {
