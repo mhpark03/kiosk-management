@@ -75,6 +75,22 @@ export const videoService = {
     }
   },
 
+  // Get all videos including menu files (for kiosk management)
+  // Returns all uploaded content (VIDEO and other types like XML)
+  async getAllVideosIncludingMenus() {
+    try {
+      const response = await api.get('/videos', {
+        params: {
+          type: 'UPLOAD'
+        }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Get videos error:', error);
+      throw new Error(error.response?.data?.error || 'Failed to fetch videos');
+    }
+  },
+
   // Get videos uploaded by current user
   async getMyVideos() {
     try {

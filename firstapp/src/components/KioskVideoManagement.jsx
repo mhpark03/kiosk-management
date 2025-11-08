@@ -84,7 +84,7 @@ function KioskVideoManagement({ kioskProp = null, embedded = false }) {
   const loadVideos = async () => {
     try {
       setLoading(true);
-      const data = await videoService.getAllVideos();
+      const data = await videoService.getAllVideosIncludingMenus();
       // Show all videos including menu files
       const sortedData = [...data].sort((a, b) => b.id - a.id);
       setVideos(sortedData);
