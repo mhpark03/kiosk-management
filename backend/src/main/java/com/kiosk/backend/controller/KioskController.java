@@ -10,17 +10,18 @@ import com.kiosk.backend.repository.KioskRepository;
 import com.kiosk.backend.security.JwtTokenProvider;
 import com.kiosk.backend.service.KioskService;
 import com.kiosk.backend.service.VideoService;
-import com.kiosk.backend.websocket.KioskWebSocketController;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.web.bind.annotation.*;
 
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -33,7 +34,7 @@ import java.util.Map;
 public class KioskController {
 
     private final KioskService kioskService;
-    private final KioskWebSocketController webSocketController;
+    private final SimpMessagingTemplate messagingTemplate;
     private final KioskRepository kioskRepository;
     private final JwtTokenProvider jwtTokenProvider;
     private final com.kiosk.backend.service.KioskEventService kioskEventService;
@@ -142,6 +143,25 @@ public class KioskController {
         String decodedUsername = URLDecoder.decode(username, StandardCharsets.UTF_8);
         log.info("PUT /api/kiosks/{}", id);
         KioskDTO updatedKiosk = kioskService.updateKiosk(id, request, decodedEmail, decodedUsername);
+
+        // Send WebSocket notification if menuId changed (for single kiosk update from admin panel)
+        if (Boolean.TRUE.equals(updatedKiosk.getMenuIdChanged())) {
+            try {
+                String message = String.format("메뉴가 업데이트되었습니다 (ID: %d -> %d). 새로운 메뉴를 다운로드합니다.",
+                        updatedKiosk.getOldMenuId(), updatedKiosk.getMenuId());
+                messagingTemplate.convertAndSend("/topic/kiosk/" + updatedKiosk.getKioskid(), Map.of(
+                        "type", "CONFIG_UPDATE",
+                        "message", message,
+                        "timestamp", LocalDateTime.now().toString()
+                ));
+                log.info("Sent CONFIG_UPDATE notification to kiosk {} for menu change {} -> {}",
+                        updatedKiosk.getKioskid(), updatedKiosk.getOldMenuId(), updatedKiosk.getMenuId());
+            } catch (Exception e) {
+                log.warn("Failed to send CONFIG_UPDATE notification to kiosk {}: {}",
+                        updatedKiosk.getKioskid(), e.getMessage());
+            }
+        }
+
         return ResponseEntity.ok(updatedKiosk);
     }
 
@@ -381,11 +401,11 @@ public class KioskController {
 
         // Send WebSocket notification to the kiosk
         try {
-            webSocketController.sendNotificationToKiosk(
-                kiosk.getKioskid(),
-                "키오스크 설정이 관리자에 의해 업데이트되었습니다. 새로운 설정을 적용합니다.",
-                "CONFIG_UPDATE"
-            );
+            messagingTemplate.convertAndSend("/topic/kiosk/" + kiosk.getKioskid(), Map.of(
+                "type", "CONFIG_UPDATE",
+                "message", "키오스크 설정이 관리자에 의해 업데이트되었습니다. 새로운 설정을 적용합니다.",
+                "timestamp", LocalDateTime.now().toString()
+            ));
             log.info("Sent CONFIG_UPDATE notification to kiosk {} (admin web update)", kiosk.getKioskid());
         } catch (Exception e) {
             log.warn("Failed to send WebSocket notification to kiosk {}: {}", kiosk.getKioskid(), e.getMessage());
@@ -442,11 +462,11 @@ public class KioskController {
         // Send WebSocket notification only if config was modified by web (admin)
         if (wasModifiedByWeb) {
             try {
-                webSocketController.sendNotificationToKiosk(
-                    kioskid,
-                    "키오스크 설정이 관리자에 의해 업데이트되었습니다. 새로운 설정을 적용합니다.",
-                    "CONFIG_UPDATE"
-                );
+                messagingTemplate.convertAndSend("/topic/kiosk/" + kioskid, Map.of(
+                    "type", "CONFIG_UPDATE",
+                    "message", "키오스크 설정이 관리자에 의해 업데이트되었습니다. 새로운 설정을 적용합니다.",
+                    "timestamp", LocalDateTime.now().toString()
+                ));
                 log.info("Sent CONFIG_UPDATE notification to kiosk {} (config was modified by web)", kioskid);
             } catch (Exception e) {
                 log.warn("Failed to send WebSocket notification to kiosk {}: {}", kioskid, e.getMessage());
@@ -668,7 +688,11 @@ public class KioskController {
             }
 
             // Send WebSocket notification to the kiosk
-            webSocketController.sendSyncCommandToKiosk(kiosk.getKioskid());
+            messagingTemplate.convertAndSend("/topic/kiosk/" + kiosk.getKioskid(), Map.of(
+                "type", "SYNC_COMMAND",
+                "message", "관리자가 영상 동기화를 요청했습니다.",
+                "timestamp", LocalDateTime.now().toString()
+            ));
             log.info("Sent SYNC_COMMAND to kiosk {} (kioskid: {}) by {}", id, kiosk.getKioskid(), decodedEmail);
 
             Map<String, String> response = new HashMap<>();

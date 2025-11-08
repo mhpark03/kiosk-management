@@ -1,16 +1,55 @@
 .menu-editor-container {
-  min-height: calc(100vh - 60px);
+  height: calc(100vh - 60px);
   background-color: #f5f5f5;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .menu-editor-header {
   background: white;
-  padding: 1.5rem 2rem;
+  padding: 1rem 1.5rem;
   border-bottom: 1px solid #e0e0e0;
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  gap: 2rem;
+  display: flex;
+  gap: 1rem;
   align-items: center;
+  flex-shrink: 0;
+}
+
+.header-inputs {
+  flex: 1;
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.header-title-input {
+  width: 100%;
+  padding: 10px 14px;
+  fontSize: 16px;
+  fontWeight: 600;
+  border: 2px solid #e2e8f0;
+  border-radius: 6px;
+  transition: border-color 0.2s;
+}
+
+.header-title-input:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.header-desc-input {
+  width: 100%;
+  padding: 10px 14px;
+  fontSize: 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  transition: border-color 0.2s;
+}
+
+.header-desc-input:focus {
+  outline: none;
+  border-color: #667eea;
 }
 
 .menu-editor-header h1 {
@@ -79,7 +118,9 @@
 
 .menu-editor-content {
   display: flex;
-  height: calc(100vh - 140px);
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
 }
 
 /* Left: Tree View */
@@ -300,24 +341,28 @@
 
 @media (max-width: 768px) {
   .menu-editor-header {
-    grid-template-columns: 1fr;
-    gap: 1rem;
-    padding: 1rem;
-  }
-
-  .menu-editor-header h1 {
-    font-size: 1.5rem;
-    order: 2;
+    flex-wrap: wrap;
+    padding: 0.75rem 1rem;
   }
 
   .btn-back {
-    order: 1;
     width: fit-content;
   }
 
+  .header-inputs {
+    flex-direction: column;
+    width: 100%;
+    gap: 0.5rem;
+  }
+
+  .header-inputs > div {
+    flex: 1 !important;
+    width: 100%;
+  }
+
   .menu-editor-actions {
-    order: 3;
-    justify-content: flex-start;
+    width: 100%;
+    justify-content: flex-end;
   }
 
   .menu-editor-content {
@@ -326,13 +371,15 @@
 
   .menu-tree {
     width: 100%;
-    max-height: 40vh;
+    flex: 0 0 40%;
+    min-height: 0;
     border-right: none;
     border-bottom: 1px solid #e0e0e0;
   }
 
   .menu-detail {
-    height: 60vh;
+    flex: 1;
+    min-height: 0;
   }
 }
 

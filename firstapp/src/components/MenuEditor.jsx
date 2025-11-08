@@ -391,36 +391,25 @@ function MenuEditor() {
         <button className="btn btn-back" onClick={handleBackToList}>
           ← 목록으로
         </button>
-        <div style={{ flex: 1, marginLeft: '20px', marginRight: '20px' }}>
-          <input
-            type="text"
-            value={menu.name}
-            onChange={(e) => updateMenu({ ...menu, name: e.target.value })}
-            placeholder="메뉴 제목을 입력하세요"
-            style={{
-              width: '100%',
-              padding: '8px 12px',
-              fontSize: '20px',
-              fontWeight: 'bold',
-              border: '2px solid #e2e8f0',
-              borderRadius: '6px',
-              marginBottom: '8px'
-            }}
-          />
-          <textarea
-            value={menu.description || ''}
-            onChange={(e) => updateMenu({ ...menu, description: e.target.value })}
-            placeholder="메뉴 설명을 입력하세요 (선택사항)"
-            rows={2}
-            style={{
-              width: '100%',
-              padding: '8px 12px',
-              fontSize: '14px',
-              border: '1px solid #e2e8f0',
-              borderRadius: '4px',
-              resize: 'vertical'
-            }}
-          />
+        <div className="header-inputs">
+          <div style={{ flex: '0 0 300px' }}>
+            <input
+              type="text"
+              value={menu.name}
+              onChange={(e) => updateMenu({ ...menu, name: e.target.value })}
+              placeholder="메뉴 제목"
+              className="header-title-input"
+            />
+          </div>
+          <div style={{ flex: 1 }}>
+            <input
+              type="text"
+              value={menu.description || ''}
+              onChange={(e) => updateMenu({ ...menu, description: e.target.value })}
+              placeholder="메뉴 설명 (선택사항)"
+              className="header-desc-input"
+            />
+          </div>
         </div>
         <div className="menu-editor-actions">
           <button
@@ -545,6 +534,11 @@ function MenuEditor() {
 function CategoryEditor({ category, onUpdate }) {
   const [formData, setFormData] = useState(category);
 
+  // Update formData when category prop changes
+  useEffect(() => {
+    setFormData(category);
+  }, [category]);
+
   const handleChange = (field, value) => {
     const updated = { ...formData, [field]: value };
     setFormData(updated);
@@ -608,6 +602,11 @@ function CategoryEditor({ category, onUpdate }) {
 
 function ItemEditor({ item, onUpdate }) {
   const [formData, setFormData] = useState(item);
+
+  // Update formData when item prop changes
+  useEffect(() => {
+    setFormData(item);
+  }, [item]);
 
   const handleChange = (field, value) => {
     const updated = { ...formData, [field]: value };

@@ -42,6 +42,10 @@ public class KioskDTO {
     private Integer totalVideoCount; // Total number of videos assigned to this kiosk
     private Integer downloadedVideoCount; // Number of videos with COMPLETED download status
 
+    // Transient fields for tracking changes (not persisted, used for notifications)
+    private Long oldMenuId; // Previous menu ID before update
+    private Boolean menuIdChanged; // Whether menuId was changed in this update
+
     // Convert Entity to DTO
     public static KioskDTO fromEntity(Kiosk kiosk) {
         return KioskDTO.builder()

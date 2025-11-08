@@ -18,12 +18,14 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -39,7 +41,7 @@ public class KioskService {
     private final VideoRepository videoRepository;
     private final VideoService videoService;
     private final KioskEventService kioskEventService;
-    private final com.kiosk.backend.websocket.KioskWebSocketController webSocketController;
+    private final SimpMessagingTemplate messagingTemplate;
 
     /**
      * Generate next sequential 12-digit Kiosk ID
@@ -299,10 +301,13 @@ public class KioskService {
         }
 
         // Update menuId if provided
+        boolean menuIdChanged = false;
+        Long oldMenuId = kiosk.getMenuId();
         if (request.getMenuId() != null) {
             if (!request.getMenuId().equals(kiosk.getMenuId())) {
                 changes.append(String.format("menuId: %s -> %s; ", kiosk.getMenuId(), request.getMenuId()));
                 kiosk.setMenuId(request.getMenuId());
+                menuIdChanged = true;
 
                 // Also update menuFilename from video's originalFilename
                 videoRepository.findById(request.getMenuId()).ifPresent(video -> {
@@ -322,7 +327,12 @@ public class KioskService {
                 "Updated: " + changes.toString());
         }
 
-        return toDTO(updatedKiosk);
+        // Set metadata for menu change tracking (for WebSocket notification in controller)
+        KioskDTO dto = toDTO(updatedKiosk);
+        dto.setOldMenuId(oldMenuId);
+        dto.setMenuIdChanged(menuIdChanged);
+
+        return dto;
     }
 
     /**
@@ -972,11 +982,12 @@ public class KioskService {
 
                 for (Kiosk kiosk : batch) {
                     try {
-                        webSocketController.sendNotificationToKiosk(
-                                kiosk.getKioskid(),
-                                String.format("메뉴가 업데이트되었습니다 (ID: %d -> %d). 새로운 메뉴를 다운로드합니다.", oldMenuId, newMenuId),
-                                "CONFIG_UPDATE"
-                        );
+                        String message = String.format("메뉴가 업데이트되었습니다 (ID: %d -> %d). 새로운 메뉴를 다운로드합니다.", oldMenuId, newMenuId);
+                        messagingTemplate.convertAndSend("/topic/kiosk/" + kiosk.getKioskid(), Map.of(
+                                "type", "CONFIG_UPDATE",
+                                "message", message,
+                                "timestamp", LocalDateTime.now().toString()
+                        ));
                         successCount++;
                     } catch (Exception e) {
                         failureCount++;

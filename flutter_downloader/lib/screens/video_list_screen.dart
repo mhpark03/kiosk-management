@@ -567,7 +567,7 @@ class _VideoListScreenState extends State<VideoListScreen> {
       // Reload videos and menu to check for updates
       print('[CONFIG UPDATE] Checking for menu and video updates...');
       await _loadVideos();
-      await _downloadMenuFile();
+      await _downloadMenuFile(updatedConfig);
 
       // Show notification to user
       if (mounted) {
@@ -614,53 +614,38 @@ class _VideoListScreenState extends State<VideoListScreen> {
         message: '영상 동기화 시작',
       );
 
-      // Fetch kiosk info if not already loaded
-      if (_kiosk == null) {
-        try {
-          final kiosk = await widget.apiService.getKiosk(config.kioskId);
-          if (mounted) {
-            setState(() {
-              _kiosk = kiosk;
-              _hasMenu = kiosk.menuId != null;
-              _menuFilename = kiosk.menuFilename;
-            });
+      // Always fetch fresh kiosk info from server to get latest menu ID
+      try {
+        final kiosk = await widget.apiService.getKiosk(config.kioskId);
+        if (mounted) {
+          setState(() {
+            _kiosk = kiosk;
+            _hasMenu = kiosk.menuId != null;
+            _menuFilename = kiosk.menuFilename;
+          });
 
-            // Fetch menu video info if menuId exists
-            if (kiosk.menuId != null) {
-              try {
-                final menuVideo = await widget.apiService.getVideoById(kiosk.menuId!);
-                if (mounted) {
-                  setState(() {
-                    _menuVideo = menuVideo;
-                  });
-                }
-              } catch (e) {
-                print('Failed to fetch menu video info: $e');
+          // Fetch menu video info if menuId exists
+          if (kiosk.menuId != null) {
+            try {
+              final menuVideo = await widget.apiService.getVideoById(kiosk.menuId!);
+              if (mounted) {
+                setState(() {
+                  _menuVideo = menuVideo;
+                });
               }
+            } catch (e) {
+              print('Failed to fetch menu video info: $e');
             }
           }
-        } catch (e) {
-          print('Failed to fetch kiosk info: $e');
         }
-      } else if (_kiosk != null) {
-        // Update menu info from existing kiosk data
-        setState(() {
-          _hasMenu = _kiosk!.menuId != null;
-          _menuFilename = _kiosk!.menuFilename;
-        });
-
-        // Fetch menu video info if menuId exists and not already loaded
-        if (_kiosk!.menuId != null && _menuVideo == null) {
-          try {
-            final menuVideo = await widget.apiService.getVideoById(_kiosk!.menuId!);
-            if (mounted) {
-              setState(() {
-                _menuVideo = menuVideo;
-              });
-            }
-          } catch (e) {
-            print('Failed to fetch menu video info: $e');
-          }
+      } catch (e) {
+        print('Failed to fetch kiosk info: $e');
+        // If fetch fails and we have cached kiosk data, use it
+        if (_kiosk != null) {
+          setState(() {
+            _hasMenu = _kiosk!.menuId != null;
+            _menuFilename = _kiosk!.menuFilename;
+          });
         }
       }
 

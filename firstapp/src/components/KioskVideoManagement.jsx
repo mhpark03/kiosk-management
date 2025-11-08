@@ -283,6 +283,9 @@ function KioskVideoManagement({ kioskProp = null, embedded = false }) {
       setShowMenuModal(false);
       setSuccess('메뉴가 변경되었습니다.');
       setTimeout(() => setSuccess(''), 3000);
+
+      // Reload videos to show the new menu
+      await loadKioskVideos();
     } catch (err) {
       console.error('Failed to update menu:', err);
       setError('메뉴 변경에 실패했습니다: ' + (err.response?.data?.error || err.message));
