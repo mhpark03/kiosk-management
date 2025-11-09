@@ -25,7 +25,8 @@ public class Video {
     public enum MediaType {
         VIDEO,            // Video file
         IMAGE,            // Image file
-        AUDIO             // Audio file
+        AUDIO,            // Audio file
+        DOCUMENT          // Document file (XML, etc.)
     }
 
     public enum ImagePurpose {

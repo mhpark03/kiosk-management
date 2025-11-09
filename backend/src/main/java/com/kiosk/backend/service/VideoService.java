@@ -40,16 +40,13 @@ public class VideoService {
 
     // S3 folder structure
     private static final String VIDEO_UPLOAD_FOLDER = "videos/uploads/";
-    private static final String VIDEO_RUNWAY_FOLDER = "videos/runway/";
     private static final String VIDEO_AI_FOLDER = "videos/ai/";
     private static final String IMAGE_UPLOAD_FOLDER = "images/uploads/";
-    private static final String IMAGE_RUNWAY_FOLDER = "images/runway/";
     private static final String IMAGE_AI_FOLDER = "images/ai/";
     private static final String AUDIO_UPLOAD_FOLDER = "audios/uploads/";
-    private static final String AUDIO_TTS_FOLDER = "audios/tts/";
     private static final String AUDIO_AI_FOLDER = "audios/ai/";
+    private static final String DOCUMENT_FOLDER = "documents/";
     private static final String THUMBNAIL_UPLOAD_FOLDER = "thumbnails/uploads/";
-    private static final String THUMBNAIL_RUNWAY_FOLDER = "thumbnails/runway/";
     private static final String THUMBNAIL_AI_FOLDER = "thumbnails/ai/";
     private static final long MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB
 
@@ -288,6 +285,8 @@ public class VideoService {
                 mediaType = Video.MediaType.IMAGE;
             } else if (lowerContentType.startsWith("audio/")) {
                 mediaType = Video.MediaType.AUDIO;
+            } else if (lowerContentType.contains("xml")) {
+                mediaType = Video.MediaType.DOCUMENT;
             }
         }
 
@@ -298,6 +297,7 @@ public class VideoService {
                 case VIDEO -> "영상";
                 case IMAGE -> "이미지";
                 case AUDIO -> "음성";
+                case DOCUMENT -> "문서";
             };
             log.warn("Duplicate {} file detected: {}", mediaTypeKorean, originalFilename);
             throw new IllegalArgumentException(
@@ -327,17 +327,25 @@ public class VideoService {
                     log.warn("Thumbnail generation returned null");
                 }
             } else {
-                // For audio, no thumbnail needed
-                log.info("Audio file detected, skipping thumbnail generation");
+                // For audio and documents, no thumbnail needed
+                log.info("{} file detected, skipping thumbnail generation", mediaType);
             }
         } catch (Exception e) {
             log.error("Failed to generate thumbnail, continuing without thumbnail: {}", e.getMessage(), e);
             thumbnailBytes = null;
         }
 
-        // Upload video file to S3 (uploads folder)
-        log.info("Uploading file to S3...");
-        String s3Key = s3Service.uploadFile(file, VIDEO_UPLOAD_FOLDER);
+        // Determine S3 folder based on media type
+        String s3Folder = switch (mediaType) {
+            case VIDEO -> VIDEO_UPLOAD_FOLDER;
+            case IMAGE -> IMAGE_UPLOAD_FOLDER;
+            case AUDIO -> AUDIO_UPLOAD_FOLDER;
+            case DOCUMENT -> DOCUMENT_FOLDER;
+        };
+
+        // Upload file to S3 (appropriate folder based on media type)
+        log.info("Uploading {} file to S3 folder: {}", mediaType, s3Folder);
+        String s3Key = s3Service.uploadFile(file, s3Folder);
         String s3Url = s3Service.getFileUrl(s3Key);
         log.info("File uploaded to S3: {}", s3Key);
 
@@ -443,6 +451,10 @@ public class VideoService {
             case AUDIO:
                 s3Folder = AUDIO_AI_FOLDER;
                 thumbnailFolder = null; // No thumbnails for audio
+                break;
+            case DOCUMENT:
+                s3Folder = DOCUMENT_FOLDER;
+                thumbnailFolder = null; // No thumbnails for documents
                 break;
             default:
                 throw new IllegalArgumentException("Unsupported media type: " + mediaType);
@@ -598,15 +610,15 @@ public class VideoService {
         String extension = contentType.contains("png") ? ".png" : ".jpg";
         String filename = "runway_" + timestamp + extension;
 
-        // Upload image to S3
+        // Upload image to S3 (AI folder since it's AI-generated)
         log.info("Uploading Runway image to S3...");
-        String s3Key = s3Service.uploadBytes(imageBytes, IMAGE_RUNWAY_FOLDER, filename, contentType);
+        String s3Key = s3Service.uploadBytes(imageBytes, IMAGE_AI_FOLDER, filename, contentType);
         String s3Url = s3Service.getFileUrl(s3Key);
         log.info("Image uploaded to S3: {}", s3Key);
 
         // For images, use the original image as thumbnail
         String thumbnailFilename = filename.replace(extension, "_thumb" + extension);
-        String thumbnailS3Key = s3Service.uploadBytes(imageBytes, THUMBNAIL_RUNWAY_FOLDER, thumbnailFilename, contentType);
+        String thumbnailS3Key = s3Service.uploadBytes(imageBytes, THUMBNAIL_AI_FOLDER, thumbnailFilename, contentType);
         String thumbnailUrl = s3Service.getFileUrl(thumbnailS3Key);
         log.info("Thumbnail uploaded to S3: {}", thumbnailS3Key);
 
@@ -1167,17 +1179,16 @@ public class VideoService {
             throw new IllegalArgumentException("Title is required");
         }
 
-        // Upload audio to S3 (audios/tts folder)
-        String s3Key = s3Service.uploadFile(file, AUDIO_TTS_FOLDER);
+        // Upload audio to S3 (audios/ai folder since TTS is AI-generated)
+        String s3Key = s3Service.uploadFile(file, AUDIO_AI_FOLDER);
         String s3Url = s3Service.getFileUrl(s3Key);
 
         log.info("Uploaded TTS audio to S3: {}", s3Key);
 
-        // Save metadata to database with UPLOAD type and AUDIO mediaType
-        // Note: We're reusing the Video entity to store audio files
+        // Save metadata to database with AI_GENERATED type and AUDIO mediaType
         Video audio = Video.builder()
-                .videoType(Video.VideoType.UPLOAD)
-                .mediaType(Video.MediaType.VIDEO) // Using VIDEO type for now, could add AUDIO type later
+                .videoType(Video.VideoType.AI_GENERATED)
+                .mediaType(Video.MediaType.AUDIO)
                 .filename(truncate(extractFilename(s3Key), MAX_FILENAME_LENGTH))
                 .originalFilename(truncate(file.getOriginalFilename(), MAX_FILENAME_LENGTH))
                 .fileSize(file.getSize())
