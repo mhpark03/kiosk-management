@@ -1875,12 +1875,15 @@ function CategoryEditor({ category, onUpdate }) {
           {currentVideoUrl && (
             <video
               src={currentVideoUrl}
-              controls
+              preload="metadata"
+              muted
               style={{
-                width: '100%',
-                maxWidth: '400px',
+                width: '200px',
+                height: '120px',
+                objectFit: 'cover',
                 borderRadius: '6px',
-                border: '2px solid #e2e8f0'
+                border: '2px solid #e2e8f0',
+                backgroundColor: '#000'
               }}
             />
           )}
