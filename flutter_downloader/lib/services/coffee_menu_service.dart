@@ -26,35 +26,52 @@ class CoffeeMenuService {
       _kioskId = kioskId;
 
       // Try to load from download folder first if path is provided
-      if (downloadPath != null && kioskId != null && filename != null) {
-        final menuFilePath = '$downloadPath/$kioskId/menu/$filename';
-        final menuFile = File(menuFilePath);
+      if (downloadPath != null && kioskId != null) {
+        // First try exact filename match if provided
+        if (filename != null) {
+          final menuFilePath = '$downloadPath/$kioskId/menu/$filename';
+          final menuFile = File(menuFilePath);
 
-        if (await menuFile.exists()) {
-          print('[MENU LOAD] Loading menu from downloaded file: $menuFilePath');
-          xmlString = await menuFile.readAsString();
-          _menuConfig = XmlMenuParser.parseXml(xmlString);
-          _isXmlLoaded = true;
-          print('[MENU LOAD] Menu loaded from download folder: ${_menuConfig!.menuItems.length} items');
-          return;
-        } else {
-          print('[MENU LOAD] No menu file found in download folder: $menuFilePath');
+          if (await menuFile.exists()) {
+            print('[MENU LOAD] Loading menu from downloaded file: $menuFilePath');
+            xmlString = await menuFile.readAsString();
+            _menuConfig = XmlMenuParser.parseXml(xmlString);
+            _isXmlLoaded = true;
+            print('[MENU LOAD] Menu loaded from download folder: ${_menuConfig!.menuItems.length} items');
+            return;
+          } else {
+            print('[MENU LOAD] No menu file found at exact path: $menuFilePath');
+          }
         }
-      } else if (downloadPath != null && kioskId != null) {
-        // If filename not provided, try to find any .xml file in menu folder
+
+        // If exact filename not found or not provided, try to find any .xml file in menu folder
         final menuDirPath = '$downloadPath/$kioskId/menu';
         final menuDir = Directory(menuDirPath);
 
         if (await menuDir.exists()) {
+          // Get all XML files and sort by modification time (newest first)
+          final xmlFiles = <File>[];
           await for (final file in menuDir.list()) {
             if (file is File && file.path.endsWith('.xml')) {
-              print('[MENU LOAD] Loading menu from found file: ${file.path}');
-              xmlString = await file.readAsString();
-              _menuConfig = XmlMenuParser.parseXml(xmlString);
-              _isXmlLoaded = true;
-              print('[MENU LOAD] Menu loaded from download folder: ${_menuConfig!.menuItems.length} items');
-              return;
+              xmlFiles.add(file);
             }
+          }
+
+          if (xmlFiles.isNotEmpty) {
+            // Sort by modification time, newest first
+            xmlFiles.sort((a, b) {
+              final aStat = a.statSync();
+              final bStat = b.statSync();
+              return bStat.modified.compareTo(aStat.modified);
+            });
+
+            final newestFile = xmlFiles.first;
+            print('[MENU LOAD] Loading newest menu file: ${newestFile.path}');
+            xmlString = await newestFile.readAsString();
+            _menuConfig = XmlMenuParser.parseXml(xmlString);
+            _isXmlLoaded = true;
+            print('[MENU LOAD] Menu loaded from download folder: ${_menuConfig!.menuItems.length} items');
+            return;
           }
         }
         print('[MENU LOAD] No menu file found in download folder: $menuDirPath');

@@ -157,16 +157,23 @@ class _KioskSplitScreenState extends State<KioskSplitScreen> {
     print('[KIOSK SPLIT] Playing menu video: $videoPath');
 
     try {
-      // Save current video state
-      final video = widget.videos[_currentVideoIndex];
-      final actualPath = await _downloadService.getActualFilePath(video.localPath!);
-      _savedVideoPath = actualPath;
-      _savedPosition = _position;
+      // If already playing menu video, just switch to new menu video
+      // Don't save the state again (keep the original saved state)
+      if (!_isPlayingMenuVideo) {
+        // Save current video state only if not already playing menu video
+        final video = widget.videos[_currentVideoIndex];
+        final actualPath = await _downloadService.getActualFilePath(video.localPath!);
+        _savedVideoPath = actualPath;
+        _savedPosition = _position;
+
+        print('[KIOSK SPLIT] Saved video: $actualPath at position: $_savedPosition');
+      } else {
+        print('[KIOSK SPLIT] Already playing menu video, switching to new menu video');
+      }
+
       _isPlayingMenuVideo = true;
 
-      print('[KIOSK SPLIT] Saved video: $actualPath at position: $_savedPosition');
-
-      // Play menu video
+      // Play menu video (this will stop current video if playing)
       await _player!.open(Media(videoPath));
       await _player!.play();
 
