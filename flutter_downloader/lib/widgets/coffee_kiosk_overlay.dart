@@ -1,10 +1,12 @@
 import 'dart:io';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../models/coffee_menu_item.dart';
 import '../models/coffee_order.dart';
 import '../services/coffee_menu_service.dart';
 import '../services/websocket_service.dart';
+import '../services/storage_service.dart';
 
 class CoffeeKioskOverlay extends StatefulWidget {
   final VoidCallback onClose;
@@ -46,6 +48,12 @@ class _CoffeeKioskOverlayState extends State<CoffeeKioskOverlay> {
   Function()? _originalSyncCallback;
   Function()? _originalConfigCallback;
 
+  // Periodic menu check and safe reload
+  Timer? _menuCheckTimer;
+  DateTime? _lastMenuFileModified;
+  bool _pendingMenuReload = false;
+  bool _isPaymentInProgress = false;
+
   @override
   void initState() {
     super.initState();
@@ -63,32 +71,156 @@ class _CoffeeKioskOverlayState extends State<CoffeeKioskOverlay> {
 
     // Load menu from XML
     _loadMenu();
+
+    // Start periodic menu check (every 30 seconds)
+    _startPeriodicMenuCheck();
   }
 
   @override
   void dispose() {
+    // Cancel timer
+    _menuCheckTimer?.cancel();
+
     // Restore original callbacks
     _webSocketService.onSyncCommand = _originalSyncCallback;
     _webSocketService.onConfigUpdate = _originalConfigCallback;
     super.dispose();
   }
 
+  void _startPeriodicMenuCheck() async {
+    // Get sync interval from config
+    final storageService = await StorageService.init();
+    final config = storageService.getConfig();
+
+    if (config == null) {
+      print('[MENU CHECK] No config found, using default 30 second interval');
+      _startTimer(Duration(seconds: 30));
+      return;
+    }
+
+    // Use syncIntervalHours from config
+    // But check more frequently (every 1/120 of interval, min 30 seconds)
+    final intervalHours = config.syncIntervalHours;
+    final checkIntervalSeconds = (intervalHours * 3600 / 120).clamp(30, 3600).toInt();
+
+    print('[MENU CHECK] Starting periodic menu check every $checkIntervalSeconds seconds (from ${intervalHours}h sync interval)');
+    _startTimer(Duration(seconds: checkIntervalSeconds));
+
+    // Record initial menu file modification time
+    await _recordMenuFileModTime();
+  }
+
+  void _startTimer(Duration interval) {
+    _menuCheckTimer = Timer.periodic(interval, (timer) async {
+      await _checkMenuFileChanged();
+      await _reloadMenuIfSafe();
+    });
+  }
+
+  Future<void> _recordMenuFileModTime() async {
+    if (widget.downloadPath == null || widget.kioskId == null) return;
+
+    try {
+      final menuDirPath = '${widget.downloadPath}/${widget.kioskId}/menu';
+      final menuDir = Directory(menuDirPath);
+
+      if (await menuDir.exists()) {
+        final xmlFiles = <File>[];
+        await for (final file in menuDir.list()) {
+          if (file is File && file.path.endsWith('.xml')) {
+            xmlFiles.add(file);
+          }
+        }
+
+        if (xmlFiles.isNotEmpty) {
+          xmlFiles.sort((a, b) {
+            final aStat = a.statSync();
+            final bStat = b.statSync();
+            return bStat.modified.compareTo(aStat.modified);
+          });
+
+          _lastMenuFileModified = xmlFiles.first.statSync().modified;
+          print('[MENU CHECK] Recorded initial menu file time: $_lastMenuFileModified');
+        }
+      }
+    } catch (e) {
+      print('[MENU CHECK] Error recording menu file mod time: $e');
+    }
+  }
+
+  Future<void> _checkMenuFileChanged() async {
+    if (widget.downloadPath == null || widget.kioskId == null) return;
+
+    try {
+      final menuDirPath = '${widget.downloadPath}/${widget.kioskId}/menu';
+      final menuDir = Directory(menuDirPath);
+
+      if (await menuDir.exists()) {
+        final xmlFiles = <File>[];
+        await for (final file in menuDir.list()) {
+          if (file is File && file.path.endsWith('.xml')) {
+            xmlFiles.add(file);
+          }
+        }
+
+        if (xmlFiles.isNotEmpty) {
+          xmlFiles.sort((a, b) {
+            final aStat = a.statSync();
+            final bStat = b.statSync();
+            return bStat.modified.compareTo(aStat.modified);
+          });
+
+          final currentModTime = xmlFiles.first.statSync().modified;
+
+          if (_lastMenuFileModified != null && currentModTime.isAfter(_lastMenuFileModified!)) {
+            print('[MENU CHECK] Menu file changed detected! Old: $_lastMenuFileModified, New: $currentModTime');
+            _pendingMenuReload = true;
+            _lastMenuFileModified = currentModTime;
+          }
+        }
+      }
+    } catch (e) {
+      print('[MENU CHECK] Error checking menu file: $e');
+    }
+  }
+
+  bool _isUserInteracting() {
+    // User is interacting if:
+    // 1. Option dialog is open (_selectedMenuItem is not null)
+    // 2. Cart has items
+    // 3. Payment is in progress
+    return _selectedMenuItem != null || _cartItems.isNotEmpty || _isPaymentInProgress;
+  }
+
+  Future<void> _reloadMenuIfSafe() async {
+    if (!_pendingMenuReload) return;
+
+    if (_isUserInteracting()) {
+      print('[MENU CHECK] Menu reload pending, but user is interacting. Waiting...');
+      return;
+    }
+
+    print('[MENU CHECK] Safe to reload menu, proceeding...');
+    _pendingMenuReload = false;
+    await _reloadMenu();
+  }
+
   void _setupWebSocketCallbacks() {
     _webSocketService.onSyncCommand = () {
-      print('[COFFEE KIOSK OVERLAY] Sync command received, reloading menu...');
-      _reloadMenu();
+      print('[COFFEE KIOSK OVERLAY] Sync command received, marking for reload...');
+      _pendingMenuReload = true;
       _originalSyncCallback?.call();
     };
 
     _webSocketService.onConfigUpdate = () {
-      print('[COFFEE KIOSK OVERLAY] Config update received, reloading menu...');
-      _reloadMenu();
+      print('[COFFEE KIOSK OVERLAY] Config update received, marking for reload...');
+      _pendingMenuReload = true;
       _originalConfigCallback?.call();
     };
   }
 
   Future<void> _reloadMenu() async {
-    print('[COFFEE KIOSK OVERLAY] Reloading menu after sync/config update');
+    print('[COFFEE KIOSK OVERLAY] Reloading menu...');
     // Invalidate cache first
     _menuService.invalidateCache();
     // Then reload
