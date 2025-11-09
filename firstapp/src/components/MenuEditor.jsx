@@ -917,12 +917,15 @@ function MenuInfoEditor({ menu, onUpdate }) {
                 {currentVideoUrl ? (
                   <video
                     src={currentVideoUrl}
-                    controls
+                    preload="metadata"
+                    muted
                     style={{
-                      width: '100%',
-                      maxWidth: '300px',
+                      width: '200px',
+                      height: '120px',
+                      objectFit: 'cover',
                       borderRadius: '4px',
-                      border: '1px solid #e2e8f0'
+                      border: '1px solid #e2e8f0',
+                      backgroundColor: '#000'
                     }}
                   />
                 ) : (
@@ -980,12 +983,15 @@ function MenuInfoEditor({ menu, onUpdate }) {
                 {currentAddToCartVideoUrl ? (
                   <video
                     src={currentAddToCartVideoUrl}
-                    controls
+                    preload="metadata"
+                    muted
                     style={{
-                      width: '100%',
-                      maxWidth: '300px',
+                      width: '200px',
+                      height: '120px',
+                      objectFit: 'cover',
                       borderRadius: '4px',
-                      border: '1px solid #e2e8f0'
+                      border: '1px solid #e2e8f0',
+                      backgroundColor: '#000'
                     }}
                   />
                 ) : (
@@ -1044,12 +1050,15 @@ function MenuInfoEditor({ menu, onUpdate }) {
                 {currentCheckoutVideoUrl ? (
                   <video
                     src={currentCheckoutVideoUrl}
-                    controls
+                    preload="metadata"
+                    muted
                     style={{
-                      width: '100%',
-                      maxWidth: '300px',
+                      width: '200px',
+                      height: '120px',
+                      objectFit: 'cover',
                       borderRadius: '4px',
-                      border: '1px solid #e2e8f0'
+                      border: '1px solid #e2e8f0',
+                      backgroundColor: '#000'
                     }}
                   />
                 ) : (
