@@ -5,7 +5,7 @@ import videoService from '../services/videoService';
 import { getAllStores } from '../services/storeService';
 import menuService from '../services/menuService';
 import api from '../services/api';
-import { FiArrowLeft, FiCheck, FiPlus, FiX, FiTrash2, FiSearch, FiDownload, FiRefreshCw } from 'react-icons/fi';
+import { FiArrowLeft, FiCheck, FiPlus, FiX, FiTrash2, FiSearch, FiDownload, FiRefreshCw, FiBook } from 'react-icons/fi';
 import './VideoManagement.css';
 import { formatKSTDate } from '../utils/dateUtils';
 
@@ -674,7 +674,17 @@ function KioskVideoManagement({ kioskProp = null, embedded = false }) {
                       </td>
                       <td>
                         <div className="filename-wrapper">
-                          {(video.presignedUrl || video.thumbnailUrl) && (
+                          {video.mediaType === 'DOCUMENT' ? (
+                            <div className="video-thumbnail" style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              backgroundColor: '#FEF3C7',
+                              color: '#92400E'
+                            }}>
+                              <FiBook size={24} />
+                            </div>
+                          ) : (video.presignedUrl || video.thumbnailUrl) && (
                             <img
                               src={video.mediaType === 'IMAGE' && video.presignedUrl ? video.presignedUrl : video.thumbnailUrl}
                               alt="thumbnail"
@@ -891,7 +901,17 @@ function KioskVideoManagement({ kioskProp = null, embedded = false }) {
                           </td>
                           <td>
                             <div className="filename-wrapper">
-                              {(video.presignedUrl || video.thumbnailUrl) && (
+                              {video.mediaType === 'DOCUMENT' ? (
+                                <div className="video-thumbnail" style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  backgroundColor: '#FEF3C7',
+                                  color: '#92400E'
+                                }}>
+                                  <FiBook size={24} />
+                                </div>
+                              ) : (video.presignedUrl || video.thumbnailUrl) && (
                                 <img
                                   src={video.mediaType === 'IMAGE' && video.presignedUrl ? video.presignedUrl : video.thumbnailUrl}
                                   alt="thumbnail"

@@ -614,57 +614,35 @@ class _VideoListScreenState extends State<VideoListScreen> {
         message: '영상 동기화 시작',
       );
 
-      // Always fetch fresh kiosk info from server to get latest menu ID
+      // Always fetch fresh kiosk info from server
       try {
         final kiosk = await widget.apiService.getKiosk(config.kioskId);
         if (mounted) {
           setState(() {
             _kiosk = kiosk;
-            _hasMenu = kiosk.menuId != null;
-            _menuFilename = kiosk.menuFilename;
           });
-
-          // Fetch menu video info if menuId exists
-          if (kiosk.menuId != null) {
-            try {
-              final menuVideo = await widget.apiService.getVideoById(kiosk.menuId!);
-              if (mounted) {
-                setState(() {
-                  _menuVideo = menuVideo;
-                });
-              }
-            } catch (e) {
-              print('Failed to fetch menu video info: $e');
-            }
-          }
         }
       } catch (e) {
         print('Failed to fetch kiosk info: $e');
-        // If fetch fails and we have cached kiosk data, use it
-        if (_kiosk != null) {
-          setState(() {
-            _hasMenu = _kiosk!.menuId != null;
-            _menuFilename = _kiosk!.menuFilename;
-          });
-        }
+        // Continue with video sync even if kiosk info fetch fails
       }
 
-      // Check if menu file is downloaded
-      if (_hasMenu && _menuFilename != null) {
-        final menuFilePath = '${config.downloadPath}/${config.kioskId}/menu/$_menuFilename';
-        final menuFile = File(menuFilePath);
-        final menuExists = await menuFile.exists();
-        if (mounted) {
-          setState(() {
-            _menuDownloaded = menuExists;
-          });
-        }
-      }
-
+      // Get all files (videos, images, menu XML) from kiosk_video table
       final videos = await widget.apiService.getKioskVideos(config.kioskId);
+
+      // Sort videos by mediaType: VIDEO -> DOCUMENT -> IMAGE
+      videos.sort((a, b) {
+        const typeOrder = {'VIDEO': 0, 'DOCUMENT': 1, 'IMAGE': 2, 'AUDIO': 3};
+        final orderA = typeOrder[a.mediaType] ?? 99;
+        final orderB = typeOrder[b.mediaType] ?? 99;
+        return orderA.compareTo(orderB);
+      });
 
       // Check local file existence and update download status
       await _checkLocalFiles(videos, config);
+
+      // Remove files that are not in the server list
+      await _removeUnassignedFiles(videos, config);
 
       setState(() {
         _videos = videos;
@@ -674,14 +652,11 @@ class _VideoListScreenState extends State<VideoListScreen> {
       // Log sync completed event
       await EventLogger().logEvent(
         eventType: 'SYNC_COMPLETED',
-        message: '영상 파일 ${videos.length} 개 동기완료',
+        message: '파일 ${videos.length} 개 동기완료 (영상, 이미지, 메뉴)',
         metadata: '{"videoCount": ${videos.length}}',
       );
 
-      // Download menu file if assigned to kiosk
-      await _downloadMenuFile(config);
-
-      // Auto-download pending videos in background
+      // Auto-download pending files (videos, images, menu XML) in background
       _downloadPendingVideosInBackground();
     } catch (e) {
       final config = widget.storageService.getConfig();
@@ -744,6 +719,75 @@ class _VideoListScreenState extends State<VideoListScreen> {
         print('[CHECK FILES] Error checking file $fileName: $e');
         video.downloadStatus = 'pending';
       }
+    }
+  }
+
+  Future<void> _removeUnassignedFiles(List<Video> videos, dynamic config) async {
+    print('[CLEANUP] Checking for unassigned files to remove');
+
+    try {
+      final kioskDir = Directory('${config.downloadPath}/${config.kioskId}');
+
+      // Check if directory exists
+      if (!await kioskDir.exists()) {
+        print('[CLEANUP] Kiosk directory does not exist: ${kioskDir.path}');
+        return;
+      }
+
+      // Get list of assigned filenames from server
+      final assignedFilenames = videos.map((v) => v.filename).toSet();
+      print('[CLEANUP] ${assignedFilenames.length} files assigned from server');
+
+      int removedCount = 0;
+
+      // Scan local directory for files
+      await for (final entity in kioskDir.list()) {
+        if (entity is File) {
+          final fileName = entity.path.split(Platform.pathSeparator).last;
+
+          // Skip menu directory (handled separately)
+          if (entity.path.contains('${Platform.pathSeparator}menu${Platform.pathSeparator}')) {
+            continue;
+          }
+
+          // Check if file is in assigned list
+          if (!assignedFilenames.contains(fileName)) {
+            print('[CLEANUP] Removing unassigned file: $fileName');
+
+            try {
+              await entity.delete();
+              removedCount++;
+
+              // Log file removal
+              await EventLogger().logEvent(
+                eventType: 'FILE_REMOVED',
+                message: '미할당 파일 삭제: $fileName',
+                metadata: '{"filename": "$fileName"}',
+              );
+            } catch (e) {
+              print('[CLEANUP] Failed to delete file $fileName: $e');
+            }
+          }
+        }
+      }
+
+      if (removedCount > 0) {
+        print('[CLEANUP] Removed $removedCount unassigned files');
+        await EventLogger().logEvent(
+          eventType: 'CLEANUP_COMPLETED',
+          message: '미할당 파일 $removedCount 개 삭제 완료',
+          metadata: '{"removedCount": $removedCount}',
+        );
+      } else {
+        print('[CLEANUP] No unassigned files found');
+      }
+    } catch (e) {
+      print('[CLEANUP] Error during cleanup: $e');
+      await EventLogger().logEvent(
+        eventType: 'CLEANUP_FAILED',
+        message: '미할당 파일 삭제 실패: ${e.toString()}',
+        metadata: '{"error": "${e.toString()}"}',
+      );
     }
   }
 
@@ -1495,7 +1539,26 @@ class _VideoListScreenState extends State<VideoListScreen> {
                                   onTap: () async {
                                     print('[VIDEO LIST] Thumbnail tapped for video: ${video.id}');
                                     print('[VIDEO LIST] Video status: ${video.downloadStatus}');
+                                    print('[VIDEO LIST] Video mediaType: ${video.mediaType}');
                                     print('[VIDEO LIST] Video localPath: ${video.localPath}');
+
+                                    // Only VIDEO mediaType files can be played
+                                    if (video.mediaType != 'VIDEO') {
+                                      print('[VIDEO LIST] Non-video file tapped: ${video.mediaType}');
+                                      String fileTypeMessage = '이미지 파일';
+                                      if (video.mediaType == 'DOCUMENT') {
+                                        fileTypeMessage = '문서 파일';
+                                      } else if (video.mediaType == 'AUDIO') {
+                                        fileTypeMessage = '오디오 파일';
+                                      }
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text('$fileTypeMessage은 재생할 수 없습니다'),
+                                          duration: const Duration(seconds: 2),
+                                        ),
+                                      );
+                                      return;
+                                    }
 
                                     // 다운로드 완료된 동영상만 재생 가능
                                     if (video.downloadStatus == 'completed' && video.localPath != null) {
@@ -1553,31 +1616,76 @@ class _VideoListScreenState extends State<VideoListScreen> {
                                     ),
                                     child: Stack(
                                       children: [
-                                        // 썸네일 이미지
-                                        video.thumbnailUrl != null && video.thumbnailUrl!.isNotEmpty
-                                            ? ClipRRect(
-                                                borderRadius: BorderRadius.circular(6),
-                                                child: Image.network(
-                                                  video.thumbnailUrl!,
-                                                  fit: BoxFit.cover,
-                                                  width: thumbnailSize,
-                                                  height: thumbnailSize,
-                                                  errorBuilder: (context, error, stackTrace) {
-                                                    return Icon(
-                                                      Icons.videocam,
-                                                      size: isLandscape ? 28 : 24,
-                                                      color: Colors.grey.shade600,
-                                                    );
-                                                  },
+                                        // 썸네일 이미지 또는 아이콘
+                                        video.mediaType == 'DOCUMENT'
+                                            ? Container(
+                                                width: thumbnailSize,
+                                                height: thumbnailSize,
+                                                decoration: BoxDecoration(
+                                                  color: Colors.amber.shade100,
+                                                  borderRadius: BorderRadius.circular(6),
+                                                ),
+                                                child: Icon(
+                                                  Icons.restaurant_menu,
+                                                  size: isLandscape ? 28 : 24,
+                                                  color: Colors.amber.shade800,
                                                 ),
                                               )
-                                            : Icon(
-                                                Icons.videocam,
-                                                size: isLandscape ? 28 : 24,
-                                                color: Colors.grey.shade600,
-                                              ),
-                                        // 재생 아이콘 오버레이 (다운로드 완료된 경우만)
-                                        if (video.downloadStatus == 'completed')
+                                            : video.mediaType == 'IMAGE'
+                                                ? Container(
+                                                    width: thumbnailSize,
+                                                    height: thumbnailSize,
+                                                    decoration: BoxDecoration(
+                                                      color: Colors.blue.shade50,
+                                                      borderRadius: BorderRadius.circular(6),
+                                                    ),
+                                                    child: video.thumbnailUrl != null && video.thumbnailUrl!.isNotEmpty
+                                                        ? ClipRRect(
+                                                            borderRadius: BorderRadius.circular(6),
+                                                            child: Image.network(
+                                                              video.thumbnailUrl!,
+                                                              fit: BoxFit.cover,
+                                                              width: thumbnailSize,
+                                                              height: thumbnailSize,
+                                                              errorBuilder: (context, error, stackTrace) {
+                                                                return Icon(
+                                                                  Icons.image,
+                                                                  size: isLandscape ? 28 : 24,
+                                                                  color: Colors.blue.shade600,
+                                                                );
+                                                              },
+                                                            ),
+                                                          )
+                                                        : Icon(
+                                                            Icons.image,
+                                                            size: isLandscape ? 28 : 24,
+                                                            color: Colors.blue.shade600,
+                                                          ),
+                                                  )
+                                                : video.thumbnailUrl != null && video.thumbnailUrl!.isNotEmpty
+                                                    ? ClipRRect(
+                                                        borderRadius: BorderRadius.circular(6),
+                                                        child: Image.network(
+                                                          video.thumbnailUrl!,
+                                                          fit: BoxFit.cover,
+                                                          width: thumbnailSize,
+                                                          height: thumbnailSize,
+                                                          errorBuilder: (context, error, stackTrace) {
+                                                            return Icon(
+                                                              Icons.videocam,
+                                                              size: isLandscape ? 28 : 24,
+                                                              color: Colors.grey.shade600,
+                                                            );
+                                                          },
+                                                        ),
+                                                      )
+                                                    : Icon(
+                                                        Icons.videocam,
+                                                        size: isLandscape ? 28 : 24,
+                                                        color: Colors.grey.shade600,
+                                                      ),
+                                        // 재생 아이콘 오버레이 (다운로드 완료된 VIDEO만)
+                                        if (video.downloadStatus == 'completed' && video.mediaType == 'VIDEO')
                                           Center(
                                             child: Container(
                                               decoration: BoxDecoration(
@@ -1838,8 +1946,10 @@ class _VideoListScreenState extends State<VideoListScreen> {
             // Prevent duplicate navigation
             if (_isNavigating) return;
 
-            // Get videos with local paths
-            final availableVideos = _videos.where((v) => v.localPath != null).toList();
+            // Get only VIDEO files with local paths (exclude IMAGE and DOCUMENT)
+            final availableVideos = _videos
+                .where((v) => v.localPath != null && v.mediaType == 'VIDEO')
+                .toList();
 
             if (availableVideos.isEmpty) {
               ScaffoldMessenger.of(context).showSnackBar(
