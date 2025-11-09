@@ -80,6 +80,13 @@ dependencies:
   # Network image caching for product images
   cached_network_image: ^3.3.1
 
+  # Camera for person detection
+  camera: ^0.10.5+9
+  camera_windows: ^0.2.1+8
+
+  # TensorFlow Lite for person detection ML model
+  tflite_flutter: ^0.10.4
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

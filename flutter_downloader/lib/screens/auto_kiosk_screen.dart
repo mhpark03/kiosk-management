@@ -6,6 +6,12 @@ import '../services/presence_detection_service.dart';
 import 'idle_screen.dart';
 import 'kiosk_split_screen.dart';
 
+/// Detection mode for kiosk activation
+enum DetectionMode {
+  touch,  // Touch/mouse based detection
+  camera, // Camera-based person detection
+}
+
 /// Auto-switching kiosk screen that transitions between:
 /// - Idle mode: Fullscreen advertisement videos
 /// - Kiosk mode: Split screen with video + menu
@@ -14,6 +20,8 @@ class AutoKioskScreen extends StatefulWidget {
   final String? downloadPath;
   final String? kioskId;
   final String? menuFilename;
+  final DetectionMode detectionMode;
+  final Duration idleTimeout;
 
   const AutoKioskScreen({
     super.key,
@@ -21,6 +29,8 @@ class AutoKioskScreen extends StatefulWidget {
     this.downloadPath,
     this.kioskId,
     this.menuFilename,
+    this.detectionMode = DetectionMode.camera, // Default to camera detection
+    this.idleTimeout = const Duration(seconds: 30),
   });
 
   @override
@@ -53,11 +63,16 @@ class _AutoKioskScreenState extends State<AutoKioskScreen> {
       _advertisementVideos = _allVideos;
     }
 
-    // Initialize presence detection service
-    // Using touch-based detection for now (can switch to camera later)
-    _presenceService = TouchPresenceDetectionService(
-      idleTimeout: const Duration(seconds: 30), // Return to idle after 30s of inactivity
-    );
+    // Initialize presence detection service based on detection mode
+    if (widget.detectionMode == DetectionMode.camera) {
+      print('[AUTO KIOSK] Using camera-based person detection');
+      _presenceService = CameraPresenceDetectionService();
+    } else {
+      print('[AUTO KIOSK] Using touch-based detection');
+      _presenceService = TouchPresenceDetectionService(
+        idleTimeout: widget.idleTimeout,
+      );
+    }
 
     // Listen to presence changes
     _presenceSubscription = _presenceService.presenceStream.listen((isPresent) {

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'person_detection_service.dart';
 
 /// Abstract service for detecting human presence
 /// Can be implemented with touch/mouse input, camera, or sensors
@@ -91,54 +92,61 @@ class TouchPresenceDetectionService extends PresenceDetectionService {
   }
 }
 
-/// Camera-based presence detection (placeholder for future implementation)
+/// Camera-based presence detection using ML person detection
 class CameraPresenceDetectionService extends PresenceDetectionService {
-  final StreamController<bool> _presenceController = StreamController<bool>.broadcast();
+  final PersonDetectionService _personDetectionService = PersonDetectionService();
+  StreamSubscription<bool>? _detectionSubscription;
   bool _isPresent = false;
-  Timer? _detectionTimer;
 
   @override
-  Stream<bool> get presenceStream => _presenceController.stream;
+  Stream<bool> get presenceStream => _personDetectionService.personDetectedStream;
 
   @override
   bool get isPresent => _isPresent;
 
   @override
   Future<void> start() async {
-    print('[PRESENCE] Camera-based detection started (not implemented yet)');
+    print('[PRESENCE] Camera-based detection starting...');
 
-    // TODO: Initialize camera
-    // TODO: Start face/person detection
-    // For now, just log that it's not implemented
+    try {
+      // Initialize and start person detection
+      await _personDetectionService.initialize();
+      await _personDetectionService.startDetection();
 
-    _updatePresence(false);
-  }
+      // Listen for person detection events
+      _detectionSubscription = _personDetectionService.personDetectedStream.listen((detected) {
+        _isPresent = detected;
+        print('[PRESENCE] Camera presence changed: $detected');
+      });
 
-  @override
-  Future<void> stop() async {
-    print('[PRESENCE] Camera-based detection stopped');
-    _detectionTimer?.cancel();
-    // TODO: Release camera resources
-    _updatePresence(false);
-  }
-
-  @override
-  void triggerPresence() {
-    // For camera mode, this might be used for manual override
-    _updatePresence(true);
-  }
-
-  void _updatePresence(bool present) {
-    if (_isPresent != present) {
-      _isPresent = present;
-      _presenceController.add(present);
-      print('[PRESENCE] Camera presence changed: $present');
+      print('[PRESENCE] Camera-based detection started successfully');
+    } catch (e) {
+      print('[PRESENCE] Error starting camera detection: $e');
+      rethrow;
     }
   }
 
   @override
+  Future<void> stop() async {
+    print('[PRESENCE] Camera-based detection stopping...');
+
+    await _detectionSubscription?.cancel();
+    await _personDetectionService.stopDetection();
+
+    _isPresent = false;
+    print('[PRESENCE] Camera-based detection stopped');
+  }
+
+  @override
+  void triggerPresence() {
+    // For camera mode, manual trigger is not typically used
+    // but can be used for testing or override
+    print('[PRESENCE] Manual trigger (camera mode) - no effect');
+  }
+
+  @override
   void dispose() {
-    _detectionTimer?.cancel();
-    _presenceController.close();
+    _detectionSubscription?.cancel();
+    _personDetectionService.dispose();
   }
 }
