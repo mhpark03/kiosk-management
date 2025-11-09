@@ -8,6 +8,7 @@ import '../models/video.dart';
 import '../models/coffee_order.dart';
 import '../widgets/coffee_kiosk_overlay.dart';
 import '../services/download_service.dart';
+import '../services/coffee_menu_service.dart';
 
 class KioskSplitScreen extends StatefulWidget {
   final List<Video> videos;
@@ -39,10 +40,12 @@ class _KioskSplitScreenState extends State<KioskSplitScreen> {
   Duration _position = Duration.zero;
   Duration _duration = Duration.zero;
   final DownloadService _downloadService = DownloadService();
+  final CoffeeMenuService _menuService = CoffeeMenuService();
 
   // Menu video playback
   bool _isPlayingMenuVideo = false;
   String? _currentActionType; // Track the action type (checkout, addToCart, etc.)
+  String? _currentCategoryId; // Track the current category ID
   String? _savedVideoPath;
   Duration _savedPosition = Duration.zero;
 
@@ -120,6 +123,10 @@ class _KioskSplitScreenState extends State<KioskSplitScreen> {
               // Checkout video completed, play main video from beginning
               print('[KIOSK SPLIT] Checkout video completed, playing main video');
               _playMainVideo();
+            } else if (_currentActionType == 'addToCart' || _currentActionType == 'cancelItem') {
+              // addToCart or cancelItem completed, play category video
+              print('[KIOSK SPLIT] $_currentActionType video completed, playing category video');
+              _playCategoryVideo();
             } else {
               // Other menu video completed, return to saved video
               print('[KIOSK SPLIT] Menu video completed, returning to saved video');
@@ -159,10 +166,10 @@ class _KioskSplitScreenState extends State<KioskSplitScreen> {
     await _initializeVideo();
   }
 
-  Future<void> _playMenuVideo(String videoPath, [String? actionType]) async {
+  Future<void> _playMenuVideo(String videoPath, [String? actionType, String? categoryId]) async {
     if (_player == null) return;
 
-    print('[KIOSK SPLIT] Playing menu video: $videoPath (action: $actionType)');
+    print('[KIOSK SPLIT] Playing menu video: $videoPath (action: $actionType, category: $categoryId)');
 
     try {
       // If already playing menu video, just switch to new menu video
@@ -181,6 +188,7 @@ class _KioskSplitScreenState extends State<KioskSplitScreen> {
 
       _isPlayingMenuVideo = true;
       _currentActionType = actionType; // Store the action type
+      _currentCategoryId = categoryId; // Store the category ID
 
       // Play menu video (this will stop current video if playing)
       await _player!.open(Media(videoPath));
@@ -191,6 +199,7 @@ class _KioskSplitScreenState extends State<KioskSplitScreen> {
       print('[KIOSK SPLIT] Error playing menu video: $e');
       _isPlayingMenuVideo = false;
       _currentActionType = null;
+      _currentCategoryId = null;
     }
   }
 
@@ -244,6 +253,50 @@ class _KioskSplitScreenState extends State<KioskSplitScreen> {
       print('[KIOSK SPLIT] Error playing main video: $e');
       _isPlayingMenuVideo = false;
       _currentActionType = null;
+    }
+  }
+
+  Future<void> _playCategoryVideo() async {
+    if (_player == null || _currentCategoryId == null || widget.downloadPath == null || widget.kioskId == null) return;
+
+    print('[KIOSK SPLIT] Playing category video for: $_currentCategoryId');
+
+    try {
+      // Get category video filename
+      final videoFilename = _menuService.getCategoryVideoFilename(_currentCategoryId!);
+      if (videoFilename == null || videoFilename.isEmpty) {
+        print('[KIOSK SPLIT] No video for category: $_currentCategoryId');
+        _returnToSavedVideo();
+        return;
+      }
+
+      // Build video path in menu folder or kiosk folder
+      String videoPath = '${widget.downloadPath}/${widget.kioskId}/menu/$videoFilename';
+      File videoFile = File(videoPath);
+
+      // If not found in menu folder, try kiosk folder
+      if (!videoFile.existsSync()) {
+        videoPath = '${widget.downloadPath}/${widget.kioskId}/$videoFilename';
+        videoFile = File(videoPath);
+      }
+
+      if (!videoFile.existsSync()) {
+        print('[KIOSK SPLIT] Category video file does not exist: $videoPath');
+        _returnToSavedVideo();
+        return;
+      }
+
+      print('[KIOSK SPLIT] Playing category video: $videoPath');
+
+      await _player!.open(Media(videoPath));
+      await _player!.play();
+
+      // Keep _isPlayingMenuVideo true, this is still a menu video
+      // Will return to saved video when this category video completes
+      print('[KIOSK SPLIT] Category video started playing');
+    } catch (e) {
+      print('[KIOSK SPLIT] Error playing category video: $e');
+      _returnToSavedVideo();
     }
   }
 
