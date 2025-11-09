@@ -18,6 +18,7 @@ export default function ImageEdit() {
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [imagePurpose, setImagePurpose] = useState('GENERAL');
 
   useEffect(() => {
     loadImage();
@@ -30,6 +31,7 @@ export default function ImageEdit() {
       setImage(data);
       setTitle(data.title || '');
       setDescription(data.description || '');
+      setImagePurpose(data.imagePurpose || 'GENERAL');
       setError('');
     } catch (err) {
       console.error('Failed to load image:', err);
@@ -53,7 +55,7 @@ export default function ImageEdit() {
     setSuccess('');
 
     try {
-      await videoService.updateImage(id, title, description);
+      await videoService.updateImage(id, title, description, imagePurpose);
       setSuccess('이미지 정보가 성공적으로 수정되었습니다.');
       setTimeout(() => {
         navigate('/images');
@@ -193,6 +195,53 @@ export default function ImageEdit() {
               onFocus={(e) => e.target.style.borderColor = '#667eea'}
               onBlur={(e) => e.target.style.borderColor = '#cbd5e0'}
             />
+          </div>
+
+          {/* Image Purpose */}
+          <div style={{marginBottom: '30px'}}>
+            <label style={{
+              display: 'block',
+              marginBottom: '8px',
+              fontWeight: '600',
+              color: '#2d3748',
+              fontSize: '15px'
+            }}>
+              이미지 종류 *
+            </label>
+            <select
+              value={imagePurpose}
+              onChange={(e) => setImagePurpose(e.target.value)}
+              required
+              style={{
+                width: '100%',
+                padding: '12px',
+                border: '1px solid #cbd5e0',
+                borderRadius: '6px',
+                fontSize: '14px',
+                backgroundColor: 'white',
+                cursor: 'pointer',
+                outline: 'none',
+                transition: 'border-color 0.2s'
+              }}
+              onFocus={(e) => e.target.style.borderColor = '#667eea'}
+              onBlur={(e) => e.target.style.borderColor = '#cbd5e0'}
+            >
+              <option value="GENERAL">일반 이미지</option>
+              <option value="REFERENCE">참조 이미지</option>
+              <option value="MENU">메뉴 이미지</option>
+            </select>
+            <div style={{
+              marginTop: '8px',
+              fontSize: '13px',
+              color: '#718096',
+              padding: '8px 12px',
+              backgroundColor: '#f7fafc',
+              borderRadius: '4px'
+            }}>
+              {imagePurpose === 'MENU' && '키오스크 커피 메뉴로 사용될 이미지입니다.'}
+              {imagePurpose === 'REFERENCE' && 'AI 이미지 생성 시 참조할 이미지입니다.'}
+              {imagePurpose === 'GENERAL' && '일반 용도의 이미지입니다.'}
+            </div>
           </div>
 
           {/* Action Buttons */}

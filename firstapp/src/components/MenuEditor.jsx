@@ -43,6 +43,11 @@ function MenuEditor() {
         // Load existing menu from S3
         const menuData = await menuService.getMenuById(id);
 
+        // Check if content exists
+        if (!menuData.content) {
+          throw new Error('메뉴 파일의 내용을 불러올 수 없습니다. 파일이 손상되었거나 접근할 수 없습니다.');
+        }
+
         // Fix XML content by escaping unescaped & characters in URLs and other places
         let xmlContent = menuData.content;
 

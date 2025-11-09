@@ -25,6 +25,7 @@ export default function ImageManagement() {
   const [uploadPreview, setUploadPreview] = useState(null);
   const [uploadTitle, setUploadTitle] = useState('');
   const [uploadDescription, setUploadDescription] = useState('');
+  const [uploadImagePurpose, setUploadImagePurpose] = useState('GENERAL');
   const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
@@ -109,6 +110,7 @@ export default function ImageManagement() {
     setUploadPreview(null);
     setUploadTitle('');
     setUploadDescription('');
+    setUploadImagePurpose('GENERAL');
     setError('');
   };
 
@@ -158,7 +160,8 @@ export default function ImageManagement() {
       const data = await videoService.uploadImage(
         uploadFile,
         uploadTitle || uploadFile.name,
-        uploadDescription
+        uploadDescription,
+        uploadImagePurpose
       );
 
       setSuccess(`이미지가 성공적으로 업로드되었습니다: ${data.video.title}`);
@@ -195,6 +198,15 @@ export default function ImageManagement() {
       return image.uploadedByName;
     }
     return '';
+  };
+
+  const getImagePurposeLabel = (purpose) => {
+    const purposeMap = {
+      'GENERAL': '일반',
+      'REFERENCE': '참조',
+      'MENU': '메뉴'
+    };
+    return purposeMap[purpose] || purpose || '-';
   };
 
   // Pagination logic
@@ -315,19 +327,20 @@ export default function ImageManagement() {
         <table className="store-table">
           <thead>
             <tr>
-              <th>ID</th>
-              <th>제목</th>
-              <th>설명</th>
-              <th>크기</th>
-              <th>등록일</th>
-              <th>등록자</th>
-              <th>작업</th>
+              <th style={{width: '60px'}}>ID</th>
+              <th style={{width: '200px'}}>제목</th>
+              <th style={{width: '250px'}}>설명</th>
+              <th style={{width: '80px'}}>종류</th>
+              <th style={{width: '80px'}}>크기</th>
+              <th style={{width: '120px'}}>등록일</th>
+              <th style={{width: '100px'}}>등록자</th>
+              <th style={{width: '150px'}}>작업</th>
             </tr>
           </thead>
           <tbody>
             {currentImages.length === 0 ? (
               <tr>
-                <td colSpan="7" className="no-data">생성된 이미지가 없습니다</td>
+                <td colSpan="8" className="no-data">생성된 이미지가 없습니다</td>
               </tr>
             ) : (
               currentImages.map((image) => (
@@ -355,6 +368,21 @@ export default function ImageManagement() {
                   </td>
                   <td style={{maxWidth: '250px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}>
                     {image.description || '-'}
+                  </td>
+                  <td style={{textAlign: 'center'}}>
+                    <span style={{
+                      display: 'inline-block',
+                      padding: '4px 12px',
+                      borderRadius: '12px',
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      backgroundColor: image.imagePurpose === 'MENU' ? '#ebf8ff' :
+                                       image.imagePurpose === 'REFERENCE' ? '#f0fff4' : '#f7fafc',
+                      color: image.imagePurpose === 'MENU' ? '#2b6cb0' :
+                             image.imagePurpose === 'REFERENCE' ? '#2f855a' : '#4a5568'
+                    }}>
+                      {getImagePurposeLabel(image.imagePurpose)}
+                    </span>
                   </td>
                   <td>{formatFileSize(image.fileSize)}</td>
                   <td>{formatKSTDate(image.uploadedAt)}</td>
@@ -590,6 +618,46 @@ export default function ImageManagement() {
                     resize: 'vertical'
                   }}
                 />
+              </div>
+
+              {/* Image Purpose Selection */}
+              <div style={{marginBottom: '20px'}}>
+                <label style={{
+                  display: 'block',
+                  marginBottom: '8px',
+                  fontWeight: '600',
+                  color: '#2d3748',
+                  fontSize: '15px'
+                }}>
+                  이미지 종류 *
+                </label>
+                <select
+                  value={uploadImagePurpose}
+                  onChange={(e) => setUploadImagePurpose(e.target.value)}
+                  disabled={uploading}
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    border: '1px solid #cbd5e0',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    backgroundColor: 'white',
+                    cursor: uploading ? 'not-allowed' : 'pointer'
+                  }}
+                >
+                  <option value="GENERAL">일반 이미지</option>
+                  <option value="REFERENCE">참조 이미지</option>
+                  <option value="MENU">메뉴 이미지</option>
+                </select>
+                <div style={{
+                  marginTop: '6px',
+                  fontSize: '12px',
+                  color: '#718096'
+                }}>
+                  {uploadImagePurpose === 'MENU' && '키오스크 커피 메뉴로 사용될 이미지입니다.'}
+                  {uploadImagePurpose === 'REFERENCE' && 'AI 이미지 생성 시 참조할 이미지입니다.'}
+                  {uploadImagePurpose === 'GENERAL' && '일반 용도의 이미지입니다.'}
+                </div>
               </div>
 
               {/* Action Buttons */}

@@ -228,12 +228,17 @@ export async function downloadImage(imageUrl, filename = 'generated-image.png') 
  * @param {string} imageUrl - Generated image URL
  * @param {string} title - Image title
  * @param {string} description - Image description
- * @param {object} metadata - Generation metadata
+ * @param {string} taskId - Runway task ID
+ * @param {string} resolution - Image resolution
+ * @param {string} prompt - Generation prompt
+ * @param {string} style - Image style
+ * @param {string} imagePurpose - Image purpose (GENERAL, REFERENCE, MENU)
  * @returns {Promise<object>} - Saved image information
  */
-export async function saveGeneratedImageToBackend(imageUrl, title, description, taskId, resolution, prompt, style) {
+export async function saveGeneratedImageToBackend(imageUrl, title, description, taskId, resolution, prompt, style, imagePurpose = 'GENERAL') {
   try {
     console.log('Saving generated image to backend...');
+    console.log('Image purpose:', imagePurpose);
 
     const response = await axios.post(
       `${API_BASE_URL}/videos/save-runway-image`,
@@ -244,7 +249,8 @@ export async function saveGeneratedImageToBackend(imageUrl, title, description, 
         runwayTaskId: taskId,
         runwayResolution: resolution,
         runwayPrompt: prompt,
-        imageStyle: style
+        imageStyle: style,
+        imagePurpose
       },
       {
         headers: {

@@ -540,6 +540,108 @@ public class VideoService {
     }
 
     /**
+     * Save Runway-generated image from URL to S3 and database
+     * @param imageUrl URL of the generated image
+     * @param uploadedById User ID who generated the image
+     * @param title Title of the image
+     * @param description Description of the image
+     * @param imagePurpose Purpose of the image (GENERAL, REFERENCE, MENU)
+     * @return Saved Video entity
+     */
+    @Transactional
+    public Video saveRunwayImage(String imageUrl, Long uploadedById, String title, String description, Video.ImagePurpose imagePurpose) throws IOException {
+        // Validate inputs
+        if (imageUrl == null || imageUrl.trim().isEmpty()) {
+            throw new IllegalArgumentException("Image URL is required");
+        }
+        if (title == null || title.trim().isEmpty()) {
+            throw new IllegalArgumentException("Title is required");
+        }
+
+        log.info("Downloading Runway-generated image from URL: {}", imageUrl);
+
+        // Download image from URL
+        byte[] imageBytes;
+        String contentType = "image/png"; // Default for Runway images
+        long fileSize;
+        try {
+            java.net.URL url = new java.net.URL(imageUrl);
+            java.net.HttpURLConnection connection = (java.net.HttpURLConnection) url.openConnection();
+            connection.setRequestMethod("GET");
+            connection.setConnectTimeout(30000); // 30 seconds
+            connection.setReadTimeout(30000);
+
+            int responseCode = connection.getResponseCode();
+            if (responseCode != 200) {
+                throw new IOException("Failed to download image from URL. HTTP status: " + responseCode);
+            }
+
+            // Get content type from response
+            String responseContentType = connection.getContentType();
+            if (responseContentType != null && !responseContentType.isEmpty()) {
+                contentType = responseContentType;
+            }
+
+            // Read image bytes
+            imageBytes = connection.getInputStream().readAllBytes();
+            fileSize = imageBytes.length;
+            connection.disconnect();
+
+            log.info("Image downloaded successfully: {} bytes, contentType: {}", fileSize, contentType);
+        } catch (Exception e) {
+            log.error("Failed to download image from URL: {}", imageUrl, e);
+            throw new IOException("Failed to download image from URL: " + e.getMessage());
+        }
+
+        // Generate filename
+        String timestamp = String.valueOf(System.currentTimeMillis());
+        String extension = contentType.contains("png") ? ".png" : ".jpg";
+        String filename = "runway_" + timestamp + extension;
+
+        // Upload image to S3
+        log.info("Uploading Runway image to S3...");
+        String s3Key = s3Service.uploadBytes(imageBytes, IMAGE_RUNWAY_FOLDER, filename, contentType);
+        String s3Url = s3Service.getFileUrl(s3Key);
+        log.info("Image uploaded to S3: {}", s3Key);
+
+        // For images, use the original image as thumbnail
+        String thumbnailFilename = filename.replace(extension, "_thumb" + extension);
+        String thumbnailS3Key = s3Service.uploadBytes(imageBytes, THUMBNAIL_RUNWAY_FOLDER, thumbnailFilename, contentType);
+        String thumbnailUrl = s3Service.getFileUrl(thumbnailS3Key);
+        log.info("Thumbnail uploaded to S3: {}", thumbnailS3Key);
+
+        // Save metadata to database with AI_GENERATED type
+        log.info("Saving Runway image metadata to database...");
+        Video.VideoBuilder videoBuilder = Video.builder()
+                .videoType(Video.VideoType.AI_GENERATED)
+                .mediaType(Video.MediaType.IMAGE)
+                .filename(truncate(filename, MAX_FILENAME_LENGTH))
+                .originalFilename(truncate(filename, MAX_FILENAME_LENGTH))
+                .fileSize(fileSize)
+                .contentType(contentType)
+                .s3Key(s3Key)
+                .s3Url(s3Url)
+                .thumbnailS3Key(thumbnailS3Key)
+                .thumbnailUrl(thumbnailUrl)
+                .uploadedById(uploadedById)
+                .title(truncate(title, MAX_TITLE_LENGTH))
+                .description(description != null ? description : ""); // TEXT column - no limit
+
+        // Set imagePurpose if provided, default to GENERAL
+        if (imagePurpose != null) {
+            videoBuilder.imagePurpose(imagePurpose);
+        } else {
+            videoBuilder.imagePurpose(Video.ImagePurpose.GENERAL);
+        }
+
+        Video video = videoBuilder.build();
+        Video savedVideo = videoRepository.save(video);
+        log.info("Runway image saved successfully: {} (ID: {}) by user ID {}", savedVideo.getFilename(), savedVideo.getId(), uploadedById);
+
+        return savedVideo;
+    }
+
+    /**
      * Get all videos ordered by upload date (newest first)
      * @return List of all videos
      */
@@ -687,7 +789,7 @@ public class VideoService {
      */
     @Transactional
     @CacheEvict(cacheNames = "videos", key = "#id")
-    public Video updateVideo(Long id, String title, String description, Long requestingUserId) {
+    public Video updateVideo(Long id, String title, String description, String imagePurpose, Long requestingUserId) {
         Video video = getVideoById(id);
 
         // Get requesting user
@@ -709,6 +811,14 @@ public class VideoService {
         if (description != null) {
             video.setDescription(description); // TEXT column - no limit
         }
+        if (imagePurpose != null) {
+            try {
+                Video.ImagePurpose purpose = Video.ImagePurpose.valueOf(imagePurpose);
+                video.setImagePurpose(purpose);
+            } catch (IllegalArgumentException e) {
+                log.warn("Invalid imagePurpose value: {}", imagePurpose);
+            }
+        }
         Video updatedVideo = videoRepository.save(video);
         log.info("Video updated: {} by user ID {}", id, requestingUserId);
 
@@ -726,7 +836,7 @@ public class VideoService {
     @Deprecated
     @Transactional
     public Video updateDescription(Long id, String description, Long requestingUserId) {
-        return updateVideo(id, null, description, requestingUserId);
+        return updateVideo(id, null, description, null, requestingUserId);
     }
 
     /**
@@ -1092,6 +1202,46 @@ public class VideoService {
      */
     public String getPresignedDownloadUrl(String s3Key) {
         return s3Service.generatePresignedUrl(s3Key, 60); // 60 minutes validity
+    }
+
+    /**
+     * Replace all S3 URLs in content with presigned URLs
+     * This is useful for XML menu files that contain S3 image URLs
+     * @param content Content with S3 URLs
+     * @param durationMinutes Duration in minutes for which the presigned URLs are valid
+     * @return Content with presigned URLs
+     */
+    public String replaceS3UrlsWithPresignedUrls(String content, int durationMinutes) {
+        if (content == null || content.isEmpty()) {
+            return content;
+        }
+
+        // Pattern to match S3 URLs in format: https://bucket.s3.region.amazonaws.com/key
+        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile(
+            "https://[^/]+\\.s3\\.[^/]+\\.amazonaws\\.com/([^<\\s\"']+)"
+        );
+        java.util.regex.Matcher matcher = pattern.matcher(content);
+
+        StringBuffer result = new StringBuffer();
+        while (matcher.find()) {
+            String s3Url = matcher.group(0);
+            String s3Key = matcher.group(1);
+
+            try {
+                // Generate presigned URL for this S3 key
+                String presignedUrl = s3Service.generatePresignedUrl(s3Key, durationMinutes);
+                // Replace the original URL with presigned URL
+                matcher.appendReplacement(result, java.util.regex.Matcher.quoteReplacement(presignedUrl));
+                log.debug("Replaced S3 URL with presigned URL: {} -> {}", s3Url, presignedUrl);
+            } catch (Exception e) {
+                log.warn("Failed to generate presigned URL for S3 key: {}, keeping original URL", s3Key, e);
+                // Keep the original URL if presigned URL generation fails
+                matcher.appendReplacement(result, java.util.regex.Matcher.quoteReplacement(s3Url));
+            }
+        }
+        matcher.appendTail(result);
+
+        return result.toString();
     }
 
 

@@ -17,6 +17,7 @@ function ImageGenerator() {
   const [prompt, setPrompt] = useState('');
   const [style, setStyle] = useState('anime');
   const [aspectRatio, setAspectRatio] = useState('1920:1080');
+  const [imagePurpose, setImagePurpose] = useState('GENERAL');
   const [loading, setLoading] = useState(false);
   const [generatedImage, setGeneratedImage] = useState(null);
   const [error, setError] = useState('');
@@ -41,6 +42,13 @@ function ImageGenerator() {
     { value: '1080:1920', label: '세로 (9:16)' },
     { value: '1440:1080', label: '가로 (4:3)' },
     { value: '1080:1440', label: '세로 (3:4)' }
+  ];
+
+  // Image purpose options
+  const imagePurposeOptions = [
+    { value: 'GENERAL', label: '일반 이미지' },
+    { value: 'REFERENCE', label: '참조 이미지' },
+    { value: 'MENU', label: '메뉴 이미지' }
   ];
 
   const adjustImageAspectRatio = (imgSrc) => {
@@ -265,7 +273,8 @@ function ImageGenerator() {
         generatedImage.taskId,
         generatedImage.metadata.aspectRatio,
         generatedImage.metadata.prompt,
-        generatedImage.metadata.style
+        generatedImage.metadata.style,
+        imagePurpose
       );
 
       alert('이미지가 성공적으로 저장되었습니다!');
@@ -429,6 +438,23 @@ function ImageGenerator() {
                 className="setting-select"
               >
                 {aspectRatioOptions.map(option => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Image Purpose Selection */}
+            <div className="setting-item">
+              <label>이미지 종류</label>
+              <select
+                value={imagePurpose}
+                onChange={(e) => setImagePurpose(e.target.value)}
+                disabled={loading}
+                className="setting-select"
+              >
+                {imagePurposeOptions.map(option => (
                   <option key={option.value} value={option.value}>
                     {option.label}
                   </option>

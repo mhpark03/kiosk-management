@@ -317,6 +317,10 @@ public class VideoController {
                 try {
                     byte[] fileBytes = videoService.downloadVideoFile(id);
                     String content = new String(fileBytes, java.nio.charset.StandardCharsets.UTF_8);
+
+                    // Replace S3 URLs in XML content with presigned URLs
+                    content = videoService.replaceS3UrlsWithPresignedUrls(content, 10080); // 7 days validity
+
                     response.put("content", content);
                 } catch (Exception e) {
                     log.warn("Failed to download XML content for video {}: {}", id, e.getMessage());
@@ -394,8 +398,9 @@ public class VideoController {
 
             String title = (String) request.get("title");
             String description = (String) request.get("description");
+            String imagePurpose = (String) request.get("imagePurpose");
 
-            Video updatedVideo = videoService.updateVideo(id, title, description, user.getId());
+            Video updatedVideo = videoService.updateVideo(id, title, description, imagePurpose, user.getId());
             return ResponseEntity.ok(Map.of("message", "Video updated successfully", "video", updatedVideo));
         } catch (RuntimeException e) {
             log.error("Failed to update video: {}", id, e);
@@ -675,6 +680,83 @@ public class VideoController {
             log.error("Failed to update menu with migration", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "Failed to update menu: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Save Runway-generated image from URL to S3 and database
+     * POST /api/videos/save-runway-image
+     */
+    @PostMapping("/save-runway-image")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> saveRunwayImage(
+            @RequestBody Map<String, Object> request,
+            Authentication authentication) {
+        try {
+            String userEmail = extractUserEmail(authentication);
+            User user = userRepository.findByEmail(userEmail)
+                    .orElseThrow(() -> new RuntimeException("User not found: " + userEmail));
+
+            // Extract parameters from request
+            String imageUrl = (String) request.get("imageUrl");
+            String title = (String) request.get("title");
+            String description = (String) request.get("description");
+            String imagePurposeStr = (String) request.get("imagePurpose");
+
+            // Validate required parameters
+            if (imageUrl == null || imageUrl.trim().isEmpty()) {
+                return ResponseEntity.badRequest()
+                        .body(Map.of("error", "Image URL is required"));
+            }
+            if (title == null || title.trim().isEmpty()) {
+                return ResponseEntity.badRequest()
+                        .body(Map.of("error", "Title is required"));
+            }
+
+            // Parse imagePurpose if provided
+            Video.ImagePurpose imagePurpose = null;
+            if (imagePurposeStr != null && !imagePurposeStr.trim().isEmpty()) {
+                try {
+                    imagePurpose = Video.ImagePurpose.valueOf(imagePurposeStr.toUpperCase());
+                } catch (IllegalArgumentException e) {
+                    return ResponseEntity.badRequest()
+                            .body(Map.of("error", "Invalid image purpose. Use GENERAL, REFERENCE, or MENU"));
+                }
+            }
+
+            log.info("Saving Runway image: imageUrl={}, title={}, imagePurpose={}",
+                    imageUrl, title, imagePurpose);
+
+            // Save image to S3 and database
+            Video savedVideo = videoService.saveRunwayImage(
+                    imageUrl,
+                    user.getId(),
+                    title,
+                    description,
+                    imagePurpose
+            );
+
+            log.info("Runway image saved successfully: id={}, title={}",
+                    savedVideo.getId(), savedVideo.getTitle());
+
+            // Return response
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", "Image saved successfully");
+            response.put("id", savedVideo.getId());
+            response.put("title", savedVideo.getTitle());
+            response.put("s3Url", savedVideo.getS3Url());
+            response.put("thumbnailUrl", savedVideo.getThumbnailUrl());
+            response.put("video", savedVideo);
+
+            return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        } catch (IllegalArgumentException e) {
+            log.error("Invalid request for save-runway-image: {}", e.getMessage());
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            log.error("Failed to save Runway image", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to save image: " + e.getMessage()));
         }
     }
 

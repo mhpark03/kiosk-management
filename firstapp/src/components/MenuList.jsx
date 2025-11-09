@@ -31,8 +31,14 @@ function MenuList() {
       setLoading(true);
       const s3Menus = await menuService.getMenusFromS3();
 
+      // Filter only XML files (menu configuration files)
+      const xmlMenus = s3Menus.filter(s3File =>
+        s3File.fileType === 'XML' ||
+        s3File.originalFilename?.toLowerCase().endsWith('.xml')
+      );
+
       // Transform S3 response to menu format
-      const transformedMenus = s3Menus.map(s3File => ({
+      const transformedMenus = xmlMenus.map(s3File => ({
         id: s3File.id.toString(),
         name: s3File.title,
         version: '1.0.0', // Extract from description or default
@@ -40,6 +46,7 @@ function MenuList() {
         s3Key: s3File.s3Key,
         description: s3File.description,
         originalFilename: s3File.originalFilename,
+        fileType: s3File.fileType,
         // We'll load full menu data when editing
         categories: [],
         menuItems: [],
@@ -297,8 +304,8 @@ function MenuList() {
           <thead>
             <tr>
               <th style={{width: '80px', textAlign: 'center'}}>순서</th>
-              <th>메뉴 이름</th>
-              <th style={{width: '350px'}}>설명</th>
+              <th style={{width: '200px'}}>메뉴 이름</th>
+              <th>설명</th>
               <th style={{width: '200px'}}>수정일</th>
               <th style={{width: '150px', textAlign: 'center'}}>작업</th>
             </tr>

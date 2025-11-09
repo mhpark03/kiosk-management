@@ -228,11 +228,12 @@ export const videoService = {
   },
 
   // Update video title and/or description
-  async updateVideo(id, title, description) {
+  async updateVideo(id, title, description, imagePurpose) {
     try {
       const data = {};
       if (title !== undefined) data.title = title;
       if (description !== undefined) data.description = description;
+      if (imagePurpose !== undefined) data.imagePurpose = imagePurpose;
 
       const response = await api.patch(`/videos/${id}`, data);
       return response.data;
@@ -248,8 +249,8 @@ export const videoService = {
   },
 
   // Update image title and/or description (alias for updateVideo)
-  async updateImage(id, title, description) {
-    return this.updateVideo(id, title, description);
+  async updateImage(id, title, description, imagePurpose) {
+    return this.updateVideo(id, title, description, imagePurpose);
   },
 
   // Update video downloadable flag
