@@ -15,7 +15,7 @@ import '../widgets/coffee_kiosk_overlay.dart';
 import 'settings_screen.dart';
 import 'login_screen.dart';
 import 'video_player_screen.dart';
-import 'kiosk_split_screen.dart';
+import 'auto_kiosk_screen.dart';
 
 class VideoListScreen extends StatefulWidget {
   final ApiService apiService;
@@ -2095,13 +2095,12 @@ class _VideoListScreenState extends State<VideoListScreen> {
             });
 
             try {
-              // Enter fullscreen mode and navigate to split screen
-              await windowManager.setFullScreen(true);
+              // Enter auto kiosk screen (idle mode -> kiosk mode)
               if (mounted) {
                 final config = widget.storageService.getConfig();
                 await Navigator.of(context).push(
                   MaterialPageRoute(
-                    builder: (_) => KioskSplitScreen(
+                    builder: (_) => AutoKioskScreen(
                       videos: availableVideos,
                       downloadPath: config?.downloadPath,
                       kioskId: config?.kioskId,
@@ -2109,8 +2108,6 @@ class _VideoListScreenState extends State<VideoListScreen> {
                     ),
                   ),
                 );
-                // When returning from kiosk screen, ensure we're not in fullscreen
-                await windowManager.setFullScreen(false);
               }
             } finally {
               // Clear navigation flag
