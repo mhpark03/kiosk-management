@@ -640,6 +640,52 @@ class _CoffeeKioskOverlayState extends State<CoffeeKioskOverlay> {
     widget.onPlayMenuVideo!(videoPath);
   }
 
+  /// Play action video (addToCart or checkout)
+  void _playActionVideo(String actionType) {
+    String? videoFilename;
+
+    if (actionType == 'addToCart') {
+      videoFilename = _menuService.getAddToCartVideoFilename();
+    } else if (actionType == 'checkout') {
+      videoFilename = _menuService.getCheckoutVideoFilename();
+    }
+
+    if (videoFilename == null || videoFilename.isEmpty) {
+      print('[ACTION VIDEO] No video for action: $actionType');
+      return;
+    }
+
+    if (widget.downloadPath == null || widget.kioskId == null) {
+      print('[ACTION VIDEO] Cannot play video: downloadPath or kioskId is null');
+      return;
+    }
+
+    if (widget.onPlayMenuVideo == null) {
+      print('[ACTION VIDEO] onPlayMenuVideo callback is null');
+      return;
+    }
+
+    // Build video path in menu folder or kiosk folder
+    // Try menu folder first
+    String videoPath = '${widget.downloadPath}/${widget.kioskId}/menu/$videoFilename';
+    File videoFile = File(videoPath);
+
+    // If not found in menu folder, try kiosk folder
+    if (!videoFile.existsSync()) {
+      videoPath = '${widget.downloadPath}/${widget.kioskId}/$videoFilename';
+      videoFile = File(videoPath);
+    }
+
+    if (!videoFile.existsSync()) {
+      print('[ACTION VIDEO] Video file does not exist: $videoPath');
+      return;
+    }
+
+    print('[ACTION VIDEO] Playing $actionType video: $videoPath');
+    // Call callback to play video on left screen
+    widget.onPlayMenuVideo!(videoPath);
+  }
+
   void _showItemOptionsDialog(CoffeeMenuItem item) {
     // Reset options
     _selectedSize = 'medium';
@@ -749,6 +795,9 @@ class _CoffeeKioskOverlayState extends State<CoffeeKioskOverlay> {
         quantity: 1,
       ));
     });
+
+    // Play add to cart action video if available
+    _playActionVideo('addToCart');
 
     // Show snackbar
     ScaffoldMessenger.of(context).showSnackBar(
@@ -1038,6 +1087,9 @@ class _CoffeeKioskOverlayState extends State<CoffeeKioskOverlay> {
   }
 
   void _completeOrder() {
+    // Play checkout action video if available
+    _playActionVideo('checkout');
+
     final order = CoffeeOrder(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       items: List.from(_cartItems),

@@ -5,12 +5,14 @@ class MenuConfig {
   final List<MenuCategory> categories;
   final List<MenuItem> menuItems;
   final MenuOptions options;
+  final MenuActions? actions;  // Optional action videos
 
   MenuConfig({
     required this.metadata,
     required this.categories,
     required this.menuItems,
     required this.options,
+    this.actions,
   });
 }
 
@@ -139,5 +141,25 @@ class ExtraOption {
     required this.name,
     required this.nameEn,
     this.additionalPrice = 0,
+  });
+}
+
+class MenuActions {
+  final ActionVideo? addToCart;    // Video for adding item to cart
+  final ActionVideo? checkout;      // Video for checkout/payment
+
+  MenuActions({
+    this.addToCart,
+    this.checkout,
+  });
+}
+
+class ActionVideo {
+  final String? videoId;
+  final String? videoFilename;
+
+  ActionVideo({
+    this.videoId,
+    this.videoFilename,
   });
 }

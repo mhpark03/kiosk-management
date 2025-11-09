@@ -7,11 +7,16 @@ class XmlMenuParser {
     final document = XmlDocument.parse(xmlContent);
     final root = document.rootElement;
 
+    // Parse actions if present
+    final actionsElements = root.findElements('actions');
+    final actions = actionsElements.isNotEmpty ? _parseActions(actionsElements.first) : null;
+
     return MenuConfig(
       metadata: _parseMetadata(root.findElements('metadata').first),
       categories: _parseCategories(root.findElements('categories').first),
       menuItems: _parseMenuItems(root.findElements('menuItems').first),
       options: _parseOptions(root.findElements('options').first),
+      actions: actions,
     );
   }
 
@@ -96,6 +101,36 @@ class XmlMenuParser {
           additionalPrice: int.parse(extraElement.getAttribute('additionalPrice') ?? '0'),
         );
       }).toList(),
+    );
+  }
+
+  static MenuActions _parseActions(XmlElement element) {
+    ActionVideo? addToCart;
+    ActionVideo? checkout;
+
+    // Parse addToCart action
+    final addToCartElements = element.findElements('addToCart');
+    if (addToCartElements.isNotEmpty) {
+      final addToCartElement = addToCartElements.first;
+      addToCart = ActionVideo(
+        videoId: addToCartElement.getAttribute('videoId'),
+        videoFilename: addToCartElement.getAttribute('videoFilename'),
+      );
+    }
+
+    // Parse checkout action
+    final checkoutElements = element.findElements('checkout');
+    if (checkoutElements.isNotEmpty) {
+      final checkoutElement = checkoutElements.first;
+      checkout = ActionVideo(
+        videoId: checkoutElement.getAttribute('videoId'),
+        videoFilename: checkoutElement.getAttribute('videoFilename'),
+      );
+    }
+
+    return MenuActions(
+      addToCart: addToCart,
+      checkout: checkout,
     );
   }
 }

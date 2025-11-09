@@ -153,6 +153,28 @@ function MenuEditor() {
       additionalPrice: parseInt(extra.getAttribute('additionalPrice') || '0'),
     }));
 
+    // Parse actions if present
+    let actions = null;
+    const actionsElement = xmlDoc.getElementsByTagName('actions')[0];
+    if (actionsElement) {
+      const addToCartElement = actionsElement.getElementsByTagName('addToCart')[0];
+      const checkoutElement = actionsElement.getElementsByTagName('checkout')[0];
+
+      actions = {};
+      if (addToCartElement) {
+        actions.addToCart = {
+          videoId: addToCartElement.getAttribute('videoId') || null,
+          videoFilename: addToCartElement.getAttribute('videoFilename') || null,
+        };
+      }
+      if (checkoutElement) {
+        actions.checkout = {
+          videoId: checkoutElement.getAttribute('videoId') || null,
+          videoFilename: checkoutElement.getAttribute('videoFilename') || null,
+        };
+      }
+    }
+
     return {
       name,
       version,
@@ -163,6 +185,7 @@ function MenuEditor() {
       categories,
       menuItems,
       options: { sizes, temperatures, extras },
+      actions,
     };
   };
 
@@ -333,7 +356,33 @@ function MenuEditor() {
       xml += `      <extra id="${escapeXML(extra.id)}" name="${escapeXML(extra.name)}" nameEn="${escapeXML(extra.nameEn)}" additionalPrice="${extra.additionalPrice}" />\n`;
     });
     xml += '    </extras>\n';
-    xml += '  </options>\n';
+    xml += '  </options>\n\n';
+
+    // Actions
+    if (menu.actions) {
+      xml += '  <actions>\n';
+      if (menu.actions.addToCart) {
+        xml += `    <addToCart`;
+        if (menu.actions.addToCart.videoId) {
+          xml += ` videoId="${escapeXML(menu.actions.addToCart.videoId)}"`;
+        }
+        if (menu.actions.addToCart.videoFilename) {
+          xml += ` videoFilename="${escapeXML(menu.actions.addToCart.videoFilename)}"`;
+        }
+        xml += ` />\n`;
+      }
+      if (menu.actions.checkout) {
+        xml += `    <checkout`;
+        if (menu.actions.checkout.videoId) {
+          xml += ` videoId="${escapeXML(menu.actions.checkout.videoId)}"`;
+        }
+        if (menu.actions.checkout.videoFilename) {
+          xml += ` videoFilename="${escapeXML(menu.actions.checkout.videoFilename)}"`;
+        }
+        xml += ` />\n`;
+      }
+      xml += '  </actions>\n\n';
+    }
 
     xml += '</kioskMenu>';
     return xml;
@@ -605,13 +654,20 @@ function MenuInfoEditor({ menu, onUpdate }) {
     description: menu.description || '',
     videoId: menu.videoId || null,
     videoFilename: menu.videoFilename || null,
-    videoUrl: menu.videoUrl || null
+    videoUrl: menu.videoUrl || null,
+    actions: menu.actions || { addToCart: null, checkout: null }
   });
   const [videos, setVideos] = useState([]);
   const [showVideoSelector, setShowVideoSelector] = useState(false);
+  const [showAddToCartVideoSelector, setShowAddToCartVideoSelector] = useState(false);
+  const [showCheckoutVideoSelector, setShowCheckoutVideoSelector] = useState(false);
   const [loadingVideos, setLoadingVideos] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [currentAddToCartPage, setCurrentAddToCartPage] = useState(1);
+  const [currentCheckoutPage, setCurrentCheckoutPage] = useState(1);
   const [currentVideoUrl, setCurrentVideoUrl] = useState(menu.videoUrl);
+  const [currentAddToCartVideoUrl, setCurrentAddToCartVideoUrl] = useState(menu.actions?.addToCart?.videoUrl);
+  const [currentCheckoutVideoUrl, setCurrentCheckoutVideoUrl] = useState(menu.actions?.checkout?.videoUrl);
   const videosPerPage = 10;
 
   // Update formData when menu prop changes
@@ -621,7 +677,8 @@ function MenuInfoEditor({ menu, onUpdate }) {
       description: menu.description || '',
       videoId: menu.videoId || null,
       videoFilename: menu.videoFilename || null,
-      videoUrl: menu.videoUrl || null
+      videoUrl: menu.videoUrl || null,
+      actions: menu.actions || { addToCart: null, checkout: null }
     });
   }, [menu]);
 
@@ -646,12 +703,54 @@ function MenuInfoEditor({ menu, onUpdate }) {
     loadVideoUrl();
   }, [formData.videoId]);
 
+  // Load fresh presigned URL for addToCart video if videoId exists
+  useEffect(() => {
+    const loadAddToCartVideoUrl = async () => {
+      if (formData.actions?.addToCart?.videoId) {
+        try {
+          const presignedData = await videoService.getPresignedUrl(formData.actions.addToCart.videoId, 60);
+          const presignedUrl = presignedData.url || presignedData.presignedUrl || presignedData;
+          setCurrentAddToCartVideoUrl(presignedUrl);
+          console.log(`[ADD TO CART VIDEO] Loaded fresh presigned URL for videoId ${formData.actions.addToCart.videoId}`);
+        } catch (error) {
+          console.error(`Failed to get presigned URL for addToCart videoId:`, error);
+          setCurrentAddToCartVideoUrl(null);
+        }
+      } else {
+        setCurrentAddToCartVideoUrl(formData.actions?.addToCart?.videoUrl);
+      }
+    };
+
+    loadAddToCartVideoUrl();
+  }, [formData.actions?.addToCart?.videoId]);
+
+  // Load fresh presigned URL for checkout video if videoId exists
+  useEffect(() => {
+    const loadCheckoutVideoUrl = async () => {
+      if (formData.actions?.checkout?.videoId) {
+        try {
+          const presignedData = await videoService.getPresignedUrl(formData.actions.checkout.videoId, 60);
+          const presignedUrl = presignedData.url || presignedData.presignedUrl || presignedData;
+          setCurrentCheckoutVideoUrl(presignedUrl);
+          console.log(`[CHECKOUT VIDEO] Loaded fresh presigned URL for videoId ${formData.actions.checkout.videoId}`);
+        } catch (error) {
+          console.error(`Failed to get presigned URL for checkout videoId:`, error);
+          setCurrentCheckoutVideoUrl(null);
+        }
+      } else {
+        setCurrentCheckoutVideoUrl(formData.actions?.checkout?.videoUrl);
+      }
+    };
+
+    loadCheckoutVideoUrl();
+  }, [formData.actions?.checkout?.videoId]);
+
   // Load videos from S3
   useEffect(() => {
-    if (showVideoSelector && videos.length === 0) {
+    if ((showVideoSelector || showAddToCartVideoSelector || showCheckoutVideoSelector) && videos.length === 0) {
       loadVideos();
     }
-  }, [showVideoSelector]);
+  }, [showVideoSelector, showAddToCartVideoSelector, showCheckoutVideoSelector]);
 
   const loadVideos = async () => {
     try {
@@ -710,7 +809,39 @@ function MenuInfoEditor({ menu, onUpdate }) {
     setCurrentPage(1);
   };
 
-  // Pagination logic
+  const handleSelectAddToCartVideo = (video) => {
+    const updatedActions = {
+      ...(formData.actions || {}),
+      addToCart: {
+        videoUrl: video.presignedUrl,
+        videoId: String(video.id),
+        videoFilename: video.originalFilename
+      }
+    };
+    const updated = { ...menu, actions: updatedActions };
+    setFormData({ ...formData, actions: updatedActions });
+    onUpdate(updated);
+    setShowAddToCartVideoSelector(false);
+    setCurrentAddToCartPage(1);
+  };
+
+  const handleSelectCheckoutVideo = (video) => {
+    const updatedActions = {
+      ...(formData.actions || {}),
+      checkout: {
+        videoUrl: video.presignedUrl,
+        videoId: String(video.id),
+        videoFilename: video.originalFilename
+      }
+    };
+    const updated = { ...menu, actions: updatedActions };
+    setFormData({ ...formData, actions: updatedActions });
+    onUpdate(updated);
+    setShowCheckoutVideoSelector(false);
+    setCurrentCheckoutPage(1);
+  };
+
+  // Pagination logic for main video selector
   const totalPages = Math.ceil(videos.length / videosPerPage);
   const indexOfLastVideo = currentPage * videosPerPage;
   const indexOfFirstVideo = indexOfLastVideo - videosPerPage;
@@ -718,6 +849,26 @@ function MenuInfoEditor({ menu, onUpdate }) {
 
   const handlePageChange = (pageNumber) => {
     setCurrentPage(pageNumber);
+  };
+
+  // Pagination logic for addToCart video selector
+  const totalAddToCartPages = Math.ceil(videos.length / videosPerPage);
+  const indexOfLastAddToCartVideo = currentAddToCartPage * videosPerPage;
+  const indexOfFirstAddToCartVideo = indexOfLastAddToCartVideo - videosPerPage;
+  const currentAddToCartVideos = videos.slice(indexOfFirstAddToCartVideo, indexOfLastAddToCartVideo);
+
+  const handleAddToCartPageChange = (pageNumber) => {
+    setCurrentAddToCartPage(pageNumber);
+  };
+
+  // Pagination logic for checkout video selector
+  const totalCheckoutPages = Math.ceil(videos.length / videosPerPage);
+  const indexOfLastCheckoutVideo = currentCheckoutPage * videosPerPage;
+  const indexOfFirstCheckoutVideo = indexOfLastCheckoutVideo - videosPerPage;
+  const currentCheckoutVideos = videos.slice(indexOfFirstCheckoutVideo, indexOfLastCheckoutVideo);
+
+  const handleCheckoutPageChange = (pageNumber) => {
+    setCurrentCheckoutPage(pageNumber);
   };
 
   return (
@@ -743,61 +894,214 @@ function MenuInfoEditor({ menu, onUpdate }) {
       </div>
 
       <div className="form-group">
-        <label>메뉴 영상</label>
-        <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexDirection: 'column' }}>
-          {currentVideoUrl && (
-            <video
-              src={currentVideoUrl}
-              controls
-              style={{
-                width: '100%',
-                maxWidth: '400px',
-                borderRadius: '6px',
-                border: '2px solid #e2e8f0'
-              }}
-            />
-          )}
-          <div style={{ display: 'flex', gap: '10px' }}>
-            <button
-              type="button"
-              onClick={() => setShowVideoSelector(true)}
-              style={{
-                padding: '10px 20px',
-                backgroundColor: '#667eea',
-                color: 'white',
-                border: 'none',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                fontSize: '14px',
-                fontWeight: '500'
-              }}
-            >
-              {currentVideoUrl ? '영상 변경' : '영상 선택'}
-            </button>
-            {currentVideoUrl && (
-              <button
-                type="button"
-                onClick={() => {
-                  const updated = { ...menu, videoUrl: null, videoId: null, videoFilename: null };
-                  setFormData({ ...formData, videoUrl: null, videoId: null, videoFilename: null });
-                  onUpdate(updated);
-                  setCurrentVideoUrl(null);
-                }}
-                style={{
-                  padding: '10px 20px',
-                  backgroundColor: '#e53e3e',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  fontSize: '14px'
-                }}
-              >
-                영상 제거
-              </button>
-            )}
-          </div>
-        </div>
+        <label>메뉴 영상 설정</label>
+        <table style={{
+          width: '100%',
+          borderCollapse: 'collapse',
+          border: '1px solid #e2e8f0',
+          borderRadius: '6px',
+          overflow: 'hidden'
+        }}>
+          <thead>
+            <tr style={{ backgroundColor: '#f7fafc' }}>
+              <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #e2e8f0', width: '150px' }}>영상 타입</th>
+              <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #e2e8f0' }}>미리보기</th>
+              <th style={{ padding: '12px', textAlign: 'center', borderBottom: '1px solid #e2e8f0', width: '200px' }}>작업</th>
+            </tr>
+          </thead>
+          <tbody>
+            {/* 메인 영상 */}
+            <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
+              <td style={{ padding: '12px', fontWeight: '500' }}>메인 영상</td>
+              <td style={{ padding: '12px' }}>
+                {currentVideoUrl ? (
+                  <video
+                    src={currentVideoUrl}
+                    controls
+                    style={{
+                      width: '100%',
+                      maxWidth: '300px',
+                      borderRadius: '4px',
+                      border: '1px solid #e2e8f0'
+                    }}
+                  />
+                ) : (
+                  <span style={{ color: '#a0aec0', fontSize: '14px' }}>선택된 영상 없음</span>
+                )}
+              </td>
+              <td style={{ padding: '12px', textAlign: 'center' }}>
+                <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                  <button
+                    type="button"
+                    onClick={() => setShowVideoSelector(true)}
+                    style={{
+                      padding: '8px 16px',
+                      backgroundColor: '#667eea',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '13px',
+                      fontWeight: '500'
+                    }}
+                  >
+                    {currentVideoUrl ? '변경' : '선택'}
+                  </button>
+                  {currentVideoUrl && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const updated = { ...menu, videoUrl: null, videoId: null, videoFilename: null };
+                        setFormData({ ...formData, videoUrl: null, videoId: null, videoFilename: null });
+                        onUpdate(updated);
+                        setCurrentVideoUrl(null);
+                      }}
+                      style={{
+                        padding: '8px 16px',
+                        backgroundColor: '#e53e3e',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '13px'
+                      }}
+                    >
+                      제거
+                    </button>
+                  )}
+                </div>
+              </td>
+            </tr>
+
+            {/* 장바구니 추가 영상 */}
+            <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
+              <td style={{ padding: '12px', fontWeight: '500' }}>장바구니 추가</td>
+              <td style={{ padding: '12px' }}>
+                {currentAddToCartVideoUrl ? (
+                  <video
+                    src={currentAddToCartVideoUrl}
+                    controls
+                    style={{
+                      width: '100%',
+                      maxWidth: '300px',
+                      borderRadius: '4px',
+                      border: '1px solid #e2e8f0'
+                    }}
+                  />
+                ) : (
+                  <span style={{ color: '#a0aec0', fontSize: '14px' }}>선택된 영상 없음</span>
+                )}
+              </td>
+              <td style={{ padding: '12px', textAlign: 'center' }}>
+                <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                  <button
+                    type="button"
+                    onClick={() => setShowAddToCartVideoSelector(true)}
+                    style={{
+                      padding: '8px 16px',
+                      backgroundColor: '#667eea',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '13px',
+                      fontWeight: '500'
+                    }}
+                  >
+                    {currentAddToCartVideoUrl ? '변경' : '선택'}
+                  </button>
+                  {currentAddToCartVideoUrl && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const updatedActions = { ...(formData.actions || {}), addToCart: null };
+                        const updated = { ...menu, actions: updatedActions };
+                        setFormData({ ...formData, actions: updatedActions });
+                        onUpdate(updated);
+                        setCurrentAddToCartVideoUrl(null);
+                      }}
+                      style={{
+                        padding: '8px 16px',
+                        backgroundColor: '#e53e3e',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '13px'
+                      }}
+                    >
+                      제거
+                    </button>
+                  )}
+                </div>
+              </td>
+            </tr>
+
+            {/* 결제하기 영상 */}
+            <tr>
+              <td style={{ padding: '12px', fontWeight: '500' }}>결제하기</td>
+              <td style={{ padding: '12px' }}>
+                {currentCheckoutVideoUrl ? (
+                  <video
+                    src={currentCheckoutVideoUrl}
+                    controls
+                    style={{
+                      width: '100%',
+                      maxWidth: '300px',
+                      borderRadius: '4px',
+                      border: '1px solid #e2e8f0'
+                    }}
+                  />
+                ) : (
+                  <span style={{ color: '#a0aec0', fontSize: '14px' }}>선택된 영상 없음</span>
+                )}
+              </td>
+              <td style={{ padding: '12px', textAlign: 'center' }}>
+                <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                  <button
+                    type="button"
+                    onClick={() => setShowCheckoutVideoSelector(true)}
+                    style={{
+                      padding: '8px 16px',
+                      backgroundColor: '#667eea',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '13px',
+                      fontWeight: '500'
+                    }}
+                  >
+                    {currentCheckoutVideoUrl ? '변경' : '선택'}
+                  </button>
+                  {currentCheckoutVideoUrl && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const updatedActions = { ...(formData.actions || {}), checkout: null };
+                        const updated = { ...menu, actions: updatedActions };
+                        setFormData({ ...formData, actions: updatedActions });
+                        onUpdate(updated);
+                        setCurrentCheckoutVideoUrl(null);
+                      }}
+                      style={{
+                        padding: '8px 16px',
+                        backgroundColor: '#e53e3e',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '13px'
+                      }}
+                    >
+                      제거
+                    </button>
+                  )}
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
 
         {/* Video Selector Modal */}
         {showVideoSelector && (
@@ -1070,6 +1374,310 @@ function MenuInfoEditor({ menu, onUpdate }) {
                       color: '#718096'
                     }}>
                       전체 {videos.length}개 영상 {totalPages > 1 && `(${currentPage} / ${totalPages} 페이지)`}
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Add to Cart Video Selector Modal */}
+        {showAddToCartVideoSelector && (
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1001
+          }}>
+            <div style={{
+              backgroundColor: 'white',
+              borderRadius: '12px',
+              width: '90%',
+              maxWidth: '800px',
+              maxHeight: '80vh',
+              display: 'flex',
+              flexDirection: 'column',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
+            }}>
+              <div style={{
+                padding: '20px 24px',
+                borderBottom: '1px solid #e2e8f0',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center'
+              }}>
+                <h3 style={{ margin: 0, fontSize: '20px', fontWeight: '600', color: '#2d3748' }}>
+                  장바구니 추가 영상 선택
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => { setShowAddToCartVideoSelector(false); setCurrentAddToCartPage(1); }}
+                  style={{
+                    padding: '8px 16px',
+                    backgroundColor: '#cbd5e0',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    fontWeight: '500'
+                  }}
+                >
+                  닫기
+                </button>
+              </div>
+              <div style={{
+                flex: 1,
+                overflowY: 'auto',
+                padding: '20px 24px'
+              }}>
+                {loadingVideos ? (
+                  <div style={{ textAlign: 'center', padding: '40px', color: '#718096' }}>
+                    영상 목록을 불러오는 중...
+                  </div>
+                ) : videos.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '40px', color: '#718096' }}>
+                    등록된 영상이 없습니다.<br />
+                    영상 관리 페이지에서 영상을 업로드하세요.
+                  </div>
+                ) : (
+                  <>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      {currentAddToCartVideos.map((video, index) => (
+                        <div
+                          key={video.id}
+                          onClick={() => handleSelectAddToCartVideo(video)}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '12px',
+                            padding: '10px',
+                            border: formData.actions?.addToCart?.videoUrl === video.presignedUrl ? '2px solid #667eea' : '1px solid #e2e8f0',
+                            borderRadius: '6px',
+                            backgroundColor: formData.actions?.addToCart?.videoUrl === video.presignedUrl ? '#eef2ff' : 'white',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s',
+                            minHeight: '60px'
+                          }}
+                          onMouseEnter={(e) => {
+                            if (formData.actions?.addToCart?.videoUrl !== video.presignedUrl) {
+                              e.currentTarget.style.backgroundColor = '#f7fafc';
+                              e.currentTarget.style.borderColor = '#a0aec0';
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (formData.actions?.addToCart?.videoUrl !== video.presignedUrl) {
+                              e.currentTarget.style.backgroundColor = 'white';
+                              e.currentTarget.style.borderColor = '#e2e8f0';
+                            }
+                          }}
+                        >
+                          <div style={{ width: '25px', textAlign: 'center', fontWeight: '600', color: '#718096', fontSize: '13px', flexShrink: 0 }}>
+                            {indexOfFirstAddToCartVideo + index + 1}
+                          </div>
+                          <div style={{ width: '50px', height: '50px', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#edf2f7', borderRadius: '4px', border: '1px solid #e2e8f0', fontSize: '24px', flexShrink: 0 }}>
+                            🎬
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontWeight: '600', fontSize: '14px', color: '#2d3748' }}>
+                              {video.title}
+                            </div>
+                          </div>
+                          {formData.actions?.addToCart?.videoUrl === video.presignedUrl && (
+                            <div style={{ padding: '4px 10px', backgroundColor: '#667eea', color: 'white', borderRadius: '4px', fontSize: '11px', fontWeight: '600', flexShrink: 0 }}>
+                              선택됨
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    {totalAddToCartPages > 1 && (
+                      <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
+                        <button
+                          onClick={() => handleAddToCartPageChange(currentAddToCartPage - 1)}
+                          disabled={currentAddToCartPage === 1}
+                          style={{ padding: '8px 16px', border: '1px solid #cbd5e0', borderRadius: '6px', backgroundColor: currentAddToCartPage === 1 ? '#f7fafc' : 'white', color: currentAddToCartPage === 1 ? '#a0aec0' : '#2d3748', cursor: currentAddToCartPage === 1 ? 'not-allowed' : 'pointer', fontSize: '14px', fontWeight: '500' }}
+                        >
+                          이전
+                        </button>
+                        {Array.from({ length: totalAddToCartPages }, (_, i) => i + 1).map(pageNum => (
+                          <button
+                            key={pageNum}
+                            onClick={() => handleAddToCartPageChange(pageNum)}
+                            style={{ padding: '8px 12px', border: pageNum === currentAddToCartPage ? '2px solid #667eea' : '1px solid #cbd5e0', borderRadius: '6px', backgroundColor: pageNum === currentAddToCartPage ? '#667eea' : 'white', color: pageNum === currentAddToCartPage ? 'white' : '#2d3748', cursor: 'pointer', fontSize: '14px', fontWeight: pageNum === currentAddToCartPage ? '600' : '500', minWidth: '40px' }}
+                          >
+                            {pageNum}
+                          </button>
+                        ))}
+                        <button
+                          onClick={() => handleAddToCartPageChange(currentAddToCartPage + 1)}
+                          disabled={currentAddToCartPage === totalAddToCartPages}
+                          style={{ padding: '8px 16px', border: '1px solid #cbd5e0', borderRadius: '6px', backgroundColor: currentAddToCartPage === totalAddToCartPages ? '#f7fafc' : 'white', color: currentAddToCartPage === totalAddToCartPages ? '#a0aec0' : '#2d3748', cursor: currentAddToCartPage === totalAddToCartPages ? 'not-allowed' : 'pointer', fontSize: '14px', fontWeight: '500' }}
+                        >
+                          다음
+                        </button>
+                      </div>
+                    )}
+                    <div style={{ marginTop: '16px', textAlign: 'center', fontSize: '13px', color: '#718096' }}>
+                      전체 {videos.length}개 영상 {totalAddToCartPages > 1 && `(${currentAddToCartPage} / ${totalAddToCartPages} 페이지)`}
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Checkout Video Selector Modal */}
+        {showCheckoutVideoSelector && (
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1001
+          }}>
+            <div style={{
+              backgroundColor: 'white',
+              borderRadius: '12px',
+              width: '90%',
+              maxWidth: '800px',
+              maxHeight: '80vh',
+              display: 'flex',
+              flexDirection: 'column',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
+            }}>
+              <div style={{
+                padding: '20px 24px',
+                borderBottom: '1px solid #e2e8f0',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center'
+              }}>
+                <h3 style={{ margin: 0, fontSize: '20px', fontWeight: '600', color: '#2d3748' }}>
+                  결제 영상 선택
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => { setShowCheckoutVideoSelector(false); setCurrentCheckoutPage(1); }}
+                  style={{
+                    padding: '8px 16px',
+                    backgroundColor: '#cbd5e0',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    fontWeight: '500'
+                  }}
+                >
+                  닫기
+                </button>
+              </div>
+              <div style={{
+                flex: 1,
+                overflowY: 'auto',
+                padding: '20px 24px'
+              }}>
+                {loadingVideos ? (
+                  <div style={{ textAlign: 'center', padding: '40px', color: '#718096' }}>
+                    영상 목록을 불러오는 중...
+                  </div>
+                ) : videos.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '40px', color: '#718096' }}>
+                    등록된 영상이 없습니다.<br />
+                    영상 관리 페이지에서 영상을 업로드하세요.
+                  </div>
+                ) : (
+                  <>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      {currentCheckoutVideos.map((video, index) => (
+                        <div
+                          key={video.id}
+                          onClick={() => handleSelectCheckoutVideo(video)}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '12px',
+                            padding: '10px',
+                            border: formData.actions?.checkout?.videoUrl === video.presignedUrl ? '2px solid #667eea' : '1px solid #e2e8f0',
+                            borderRadius: '6px',
+                            backgroundColor: formData.actions?.checkout?.videoUrl === video.presignedUrl ? '#eef2ff' : 'white',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s',
+                            minHeight: '60px'
+                          }}
+                          onMouseEnter={(e) => {
+                            if (formData.actions?.checkout?.videoUrl !== video.presignedUrl) {
+                              e.currentTarget.style.backgroundColor = '#f7fafc';
+                              e.currentTarget.style.borderColor = '#a0aec0';
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (formData.actions?.checkout?.videoUrl !== video.presignedUrl) {
+                              e.currentTarget.style.backgroundColor = 'white';
+                              e.currentTarget.style.borderColor = '#e2e8f0';
+                            }
+                          }}
+                        >
+                          <div style={{ width: '25px', textAlign: 'center', fontWeight: '600', color: '#718096', fontSize: '13px', flexShrink: 0 }}>
+                            {indexOfFirstCheckoutVideo + index + 1}
+                          </div>
+                          <div style={{ width: '50px', height: '50px', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#edf2f7', borderRadius: '4px', border: '1px solid #e2e8f0', fontSize: '24px', flexShrink: 0 }}>
+                            🎬
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontWeight: '600', fontSize: '14px', color: '#2d3748' }}>
+                              {video.title}
+                            </div>
+                          </div>
+                          {formData.actions?.checkout?.videoUrl === video.presignedUrl && (
+                            <div style={{ padding: '4px 10px', backgroundColor: '#667eea', color: 'white', borderRadius: '4px', fontSize: '11px', fontWeight: '600', flexShrink: 0 }}>
+                              선택됨
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    {totalCheckoutPages > 1 && (
+                      <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
+                        <button
+                          onClick={() => handleCheckoutPageChange(currentCheckoutPage - 1)}
+                          disabled={currentCheckoutPage === 1}
+                          style={{ padding: '8px 16px', border: '1px solid #cbd5e0', borderRadius: '6px', backgroundColor: currentCheckoutPage === 1 ? '#f7fafc' : 'white', color: currentCheckoutPage === 1 ? '#a0aec0' : '#2d3748', cursor: currentCheckoutPage === 1 ? 'not-allowed' : 'pointer', fontSize: '14px', fontWeight: '500' }}
+                        >
+                          이전
+                        </button>
+                        {Array.from({ length: totalCheckoutPages }, (_, i) => i + 1).map(pageNum => (
+                          <button
+                            key={pageNum}
+                            onClick={() => handleCheckoutPageChange(pageNum)}
+                            style={{ padding: '8px 12px', border: pageNum === currentCheckoutPage ? '2px solid #667eea' : '1px solid #cbd5e0', borderRadius: '6px', backgroundColor: pageNum === currentCheckoutPage ? '#667eea' : 'white', color: pageNum === currentCheckoutPage ? 'white' : '#2d3748', cursor: 'pointer', fontSize: '14px', fontWeight: pageNum === currentCheckoutPage ? '600' : '500', minWidth: '40px' }}
+                          >
+                            {pageNum}
+                          </button>
+                        ))}
+                        <button
+                          onClick={() => handleCheckoutPageChange(currentCheckoutPage + 1)}
+                          disabled={currentCheckoutPage === totalCheckoutPages}
+                          style={{ padding: '8px 16px', border: '1px solid #cbd5e0', borderRadius: '6px', backgroundColor: currentCheckoutPage === totalCheckoutPages ? '#f7fafc' : 'white', color: currentCheckoutPage === totalCheckoutPages ? '#a0aec0' : '#2d3748', cursor: currentCheckoutPage === totalCheckoutPages ? 'not-allowed' : 'pointer', fontSize: '14px', fontWeight: '500' }}
+                        >
+                          다음
+                        </button>
+                      </div>
+                    )}
+                    <div style={{ marginTop: '16px', textAlign: 'center', fontSize: '13px', color: '#718096' }}>
+                      전체 {videos.length}개 영상 {totalCheckoutPages > 1 && `(${currentCheckoutPage} / ${totalCheckoutPages} 페이지)`}
                     </div>
                   </>
                 )}

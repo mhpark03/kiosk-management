@@ -483,4 +483,20 @@ class CoffeeMenuService {
     }
     return null;
   }
+
+  /// Get video filename for "add to cart" action
+  String? getAddToCartVideoFilename() {
+    if (_isXmlLoaded && _menuConfig != null && _menuConfig!.actions != null) {
+      return _menuConfig!.actions!.addToCart?.videoFilename;
+    }
+    return null;
+  }
+
+  /// Get video filename for "checkout" action
+  String? getCheckoutVideoFilename() {
+    if (_isXmlLoaded && _menuConfig != null && _menuConfig!.actions != null) {
+      return _menuConfig!.actions!.checkout?.videoFilename;
+    }
+    return null;
+  }
 }
