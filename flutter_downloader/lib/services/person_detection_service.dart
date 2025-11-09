@@ -117,6 +117,12 @@ class PersonDetectionService {
     // Simple motion detection: check if there's significant brightness variation
     // This is a basic implementation - for production, use TFLite model
     try {
+      // Check if stream is closed before adding events
+      if (_personDetectedController.isClosed) {
+        print('[PERSON DETECTION] Stream is closed, cannot process image');
+        return;
+      }
+
       // Get image brightness (simplified approach)
       // In a real implementation, this would run TFLite inference
       final hasMotion = _detectMotion(image);
@@ -193,7 +199,9 @@ class PersonDetectionService {
     print('[PERSON DETECTION] Disposing service');
     await stopDetection();
     await _cameraController?.dispose();
-    await _personDetectedController.close();
+    // Don't close the stream controller for singleton - just reset state
+    _personPresent = false;
+    _lastMotionTime = null;
     _isInitialized = false;
     _cameraController = null;
   }

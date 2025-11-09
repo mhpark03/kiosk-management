@@ -106,23 +106,31 @@ class _StandbyScreenState extends State<StandbyScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      body: Stack(
-        children: [
-          // Camera preview (if available)
-          if (_detectionService.isInitialized &&
-              _detectionService.cameraController != null)
-            Center(
-              child: AspectRatio(
-                aspectRatio:
-                    _detectionService.cameraController!.value.aspectRatio,
-                child: CameraPreview(_detectionService.cameraController!),
+      body: GestureDetector(
+        onTap: () {
+          print('[STANDBY] Screen tapped, activating kiosk...');
+          _activateKiosk();
+        },
+        child: Stack(
+          children: [
+            // Camera preview (if available) - full screen
+            if (_detectionService.isInitialized &&
+                _detectionService.cameraController != null)
+              SizedBox.expand(
+                child: FittedBox(
+                  fit: BoxFit.cover,
+                  child: SizedBox(
+                    width: _detectionService.cameraController!.value.previewSize?.height ?? 1,
+                    height: _detectionService.cameraController!.value.previewSize?.width ?? 1,
+                    child: CameraPreview(_detectionService.cameraController!),
+                  ),
+                ),
               ),
-            ),
 
-          // Dark overlay
-          Container(
-            color: Colors.black.withOpacity(0.6),
-          ),
+            // Light overlay (more transparent to see camera)
+            Container(
+              color: Colors.black.withOpacity(0.3),
+            ),
 
           // Centered message
           Center(
@@ -280,7 +288,8 @@ class _StandbyScreenState extends State<StandbyScreen>
                 ),
               ),
             ),
-        ],
+          ],
+        ),
       ),
     );
   }

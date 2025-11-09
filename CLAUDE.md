@@ -627,12 +627,305 @@ cd firstapp
 npm run lint
 ```
 
+## Flutter Kiosk App (flutter_downloader/)
+
+### Build & Run Commands
+
+```bash
+cd flutter_downloader
+
+# Install dependencies
+/c/src/flutter/bin/flutter pub get
+
+# Run on Windows
+/c/src/flutter/bin/flutter run -d windows
+
+# Build for Windows release
+/c/src/flutter/bin/flutter build windows --release
+
+# Analyze code
+/c/src/flutter/bin/flutter analyze
+```
+
+**IMPORTANT:** Use `/c/src/flutter/bin/flutter` (not system `flutter`)
+
+### Application Architecture
+
+The Flutter app is designed for **unattended kiosk operation** with the following characteristics:
+
+#### Screen Flow
+- **Initial Screen Logic** (`main.dart:80-96`):
+  - If configured → go directly to VideoListScreen (skip login for unattended operation)
+  - If not configured → LoginScreen for initial setup only
+- **No Auto-Logout** (`main.dart:65`) - Kiosk operates unattended
+
+#### Core Screen Modes
+
+**1. AutoKioskScreen** - Auto-switching mode (camera or touch detection)
+```dart
+AutoKioskScreen(
+  videos: videos,
+  detectionMode: DetectionMode.camera,  // or DetectionMode.touch
+  idleTimeout: Duration(seconds: 30),
+  downloadPath: downloadPath,
+  kioskId: kioskId,
+  menuFilename: menuFilename,
+)
+```
+
+Automatically switches between:
+- **Idle Mode**: Fullscreen advertisement videos (menuId == null)
+- **Kiosk Mode**: Split-screen with video + menu when person detected
+
+**2. KioskSplitScreen** - Manual split-screen mode
+- Left: Video playback with media_kit
+- Right: Coffee ordering interface (CoffeeKioskOverlay)
+- Manual activation via "키오스크 모드" button
+
+#### Video Playback State Machine
+
+Complex state management for menu-triggered video playback (`kiosk_split_screen.dart:117-140`):
+
+**Action-Based Video Routing:**
+```
+checkout action       → plays main video from beginning
+addToCart/cancelItem → plays category video
+increaseQuantity/    → returns to saved video position
+decreaseQuantity
+category video end   → returns to saved video position
+regular video end    → plays next video
+```
+
+**State Variables:**
+- `_isPlayingMenuVideo`: Currently playing menu-triggered video
+- `_currentActionType`: Action that triggered video (checkout, addToCart, etc.)
+- `_currentCategoryId`: Category ID for category video playback
+- `_savedVideoPath` + `_savedPosition`: Saves main video state during interruptions
+
+**Video Callback Signature:**
+```dart
+Function(String videoPath, [String? actionType, String? categoryId])?
+```
+
+**Implementation Pattern:**
+```dart
+// CoffeeKioskOverlay triggers video
+widget.onPlayMenuVideo!(videoPath, 'checkout', null);
+widget.onPlayMenuVideo!(videoPath, 'addToCart', categoryId);
+
+// KioskSplitScreen completion listener
+_player!.stream.completed.listen((completed) {
+  if (completed && _isPlayingMenuVideo) {
+    if (_currentActionType == 'checkout') {
+      _playMainVideo();  // Reset to first video
+    } else if (_currentActionType == 'addToCart' ||
+               _currentActionType == 'cancelItem') {
+      _playCategoryVideo();  // Play category video
+    } else {
+      _returnToSavedVideo();  // Resume saved position
+    }
+  }
+});
+```
+
+### Person Detection System
+
+**PersonDetectionService** - Camera-based motion detection:
+```dart
+// Initialize and start detection
+final service = PersonDetectionService();
+await service.initialize();
+await service.startDetection();
+
+// Listen for person presence
+service.personDetectedStream.listen((personDetected) {
+  if (personDetected) {
+    // Activate kiosk
+  }
+});
+```
+
+**Detection Configuration:**
+- Motion timeout: 3 seconds (configurable)
+- Detection interval: 500ms
+- Uses camera image stream for motion analysis
+- Simple brightness-based detection (placeholder for TFLite model)
+
+**PresenceDetectionService Interface:**
+```dart
+abstract class PresenceDetectionService {
+  Stream<bool> get presenceStream;
+  bool get isPresent;
+  Future<void> start();
+  Future<void> stop();
+  void triggerPresence();
+  void dispose();
+}
+```
+
+Implementations:
+- `TouchPresenceDetectionService`: Touch/mouse interaction with idle timeout
+- `CameraPresenceDetectionService`: Wraps PersonDetectionService for ML detection
+
+### Menu System
+
+#### XML-Based Configuration
+
+Menu files define categories, items, prices, options, and video filenames:
+
+```xml
+<coffeeMenu>
+  <categories>
+    <category id="coffee" name="커피" nameEn="Coffee"
+              videoFilename="coffee_category.mp4"/>
+  </categories>
+  <menuItems>
+    <item id="americano" category="coffee">
+      <videoFilename>americano_detail.mp4</videoFilename>
+      <!-- other fields -->
+    </item>
+  </menuItems>
+  <actions>
+    <addToCart videoFilename="add_to_cart.mp4"/>
+    <checkout videoFilename="checkout.mp4"/>
+    <cancelItem videoFilename="cancel_item.mp4"/>
+  </actions>
+</coffeeMenu>
+```
+
+#### Menu Video Resolution
+
+**CoffeeMenuService** resolves video filenames to paths:
+
+```dart
+// Get category video filename from XML
+final videoFilename = _menuService.getCategoryVideoFilename(categoryId);
+
+// Resolve to actual file path (tries menu folder first, then kiosk folder)
+String videoPath = '$downloadPath/$kioskId/menu/$videoFilename';
+if (!File(videoPath).existsSync()) {
+  videoPath = '$downloadPath/$kioskId/$videoFilename';
+}
+```
+
+**Video File Structure:**
+```
+{downloadPath}/{kioskId}/
+  ├── menu/
+  │   ├── coffee_category.mp4
+  │   ├── add_to_cart.mp4
+  │   └── checkout.mp4
+  └── americano_detail.mp4  // Fallback location
+```
+
+### Path Handling
+
+**Critical:** Flutter uses Android-style paths internally but needs Windows paths for file operations:
+
+```dart
+// Store as Android format
+video.localPath = "/storage/emulated/0/Download/videos/file.mp4"
+
+// Convert to Windows format before file operations
+final actualPath = await DownloadService.getActualFilePath(video.localPath);
+// Returns: "C:\Users\...\Download\videos\file.mp4"
+```
+
+**DownloadService Pattern:**
+```dart
+class DownloadService {
+  Future<String> getActualFilePath(String androidPath) async {
+    // Convert /storage/emulated/0/... to C:\Users\...
+    return convertedPath;
+  }
+}
+```
+
+### Service Layer Pattern
+
+All services use singleton pattern:
+
+```dart
+class ServiceName {
+  static final ServiceName _instance = ServiceName._internal();
+  factory ServiceName() => _instance;
+  ServiceName._internal();
+}
+```
+
+**Key Services:**
+- `ApiService`: HTTP client with auth token management
+- `StorageService`: SharedPreferences wrapper for config/tokens
+- `DownloadService`: Video/menu file downloads with progress tracking
+- `CoffeeMenuService`: XML menu parsing and video filename resolution
+- `PersonDetectionService`: Camera-based person detection
+- `XmlMenuParser`: Parses XML menu files into MenuConfig models
+
+### Media Playback Integration
+
+Uses `media_kit` and `media_kit_video` packages:
+
+```dart
+// Initialize player
+_player = Player();
+_controller = media_kit_video.VideoController(_player!);
+
+// Load and play video
+await _player!.open(Media(filePath));
+await _player!.play();
+
+// Listen to streams
+_player!.stream.playing.listen((playing) { /* playback state */ });
+_player!.stream.position.listen((position) { /* current position */ });
+_player!.stream.duration.listen((duration) { /* video duration */ });
+_player!.stream.completed.listen((completed) { /* video ended */ });
+
+// Control playback
+_player!.playOrPause();
+_player!.seek(Duration(seconds: 30));
+
+// Cleanup
+await _player?.dispose();
+```
+
+### Logging Conventions
+
+Use tagged print statements for debugging:
+
+```dart
+print('[KIOSK SPLIT] Message here');
+print('[PERSON DETECTION] Message here');
+print('[PRESENCE] Message here');
+print('[AUTO KIOSK] Message here');
+print('[STANDBY] Message here');
+print('[COFFEE KIOSK] Message here');
+print('[DOWNLOAD] Message here');
+print('[API] Message here');
+```
+
+### Critical Development Notes
+
+1. **Path Conversion Required**: Always convert Android paths to Windows paths before file operations
+2. **Video State Must Be Saved**: Save position and path before switching to menu videos
+3. **Detection Mode Default**: AutoKioskScreen defaults to camera detection
+4. **No Auto-Logout**: Disabled for unattended operation
+5. **Git Line Endings**: CRLF warnings are expected on Windows
+6. **Multiple Flutter Processes**: Check background processes with BashOutput tool if needed
+
+### Camera Permissions
+
+Windows camera access requires:
+1. Camera package initialized in `PersonDetectionService.initialize()`
+2. Image stream started in `startDetection()`
+3. Proper disposal in service lifecycle
+
+No manifest changes needed for Windows (camera permission handled by OS).
+
 ## Related Documentation
 
 - `backend/README.md` - Detailed backend API documentation
 - `README.md` - Project overview and setup
 - `firstapp/README.md` - React admin dashboard features and usage
 - `AWS_DEPLOYMENT_CHECKLIST.md` - AWS deployment guide
-- `flutter_downloader/CLAUDE.md` - Flutter kiosk app development guide
 - `docs/coffee_menu_schema.md` - Coffee menu XML schema specification
 - `docs/coffee_menu_sample.xml` - Sample coffee menu XML file

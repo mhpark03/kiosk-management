@@ -328,6 +328,10 @@ class _KioskSplitScreenState extends State<KioskSplitScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Detect device orientation
+    final orientation = MediaQuery.of(context).orientation;
+    final isPortrait = orientation == Orientation.portrait;
+
     return Focus(
       focusNode: _focusNode,
       autofocus: true,
@@ -342,11 +346,12 @@ class _KioskSplitScreenState extends State<KioskSplitScreen> {
       },
       child: Scaffold(
         backgroundColor: Colors.black,
-        body: Row(
+        body: Flex(
+          direction: isPortrait ? Axis.vertical : Axis.horizontal,
           children: [
-            // Left side: Video Player
+            // Top (portrait) or Left (landscape): Video Player
             Expanded(
-              flex: 1,
+              flex: isPortrait ? 3 : 1, // Larger in portrait mode
               child: Container(
                 color: Colors.black,
                 child: Stack(
@@ -474,9 +479,9 @@ class _KioskSplitScreenState extends State<KioskSplitScreen> {
               ),
             ),
 
-            // Right side: Coffee Kiosk
+            // Bottom (portrait) or Right (landscape): Coffee Kiosk
             Expanded(
-              flex: 1,
+              flex: isPortrait ? 2 : 1, // Smaller in portrait mode
               child: CoffeeKioskOverlay(
                 onClose: _exitKiosk,
                 onOrderComplete: (order) {

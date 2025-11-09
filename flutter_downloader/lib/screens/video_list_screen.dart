@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
 import '../services/api_service.dart';
@@ -2098,6 +2099,15 @@ class _VideoListScreenState extends State<VideoListScreen> {
               // Enter auto kiosk screen (idle mode -> kiosk mode)
               if (mounted) {
                 final config = widget.storageService.getConfig();
+
+                // Use camera detection on Android/iOS, touch detection on other platforms (Windows, macOS, Linux)
+                final detectionMode = (defaultTargetPlatform == TargetPlatform.android ||
+                                       defaultTargetPlatform == TargetPlatform.iOS)
+                    ? DetectionMode.camera
+                    : DetectionMode.touch;
+
+                print('[VIDEO LIST] Using detection mode: $detectionMode for platform: $defaultTargetPlatform');
+
                 await Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (_) => AutoKioskScreen(
@@ -2105,6 +2115,7 @@ class _VideoListScreenState extends State<VideoListScreen> {
                       downloadPath: config?.downloadPath,
                       kioskId: config?.kioskId,
                       menuFilename: _kiosk?.menuFilename,
+                      detectionMode: detectionMode,
                     ),
                   ),
                 );

@@ -66,10 +66,11 @@ dependencies:
   stomp_dart_client: ^2.0.0
   web_socket_channel: ^3.0.0
 
-  # Video player - using media_kit for Windows support
+  # Video player - using media_kit for Windows and Android support
   media_kit: ^1.1.10
   media_kit_video: ^1.2.4
   media_kit_libs_windows_video: ^1.0.9
+  media_kit_libs_android_video: ^1.3.6
 
   # Window management for fullscreen mode
   window_manager: ^0.3.8

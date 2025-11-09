@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:media_kit/media_kit.dart';
 import 'services/api_service.dart';
@@ -15,8 +16,12 @@ void main() async {
   // Initialize MediaKit for video playback
   MediaKit.ensureInitialized();
 
-  // Initialize window manager
-  await windowManager.ensureInitialized();
+  // Initialize window manager (desktop platforms only)
+  if (defaultTargetPlatform == TargetPlatform.windows ||
+      defaultTargetPlatform == TargetPlatform.macOS ||
+      defaultTargetPlatform == TargetPlatform.linux) {
+    await windowManager.ensureInitialized();
+  }
 
   // Allow all orientations (auto-rotation)
   await SystemChrome.setPreferredOrientations([
