@@ -37,11 +37,9 @@ function MenuEditor() {
           setMenu(newMenuData);
           setOriginalMenu(JSON.parse(JSON.stringify(newMenuData))); // Deep copy for comparison
 
-          // Auto-select first category on new menu
-          if (newMenuData.categories && newMenuData.categories.length > 0) {
-            setSelectedType('category');
-            setSelectedId(newMenuData.categories[0].id);
-          }
+          // Don't auto-select anything - show MenuInfoEditor by default
+          setSelectedType(null);
+          setSelectedId(null);
         } else {
           alert('메뉴 데이터를 찾을 수 없습니다.');
           navigate('/menus');
@@ -83,11 +81,9 @@ function MenuEditor() {
         setMenu(parsedMenu);
         setOriginalMenu(JSON.parse(JSON.stringify(parsedMenu))); // Deep copy for comparison
 
-        // Auto-select first category on load
-        if (parsedMenu.categories && parsedMenu.categories.length > 0) {
-          setSelectedType('category');
-          setSelectedId(parsedMenu.categories[0].id);
-        }
+        // Don't auto-select anything - show MenuInfoEditor by default
+        setSelectedType(null);
+        setSelectedId(null);
       }
     } catch (error) {
       console.error('Failed to load menu:', error);
@@ -102,6 +98,9 @@ function MenuEditor() {
     const metadata = xmlDoc.getElementsByTagName('metadata')[0];
     const name = metadata?.getElementsByTagName('name')[0]?.textContent || '불러온 메뉴';
     const version = metadata?.getElementsByTagName('version')[0]?.textContent || '1.0.0';
+    const videoId = metadata?.getElementsByTagName('videoId')[0]?.textContent || null;
+    const videoFilename = metadata?.getElementsByTagName('videoFilename')[0]?.textContent || null;
+    const videoUrl = metadata?.getElementsByTagName('videoUrl')[0]?.textContent || null;
 
     const categories = Array.from(xmlDoc.getElementsByTagName('category')).map(cat => ({
       id: cat.getAttribute('id'),
@@ -109,6 +108,9 @@ function MenuEditor() {
       nameEn: cat.getAttribute('nameEn'),
       icon: cat.getAttribute('icon'),
       order: parseInt(cat.getAttribute('order') || '0'),
+      videoId: cat.getAttribute('videoId') || null,
+      videoFilename: cat.getAttribute('videoFilename') || null,
+      videoUrl: cat.getAttribute('videoUrl') || null,
     }));
 
     const menuItems = Array.from(xmlDoc.getElementsByTagName('item')).map(item => ({
@@ -122,6 +124,9 @@ function MenuEditor() {
       thumbnailUrl: item.getElementsByTagName('thumbnailUrl')[0]?.textContent || null,
       imageId: item.getElementsByTagName('imageId')[0]?.textContent || null,
       imageFilename: item.getElementsByTagName('imageFilename')[0]?.textContent || null,
+      videoId: item.getElementsByTagName('videoId')[0]?.textContent || null,
+      videoFilename: item.getElementsByTagName('videoFilename')[0]?.textContent || null,
+      videoUrl: item.getElementsByTagName('videoUrl')[0]?.textContent || null,
       available: item.getElementsByTagName('available')[0]?.textContent === 'true',
       sizeEnabled: item.getElementsByTagName('sizeEnabled')[0]?.textContent === 'true',
       temperatureEnabled: item.getElementsByTagName('temperatureEnabled')[0]?.textContent === 'true',
@@ -152,6 +157,9 @@ function MenuEditor() {
       name,
       version,
       lastModified: new Date().toISOString(),
+      videoId,
+      videoFilename,
+      videoUrl,
       categories,
       menuItems,
       options: { sizes, temperatures, extras },
@@ -246,12 +254,31 @@ function MenuEditor() {
     xml += `    <name>${escapeXML(menu.name)}</name>\n`;
     xml += `    <version>${escapeXML(menu.version)}</version>\n`;
     xml += `    <lastModified>${escapeXML(menu.lastModified)}</lastModified>\n`;
+    if (menu.videoId) {
+      xml += `    <videoId>${escapeXML(menu.videoId)}</videoId>\n`;
+    }
+    if (menu.videoFilename) {
+      xml += `    <videoFilename>${escapeXML(menu.videoFilename)}</videoFilename>\n`;
+    }
+    if (menu.videoUrl) {
+      xml += `    <videoUrl>${escapeXML(menu.videoUrl)}</videoUrl>\n`;
+    }
     xml += '  </metadata>\n\n';
 
     // Categories
     xml += '  <categories>\n';
     menu.categories.forEach(cat => {
-      xml += `    <category id="${escapeXML(cat.id)}" name="${escapeXML(cat.name)}" nameEn="${escapeXML(cat.nameEn)}" icon="${escapeXML(cat.icon)}" order="${cat.order}" />\n`;
+      xml += `    <category id="${escapeXML(cat.id)}" name="${escapeXML(cat.name)}" nameEn="${escapeXML(cat.nameEn)}" icon="${escapeXML(cat.icon)}" order="${cat.order}"`;
+      if (cat.videoId) {
+        xml += ` videoId="${escapeXML(cat.videoId)}"`;
+      }
+      if (cat.videoFilename) {
+        xml += ` videoFilename="${escapeXML(cat.videoFilename)}"`;
+      }
+      if (cat.videoUrl) {
+        xml += ` videoUrl="${escapeXML(cat.videoUrl)}"`;
+      }
+      xml += ` />\n`;
     });
     xml += '  </categories>\n\n';
 
@@ -271,6 +298,15 @@ function MenuEditor() {
       }
       if (item.imageFilename) {
         xml += `      <imageFilename>${escapeXML(item.imageFilename)}</imageFilename>\n`;
+      }
+      if (item.videoId) {
+        xml += `      <videoId>${escapeXML(item.videoId)}</videoId>\n`;
+      }
+      if (item.videoFilename) {
+        xml += `      <videoFilename>${escapeXML(item.videoFilename)}</videoFilename>\n`;
+      }
+      if (item.videoUrl) {
+        xml += `      <videoUrl>${escapeXML(item.videoUrl)}</videoUrl>\n`;
       }
       xml += `      <available>${item.available}</available>\n`;
       xml += `      <sizeEnabled>${item.sizeEnabled}</sizeEnabled>\n`;
@@ -316,6 +352,9 @@ function MenuEditor() {
       nameEn,
       icon,
       order: categoryNumber,
+      videoId: null,
+      videoFilename: null,
+      videoUrl: null,
     };
     const updatedMenu = {
       ...menu,
@@ -345,6 +384,10 @@ function MenuEditor() {
       description: '',
       thumbnailUrl: null,
       imageId: null,
+      imageFilename: null,
+      videoId: null,
+      videoFilename: null,
+      videoUrl: null,
       available: true,
       sizeEnabled: true,
       temperatureEnabled: true,
@@ -418,26 +461,7 @@ function MenuEditor() {
         <button className="btn btn-back" onClick={handleBackToList}>
           ← 목록으로
         </button>
-        <div className="header-inputs">
-          <div style={{ flex: '0 0 300px' }}>
-            <input
-              type="text"
-              value={menu.name}
-              onChange={(e) => updateMenu({ ...menu, name: e.target.value })}
-              placeholder="메뉴 제목"
-              className="header-title-input"
-            />
-          </div>
-          <div style={{ flex: 1 }}>
-            <input
-              type="text"
-              value={menu.description || ''}
-              onChange={(e) => updateMenu({ ...menu, description: e.target.value })}
-              placeholder="메뉴 설명 (선택사항)"
-              className="header-desc-input"
-            />
-          </div>
-        </div>
+        <h2 style={{ flex: 1, margin: 0 }}>{menu.name || '메뉴 편집'}</h2>
         <div className="menu-editor-actions">
           <button
             className="btn btn-primary"
@@ -480,7 +504,23 @@ function MenuEditor() {
         {/* Left: Tree View */}
         <div className="menu-tree">
           <div className="menu-tree-header">
-            <h3>구조</h3>
+            <h3
+              onClick={() => {
+                setSelectedType(null);
+                setSelectedId(null);
+              }}
+              style={{
+                cursor: 'pointer',
+                padding: '8px',
+                margin: '0',
+                borderRadius: '4px',
+                backgroundColor: selectedType === null && selectedId === null ? '#eef2ff' : 'transparent',
+                color: selectedType === null && selectedId === null ? '#667eea' : 'inherit',
+                transition: 'background-color 0.2s'
+              }}
+            >
+              메뉴
+            </h3>
             <button className="btn-small" onClick={addCategory}>+ 카테고리</button>
           </div>
 
@@ -548,9 +588,10 @@ function MenuEditor() {
               }}
             />
           ) : (
-            <div className="menu-detail-empty">
-              <p>왼쪽에서 카테고리 또는 메뉴 아이템을 선택하세요</p>
-            </div>
+            <MenuInfoEditor
+              menu={menu}
+              onUpdate={updateMenu}
+            />
           )}
         </div>
       </div>
@@ -558,18 +599,590 @@ function MenuEditor() {
   );
 }
 
+function MenuInfoEditor({ menu, onUpdate }) {
+  const [formData, setFormData] = useState({
+    name: menu.name || '',
+    description: menu.description || '',
+    videoId: menu.videoId || null,
+    videoFilename: menu.videoFilename || null,
+    videoUrl: menu.videoUrl || null
+  });
+  const [videos, setVideos] = useState([]);
+  const [showVideoSelector, setShowVideoSelector] = useState(false);
+  const [loadingVideos, setLoadingVideos] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [currentVideoUrl, setCurrentVideoUrl] = useState(menu.videoUrl);
+  const videosPerPage = 10;
+
+  // Update formData when menu prop changes
+  useEffect(() => {
+    setFormData({
+      name: menu.name || '',
+      description: menu.description || '',
+      videoId: menu.videoId || null,
+      videoFilename: menu.videoFilename || null,
+      videoUrl: menu.videoUrl || null
+    });
+  }, [menu]);
+
+  // Load fresh presigned URL for current video if videoId exists
+  useEffect(() => {
+    const loadVideoUrl = async () => {
+      if (formData.videoId) {
+        try {
+          const presignedData = await videoService.getPresignedUrl(formData.videoId, 60);
+          const presignedUrl = presignedData.url || presignedData.presignedUrl || presignedData;
+          setCurrentVideoUrl(presignedUrl);
+          console.log(`[MENU VIDEO] Loaded fresh presigned URL for videoId ${formData.videoId}`);
+        } catch (error) {
+          console.error(`Failed to get presigned URL for videoId ${formData.videoId}:`, error);
+          setCurrentVideoUrl(null);
+        }
+      } else {
+        setCurrentVideoUrl(formData.videoUrl);
+      }
+    };
+
+    loadVideoUrl();
+  }, [formData.videoId]);
+
+  // Load videos from S3
+  useEffect(() => {
+    if (showVideoSelector && videos.length === 0) {
+      loadVideos();
+    }
+  }, [showVideoSelector]);
+
+  const loadVideos = async () => {
+    try {
+      setLoadingVideos(true);
+      const videoList = await videoService.getAllVideos('KIOSK');
+
+      // Generate presigned URLs for each video
+      const videosWithPresignedUrls = await Promise.all(
+        videoList.map(async (video) => {
+          try {
+            const presignedData = await videoService.getPresignedUrl(video.id, 60);
+            return {
+              ...video,
+              presignedUrl: presignedData.url || presignedData.presignedUrl || presignedData
+            };
+          } catch (error) {
+            console.error(`Failed to get presigned URL for video ${video.id}:`, error);
+            return {
+              ...video,
+              presignedUrl: null
+            };
+          }
+        })
+      );
+
+      const validVideos = videosWithPresignedUrls.filter(v => v.presignedUrl);
+      setVideos(validVideos);
+    } catch (error) {
+      console.error('Failed to load videos:', error);
+    } finally {
+      setLoadingVideos(false);
+    }
+  };
+
+  const handleChange = (field, value) => {
+    const updated = { ...menu, [field]: value };
+    setFormData({ ...formData, [field]: value });
+    onUpdate(updated);
+  };
+
+  const handleSelectVideo = (video) => {
+    const updated = {
+      ...menu,
+      videoUrl: video.presignedUrl,
+      videoId: String(video.id),
+      videoFilename: video.originalFilename
+    };
+    setFormData({
+      ...formData,
+      videoUrl: video.presignedUrl,
+      videoId: String(video.id),
+      videoFilename: video.originalFilename
+    });
+    onUpdate(updated);
+    setShowVideoSelector(false);
+    setCurrentPage(1);
+  };
+
+  // Pagination logic
+  const totalPages = Math.ceil(videos.length / videosPerPage);
+  const indexOfLastVideo = currentPage * videosPerPage;
+  const indexOfFirstVideo = indexOfLastVideo - videosPerPage;
+  const currentVideos = videos.slice(indexOfFirstVideo, indexOfLastVideo);
+
+  const handlePageChange = (pageNumber) => {
+    setCurrentPage(pageNumber);
+  };
+
+  return (
+    <div className="item-editor">
+      <h3>메뉴 정보</h3>
+
+      <div className="form-group">
+        <label>제목</label>
+        <input
+          type="text"
+          value={formData.name}
+          onChange={(e) => handleChange('name', e.target.value)}
+        />
+      </div>
+
+      <div className="form-group">
+        <label>설명</label>
+        <textarea
+          value={formData.description}
+          onChange={(e) => handleChange('description', e.target.value)}
+          rows={3}
+        />
+      </div>
+
+      <div className="form-group">
+        <label>메뉴 영상</label>
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexDirection: 'column' }}>
+          {currentVideoUrl && (
+            <video
+              src={currentVideoUrl}
+              controls
+              style={{
+                width: '100%',
+                maxWidth: '400px',
+                borderRadius: '6px',
+                border: '2px solid #e2e8f0'
+              }}
+            />
+          )}
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <button
+              type="button"
+              onClick={() => setShowVideoSelector(true)}
+              style={{
+                padding: '10px 20px',
+                backgroundColor: '#667eea',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: '500'
+              }}
+            >
+              {currentVideoUrl ? '영상 변경' : '영상 선택'}
+            </button>
+            {currentVideoUrl && (
+              <button
+                type="button"
+                onClick={() => {
+                  const updated = { ...menu, videoUrl: null, videoId: null, videoFilename: null };
+                  setFormData({ ...formData, videoUrl: null, videoId: null, videoFilename: null });
+                  onUpdate(updated);
+                  setCurrentVideoUrl(null);
+                }}
+                style={{
+                  padding: '10px 20px',
+                  backgroundColor: '#e53e3e',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '14px'
+                }}
+              >
+                영상 제거
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Video Selector Modal */}
+        {showVideoSelector && (
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000
+          }}>
+            <div style={{
+              backgroundColor: 'white',
+              borderRadius: '12px',
+              width: '90%',
+              maxWidth: '800px',
+              maxHeight: '80vh',
+              display: 'flex',
+              flexDirection: 'column',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
+            }}>
+              {/* Modal Header */}
+              <div style={{
+                padding: '20px 24px',
+                borderBottom: '1px solid #e2e8f0',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center'
+              }}>
+                <h3 style={{ margin: 0, fontSize: '20px', fontWeight: '600', color: '#2d3748' }}>
+                  메뉴 영상 선택
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => { setShowVideoSelector(false); setCurrentPage(1); }}
+                  style={{
+                    padding: '8px 16px',
+                    backgroundColor: '#cbd5e0',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    fontWeight: '500'
+                  }}
+                >
+                  닫기
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <div style={{
+                flex: 1,
+                overflowY: 'auto',
+                padding: '20px 24px'
+              }}>
+                {loadingVideos ? (
+                  <div style={{ textAlign: 'center', padding: '40px', color: '#718096' }}>
+                    영상 목록을 불러오는 중...
+                  </div>
+                ) : videos.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '40px', color: '#718096' }}>
+                    등록된 영상이 없습니다.<br />
+                    영상 관리 페이지에서 영상을 업로드하세요.
+                  </div>
+                ) : (
+                  <>
+                    {/* Video List */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      {currentVideos.map((video, index) => (
+                        <div
+                          key={video.id}
+                          onClick={() => handleSelectVideo(video)}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '12px',
+                            padding: '10px',
+                            border: formData.videoUrl === video.presignedUrl ? '2px solid #667eea' : '1px solid #e2e8f0',
+                            borderRadius: '6px',
+                            backgroundColor: formData.videoUrl === video.presignedUrl ? '#eef2ff' : 'white',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s',
+                            minHeight: '60px'
+                          }}
+                          onMouseEnter={(e) => {
+                            if (formData.videoUrl !== video.presignedUrl) {
+                              e.currentTarget.style.backgroundColor = '#f7fafc';
+                              e.currentTarget.style.borderColor = '#a0aec0';
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (formData.videoUrl !== video.presignedUrl) {
+                              e.currentTarget.style.backgroundColor = 'white';
+                              e.currentTarget.style.borderColor = '#e2e8f0';
+                            }
+                          }}
+                        >
+                          {/* Row Number */}
+                          <div style={{
+                            width: '25px',
+                            textAlign: 'center',
+                            fontWeight: '600',
+                            color: '#718096',
+                            fontSize: '13px',
+                            flexShrink: 0
+                          }}>
+                            {indexOfFirstVideo + index + 1}
+                          </div>
+
+                          {/* Video Icon */}
+                          <div style={{
+                            width: '50px',
+                            height: '50px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            backgroundColor: '#edf2f7',
+                            borderRadius: '4px',
+                            border: '1px solid #e2e8f0',
+                            fontSize: '24px',
+                            flexShrink: 0
+                          }}>
+                            🎬
+                          </div>
+
+                          {/* Video Info */}
+                          <div style={{
+                            flex: 1,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '12px',
+                            minWidth: 0
+                          }}>
+                            <div style={{
+                              flex: '0 0 200px',
+                              minWidth: 0
+                            }}>
+                              <div style={{
+                                fontWeight: '600',
+                                fontSize: '14px',
+                                color: '#2d3748',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap'
+                              }}>
+                                {video.title}
+                              </div>
+                            </div>
+                            <div style={{
+                              flex: 1,
+                              minWidth: 0
+                            }}>
+                              <div style={{
+                                fontSize: '13px',
+                                color: '#718096',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap'
+                              }}>
+                                {video.description || '설명 없음'}
+                              </div>
+                            </div>
+                            <div style={{
+                              fontSize: '12px',
+                              color: '#a0aec0',
+                              flexShrink: 0,
+                              width: '90px',
+                              textAlign: 'right'
+                            }}>
+                              {new Date(video.uploadedAt).toLocaleDateString('ko-KR', {
+                                year: '2-digit',
+                                month: '2-digit',
+                                day: '2-digit'
+                              })}
+                            </div>
+                          </div>
+
+                          {/* Selected Indicator */}
+                          {formData.videoUrl === video.presignedUrl && (
+                            <div style={{
+                              padding: '4px 10px',
+                              backgroundColor: '#667eea',
+                              color: 'white',
+                              borderRadius: '4px',
+                              fontSize: '11px',
+                              fontWeight: '600',
+                              flexShrink: 0
+                            }}>
+                              선택됨
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Pagination */}
+                    {totalPages > 1 && (
+                      <div style={{
+                        marginTop: '24px',
+                        display: 'flex',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        gap: '8px'
+                      }}>
+                        <button
+                          onClick={() => handlePageChange(currentPage - 1)}
+                          disabled={currentPage === 1}
+                          style={{
+                            padding: '8px 16px',
+                            border: '1px solid #cbd5e0',
+                            borderRadius: '6px',
+                            backgroundColor: currentPage === 1 ? '#f7fafc' : 'white',
+                            color: currentPage === 1 ? '#a0aec0' : '#2d3748',
+                            cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
+                            fontSize: '14px',
+                            fontWeight: '500'
+                          }}
+                        >
+                          이전
+                        </button>
+
+                        {Array.from({ length: totalPages }, (_, i) => i + 1).map(pageNum => (
+                          <button
+                            key={pageNum}
+                            onClick={() => handlePageChange(pageNum)}
+                            style={{
+                              padding: '8px 12px',
+                              border: pageNum === currentPage ? '2px solid #667eea' : '1px solid #cbd5e0',
+                              borderRadius: '6px',
+                              backgroundColor: pageNum === currentPage ? '#667eea' : 'white',
+                              color: pageNum === currentPage ? 'white' : '#2d3748',
+                              cursor: 'pointer',
+                              fontSize: '14px',
+                              fontWeight: pageNum === currentPage ? '600' : '500',
+                              minWidth: '40px'
+                            }}
+                          >
+                            {pageNum}
+                          </button>
+                        ))}
+
+                        <button
+                          onClick={() => handlePageChange(currentPage + 1)}
+                          disabled={currentPage === totalPages}
+                          style={{
+                            padding: '8px 16px',
+                            border: '1px solid #cbd5e0',
+                            borderRadius: '6px',
+                            backgroundColor: currentPage === totalPages ? '#f7fafc' : 'white',
+                            color: currentPage === totalPages ? '#a0aec0' : '#2d3748',
+                            cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
+                            fontSize: '14px',
+                            fontWeight: '500'
+                          }}
+                        >
+                          다음
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Footer Info */}
+                    <div style={{
+                      marginTop: '16px',
+                      textAlign: 'center',
+                      fontSize: '13px',
+                      color: '#718096'
+                    }}>
+                      전체 {videos.length}개 영상 {totalPages > 1 && `(${currentPage} / ${totalPages} 페이지)`}
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function CategoryEditor({ category, onUpdate }) {
   const [formData, setFormData] = useState(category);
+  const [videos, setVideos] = useState([]);
+  const [showVideoSelector, setShowVideoSelector] = useState(false);
+  const [loadingVideos, setLoadingVideos] = useState(false);
+  const [currentVideoPage, setCurrentVideoPage] = useState(1);
+  const [currentVideoUrl, setCurrentVideoUrl] = useState(category.videoUrl);
+  const videosPerPage = 10;
 
   // Update formData when category prop changes
   useEffect(() => {
     setFormData(category);
   }, [category]);
 
+  // Load fresh presigned URL for current video if videoId exists
+  useEffect(() => {
+    const loadVideoUrl = async () => {
+      if (formData.videoId) {
+        try {
+          const presignedData = await videoService.getPresignedUrl(formData.videoId, 60);
+          const presignedUrl = presignedData.url || presignedData.presignedUrl || presignedData;
+          setCurrentVideoUrl(presignedUrl);
+          console.log(`[CATEGORY VIDEO] Loaded fresh presigned URL for videoId ${formData.videoId}`);
+        } catch (error) {
+          console.error(`Failed to get presigned URL for videoId ${formData.videoId}:`, error);
+          setCurrentVideoUrl(null);
+        }
+      } else {
+        setCurrentVideoUrl(formData.videoUrl);
+      }
+    };
+
+    loadVideoUrl();
+  }, [formData.videoId]);
+
+  // Load videos from S3
+  useEffect(() => {
+    if (showVideoSelector && videos.length === 0) {
+      loadVideos();
+    }
+  }, [showVideoSelector]);
+
+  const loadVideos = async () => {
+    try {
+      setLoadingVideos(true);
+      const videoList = await videoService.getAllVideos('KIOSK');
+
+      const videosWithPresignedUrls = await Promise.all(
+        videoList.map(async (video) => {
+          try {
+            const presignedData = await videoService.getPresignedUrl(video.id, 60);
+            return {
+              ...video,
+              presignedUrl: presignedData.url || presignedData.presignedUrl || presignedData
+            };
+          } catch (error) {
+            console.error(`Failed to get presigned URL for video ${video.id}:`, error);
+            return {
+              ...video,
+              presignedUrl: null
+            };
+          }
+        })
+      );
+
+      const validVideos = videosWithPresignedUrls.filter(v => v.presignedUrl);
+      setVideos(validVideos);
+    } catch (error) {
+      console.error('Failed to load videos:', error);
+    } finally {
+      setLoadingVideos(false);
+    }
+  };
+
   const handleChange = (field, value) => {
     const updated = { ...formData, [field]: value };
     setFormData(updated);
     onUpdate(updated);
+  };
+
+  const handleSelectVideo = (video) => {
+    const updated = {
+      ...formData,
+      videoUrl: video.presignedUrl,
+      videoId: String(video.id),
+      videoFilename: video.originalFilename
+    };
+    setFormData(updated);
+    onUpdate(updated);
+    setShowVideoSelector(false);
+    setCurrentVideoPage(1);
+  };
+
+  // Pagination logic for videos
+  const totalVideoPages = Math.ceil(videos.length / videosPerPage);
+  const indexOfLastVideo = currentVideoPage * videosPerPage;
+  const indexOfFirstVideo = indexOfLastVideo - videosPerPage;
+  const currentVideos = videos.slice(indexOfFirstVideo, indexOfLastVideo);
+
+  const handleVideoPageChange = (pageNumber) => {
+    setCurrentVideoPage(pageNumber);
   };
 
   const iconOptions = [
@@ -617,6 +1230,334 @@ function CategoryEditor({ category, onUpdate }) {
         </select>
       </div>
 
+      <div className="form-group">
+        <label>카테고리 영상</label>
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexDirection: 'column' }}>
+          {currentVideoUrl && (
+            <video
+              src={currentVideoUrl}
+              controls
+              style={{
+                width: '100%',
+                maxWidth: '400px',
+                borderRadius: '6px',
+                border: '2px solid #e2e8f0'
+              }}
+            />
+          )}
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <button
+              type="button"
+              onClick={() => setShowVideoSelector(true)}
+              style={{
+                padding: '10px 20px',
+                backgroundColor: '#667eea',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: '500'
+              }}
+            >
+              {currentVideoUrl ? '영상 변경' : '영상 선택'}
+            </button>
+            {currentVideoUrl && (
+              <button
+                type="button"
+                onClick={() => {
+                  const updated = { ...formData, videoUrl: null, videoId: null, videoFilename: null };
+                  setFormData(updated);
+                  onUpdate(updated);
+                  setCurrentVideoUrl(null);
+                }}
+                style={{
+                  padding: '10px 20px',
+                  backgroundColor: '#e53e3e',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '14px'
+                }}
+              >
+                영상 제거
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Video Selector Modal */}
+        {showVideoSelector && (
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000
+          }}>
+            <div style={{
+              backgroundColor: 'white',
+              borderRadius: '12px',
+              width: '90%',
+              maxWidth: '800px',
+              maxHeight: '80vh',
+              display: 'flex',
+              flexDirection: 'column',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
+            }}>
+              <div style={{
+                padding: '20px 24px',
+                borderBottom: '1px solid #e2e8f0',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center'
+              }}>
+                <h3 style={{ margin: 0, fontSize: '20px', fontWeight: '600', color: '#2d3748' }}>
+                  카테고리 영상 선택
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => { setShowVideoSelector(false); setCurrentVideoPage(1); }}
+                  style={{
+                    padding: '8px 16px',
+                    backgroundColor: '#cbd5e0',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    fontWeight: '500'
+                  }}
+                >
+                  닫기
+                </button>
+              </div>
+
+              <div style={{
+                flex: 1,
+                overflowY: 'auto',
+                padding: '20px 24px'
+              }}>
+                {loadingVideos ? (
+                  <div style={{ textAlign: 'center', padding: '40px', color: '#718096' }}>
+                    영상 목록을 불러오는 중...
+                  </div>
+                ) : videos.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '40px', color: '#718096' }}>
+                    등록된 영상이 없습니다.<br />
+                    영상 관리 페이지에서 영상을 업로드하세요.
+                  </div>
+                ) : (
+                  <>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      {currentVideos.map((video, index) => (
+                        <div
+                          key={video.id}
+                          onClick={() => handleSelectVideo(video)}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '12px',
+                            padding: '10px',
+                            border: formData.videoUrl === video.presignedUrl ? '2px solid #667eea' : '1px solid #e2e8f0',
+                            borderRadius: '6px',
+                            backgroundColor: formData.videoUrl === video.presignedUrl ? '#eef2ff' : 'white',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s',
+                            minHeight: '60px'
+                          }}
+                          onMouseEnter={(e) => {
+                            if (formData.videoUrl !== video.presignedUrl) {
+                              e.currentTarget.style.backgroundColor = '#f7fafc';
+                              e.currentTarget.style.borderColor = '#a0aec0';
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (formData.videoUrl !== video.presignedUrl) {
+                              e.currentTarget.style.backgroundColor = 'white';
+                              e.currentTarget.style.borderColor = '#e2e8f0';
+                            }
+                          }}
+                        >
+                          <div style={{
+                            width: '25px',
+                            textAlign: 'center',
+                            fontWeight: '600',
+                            color: '#718096',
+                            fontSize: '13px',
+                            flexShrink: 0
+                          }}>
+                            {indexOfFirstVideo + index + 1}
+                          </div>
+
+                          <div style={{
+                            width: '50px',
+                            height: '50px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            backgroundColor: '#edf2f7',
+                            borderRadius: '4px',
+                            border: '1px solid #e2e8f0',
+                            fontSize: '24px',
+                            flexShrink: 0
+                          }}>
+                            🎬
+                          </div>
+
+                          <div style={{
+                            flex: 1,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '12px',
+                            minWidth: 0
+                          }}>
+                            <div style={{
+                              flex: '0 0 200px',
+                              minWidth: 0
+                            }}>
+                              <div style={{
+                                fontWeight: '600',
+                                fontSize: '14px',
+                                color: '#2d3748',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap'
+                              }}>
+                                {video.title}
+                              </div>
+                            </div>
+                            <div style={{
+                              flex: 1,
+                              minWidth: 0
+                            }}>
+                              <div style={{
+                                fontSize: '13px',
+                                color: '#718096',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap'
+                              }}>
+                                {video.description || '설명 없음'}
+                              </div>
+                            </div>
+                            <div style={{
+                              fontSize: '12px',
+                              color: '#a0aec0',
+                              flexShrink: 0,
+                              width: '90px',
+                              textAlign: 'right'
+                            }}>
+                              {new Date(video.uploadedAt).toLocaleDateString('ko-KR', {
+                                year: '2-digit',
+                                month: '2-digit',
+                                day: '2-digit'
+                              })}
+                            </div>
+                          </div>
+
+                          {formData.videoUrl === video.presignedUrl && (
+                            <div style={{
+                              padding: '4px 10px',
+                              backgroundColor: '#667eea',
+                              color: 'white',
+                              borderRadius: '4px',
+                              fontSize: '11px',
+                              fontWeight: '600',
+                              flexShrink: 0
+                            }}>
+                              선택됨
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+
+                    {totalVideoPages > 1 && (
+                      <div style={{
+                        marginTop: '24px',
+                        display: 'flex',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        gap: '8px'
+                      }}>
+                        <button
+                          onClick={() => handleVideoPageChange(currentVideoPage - 1)}
+                          disabled={currentVideoPage === 1}
+                          style={{
+                            padding: '8px 16px',
+                            border: '1px solid #cbd5e0',
+                            borderRadius: '6px',
+                            backgroundColor: currentVideoPage === 1 ? '#f7fafc' : 'white',
+                            color: currentVideoPage === 1 ? '#a0aec0' : '#2d3748',
+                            cursor: currentVideoPage === 1 ? 'not-allowed' : 'pointer',
+                            fontSize: '14px',
+                            fontWeight: '500'
+                          }}
+                        >
+                          이전
+                        </button>
+
+                        {Array.from({ length: totalVideoPages }, (_, i) => i + 1).map(pageNum => (
+                          <button
+                            key={pageNum}
+                            onClick={() => handleVideoPageChange(pageNum)}
+                            style={{
+                              padding: '8px 12px',
+                              border: pageNum === currentVideoPage ? '2px solid #667eea' : '1px solid #cbd5e0',
+                              borderRadius: '6px',
+                              backgroundColor: pageNum === currentVideoPage ? '#667eea' : 'white',
+                              color: pageNum === currentVideoPage ? 'white' : '#2d3748',
+                              cursor: 'pointer',
+                              fontSize: '14px',
+                              fontWeight: pageNum === currentVideoPage ? '600' : '500',
+                              minWidth: '40px'
+                            }}
+                          >
+                            {pageNum}
+                          </button>
+                        ))}
+
+                        <button
+                          onClick={() => handleVideoPageChange(currentVideoPage + 1)}
+                          disabled={currentVideoPage === totalVideoPages}
+                          style={{
+                            padding: '8px 16px',
+                            border: '1px solid #cbd5e0',
+                            borderRadius: '6px',
+                            backgroundColor: currentVideoPage === totalVideoPages ? '#f7fafc' : 'white',
+                            color: currentVideoPage === totalVideoPages ? '#a0aec0' : '#2d3748',
+                            cursor: currentVideoPage === totalVideoPages ? 'not-allowed' : 'pointer',
+                            fontSize: '14px',
+                            fontWeight: '500'
+                          }}
+                        >
+                          다음
+                        </button>
+                      </div>
+                    )}
+
+                    <div style={{
+                      marginTop: '16px',
+                      textAlign: 'center',
+                      fontSize: '13px',
+                      color: '#718096'
+                    }}>
+                      전체 {videos.length}개 영상 {totalVideoPages > 1 && `(${currentVideoPage} / ${totalVideoPages} 페이지)`}
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
       <div style={{ marginTop: '20px', padding: '12px', backgroundColor: '#f7fafc', borderRadius: '6px' }}>
         <strong>미리보기:</strong>
         <div style={{ marginTop: '8px', fontSize: '18px' }}>
@@ -635,6 +1576,14 @@ function ItemEditor({ item, onUpdate }) {
   const [currentPage, setCurrentPage] = useState(1);
   const [currentImageUrl, setCurrentImageUrl] = useState(item.thumbnailUrl);
   const imagesPerPage = 10;
+
+  // Video selection states
+  const [videos, setVideos] = useState([]);
+  const [showVideoSelector, setShowVideoSelector] = useState(false);
+  const [loadingVideos, setLoadingVideos] = useState(false);
+  const [currentVideoPage, setCurrentVideoPage] = useState(1);
+  const [currentVideoUrl, setCurrentVideoUrl] = useState(item.videoUrl);
+  const videosPerPage = 10;
 
   // Update formData when item prop changes
   useEffect(() => {
@@ -662,12 +1611,40 @@ function ItemEditor({ item, onUpdate }) {
     loadImageUrl();
   }, [formData.imageId]);
 
+  // Load fresh presigned URL for current video if videoId exists
+  useEffect(() => {
+    const loadVideoUrl = async () => {
+      if (formData.videoId) {
+        try {
+          const presignedData = await videoService.getPresignedUrl(formData.videoId, 60);
+          const presignedUrl = presignedData.url || presignedData.presignedUrl || presignedData;
+          setCurrentVideoUrl(presignedUrl);
+          console.log(`[MENU VIDEO] Loaded fresh presigned URL for videoId ${formData.videoId}`);
+        } catch (error) {
+          console.error(`Failed to get presigned URL for videoId ${formData.videoId}:`, error);
+          setCurrentVideoUrl(null);
+        }
+      } else {
+        setCurrentVideoUrl(formData.videoUrl);
+      }
+    };
+
+    loadVideoUrl();
+  }, [formData.videoId]);
+
   // Load menu images from S3
   useEffect(() => {
     if (showImageSelector && menuImages.length === 0) {
       loadMenuImages();
     }
   }, [showImageSelector]);
+
+  // Load videos from S3
+  useEffect(() => {
+    if (showVideoSelector && videos.length === 0) {
+      loadVideos();
+    }
+  }, [showVideoSelector]);
 
   const loadMenuImages = async () => {
     try {
@@ -709,6 +1686,39 @@ function ItemEditor({ item, onUpdate }) {
     onUpdate(updated);
   };
 
+  const loadVideos = async () => {
+    try {
+      setLoadingVideos(true);
+      const videoList = await videoService.getAllVideos('KIOSK');
+
+      // Generate presigned URLs for each video
+      const videosWithPresignedUrls = await Promise.all(
+        videoList.map(async (video) => {
+          try {
+            const presignedData = await videoService.getPresignedUrl(video.id, 60);
+            return {
+              ...video,
+              presignedUrl: presignedData.url || presignedData.presignedUrl || presignedData
+            };
+          } catch (error) {
+            console.error(`Failed to get presigned URL for video ${video.id}:`, error);
+            return {
+              ...video,
+              presignedUrl: null
+            };
+          }
+        })
+      );
+
+      const validVideos = videosWithPresignedUrls.filter(v => v.presignedUrl);
+      setVideos(validVideos);
+    } catch (error) {
+      console.error('Failed to load videos:', error);
+    } finally {
+      setLoadingVideos(false);
+    }
+  };
+
   const handleSelectImage = (image) => {
     // Use presigned URL for display (S3 is private) and store imageId + originalFilename for kiosk download
     const updated = {
@@ -723,7 +1733,20 @@ function ItemEditor({ item, onUpdate }) {
     setCurrentPage(1);
   };
 
-  // Pagination logic
+  const handleSelectVideo = (video) => {
+    const updated = {
+      ...formData,
+      videoUrl: video.presignedUrl,
+      videoId: String(video.id),
+      videoFilename: video.originalFilename
+    };
+    setFormData(updated);
+    onUpdate(updated);
+    setShowVideoSelector(false);
+    setCurrentVideoPage(1);
+  };
+
+  // Pagination logic for images
   const totalPages = Math.ceil(menuImages.length / imagesPerPage);
   const indexOfLastImage = currentPage * imagesPerPage;
   const indexOfFirstImage = indexOfLastImage - imagesPerPage;
@@ -731,6 +1754,16 @@ function ItemEditor({ item, onUpdate }) {
 
   const handlePageChange = (pageNumber) => {
     setCurrentPage(pageNumber);
+  };
+
+  // Pagination logic for videos
+  const totalVideoPages = Math.ceil(videos.length / videosPerPage);
+  const indexOfLastVideo = currentVideoPage * videosPerPage;
+  const indexOfFirstVideo = indexOfLastVideo - videosPerPage;
+  const currentVideos = videos.slice(indexOfFirstVideo, indexOfLastVideo);
+
+  const handleVideoPageChange = (pageNumber) => {
+    setCurrentVideoPage(pageNumber);
   };
 
   return (
@@ -1101,6 +2134,343 @@ function ItemEditor({ item, onUpdate }) {
                       color: '#718096'
                     }}>
                       전체 {menuImages.length}개 이미지 {totalPages > 1 && `(${currentPage} / ${totalPages} 페이지)`}
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="form-group">
+        <label>메뉴 아이템 영상</label>
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexDirection: 'column' }}>
+          {currentVideoUrl && (
+            <video
+              src={currentVideoUrl}
+              controls
+              style={{
+                width: '100%',
+                maxWidth: '400px',
+                borderRadius: '6px',
+                border: '2px solid #e2e8f0'
+              }}
+            />
+          )}
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <button
+              type="button"
+              onClick={() => setShowVideoSelector(true)}
+              style={{
+                padding: '10px 20px',
+                backgroundColor: '#667eea',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: '500'
+              }}
+            >
+              {currentVideoUrl ? '영상 변경' : '영상 선택'}
+            </button>
+            {currentVideoUrl && (
+              <button
+                type="button"
+                onClick={() => {
+                  const updated = { ...formData, videoUrl: null, videoId: null, videoFilename: null };
+                  setFormData(updated);
+                  onUpdate(updated);
+                  setCurrentVideoUrl(null);
+                }}
+                style={{
+                  padding: '10px 20px',
+                  backgroundColor: '#e53e3e',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '14px'
+                }}
+              >
+                영상 제거
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Video Selector Modal */}
+        {showVideoSelector && (
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000
+          }}>
+            <div style={{
+              backgroundColor: 'white',
+              borderRadius: '12px',
+              width: '90%',
+              maxWidth: '800px',
+              maxHeight: '80vh',
+              display: 'flex',
+              flexDirection: 'column',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
+            }}>
+              {/* Modal Header */}
+              <div style={{
+                padding: '20px 24px',
+                borderBottom: '1px solid #e2e8f0',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center'
+              }}>
+                <h3 style={{ margin: 0, fontSize: '20px', fontWeight: '600', color: '#2d3748' }}>
+                  메뉴 아이템 영상 선택
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => { setShowVideoSelector(false); setCurrentVideoPage(1); }}
+                  style={{
+                    padding: '8px 16px',
+                    backgroundColor: '#cbd5e0',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    fontWeight: '500'
+                  }}
+                >
+                  닫기
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <div style={{
+                flex: 1,
+                overflowY: 'auto',
+                padding: '20px 24px'
+              }}>
+                {loadingVideos ? (
+                  <div style={{ textAlign: 'center', padding: '40px', color: '#718096' }}>
+                    영상 목록을 불러오는 중...
+                  </div>
+                ) : videos.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '40px', color: '#718096' }}>
+                    등록된 영상이 없습니다.<br />
+                    영상 관리 페이지에서 영상을 업로드하세요.
+                  </div>
+                ) : (
+                  <>
+                    {/* Video List */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      {currentVideos.map((video, index) => (
+                        <div
+                          key={video.id}
+                          onClick={() => handleSelectVideo(video)}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '12px',
+                            padding: '10px',
+                            border: formData.videoUrl === video.presignedUrl ? '2px solid #667eea' : '1px solid #e2e8f0',
+                            borderRadius: '6px',
+                            backgroundColor: formData.videoUrl === video.presignedUrl ? '#eef2ff' : 'white',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s',
+                            minHeight: '60px'
+                          }}
+                          onMouseEnter={(e) => {
+                            if (formData.videoUrl !== video.presignedUrl) {
+                              e.currentTarget.style.backgroundColor = '#f7fafc';
+                              e.currentTarget.style.borderColor = '#a0aec0';
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (formData.videoUrl !== video.presignedUrl) {
+                              e.currentTarget.style.backgroundColor = 'white';
+                              e.currentTarget.style.borderColor = '#e2e8f0';
+                            }
+                          }}
+                        >
+                          {/* Row Number */}
+                          <div style={{
+                            width: '25px',
+                            textAlign: 'center',
+                            fontWeight: '600',
+                            color: '#718096',
+                            fontSize: '13px',
+                            flexShrink: 0
+                          }}>
+                            {indexOfFirstVideo + index + 1}
+                          </div>
+
+                          {/* Video Icon */}
+                          <div style={{
+                            width: '50px',
+                            height: '50px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            backgroundColor: '#edf2f7',
+                            borderRadius: '4px',
+                            border: '1px solid #e2e8f0',
+                            fontSize: '24px',
+                            flexShrink: 0
+                          }}>
+                            🎬
+                          </div>
+
+                          {/* Video Info */}
+                          <div style={{
+                            flex: 1,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '12px',
+                            minWidth: 0
+                          }}>
+                            <div style={{
+                              flex: '0 0 200px',
+                              minWidth: 0
+                            }}>
+                              <div style={{
+                                fontWeight: '600',
+                                fontSize: '14px',
+                                color: '#2d3748',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap'
+                              }}>
+                                {video.title}
+                              </div>
+                            </div>
+                            <div style={{
+                              flex: 1,
+                              minWidth: 0
+                            }}>
+                              <div style={{
+                                fontSize: '13px',
+                                color: '#718096',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap'
+                              }}>
+                                {video.description || '설명 없음'}
+                              </div>
+                            </div>
+                            <div style={{
+                              fontSize: '12px',
+                              color: '#a0aec0',
+                              flexShrink: 0,
+                              width: '90px',
+                              textAlign: 'right'
+                            }}>
+                              {new Date(video.uploadedAt).toLocaleDateString('ko-KR', {
+                                year: '2-digit',
+                                month: '2-digit',
+                                day: '2-digit'
+                              })}
+                            </div>
+                          </div>
+
+                          {/* Selected Indicator */}
+                          {formData.videoUrl === video.presignedUrl && (
+                            <div style={{
+                              padding: '4px 10px',
+                              backgroundColor: '#667eea',
+                              color: 'white',
+                              borderRadius: '4px',
+                              fontSize: '11px',
+                              fontWeight: '600',
+                              flexShrink: 0
+                            }}>
+                              선택됨
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Pagination */}
+                    {totalVideoPages > 1 && (
+                      <div style={{
+                        marginTop: '24px',
+                        display: 'flex',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        gap: '8px'
+                      }}>
+                        <button
+                          onClick={() => handleVideoPageChange(currentVideoPage - 1)}
+                          disabled={currentVideoPage === 1}
+                          style={{
+                            padding: '8px 16px',
+                            border: '1px solid #cbd5e0',
+                            borderRadius: '6px',
+                            backgroundColor: currentVideoPage === 1 ? '#f7fafc' : 'white',
+                            color: currentVideoPage === 1 ? '#a0aec0' : '#2d3748',
+                            cursor: currentVideoPage === 1 ? 'not-allowed' : 'pointer',
+                            fontSize: '14px',
+                            fontWeight: '500'
+                          }}
+                        >
+                          이전
+                        </button>
+
+                        {Array.from({ length: totalVideoPages }, (_, i) => i + 1).map(pageNum => (
+                          <button
+                            key={pageNum}
+                            onClick={() => handleVideoPageChange(pageNum)}
+                            style={{
+                              padding: '8px 12px',
+                              border: pageNum === currentVideoPage ? '2px solid #667eea' : '1px solid #cbd5e0',
+                              borderRadius: '6px',
+                              backgroundColor: pageNum === currentVideoPage ? '#667eea' : 'white',
+                              color: pageNum === currentVideoPage ? 'white' : '#2d3748',
+                              cursor: 'pointer',
+                              fontSize: '14px',
+                              fontWeight: pageNum === currentVideoPage ? '600' : '500',
+                              minWidth: '40px'
+                            }}
+                          >
+                            {pageNum}
+                          </button>
+                        ))}
+
+                        <button
+                          onClick={() => handleVideoPageChange(currentVideoPage + 1)}
+                          disabled={currentVideoPage === totalVideoPages}
+                          style={{
+                            padding: '8px 16px',
+                            border: '1px solid #cbd5e0',
+                            borderRadius: '6px',
+                            backgroundColor: currentVideoPage === totalVideoPages ? '#f7fafc' : 'white',
+                            color: currentVideoPage === totalVideoPages ? '#a0aec0' : '#2d3748',
+                            cursor: currentVideoPage === totalVideoPages ? 'not-allowed' : 'pointer',
+                            fontSize: '14px',
+                            fontWeight: '500'
+                          }}
+                        >
+                          다음
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Footer Info */}
+                    <div style={{
+                      marginTop: '16px',
+                      textAlign: 'center',
+                      fontSize: '13px',
+                      color: '#718096'
+                    }}>
+                      전체 {videos.length}개 영상 {totalVideoPages > 1 && `(${currentVideoPage} / ${totalVideoPages} 페이지)`}
                     </div>
                   </>
                 )}

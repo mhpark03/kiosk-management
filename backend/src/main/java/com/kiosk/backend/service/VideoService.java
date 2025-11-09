@@ -1353,4 +1353,96 @@ public class VideoService {
         }
     }
 
+    /**
+     * Extract videoIds from menu XML
+     * Looks for videoId in menu metadata, categories, and menu items
+     * @param xmlBytes XML file bytes
+     * @return List of video IDs found in the XML
+     */
+    public List<Long> extractVideoIdsFromMenuXml(byte[] xmlBytes) throws Exception {
+        List<Long> videoIds = new java.util.ArrayList<>();
+
+        // Parse XML
+        javax.xml.parsers.DocumentBuilderFactory factory = javax.xml.parsers.DocumentBuilderFactory.newInstance();
+        javax.xml.parsers.DocumentBuilder builder = factory.newDocumentBuilder();
+        org.w3c.dom.Document doc = builder.parse(new java.io.ByteArrayInputStream(xmlBytes));
+
+        // Find videoId in menu metadata
+        org.w3c.dom.NodeList metadataNodes = doc.getElementsByTagName("metadata");
+        if (metadataNodes.getLength() > 0) {
+            org.w3c.dom.Element metadataElement = (org.w3c.dom.Element) metadataNodes.item(0);
+            org.w3c.dom.NodeList videoIdNodes = metadataElement.getElementsByTagName("videoId");
+            if (videoIdNodes.getLength() > 0) {
+                String videoIdStr = videoIdNodes.item(0).getTextContent();
+                if (videoIdStr != null && !videoIdStr.trim().isEmpty()) {
+                    try {
+                        Long videoId = Long.parseLong(videoIdStr.trim());
+                        videoIds.add(videoId);
+                        log.debug("Found menu metadata videoId: {}", videoId);
+                    } catch (NumberFormatException e) {
+                        log.warn("Invalid videoId format in metadata: {}", videoIdStr);
+                    }
+                }
+            }
+        }
+
+        // Find videoId attributes in categories
+        org.w3c.dom.NodeList categoryNodes = doc.getElementsByTagName("category");
+        for (int i = 0; i < categoryNodes.getLength(); i++) {
+            org.w3c.dom.Element categoryElement = (org.w3c.dom.Element) categoryNodes.item(i);
+            String videoIdStr = categoryElement.getAttribute("videoId");
+            if (videoIdStr != null && !videoIdStr.trim().isEmpty()) {
+                try {
+                    Long videoId = Long.parseLong(videoIdStr.trim());
+                    videoIds.add(videoId);
+                    log.debug("Found category videoId: {}", videoId);
+                } catch (NumberFormatException e) {
+                    log.warn("Invalid videoId format in category: {}", videoIdStr);
+                }
+            }
+        }
+
+        // Find videoId elements in menu items
+        org.w3c.dom.NodeList itemNodes = doc.getElementsByTagName("item");
+        for (int i = 0; i < itemNodes.getLength(); i++) {
+            org.w3c.dom.Element itemElement = (org.w3c.dom.Element) itemNodes.item(i);
+            org.w3c.dom.NodeList videoIdNodes = itemElement.getElementsByTagName("videoId");
+            if (videoIdNodes.getLength() > 0) {
+                String videoIdStr = videoIdNodes.item(0).getTextContent();
+                if (videoIdStr != null && !videoIdStr.trim().isEmpty()) {
+                    try {
+                        Long videoId = Long.parseLong(videoIdStr.trim());
+                        videoIds.add(videoId);
+                        log.debug("Found item videoId: {}", videoId);
+                    } catch (NumberFormatException e) {
+                        log.warn("Invalid videoId format in item: {}", videoIdStr);
+                    }
+                }
+            }
+        }
+
+        log.info("Extracted {} videoIds from menu XML", videoIds.size());
+        return videoIds;
+    }
+
+    /**
+     * Extract videoIds from menu XML by menu video ID
+     * @param menuId Menu video ID
+     * @return List of video IDs found in the menu XML
+     */
+    public List<Long> extractVideoIdsFromMenu(Long menuId) {
+        try {
+            Video menuVideo = videoRepository.findById(menuId)
+                .orElseThrow(() -> new RuntimeException("Menu not found with id: " + menuId));
+
+            // Download the XML content from S3
+            byte[] xmlBytes = s3Service.downloadFile(menuVideo.getS3Key());
+
+            return extractVideoIdsFromMenuXml(xmlBytes);
+        } catch (Exception e) {
+            log.error("Failed to extract videoIds from menu {}: {}", menuId, e.getMessage(), e);
+            return new java.util.ArrayList<>();
+        }
+    }
+
 }

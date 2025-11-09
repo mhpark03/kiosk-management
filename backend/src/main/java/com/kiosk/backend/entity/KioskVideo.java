@@ -46,4 +46,11 @@ public class KioskVideo {
     @Column(name = "download_status", length = 20)
     @Builder.Default
     private String downloadStatus = "PENDING"; // PENDING, DOWNLOADING, COMPLETED, FAILED
+
+    @Column(name = "source_type", length = 20)
+    @Builder.Default
+    private String sourceType = "MANUAL"; // MANUAL (키오스크 관리 화면에서 직접 추가), MENU_VIDEO (메뉴 영상), MENU_IMAGE (메뉴 이미지)
+
+    @Column(name = "menu_id", length = 255)
+    private String menuId; // 메뉴에서 추가된 경우 메뉴 ID 저장
 }

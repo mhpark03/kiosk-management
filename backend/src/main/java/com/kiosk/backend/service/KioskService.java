@@ -1091,16 +1091,21 @@ public class KioskService {
     }
 
     /**
-     * Add menu XML and its images to kiosk_video table
+     * Add menu XML, its images, and its videos to kiosk_video table
+     * Sets sourceType to distinguish between MENU_IMAGE, MENU_VIDEO, and MANUAL additions
      */
     private void addMenuAndImagesToKiosk(Long kioskId, Long menuId, String kioskid) {
+        String menuIdStr = String.valueOf(menuId);
+
         // Add the menu XML itself to kiosk_video
         boolean alreadyAssigned = kioskVideoRepository.existsByKioskIdAndVideoId(kioskId, menuId);
         if (!alreadyAssigned) {
-            KioskVideo menuKioskVideo = new KioskVideo();
-            menuKioskVideo.setKioskId(kioskId);
-            menuKioskVideo.setVideoId(menuId);
-            menuKioskVideo.setAssignedAt(LocalDateTime.now());
+            KioskVideo menuKioskVideo = KioskVideo.builder()
+                .kioskId(kioskId)
+                .videoId(menuId)
+                .assignedAt(LocalDateTime.now())
+                .sourceType("MANUAL") // Menu XML itself is treated as MANUAL
+                .build();
             kioskVideoRepository.save(menuKioskVideo);
             log.info("Automatically assigned menu XML {} to kiosk {}", menuId, kioskid);
         } else {
@@ -1116,13 +1121,16 @@ public class KioskService {
             for (Long imageId : menuImageIds) {
                 boolean imageAlreadyAssigned = kioskVideoRepository.existsByKioskIdAndVideoId(kioskId, imageId);
                 if (!imageAlreadyAssigned) {
-                    KioskVideo imageKioskVideo = new KioskVideo();
-                    imageKioskVideo.setKioskId(kioskId);
-                    imageKioskVideo.setVideoId(imageId);
-                    imageKioskVideo.setAssignedAt(LocalDateTime.now());
+                    KioskVideo imageKioskVideo = KioskVideo.builder()
+                        .kioskId(kioskId)
+                        .videoId(imageId)
+                        .assignedAt(LocalDateTime.now())
+                        .sourceType("MENU_IMAGE")
+                        .menuId(menuIdStr)
+                        .build();
                     kioskVideoRepository.save(imageKioskVideo);
                     addedCount++;
-                    log.debug("Automatically assigned menu image {} to kiosk {}", imageId, kioskid);
+                    log.debug("Automatically assigned menu image {} to kiosk {} (sourceType=MENU_IMAGE, menuId={})", imageId, kioskid, menuIdStr);
                 } else {
                     log.debug("Menu image {} already assigned to kiosk {}", imageId, kioskid);
                 }
@@ -1130,6 +1138,34 @@ public class KioskService {
             log.info("Assigned {} new menu images to kiosk {}", addedCount, kioskid);
         } catch (Exception e) {
             log.error("Failed to extract/assign menu images for menu {}: {}", menuId, e.getMessage(), e);
+        }
+
+        // Extract and add all videos referenced in the menu
+        try {
+            List<Long> menuVideoIds = videoService.extractVideoIdsFromMenu(menuId);
+            log.info("Found {} menu videos in menu {}", menuVideoIds.size(), menuId);
+
+            int addedCount = 0;
+            for (Long videoId : menuVideoIds) {
+                boolean videoAlreadyAssigned = kioskVideoRepository.existsByKioskIdAndVideoId(kioskId, videoId);
+                if (!videoAlreadyAssigned) {
+                    KioskVideo videoKioskVideo = KioskVideo.builder()
+                        .kioskId(kioskId)
+                        .videoId(videoId)
+                        .assignedAt(LocalDateTime.now())
+                        .sourceType("MENU_VIDEO")
+                        .menuId(menuIdStr)
+                        .build();
+                    kioskVideoRepository.save(videoKioskVideo);
+                    addedCount++;
+                    log.debug("Automatically assigned menu video {} to kiosk {} (sourceType=MENU_VIDEO, menuId={})", videoId, kioskid, menuIdStr);
+                } else {
+                    log.debug("Menu video {} already assigned to kiosk {}", videoId, kioskid);
+                }
+            }
+            log.info("Assigned {} new menu videos to kiosk {}", addedCount, kioskid);
+        } catch (Exception e) {
+            log.error("Failed to extract/assign menu videos for menu {}: {}", menuId, e.getMessage(), e);
         }
     }
 }
