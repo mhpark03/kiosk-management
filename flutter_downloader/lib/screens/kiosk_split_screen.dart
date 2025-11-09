@@ -42,6 +42,9 @@ class _KioskSplitScreenState extends State<KioskSplitScreen> {
   final DownloadService _downloadService = DownloadService();
   final CoffeeMenuService _menuService = CoffeeMenuService();
 
+  // GlobalKey for cart widget (for landscape split layout)
+  final GlobalKey<CoffeeKioskOverlayState> _cartKey = GlobalKey<CoffeeKioskOverlayState>();
+
   // Menu video playback
   bool _isPlayingMenuVideo = false;
   String? _currentActionType; // Track the action type (checkout, addToCart, etc.)
@@ -346,106 +349,188 @@ class _KioskSplitScreenState extends State<KioskSplitScreen> {
       },
       child: Scaffold(
         backgroundColor: Colors.black,
-        body: Flex(
-          direction: isPortrait ? Axis.vertical : Axis.horizontal,
-          children: [
-            // Top (portrait) or Left (landscape): Video Player
-            Expanded(
-              flex: isPortrait ? 1 : 1, // Smaller in portrait mode to give more space to menu
-              child: Container(
-                color: Colors.black,
-                child: Stack(
+        body: isPortrait ? _buildPortraitLayout() : _buildLandscapeLayout(),
+      ),
+    );
+  }
+
+  // Portrait layout: Video on top, menu at bottom
+  Widget _buildPortraitLayout() {
+    return Column(
+      children: [
+        // Top: Video Player
+        Expanded(
+          flex: 3, // 3:5 ratio (video:menu)
+          child: _buildVideoPlayer(),
+        ),
+
+        // Bottom: Coffee Kiosk
+        Expanded(
+          flex: 5, // 3:5 ratio (video:menu)
+          child: _buildKioskOverlay(),
+        ),
+      ],
+    );
+  }
+
+  // Landscape layout: Left (video + cart), Right (menu)
+  Widget _buildLandscapeLayout() {
+    return Row(
+      children: [
+        // Left: Video (top) + Cart (bottom)
+        Expanded(
+          flex: 1,
+          child: Column(
+            children: [
+              // Video Player (top)
+              Expanded(
+                flex: 1,
+                child: _buildVideoPlayer(),
+              ),
+              // Cart (bottom)
+              Expanded(
+                flex: 1,
+                child: CoffeeKioskOverlay(
+                  key: _cartKey, // Assign GlobalKey to cart widget
+                  onClose: _exitKiosk,
+                  onOrderComplete: (order) {
+                    print('[KIOSK SPLIT] Order completed: ${order.toJson()}');
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('주문이 완료되었습니다. 준비되면 호출하겠습니다.'),
+                        duration: const Duration(seconds: 2),
+                        backgroundColor: Colors.green.shade700,
+                      ),
+                    );
+                  },
+                  onPlayMenuVideo: _playMenuVideo,
+                  downloadPath: widget.downloadPath,
+                  kioskId: widget.kioskId,
+                  menuFilename: widget.menuFilename,
+                  showOnlyCart: true, // Show only cart section
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // Right: Menu
+        Expanded(
+          flex: 1,
+          child: CoffeeKioskOverlay(
+            onClose: _exitKiosk,
+            onOrderComplete: (order) {
+              print('[KIOSK SPLIT] Order completed: ${order.toJson()}');
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('주문이 완료되었습니다. 준비되면 호출하겠습니다.'),
+                  duration: const Duration(seconds: 2),
+                  backgroundColor: Colors.green.shade700,
+                ),
+              );
+            },
+            onPlayMenuVideo: _playMenuVideo,
+            downloadPath: widget.downloadPath,
+            kioskId: widget.kioskId,
+            menuFilename: widget.menuFilename,
+            showOnlyMenu: true, // Show only menu section
+            cartStateKey: _cartKey, // Pass cart key to menu widget
+          ),
+        ),
+      ],
+    );
+  }
+
+  // Build video player widget
+  Widget _buildVideoPlayer() {
+    return Container(
+      color: Colors.black,
+      child: Stack(
+        children: [
+          if (_hasError)
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.all(32.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    if (_hasError)
-                      Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(32.0),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(
-                                Icons.error_outline,
-                                color: Colors.red,
-                                size: 64,
-                              ),
-                              const SizedBox(height: 24),
-                              const Text(
-                                '동영상을 재생할 수 없습니다',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                _errorMessage ?? '',
-                                style: TextStyle(
-                                  color: Colors.grey.shade400,
-                                  fontSize: 14,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                              const SizedBox(height: 32),
-                              ElevatedButton.icon(
-                                onPressed: () {
-                                  // Try to skip to next video
-                                  if (widget.videos.length > 1) {
-                                    _playNextVideo();
-                                  }
-                                },
-                                icon: const Icon(Icons.skip_next),
-                                label: const Text('다음 영상'),
-                                style: ElevatedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 24,
-                                    vertical: 12,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
+                    const Icon(
+                      Icons.error_outline,
+                      color: Colors.red,
+                      size: 64,
+                    ),
+                    const SizedBox(height: 24),
+                    const Text(
+                      '동영상을 재생할 수 없습니다',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      _errorMessage ?? '',
+                      style: TextStyle(
+                        color: Colors.grey.shade400,
+                        fontSize: 14,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 32),
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        // Try to skip to next video
+                        if (widget.videos.length > 1) {
+                          _playNextVideo();
+                        }
+                      },
+                      icon: const Icon(Icons.skip_next),
+                      label: const Text('다음 영상'),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 12,
                         ),
                       ),
-                    if (_isInitialized && _controller != null && !_hasError)
-                      GestureDetector(
-                        onTap: _togglePlayPause,
-                        child: media_kit_video.Video(
-                          controller: _controller!,
-                          controls: media_kit_video.NoVideoControls,
-                          fit: BoxFit.cover,
-                          aspectRatio: null,
-                        ),
-                      ),
+                    ),
                   ],
                 ),
               ),
             ),
-
-            // Bottom (portrait) or Right (landscape): Coffee Kiosk
-            Expanded(
-              flex: isPortrait ? 3 : 1, // Larger in portrait mode for menu visibility
-              child: CoffeeKioskOverlay(
-                onClose: _exitKiosk,
-                onOrderComplete: (order) {
-                  print('[KIOSK SPLIT] Order completed: ${order.toJson()}');
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('주문이 완료되었습니다. 준비되면 호출하겠습니다.'),
-                      duration: const Duration(seconds: 2),
-                      backgroundColor: Colors.green.shade700,
-                    ),
-                  );
-                },
-                onPlayMenuVideo: _playMenuVideo,
-                downloadPath: widget.downloadPath,
-                kioskId: widget.kioskId,
-                menuFilename: widget.menuFilename,
+          if (_isInitialized && _controller != null && !_hasError)
+            GestureDetector(
+              onTap: _togglePlayPause,
+              child: media_kit_video.Video(
+                controller: _controller!,
+                controls: media_kit_video.NoVideoControls,
+                fit: BoxFit.cover,
+                aspectRatio: null,
               ),
             ),
-          ],
-        ),
+        ],
       ),
+    );
+  }
+
+  // Build kiosk overlay widget (for portrait mode - full overlay)
+  Widget _buildKioskOverlay() {
+    return CoffeeKioskOverlay(
+      onClose: _exitKiosk,
+      onOrderComplete: (order) {
+        print('[KIOSK SPLIT] Order completed: ${order.toJson()}');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('주문이 완료되었습니다. 준비되면 호출하겠습니다.'),
+            duration: const Duration(seconds: 2),
+            backgroundColor: Colors.green.shade700,
+          ),
+        );
+      },
+      onPlayMenuVideo: _playMenuVideo,
+      downloadPath: widget.downloadPath,
+      kioskId: widget.kioskId,
+      menuFilename: widget.menuFilename,
     );
   }
 }

@@ -16,6 +16,10 @@ class CoffeeKioskOverlay extends StatefulWidget {
   final String? downloadPath;
   final String? kioskId;
   final String? menuFilename;
+  final bool showOnlyMenu; // Show only menu section (for landscape split layout)
+  final bool showOnlyCart; // Show only cart section (for landscape split layout)
+  final bool useLandscapeLayout; // Use special landscape layout with menu on top and cart on bottom
+  final GlobalKey<CoffeeKioskOverlayState>? cartStateKey; // Key to access cart state from menu
 
   const CoffeeKioskOverlay({
     super.key,
@@ -26,13 +30,17 @@ class CoffeeKioskOverlay extends StatefulWidget {
     this.downloadPath,
     this.kioskId,
     this.menuFilename,
+    this.showOnlyMenu = false,
+    this.showOnlyCart = false,
+    this.useLandscapeLayout = false,
+    this.cartStateKey,
   });
 
   @override
-  State<CoffeeKioskOverlay> createState() => _CoffeeKioskOverlayState();
+  State<CoffeeKioskOverlay> createState() => CoffeeKioskOverlayState();
 }
 
-class _CoffeeKioskOverlayState extends State<CoffeeKioskOverlay> {
+class CoffeeKioskOverlayState extends State<CoffeeKioskOverlay> {
   final CoffeeMenuService _menuService = CoffeeMenuService();
   final WebSocketService _webSocketService = WebSocketService();
   String _selectedCategory = 'coffee';
@@ -246,6 +254,51 @@ class _CoffeeKioskOverlayState extends State<CoffeeKioskOverlay> {
   @override
   Widget build(BuildContext context) {
     print('[COFFEE KIOSK OVERLAY] build called');
+
+    // If showing only menu or only cart (for landscape split layout)
+    if (widget.showOnlyMenu) {
+      return Container(
+        color: Colors.white,
+        child: SafeArea(
+          child: _buildMenuSection(),
+        ),
+      );
+    }
+
+    if (widget.showOnlyCart) {
+      return Container(
+        color: Colors.white,
+        child: SafeArea(
+          child: _buildCartSection(),
+        ),
+      );
+    }
+
+    // Landscape layout: menu on top, cart on bottom (for split screen landscape mode)
+    if (widget.useLandscapeLayout) {
+      return Container(
+        color: Colors.white,
+        child: SafeArea(
+          child: Column(
+            children: [
+              // Menu section (top)
+              Expanded(
+                flex: 1,
+                child: _buildMenuSection(),
+              ),
+
+              // Cart section (bottom)
+              Expanded(
+                flex: 1,
+                child: _buildCartSection(),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // Default layout: menu and cart side by side
     return Container(
       color: Colors.white, // White background for kiosk menu
       child: SafeArea(
@@ -798,15 +851,24 @@ class _CoffeeKioskOverlayState extends State<CoffeeKioskOverlay> {
   }
 
   void _addToCart(CoffeeMenuItem item) {
-    setState(() {
-      _cartItems.add(OrderItem(
-        menuItem: item,
-        size: item.category != 'dessert' ? _selectedSize : 'medium',
-        temperature: item.category != 'dessert' ? _selectedTemperature : 'hot',
-        extras: item.category != 'dessert' ? List.from(_selectedExtras) : [],
-        quantity: 1,
-      ));
-    });
+    final orderItem = OrderItem(
+      menuItem: item,
+      size: item.category != 'dessert' ? _selectedSize : 'medium',
+      temperature: item.category != 'dessert' ? _selectedTemperature : 'hot',
+      extras: item.category != 'dessert' ? List.from(_selectedExtras) : [],
+      quantity: 1,
+    );
+
+    // If cartStateKey is provided (for split layout), update the cart widget
+    if (widget.cartStateKey != null && widget.cartStateKey!.currentState != null) {
+      widget.cartStateKey!.currentState!._cartItems.add(orderItem);
+      widget.cartStateKey!.currentState!.setState(() {});
+    } else {
+      // Otherwise, update own cart
+      setState(() {
+        _cartItems.add(orderItem);
+      });
+    }
 
     // Play add to cart action video if available
     _playActionVideo('addToCart');
