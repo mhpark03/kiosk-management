@@ -31,6 +31,8 @@ function KioskVideoManagement({ kioskProp = null, embedded = false }) {
   const [searchInput, setSearchInput] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [videoStatusMap, setVideoStatusMap] = useState({});
+  const [videoSourceTypeMap, setVideoSourceTypeMap] = useState({});
+  const [videoMenuIdMap, setVideoMenuIdMap] = useState({});
   const [syncing, setSyncing] = useState(false);
   const [showMenuModal, setShowMenuModal] = useState(false);
   const [selectedMenuId, setSelectedMenuId] = useState(null);
@@ -108,12 +110,20 @@ function KioskVideoManagement({ kioskProp = null, embedded = false }) {
       const videoIds = kioskVideos.map(kv => kv.videoId);
       setSelectedVideos(new Set(videoIds));
 
-      // Create a map of videoId -> downloadStatus
+      // Create a map of videoId -> downloadStatus, sourceType, menuId
       const statusMap = {};
+      const sourceTypeMap = {};
+      const menuIdMap = {};
       kioskVideos.forEach(kv => {
         statusMap[kv.videoId] = kv.downloadStatus || 'PENDING';
+        sourceTypeMap[kv.videoId] = kv.sourceType || 'MANUAL';
+        if (kv.menuId) {
+          menuIdMap[kv.videoId] = kv.menuId;
+        }
       });
       setVideoStatusMap(statusMap);
+      setVideoSourceTypeMap(sourceTypeMap);
+      setVideoMenuIdMap(menuIdMap);
 
       // Load full video details for assigned videos (including non-downloadable ones)
       const allVideoIds = [...videoIds];
@@ -210,24 +220,9 @@ function KioskVideoManagement({ kioskProp = null, embedded = false }) {
   };
 
   const handleRemoveVideo = async (videoId) => {
-    // Check if this is a menu file
-    const video = assignedVideos.find(v => v.id === videoId);
-    if (video && video.imagePurpose === 'MENU') {
-      setError('메뉴 파일은 삭제할 수 없습니다. 메뉴 선택 버튼을 통해 변경해주세요');
-      setTimeout(() => setError(''), 3000);
-      return;
-    }
-
-    // Check if this video is assigned as menu
-    if (selectedMenuId === videoId) {
-      setError('현재 메뉴로 지정된 영상은 삭제할 수 없습니다. 먼저 다른 메뉴를 선택하거나 메뉴 선택을 해제해주세요.');
-      setTimeout(() => setError(''), 3000);
-      return;
-    }
-
-    // Check if this is an image file
-    if (video && video.mediaType === 'IMAGE') {
-      setError('이미지는 메뉴에서 자동 관리되므로 삭제할 수 없습니다');
+    // Check if this video has menuId - menu-related media cannot be deleted
+    if (videoMenuIdMap[videoId]) {
+      setError('메뉴에서 설정한 미디어는 삭제할 수 없습니다. 메뉴 편집 화면에서 변경해주세요.');
       setTimeout(() => setError(''), 3000);
       return;
     }
@@ -383,8 +378,8 @@ function KioskVideoManagement({ kioskProp = null, embedded = false }) {
     return menu ? menu.title : '선택 안됨';
   };
 
-  // Pagination logic for modal - exclude already assigned videos and menu files
-  const availableVideos = videos.filter(v => !selectedVideos.has(v.id) && v.imagePurpose !== 'MENU');
+  // Pagination logic for modal - exclude already assigned videos
+  const availableVideos = videos.filter(v => !selectedVideos.has(v.id));
   const totalPagesModal = Math.ceil(availableVideos.length / itemsPerPage);
   const indexOfLastItemModal = currentPage * itemsPerPage;
   const indexOfFirstItemModal = indexOfLastItemModal - itemsPerPage;
@@ -692,23 +687,24 @@ function KioskVideoManagement({ kioskProp = null, embedded = false }) {
                             />
                           )}
                           <span className="filename-text">{video.title || '제목 없음'}</span>
-                          {video.imagePurpose === 'MENU' && (
-                            <span style={{
-                              marginLeft: '8px',
-                              padding: '2px 8px',
-                              fontSize: '11px',
-                              fontWeight: '600',
-                              color: '#744210',
-                              backgroundColor: '#FEF3C7',
-                              borderRadius: '4px',
-                              border: '1px solid #F59E0B'
-                            }}>
-                              메뉴
-                            </span>
-                          )}
                         </div>
                       </td>
                       <td style={{maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}>
+                        {videoMenuIdMap[video.id] && (
+                          <span style={{
+                            marginRight: '8px',
+                            padding: '2px 8px',
+                            fontSize: '11px',
+                            fontWeight: '600',
+                            color: '#744210',
+                            backgroundColor: '#FEF3C7',
+                            borderRadius: '4px',
+                            border: '1px solid #F59E0B',
+                            display: 'inline-block'
+                          }}>
+                            메뉴
+                          </span>
+                        )}
                         {video.description || '-'}
                       </td>
                       <td>{videoService.formatFileSize(video.fileSize)}</td>
@@ -722,16 +718,14 @@ function KioskVideoManagement({ kioskProp = null, embedded = false }) {
                           onClick={() => handleRemoveVideo(video.id)}
                           className="btn-icon btn-delete"
                           title={
-                            video.imagePurpose === 'MENU' || selectedMenuId === video.id
-                              ? '메뉴 파일은 삭제할 수 없습니다'
-                              : video.mediaType === 'IMAGE'
-                              ? '이미지는 메뉴에서 자동 관리되므로 삭제할 수 없습니다'
+                            videoMenuIdMap[video.id]
+                              ? '메뉴에서 설정한 미디어는 삭제할 수 없습니다'
                               : '영상 삭제'
                           }
-                          disabled={video.imagePurpose === 'MENU' || selectedMenuId === video.id || video.mediaType === 'IMAGE'}
+                          disabled={!!videoMenuIdMap[video.id]}
                           style={{
-                            opacity: video.imagePurpose === 'MENU' || selectedMenuId === video.id || video.mediaType === 'IMAGE' ? 0.5 : 1,
-                            cursor: video.imagePurpose === 'MENU' || selectedMenuId === video.id || video.mediaType === 'IMAGE' ? 'not-allowed' : 'pointer'
+                            opacity: videoMenuIdMap[video.id] ? 0.5 : 1,
+                            cursor: videoMenuIdMap[video.id] ? 'not-allowed' : 'pointer'
                           }}
                         >
                           <FiTrash2 />

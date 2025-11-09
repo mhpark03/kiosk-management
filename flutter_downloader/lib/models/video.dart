@@ -8,6 +8,7 @@ class Video {
   final int? fileSizeBytes;
   final String videoType; // UPLOAD, RUNWAY_GENERATED, VEO_GENERATED
   final String mediaType; // VIDEO, IMAGE
+  final String? menuId; // Menu ID if this is from a menu
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -26,6 +27,7 @@ class Video {
     this.fileSizeBytes,
     required this.videoType,
     required this.mediaType,
+    this.menuId,
     required this.createdAt,
     required this.updatedAt,
     this.downloadStatus = 'pending',
@@ -98,6 +100,9 @@ class Video {
           ? DateTime.parse(json['updatedAt'] as String)
           : createdAtDate; // Use createdAt as fallback
 
+      // Handle menuId field
+      final String? menuIdValue = json['menuId']?.toString();
+
       return Video(
         id: videoId,
         title: title,
@@ -108,6 +113,7 @@ class Video {
         fileSizeBytes: videoFileSize,
         videoType: json['videoType']?.toString() ?? 'UPLOAD',
         mediaType: json['mediaType']?.toString() ?? 'VIDEO',
+        menuId: menuIdValue,
         createdAt: createdAtDate,
         updatedAt: updatedAtDate,
       );
@@ -130,6 +136,7 @@ class Video {
       'fileSizeBytes': fileSizeBytes,
       'videoType': videoType,
       'mediaType': mediaType,
+      'menuId': menuId,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
       'downloadStatus': downloadStatus,
@@ -148,6 +155,7 @@ class Video {
     int? fileSizeBytes,
     String? videoType,
     String? mediaType,
+    String? menuId,
     DateTime? createdAt,
     DateTime? updatedAt,
     String? downloadStatus,
@@ -164,6 +172,7 @@ class Video {
       fileSizeBytes: fileSizeBytes ?? this.fileSizeBytes,
       videoType: videoType ?? this.videoType,
       mediaType: mediaType ?? this.mediaType,
+      menuId: menuId ?? this.menuId,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       downloadStatus: downloadStatus ?? this.downloadStatus,

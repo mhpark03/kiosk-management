@@ -682,9 +682,9 @@ class _VideoListScreenState extends State<VideoListScreen> {
 
     for (final video in videos) {
       final fileName = '${video.filename}';
-      // DOCUMENT files (menu XMLs) are stored in menu/ subfolder
+      // Files with menuId (menu-related media) are stored in menu/ subfolder
       String filePath;
-      if (video.mediaType == 'DOCUMENT') {
+      if (video.menuId != null && video.menuId!.isNotEmpty) {
         filePath = '${config.downloadPath}/${config.kioskId}/menu/$fileName';
       } else {
         filePath = '${config.downloadPath}/${config.kioskId}/$fileName';
@@ -1033,11 +1033,11 @@ class _VideoListScreenState extends State<VideoListScreen> {
       print('[DOWNLOAD] Using S3 URL: ${downloadUrl.substring(0, downloadUrl.length > 100 ? 100 : downloadUrl.length)}...');
 
       // Create kioskId subdirectory: Downloads/KioskVideos/[KioskId]
-      // DOCUMENT files (menu XMLs) go to menu/ subfolder
+      // Files with menuId (menu-related media) go to menu/ subfolder
       String kioskDownloadPath = '${config.downloadPath}\\${config.kioskId}';
-      if (video.mediaType == 'DOCUMENT') {
+      if (video.menuId != null && video.menuId!.isNotEmpty) {
         kioskDownloadPath = '${config.downloadPath}\\${config.kioskId}\\menu';
-        print('[DOWNLOAD] DOCUMENT file will be saved to menu folder: $kioskDownloadPath');
+        print('[DOWNLOAD] Menu-related file (menuId: ${video.menuId}) will be saved to menu folder: $kioskDownloadPath');
       }
 
       // Update video status

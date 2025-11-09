@@ -639,6 +639,8 @@ public class KioskService {
                             .assignedBy(kv.getAssignedBy())
                             .assignedAt(kv.getAssignedAt())
                             .downloadStatus(kv.getDownloadStatus())
+                            .sourceType(kv.getSourceType())
+                            .menuId(kv.getMenuId())
                             .createdAt(kv.getCreatedAt())
                             // Add video details
                             .title(video != null ? video.getTitle() : null)
@@ -705,6 +707,8 @@ public class KioskService {
                             .assignedBy(kv.getAssignedBy())
                             .assignedAt(kv.getAssignedAt())
                             .downloadStatus(kv.getDownloadStatus())
+                            .sourceType(kv.getSourceType())
+                            .menuId(kv.getMenuId())
                             .createdAt(kv.getCreatedAt())
                             // Add video details
                             .title(video != null ? video.getTitle() : null)
@@ -1105,9 +1109,10 @@ public class KioskService {
                 .videoId(menuId)
                 .assignedAt(LocalDateTime.now())
                 .sourceType("MANUAL") // Menu XML itself is treated as MANUAL
+                .menuId(menuIdStr) // Track which menu this is
                 .build();
             kioskVideoRepository.save(menuKioskVideo);
-            log.info("Automatically assigned menu XML {} to kiosk {}", menuId, kioskid);
+            log.info("Automatically assigned menu XML {} to kiosk {} (menuId={})", menuId, kioskid, menuIdStr);
         } else {
             log.debug("Menu XML {} already assigned to kiosk {}", menuId, kioskid);
         }

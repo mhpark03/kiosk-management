@@ -19,6 +19,8 @@ public class KioskVideoDTO {
     private String assignedBy;
     private LocalDateTime assignedAt;
     private String downloadStatus; // PENDING, DOWNLOADING, COMPLETED, FAILED
+    private String sourceType;     // MANUAL, MENU_VIDEO, MENU_IMAGE
+    private String menuId;         // Menu ID if this is from a menu
     private LocalDateTime createdAt;
 
     // Video details

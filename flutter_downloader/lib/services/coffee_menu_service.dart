@@ -136,6 +136,23 @@ class CoffeeMenuService {
     }
 
     try {
+      // First try to find in menu folder (for menu-related images)
+      final menuDir = Directory('$_downloadPath/$_kioskId/menu');
+      if (menuDir.existsSync()) {
+        final menuFiles = menuDir.listSync();
+        for (final file in menuFiles) {
+          if (file is File) {
+            final filename = file.path.split(Platform.pathSeparator).last;
+            // Check if filename starts with imageId
+            if (filename.startsWith('$imageId.')) {
+              print('[MENU IMAGE] Found local image in menu folder: ${file.path}');
+              return file.path;
+            }
+          }
+        }
+      }
+
+      // If not found in menu folder, try kiosk folder
       final kioskDir = Directory('$_downloadPath/$_kioskId');
       if (!kioskDir.existsSync()) {
         return null;
@@ -171,6 +188,19 @@ class CoffeeMenuService {
     }
 
     try {
+      // First try to find in menu folder (for menu-related images)
+      final menuDir = Directory('$_downloadPath/$_kioskId/menu');
+      if (menuDir.existsSync()) {
+        final menuFilePath = '${menuDir.path}${Platform.pathSeparator}$filename';
+        final menuFile = File(menuFilePath);
+
+        if (menuFile.existsSync()) {
+          print('[MENU IMAGE] Found local image by filename in menu folder: $menuFilePath');
+          return menuFilePath;
+        }
+      }
+
+      // If not found in menu folder, try kiosk folder
       final kioskDir = Directory('$_downloadPath/$_kioskId');
       if (!kioskDir.existsSync()) {
         return null;
@@ -219,7 +249,23 @@ class CoffeeMenuService {
 
       print('[MENU IMAGE] Extracted filename from S3 URL: $filename');
 
-      // Look for the file in kiosk directory
+      // First try to find in menu folder (for menu-related images)
+      final menuDir = Directory('$_downloadPath/$_kioskId/menu');
+      if (menuDir.existsSync()) {
+        final menuFiles = menuDir.listSync();
+        for (final file in menuFiles) {
+          if (file is File) {
+            final localFilename = file.path.split(Platform.pathSeparator).last;
+            // Check for exact match
+            if (localFilename == filename) {
+              print('[MENU IMAGE] Found local image from S3 URL in menu folder: ${file.path}');
+              return file.path;
+            }
+          }
+        }
+      }
+
+      // If not found in menu folder, try kiosk folder
       final kioskDir = Directory('$_downloadPath/$_kioskId');
       if (!kioskDir.existsSync()) {
         return null;
