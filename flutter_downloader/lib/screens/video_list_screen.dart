@@ -682,7 +682,13 @@ class _VideoListScreenState extends State<VideoListScreen> {
 
     for (final video in videos) {
       final fileName = '${video.filename}';
-      final filePath = '${config.downloadPath}/${config.kioskId}/$fileName';
+      // DOCUMENT files (menu XMLs) are stored in menu/ subfolder
+      String filePath;
+      if (video.mediaType == 'DOCUMENT') {
+        filePath = '${config.downloadPath}/${config.kioskId}/menu/$fileName';
+      } else {
+        filePath = '${config.downloadPath}/${config.kioskId}/$fileName';
+      }
       print('[CHECK FILES] Checking: $filePath');
 
       try {
@@ -766,6 +772,37 @@ class _VideoListScreenState extends State<VideoListScreen> {
               );
             } catch (e) {
               print('[CLEANUP] Failed to delete file $fileName: $e');
+            }
+          }
+        }
+      }
+
+      // Also check menu folder for DOCUMENT files
+      final menuDir = Directory('${config.downloadPath}/${config.kioskId}/menu');
+      if (await menuDir.exists()) {
+        print('[CLEANUP] Checking menu folder for unassigned documents');
+
+        await for (final entity in menuDir.list()) {
+          if (entity is File) {
+            final fileName = entity.path.split(Platform.pathSeparator).last;
+
+            // Check if file is in assigned list
+            if (!assignedFilenames.contains(fileName)) {
+              print('[CLEANUP] Removing unassigned menu file: $fileName');
+
+              try {
+                await entity.delete();
+                removedCount++;
+
+                // Log file removal
+                await EventLogger().logEvent(
+                  eventType: 'FILE_REMOVED',
+                  message: '미할당 메뉴 파일 삭제: $fileName',
+                  metadata: '{"filename": "$fileName", "folder": "menu"}',
+                );
+              } catch (e) {
+                print('[CLEANUP] Failed to delete menu file $fileName: $e');
+              }
             }
           }
         }
@@ -996,7 +1033,12 @@ class _VideoListScreenState extends State<VideoListScreen> {
       print('[DOWNLOAD] Using S3 URL: ${downloadUrl.substring(0, downloadUrl.length > 100 ? 100 : downloadUrl.length)}...');
 
       // Create kioskId subdirectory: Downloads/KioskVideos/[KioskId]
-      final kioskDownloadPath = '${config.downloadPath}\\${config.kioskId}';
+      // DOCUMENT files (menu XMLs) go to menu/ subfolder
+      String kioskDownloadPath = '${config.downloadPath}\\${config.kioskId}';
+      if (video.mediaType == 'DOCUMENT') {
+        kioskDownloadPath = '${config.downloadPath}\\${config.kioskId}\\menu';
+        print('[DOWNLOAD] DOCUMENT file will be saved to menu folder: $kioskDownloadPath');
+      }
 
       // Update video status
       setState(() {
