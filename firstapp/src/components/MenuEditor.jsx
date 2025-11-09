@@ -1224,21 +1224,21 @@ function MenuInfoEditor({ menu, onUpdate }) {
                             {indexOfFirstVideo + index + 1}
                           </div>
 
-                          {/* Video Icon */}
-                          <div style={{
-                            width: '50px',
-                            height: '50px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            backgroundColor: '#edf2f7',
-                            borderRadius: '4px',
-                            border: '1px solid #e2e8f0',
-                            fontSize: '24px',
-                            flexShrink: 0
-                          }}>
-                            🎬
-                          </div>
+                          {/* Video Thumbnail */}
+                          <video
+                            src={video.presignedUrl}
+                            preload="metadata"
+                            muted
+                            style={{
+                              width: '80px',
+                              height: '50px',
+                              objectFit: 'cover',
+                              borderRadius: '4px',
+                              border: '1px solid #e2e8f0',
+                              backgroundColor: '#000',
+                              flexShrink: 0
+                            }}
+                          />
 
                           {/* Video Info */}
                           <div style={{
@@ -1490,9 +1490,20 @@ function MenuInfoEditor({ menu, onUpdate }) {
                           <div style={{ width: '25px', textAlign: 'center', fontWeight: '600', color: '#718096', fontSize: '13px', flexShrink: 0 }}>
                             {indexOfFirstAddToCartVideo + index + 1}
                           </div>
-                          <div style={{ width: '50px', height: '50px', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#edf2f7', borderRadius: '4px', border: '1px solid #e2e8f0', fontSize: '24px', flexShrink: 0 }}>
-                            🎬
-                          </div>
+                          <video
+                            src={video.presignedUrl}
+                            preload="metadata"
+                            muted
+                            style={{
+                              width: '80px',
+                              height: '50px',
+                              objectFit: 'cover',
+                              borderRadius: '4px',
+                              border: '1px solid #e2e8f0',
+                              backgroundColor: '#000',
+                              flexShrink: 0
+                            }}
+                          />
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontWeight: '600', fontSize: '14px', color: '#2d3748' }}>
                               {video.title}
@@ -1642,9 +1653,20 @@ function MenuInfoEditor({ menu, onUpdate }) {
                           <div style={{ width: '25px', textAlign: 'center', fontWeight: '600', color: '#718096', fontSize: '13px', flexShrink: 0 }}>
                             {indexOfFirstCheckoutVideo + index + 1}
                           </div>
-                          <div style={{ width: '50px', height: '50px', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#edf2f7', borderRadius: '4px', border: '1px solid #e2e8f0', fontSize: '24px', flexShrink: 0 }}>
-                            🎬
-                          </div>
+                          <video
+                            src={video.presignedUrl}
+                            preload="metadata"
+                            muted
+                            style={{
+                              width: '80px',
+                              height: '50px',
+                              objectFit: 'cover',
+                              borderRadius: '4px',
+                              border: '1px solid #e2e8f0',
+                              backgroundColor: '#000',
+                              flexShrink: 0
+                            }}
+                          />
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontWeight: '600', fontSize: '14px', color: '#2d3748' }}>
                               {video.title}
@@ -2012,20 +2034,20 @@ function CategoryEditor({ category, onUpdate }) {
                             {indexOfFirstVideo + index + 1}
                           </div>
 
-                          <div style={{
-                            width: '50px',
-                            height: '50px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            backgroundColor: '#edf2f7',
-                            borderRadius: '4px',
-                            border: '1px solid #e2e8f0',
-                            fontSize: '24px',
-                            flexShrink: 0
-                          }}>
-                            🎬
-                          </div>
+                          <video
+                            src={video.presignedUrl}
+                            preload="metadata"
+                            muted
+                            style={{
+                              width: '80px',
+                              height: '50px',
+                              objectFit: 'cover',
+                              borderRadius: '4px',
+                              border: '1px solid #e2e8f0',
+                              backgroundColor: '#000',
+                              flexShrink: 0
+                            }}
+                          />
 
                           <div style={{
                             flex: 1,
@@ -2929,21 +2951,21 @@ function ItemEditor({ item, onUpdate }) {
                             {indexOfFirstVideo + index + 1}
                           </div>
 
-                          {/* Video Icon */}
-                          <div style={{
-                            width: '50px',
-                            height: '50px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            backgroundColor: '#edf2f7',
-                            borderRadius: '4px',
-                            border: '1px solid #e2e8f0',
-                            fontSize: '24px',
-                            flexShrink: 0
-                          }}>
-                            🎬
-                          </div>
+                          {/* Video Thumbnail */}
+                          <video
+                            src={video.presignedUrl}
+                            preload="metadata"
+                            muted
+                            style={{
+                              width: '80px',
+                              height: '50px',
+                              objectFit: 'cover',
+                              borderRadius: '4px',
+                              border: '1px solid #e2e8f0',
+                              backgroundColor: '#000',
+                              flexShrink: 0
+                            }}
+                          />
 
                           {/* Video Info */}
                           <div style={{
