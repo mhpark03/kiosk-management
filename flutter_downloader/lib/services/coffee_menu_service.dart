@@ -15,6 +15,13 @@ class CoffeeMenuService {
   String? _downloadPath;
   String? _kioskId;
 
+  /// Invalidate cached menu data to force reload
+  void invalidateCache() {
+    print('[MENU SERVICE] Cache invalidated');
+    _isXmlLoaded = false;
+    _menuConfig = null;
+  }
+
   /// Load menu from XML file
   /// First tries to load from download path, then falls back to assets
   Future<void> loadMenuFromXml({String? downloadPath, String? kioskId, String? filename}) async {

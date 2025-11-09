@@ -4,6 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../models/coffee_menu_item.dart';
 import '../models/coffee_order.dart';
 import '../services/coffee_menu_service.dart';
+import '../services/websocket_service.dart';
 
 class CoffeeKioskOverlay extends StatefulWidget {
   final VoidCallback onClose;
@@ -31,6 +32,7 @@ class CoffeeKioskOverlay extends StatefulWidget {
 
 class _CoffeeKioskOverlayState extends State<CoffeeKioskOverlay> {
   final CoffeeMenuService _menuService = CoffeeMenuService();
+  final WebSocketService _webSocketService = WebSocketService();
   String _selectedCategory = 'coffee';
   List<OrderItem> _cartItems = [];
   CoffeeMenuItem? _selectedMenuItem;
@@ -40,6 +42,10 @@ class _CoffeeKioskOverlayState extends State<CoffeeKioskOverlay> {
   String _selectedTemperature = 'hot';
   List<String> _selectedExtras = [];
 
+  // Store original callbacks to restore them later
+  Function()? _originalSyncCallback;
+  Function()? _originalConfigCallback;
+
   @override
   void initState() {
     super.initState();
@@ -47,8 +53,46 @@ class _CoffeeKioskOverlayState extends State<CoffeeKioskOverlay> {
     print('[COFFEE KIOSK OVERLAY] downloadPath: ${widget.downloadPath}');
     print('[COFFEE KIOSK OVERLAY] kioskId: ${widget.kioskId}');
     print('[COFFEE KIOSK OVERLAY] menuFilename: ${widget.menuFilename}');
+
+    // Store original callbacks
+    _originalSyncCallback = _webSocketService.onSyncCommand;
+    _originalConfigCallback = _webSocketService.onConfigUpdate;
+
+    // Setup WebSocket callbacks for menu updates
+    _setupWebSocketCallbacks();
+
     // Load menu from XML
     _loadMenu();
+  }
+
+  @override
+  void dispose() {
+    // Restore original callbacks
+    _webSocketService.onSyncCommand = _originalSyncCallback;
+    _webSocketService.onConfigUpdate = _originalConfigCallback;
+    super.dispose();
+  }
+
+  void _setupWebSocketCallbacks() {
+    _webSocketService.onSyncCommand = () {
+      print('[COFFEE KIOSK OVERLAY] Sync command received, reloading menu...');
+      _reloadMenu();
+      _originalSyncCallback?.call();
+    };
+
+    _webSocketService.onConfigUpdate = () {
+      print('[COFFEE KIOSK OVERLAY] Config update received, reloading menu...');
+      _reloadMenu();
+      _originalConfigCallback?.call();
+    };
+  }
+
+  Future<void> _reloadMenu() async {
+    print('[COFFEE KIOSK OVERLAY] Reloading menu after sync/config update');
+    // Invalidate cache first
+    _menuService.invalidateCache();
+    // Then reload
+    await _loadMenu();
   }
 
   Future<void> _loadMenu() async {
