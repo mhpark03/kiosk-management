@@ -93,17 +93,17 @@ class _CoffeeKioskOverlayState extends State<CoffeeKioskOverlay> {
     final config = storageService.getConfig();
 
     if (config == null) {
-      print('[MENU CHECK] No config found, using default 30 second interval');
-      _startTimer(Duration(seconds: 30));
+      print('[MENU CHECK] No config found, using default 1 minute interval');
+      _startTimer(Duration(minutes: 1));
       return;
     }
 
-    // Use syncIntervalHours from config
-    // But check more frequently (every 1/120 of interval, min 30 seconds)
+    // Use syncIntervalHours from config as-is
+    // Menu changes don't happen frequently, so checking at sync interval is sufficient
     final intervalHours = config.syncIntervalHours;
-    final checkIntervalSeconds = (intervalHours * 3600 / 120).clamp(30, 3600).toInt();
+    final checkIntervalSeconds = (intervalHours * 3600).clamp(60, double.infinity).toInt();
 
-    print('[MENU CHECK] Starting periodic menu check every $checkIntervalSeconds seconds (from ${intervalHours}h sync interval)');
+    print('[MENU CHECK] Starting periodic menu check every $checkIntervalSeconds seconds (${intervalHours}h from config)');
     _startTimer(Duration(seconds: checkIntervalSeconds));
 
     // Record initial menu file modification time
