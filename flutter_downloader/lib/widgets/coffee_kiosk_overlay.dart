@@ -74,6 +74,11 @@ class _CoffeeKioskOverlayState extends State<CoffeeKioskOverlay> {
 
     // Start periodic menu check (every 30 seconds)
     _startPeriodicMenuCheck();
+
+    // Play initial category video after a short delay to ensure menu is loaded
+    Future.delayed(const Duration(milliseconds: 500), () {
+      _playCategoryVideo(_selectedCategory);
+    });
   }
 
   @override
@@ -336,7 +341,11 @@ class _CoffeeKioskOverlayState extends State<CoffeeKioskOverlay> {
           final isSelected = _selectedCategory == category;
           return Expanded(
             child: GestureDetector(
-              onTap: () => setState(() => _selectedCategory = category),
+              onTap: () {
+                setState(() => _selectedCategory = category);
+                // Play category video when category is selected
+                _playCategoryVideo(category);
+              },
               child: Container(
                 margin: const EdgeInsets.symmetric(horizontal: 4),
                 padding: const EdgeInsets.symmetric(vertical: 12),
@@ -589,6 +598,44 @@ class _CoffeeKioskOverlayState extends State<CoffeeKioskOverlay> {
       return;
     }
 
+    // Call callback to play video on left screen
+    widget.onPlayMenuVideo!(videoPath);
+  }
+
+  void _playCategoryVideo(String category) {
+    final videoFilename = _menuService.getCategoryVideoFilename(category);
+    if (videoFilename == null || videoFilename.isEmpty) {
+      print('[CATEGORY VIDEO] No video for category: $category');
+      return;
+    }
+
+    if (widget.downloadPath == null || widget.kioskId == null) {
+      print('[CATEGORY VIDEO] Cannot play video: downloadPath or kioskId is null');
+      return;
+    }
+
+    if (widget.onPlayMenuVideo == null) {
+      print('[CATEGORY VIDEO] onPlayMenuVideo callback is null');
+      return;
+    }
+
+    // Build video path in menu folder or kiosk folder
+    // Try menu folder first
+    String videoPath = '${widget.downloadPath}/${widget.kioskId}/menu/$videoFilename';
+    File videoFile = File(videoPath);
+
+    // If not found in menu folder, try kiosk folder
+    if (!videoFile.existsSync()) {
+      videoPath = '${widget.downloadPath}/${widget.kioskId}/$videoFilename';
+      videoFile = File(videoPath);
+    }
+
+    if (!videoFile.existsSync()) {
+      print('[CATEGORY VIDEO] Video file does not exist: $videoPath');
+      return;
+    }
+
+    print('[CATEGORY VIDEO] Playing category video for $category: $videoPath');
     // Call callback to play video on left screen
     widget.onPlayMenuVideo!(videoPath);
   }

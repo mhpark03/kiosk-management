@@ -31,6 +31,8 @@ class XmlMenuParser {
         nameEn: categoryElement.getAttribute('nameEn')!,
         icon: categoryElement.getAttribute('icon')!,
         order: int.parse(categoryElement.getAttribute('order') ?? '0'),
+        videoId: categoryElement.getAttribute('videoId'),
+        videoFilename: categoryElement.getAttribute('videoFilename'),
       );
     }).toList();
   }

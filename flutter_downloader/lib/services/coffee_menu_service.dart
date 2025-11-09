@@ -469,4 +469,18 @@ class CoffeeMenuService {
         return category;
     }
   }
+
+  /// Get video filename for a category
+  String? getCategoryVideoFilename(String category) {
+    if (_isXmlLoaded && _menuConfig != null) {
+      try {
+        final cat = _menuConfig!.categories.firstWhere((c) => c.id == category);
+        return cat.videoFilename;
+      } catch (e) {
+        print('[MENU SERVICE] Category not found: $category');
+        return null;
+      }
+    }
+    return null;
+  }
 }

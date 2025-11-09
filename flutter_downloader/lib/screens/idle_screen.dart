@@ -158,8 +158,8 @@ class _IdleScreenState extends State<IdleScreen> {
                   child: FittedBox(
                     fit: BoxFit.cover,
                     child: SizedBox(
-                      width: _controller!.player.state.width ?? 1920,
-                      height: _controller!.player.state.height ?? 1080,
+                      width: (_controller!.player.state.width ?? 1920).toDouble(),
+                      height: (_controller!.player.state.height ?? 1080).toDouble(),
                       child: media_kit_video.Video(
                         controller: _controller!,
                         controls: media_kit_video.NoVideoControls,

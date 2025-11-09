@@ -32,6 +32,8 @@ class MenuCategory {
   final String nameEn;
   final String icon;
   final int order;
+  final String? videoId;
+  final String? videoFilename;
 
   MenuCategory({
     required this.id,
@@ -39,6 +41,8 @@ class MenuCategory {
     required this.nameEn,
     required this.icon,
     required this.order,
+    this.videoId,
+    this.videoFilename,
   });
 }
 
