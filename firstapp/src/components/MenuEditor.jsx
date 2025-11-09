@@ -121,6 +121,7 @@ function MenuEditor() {
       description: item.getElementsByTagName('description')[0]?.textContent || '',
       thumbnailUrl: item.getElementsByTagName('thumbnailUrl')[0]?.textContent || null,
       imageId: item.getElementsByTagName('imageId')[0]?.textContent || null,
+      imageFilename: item.getElementsByTagName('imageFilename')[0]?.textContent || null,
       available: item.getElementsByTagName('available')[0]?.textContent === 'true',
       sizeEnabled: item.getElementsByTagName('sizeEnabled')[0]?.textContent === 'true',
       temperatureEnabled: item.getElementsByTagName('temperatureEnabled')[0]?.textContent === 'true',
@@ -267,6 +268,9 @@ function MenuEditor() {
       }
       if (item.imageId) {
         xml += `      <imageId>${escapeXML(item.imageId)}</imageId>\n`;
+      }
+      if (item.imageFilename) {
+        xml += `      <imageFilename>${escapeXML(item.imageFilename)}</imageFilename>\n`;
       }
       xml += `      <available>${item.available}</available>\n`;
       xml += `      <sizeEnabled>${item.sizeEnabled}</sizeEnabled>\n`;
@@ -706,11 +710,12 @@ function ItemEditor({ item, onUpdate }) {
   };
 
   const handleSelectImage = (image) => {
-    // Use presigned URL for display (S3 is private) and store imageId for kiosk download
+    // Use presigned URL for display (S3 is private) and store imageId + filename for kiosk download
     const updated = {
       ...formData,
       thumbnailUrl: image.presignedUrl,
-      imageId: String(image.id) // Store image ID for kiosk to download later
+      imageId: String(image.id), // Store image ID for kiosk to download later
+      imageFilename: image.filename // Store filename for offline kiosk usage
     };
     setFormData(updated);
     onUpdate(updated);

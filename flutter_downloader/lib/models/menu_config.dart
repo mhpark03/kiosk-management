@@ -51,6 +51,7 @@ class MenuItem {
   final String description;
   final String? thumbnailUrl;
   final String? imageId;  // Image ID for downloading from server
+  final String? imageFilename;  // Image filename for offline kiosk operation
   final bool available;
   final int order;
 
@@ -68,6 +69,7 @@ class MenuItem {
     required this.description,
     this.thumbnailUrl,
     this.imageId,  // Image ID for downloading from server
+    this.imageFilename,  // Image filename for offline kiosk operation
     this.available = true,
     required this.order,
     this.sizeEnabled = true,

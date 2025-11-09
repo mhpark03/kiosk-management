@@ -51,6 +51,9 @@ class XmlMenuParser {
         imageId: itemElement.findElements('imageId').isNotEmpty
             ? itemElement.findElements('imageId').first.innerText
             : null,
+        imageFilename: itemElement.findElements('imageFilename').isNotEmpty
+            ? itemElement.findElements('imageFilename').first.innerText
+            : null,
         available: itemElement.findElements('available').first.innerText == 'true',
         sizeEnabled: itemElement.findElements('sizeEnabled').first.innerText == 'true',
         temperatureEnabled: itemElement.findElements('temperatureEnabled').first.innerText == 'true',

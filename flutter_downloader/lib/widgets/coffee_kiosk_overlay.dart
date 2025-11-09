@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../models/coffee_menu_item.dart';
@@ -231,36 +232,10 @@ class _CoffeeKioskOverlayState extends State<CoffeeKioskOverlay> {
           children: [
             // Product Image or Icon
             if (item.imageUrl != null && item.imageUrl!.isNotEmpty)
-              // Show cached network image
+              // Show local file or network image
               ClipRRect(
                 borderRadius: BorderRadius.circular(8),
-                child: CachedNetworkImage(
-                  imageUrl: item.imageUrl!,
-                  width: 100,
-                  height: 100,
-                  fit: BoxFit.cover,
-                  placeholder: (context, url) => Container(
-                    width: 100,
-                    height: 100,
-                    color: Colors.brown.shade100,
-                    child: const Center(
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                  ),
-                  errorWidget: (context, url, error) => Container(
-                    width: 100,
-                    height: 100,
-                    decoration: BoxDecoration(
-                      color: Colors.brown.shade100,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Icon(
-                      _getCategoryIcon(item.category),
-                      size: 40,
-                      color: Colors.brown.shade700,
-                    ),
-                  ),
-                ),
+                child: _buildMenuItemImage(item),
               )
             else
               // Fallback: Show icon
@@ -322,6 +297,70 @@ class _CoffeeKioskOverlayState extends State<CoffeeKioskOverlay> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildMenuItemImage(CoffeeMenuItem item) {
+    final imageUrl = item.imageUrl;
+    if (imageUrl == null || imageUrl.isEmpty) {
+      return _buildFallbackIcon(item.category);
+    }
+
+    // Check if it's a local file path (starts with '/' or drive letter on Windows)
+    final isLocalFile = imageUrl.startsWith('/') ||
+        (imageUrl.length > 2 && imageUrl[1] == ':') ||
+        imageUrl.startsWith('file://');
+
+    if (isLocalFile) {
+      // Remove 'file://' prefix if present
+      final filePath = imageUrl.startsWith('file://') ? imageUrl.substring(7) : imageUrl;
+
+      return Image.file(
+        File(filePath),
+        width: 100,
+        height: 100,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) {
+          print('[MENU IMAGE] Error loading local file: $filePath - $error');
+          return _buildFallbackIcon(item.category);
+        },
+      );
+    } else {
+      // Network image with CachedNetworkImage
+      return CachedNetworkImage(
+        imageUrl: imageUrl,
+        width: 100,
+        height: 100,
+        fit: BoxFit.cover,
+        placeholder: (context, url) => Container(
+          width: 100,
+          height: 100,
+          color: Colors.brown.shade100,
+          child: const Center(
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+        errorWidget: (context, url, error) {
+          print('[MENU IMAGE] Error loading network image: $url - $error');
+          return _buildFallbackIcon(item.category);
+        },
+      );
+    }
+  }
+
+  Widget _buildFallbackIcon(String category) {
+    return Container(
+      width: 100,
+      height: 100,
+      decoration: BoxDecoration(
+        color: Colors.brown.shade100,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Icon(
+        _getCategoryIcon(category),
+        size: 40,
+        color: Colors.brown.shade700,
       ),
     );
   }

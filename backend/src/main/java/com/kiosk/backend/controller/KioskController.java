@@ -836,4 +836,101 @@ public class KioskController {
                     .body(Map.of("error", "Failed to generate menu download URL: " + e.getMessage()));
         }
     }
+
+    /**
+     * Refresh presigned URL for a specific video
+     * GET /api/kiosks/by-kioskid/{kioskid}/videos/{videoId}/refresh-url
+     * This is useful when the presigned URL has expired and needs to be regenerated
+     */
+    @GetMapping("/by-kioskid/{kioskid}/videos/{videoId}/refresh-url")
+    public ResponseEntity<?> refreshVideoUrl(
+            @PathVariable String kioskid,
+            @PathVariable Long videoId) {
+        try {
+            log.info("GET /api/kiosks/by-kioskid/{}/videos/{}/refresh-url - Refreshing presigned URL", kioskid, videoId);
+
+            // Verify kiosk exists
+            Kiosk kiosk = kioskRepository.findByKioskid(kioskid)
+                    .orElseThrow(() -> new RuntimeException("Kiosk not found: " + kioskid));
+
+            // Get video by ID
+            Video video = videoService.getVideoById(videoId);
+            if (video == null) {
+                log.error("Video not found with ID: {}", videoId);
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(Map.of("error", "Video not found with ID: " + videoId));
+            }
+
+            // Generate fresh presigned download URL (60 minutes)
+            String freshUrl = videoService.getPresignedDownloadUrl(video.getS3Key());
+
+            // Also generate thumbnail URL if available
+            String thumbnailUrl = null;
+            if (video.getThumbnailS3Key() != null && !video.getThumbnailS3Key().isEmpty()) {
+                thumbnailUrl = videoService.getPresignedDownloadUrl(video.getThumbnailS3Key());
+            }
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("videoId", video.getId());
+            response.put("downloadUrl", freshUrl);
+            response.put("thumbnailUrl", thumbnailUrl);
+            response.put("filename", video.getOriginalFilename());
+            response.put("expiresIn", 3600); // seconds (60 minutes)
+            response.put("generatedAt", LocalDateTime.now().toString());
+
+            log.info("Refreshed presigned URL for video {} (kiosk: {})", videoId, kioskid);
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("Failed to refresh presigned URL for video {} (kiosk: {}): {}", videoId, kioskid, e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to refresh presigned URL: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Refresh presigned URLs for all videos assigned to a kiosk
+     * GET /api/kiosks/by-kioskid/{kioskid}/videos/refresh-all-urls
+     * This is useful when multiple presigned URLs have expired
+     */
+    @GetMapping("/by-kioskid/{kioskid}/videos/refresh-all-urls")
+    public ResponseEntity<?> refreshAllVideoUrls(@PathVariable String kioskid) {
+        try {
+            log.info("GET /api/kiosks/by-kioskid/{}/videos/refresh-all-urls - Refreshing all presigned URLs", kioskid);
+
+            // Get all videos for this kiosk with status
+            List<com.kiosk.backend.dto.KioskVideoDTO> videos = kioskService.getKioskVideosWithStatusByKioskId(kioskid);
+
+            // Refresh presigned URLs for all videos
+            for (com.kiosk.backend.dto.KioskVideoDTO video : videos) {
+                if (video.getUrl() != null) {
+                    Video videoEntity = videoService.getVideoById(video.getVideoId());
+                    if (videoEntity != null && videoEntity.getS3Key() != null) {
+                        String freshUrl = videoService.getPresignedDownloadUrl(videoEntity.getS3Key());
+                        video.setPresignedUrl(freshUrl);
+
+                        // Also refresh thumbnail URL if available
+                        if (videoEntity.getThumbnailS3Key() != null && !videoEntity.getThumbnailS3Key().isEmpty()) {
+                            String thumbnailUrl = videoService.getPresignedDownloadUrl(videoEntity.getThumbnailS3Key());
+                            video.setThumbnailUrl(thumbnailUrl);
+                        }
+                    }
+                }
+            }
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("videos", videos);
+            response.put("count", videos.size());
+            response.put("expiresIn", 3600); // seconds (60 minutes)
+            response.put("generatedAt", LocalDateTime.now().toString());
+
+            log.info("Refreshed presigned URLs for {} videos (kiosk: {})", videos.size(), kioskid);
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("Failed to refresh presigned URLs for kiosk {}: {}", kioskid, e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to refresh presigned URLs: " + e.getMessage()));
+        }
+    }
 }

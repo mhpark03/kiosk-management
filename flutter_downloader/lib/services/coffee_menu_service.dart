@@ -74,13 +74,45 @@ class CoffeeMenuService {
 
   /// Convert MenuItem to CoffeeMenuItem
   CoffeeMenuItem _toCoffeeMenuItem(MenuItem item) {
-    // If imageId exists, try to find downloaded image file
+    // Try to find downloaded image file
     String? imageUrl = item.thumbnailUrl;
-    if (item.imageId != null && _downloadPath != null && _kioskId != null) {
-      final localImagePath = _findLocalImage(item.imageId!);
-      if (localImagePath != null) {
-        imageUrl = localImagePath;
-        print('[MENU IMAGE] Using downloaded image for item ${item.id}: $localImagePath');
+
+    if (_downloadPath != null && _kioskId != null) {
+      // Priority 1: Try to find by imageFilename if available (best for offline operation)
+      if (item.imageFilename != null) {
+        final localImagePath = _findLocalImageByFilename(item.imageFilename!);
+        if (localImagePath != null) {
+          imageUrl = localImagePath;
+          print('[MENU IMAGE] Using downloaded image by filename for item ${item.id}: $localImagePath');
+          return CoffeeMenuItem(
+            id: item.id,
+            name: item.name,
+            nameEn: item.nameEn,
+            price: item.price,
+            category: item.category,
+            imageUrl: imageUrl,
+            description: item.description,
+            isAvailable: item.available,
+          );
+        }
+      }
+
+      // Priority 2: Try to find by imageId if available
+      if (item.imageId != null) {
+        final localImagePath = _findLocalImage(item.imageId!);
+        if (localImagePath != null) {
+          imageUrl = localImagePath;
+          print('[MENU IMAGE] Using downloaded image for item ${item.id}: $localImagePath');
+        }
+      }
+
+      // Priority 3: If not found by imageId, try to find by extracting filename from S3 URL
+      if (imageUrl != null && imageUrl.contains('s3.') && imageUrl.contains('amazonaws.com')) {
+        final localImagePath = _findLocalImageFromUrl(imageUrl);
+        if (localImagePath != null) {
+          imageUrl = localImagePath;
+          print('[MENU IMAGE] Using downloaded image from S3 URL for item ${item.id}: $localImagePath');
+        }
       }
     }
 
@@ -126,6 +158,89 @@ class CoffeeMenuService {
       return null;
     } catch (e) {
       print('[MENU IMAGE] Error finding local image: $e');
+      return null;
+    }
+  }
+
+  /// Find local downloaded image file by filename
+  /// Returns absolute path to the image file if found
+  /// This is the preferred method for offline kiosk operation
+  String? _findLocalImageByFilename(String filename) {
+    if (_downloadPath == null || _kioskId == null) {
+      return null;
+    }
+
+    try {
+      final kioskDir = Directory('$_downloadPath/$_kioskId');
+      if (!kioskDir.existsSync()) {
+        return null;
+      }
+
+      // Look for exact filename match
+      final filePath = '${kioskDir.path}${Platform.pathSeparator}$filename';
+      final file = File(filePath);
+
+      if (file.existsSync()) {
+        print('[MENU IMAGE] Found local image by filename: $filePath');
+        return filePath;
+      }
+
+      print('[MENU IMAGE] Local image not found for filename: $filename');
+      return null;
+    } catch (e) {
+      print('[MENU IMAGE] Error finding local image by filename: $e');
+      return null;
+    }
+  }
+
+  /// Find local downloaded image file by extracting filename from S3 URL
+  /// Returns absolute path to the image file if found
+  String? _findLocalImageFromUrl(String s3Url) {
+    if (_downloadPath == null || _kioskId == null) {
+      return null;
+    }
+
+    try {
+      // Extract filename from S3 URL
+      // Example: https://bucket.s3.region.amazonaws.com/path/filename.jpg?params
+      final uri = Uri.parse(s3Url);
+      final pathSegments = uri.pathSegments;
+
+      if (pathSegments.isEmpty) {
+        print('[MENU IMAGE] No path segments in S3 URL: $s3Url');
+        return null;
+      }
+
+      // Get the last segment as filename
+      String filename = pathSegments.last;
+
+      // URL decode the filename to handle special characters
+      filename = Uri.decodeComponent(filename);
+
+      print('[MENU IMAGE] Extracted filename from S3 URL: $filename');
+
+      // Look for the file in kiosk directory
+      final kioskDir = Directory('$_downloadPath/$_kioskId');
+      if (!kioskDir.existsSync()) {
+        return null;
+      }
+
+      final files = kioskDir.listSync();
+      for (final file in files) {
+        if (file is File) {
+          final localFilename = file.path.split(Platform.pathSeparator).last;
+          // Check for exact match
+          if (localFilename == filename) {
+            print('[MENU IMAGE] Found local image from S3 URL: ${file.path}');
+            return file.path;
+          }
+        }
+      }
+
+      print('[MENU IMAGE] Local image not found for S3 URL filename: $filename');
+      return null;
+    } catch (e) {
+      print('[MENU IMAGE] Error finding local image from S3 URL: $e');
       return null;
     }
   }

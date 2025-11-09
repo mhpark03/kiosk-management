@@ -645,4 +645,63 @@ class ApiService {
       throw Exception('메뉴 다운로드 URL 조회 중 오류가 발생했습니다: $e');
     }
   }
+
+  /// Refresh presigned URL for a specific video
+  /// Returns new presigned URL with 60 minutes validity
+  Future<Map<String, dynamic>> refreshVideoUrl(String kioskId, int videoId) async {
+    try {
+      print('[API] Refreshing presigned URL for video $videoId (kiosk: $kioskId)');
+
+      final response = await _dio.get(
+        '/api/kiosks/by-kioskid/$kioskId/videos/$videoId/refresh-url',
+      );
+
+      print('[API] Successfully refreshed presigned URL for video $videoId');
+      return response.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      print('[API] DioException refreshing presigned URL for video $videoId:');
+      print('  Status code: ${e.response?.statusCode}');
+      print('  Response data: ${e.response?.data}');
+      print('  Error message: ${e.message}');
+
+      if (e.response?.data != null && e.response?.data['error'] != null) {
+        throw Exception(e.response?.data['error']);
+      } else {
+        throw Exception('서버 연결에 실패했습니다: ${e.message}');
+      }
+    } catch (e) {
+      print('[API] Exception refreshing presigned URL for video $videoId: $e');
+      throw Exception('Presigned URL 갱신 중 오류가 발생했습니다: $e');
+    }
+  }
+
+  /// Refresh presigned URLs for all videos assigned to a kiosk
+  /// Returns updated list of videos with fresh presigned URLs (60 minutes validity)
+  Future<Map<String, dynamic>> refreshAllVideoUrls(String kioskId) async {
+    try {
+      print('[API] Refreshing all presigned URLs for kiosk $kioskId');
+
+      final response = await _dio.get(
+        '/api/kiosks/by-kioskid/$kioskId/videos/refresh-all-urls',
+      );
+
+      print('[API] Successfully refreshed all presigned URLs for kiosk $kioskId');
+      print('[API] Refreshed ${response.data['count']} videos');
+      return response.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      print('[API] DioException refreshing all presigned URLs:');
+      print('  Status code: ${e.response?.statusCode}');
+      print('  Response data: ${e.response?.data}');
+      print('  Error message: ${e.message}');
+
+      if (e.response?.data != null && e.response?.data['error'] != null) {
+        throw Exception(e.response?.data['error']);
+      } else {
+        throw Exception('서버 연결에 실패했습니다: ${e.message}');
+      }
+    } catch (e) {
+      print('[API] Exception refreshing all presigned URLs: $e');
+      throw Exception('Presigned URL 일괄 갱신 중 오류가 발생했습니다: $e');
+    }
+  }
 }
