@@ -5,6 +5,7 @@ class CoffeeMenuItem {
   final int price;
   final String category; // 'coffee', 'beverage', 'dessert'
   final String? imageUrl;
+  final String? videoFilename;  // Video filename for menu item video playback
   final String description;
   final bool isAvailable;
 
@@ -15,6 +16,7 @@ class CoffeeMenuItem {
     required this.price,
     required this.category,
     this.imageUrl,
+    this.videoFilename,
     required this.description,
     this.isAvailable = true,
   });

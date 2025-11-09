@@ -8,6 +8,7 @@ import '../services/coffee_menu_service.dart';
 class CoffeeKioskOverlay extends StatefulWidget {
   final VoidCallback onClose;
   final Function(CoffeeOrder) onOrderComplete;
+  final Function(String videoPath)? onPlayMenuVideo; // Callback to play menu video on left screen
   final bool showCloseButton;
   final String? downloadPath;
   final String? kioskId;
@@ -17,6 +18,7 @@ class CoffeeKioskOverlay extends StatefulWidget {
     super.key,
     required this.onClose,
     required this.onOrderComplete,
+    this.onPlayMenuVideo,
     this.showCloseButton = false,
     this.downloadPath,
     this.kioskId,
@@ -213,7 +215,7 @@ class _CoffeeKioskOverlayState extends State<CoffeeKioskOverlay> {
 
   Widget _buildMenuItem(CoffeeMenuItem item) {
     return GestureDetector(
-      onTap: () => _showItemOptionsDialog(item),
+      onTap: () => _handleMenuItemTap(item),
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
@@ -376,6 +378,43 @@ class _CoffeeKioskOverlayState extends State<CoffeeKioskOverlay> {
       default:
         return Icons.fastfood;
     }
+  }
+
+  void _handleMenuItemTap(CoffeeMenuItem item) {
+    // Always show options dialog
+    _showItemOptionsDialog(item);
+
+    // If item has video, play it on the left screen
+    if (item.videoFilename != null && item.videoFilename!.isNotEmpty) {
+      print('[MENU VIDEO] Playing video for item: ${item.name}, filename: ${item.videoFilename}');
+      _playMenuItemVideo(item);
+    }
+  }
+
+  void _playMenuItemVideo(CoffeeMenuItem item) {
+    if (widget.downloadPath == null || widget.kioskId == null) {
+      print('[MENU VIDEO] Cannot play video: downloadPath or kioskId is null');
+      return;
+    }
+
+    if (widget.onPlayMenuVideo == null) {
+      print('[MENU VIDEO] onPlayMenuVideo callback is null');
+      return;
+    }
+
+    // Build video path in menu folder
+    final videoPath = '${widget.downloadPath}/${widget.kioskId}/menu/${item.videoFilename}';
+    print('[MENU VIDEO] Video path: $videoPath');
+
+    // Check if file exists
+    final videoFile = File(videoPath);
+    if (!videoFile.existsSync()) {
+      print('[MENU VIDEO] Video file does not exist: $videoPath');
+      return;
+    }
+
+    // Call callback to play video on left screen
+    widget.onPlayMenuVideo!(videoPath);
   }
 
   void _showItemOptionsDialog(CoffeeMenuItem item) {

@@ -40,6 +40,11 @@ class _KioskSplitScreenState extends State<KioskSplitScreen> {
   Duration _duration = Duration.zero;
   final DownloadService _downloadService = DownloadService();
 
+  // Menu video playback
+  bool _isPlayingMenuVideo = false;
+  String? _savedVideoPath;
+  Duration _savedPosition = Duration.zero;
+
   @override
   void initState() {
     super.initState();
@@ -108,7 +113,14 @@ class _KioskSplitScreenState extends State<KioskSplitScreen> {
       // Listen for video completion
       _player!.stream.completed.listen((completed) {
         if (completed) {
-          _playNextVideo();
+          if (_isPlayingMenuVideo) {
+            // Menu video completed, return to saved video
+            print('[KIOSK SPLIT] Menu video completed, returning to saved video');
+            _returnToSavedVideo();
+          } else {
+            // Regular video completed, play next
+            _playNextVideo();
+          }
         }
       });
 
@@ -137,6 +149,55 @@ class _KioskSplitScreenState extends State<KioskSplitScreen> {
       _isInitialized = false;
     });
     await _initializeVideo();
+  }
+
+  Future<void> _playMenuVideo(String videoPath) async {
+    if (_player == null) return;
+
+    print('[KIOSK SPLIT] Playing menu video: $videoPath');
+
+    try {
+      // Save current video state
+      final video = widget.videos[_currentVideoIndex];
+      final actualPath = await _downloadService.getActualFilePath(video.localPath!);
+      _savedVideoPath = actualPath;
+      _savedPosition = _position;
+      _isPlayingMenuVideo = true;
+
+      print('[KIOSK SPLIT] Saved video: $actualPath at position: $_savedPosition');
+
+      // Play menu video
+      await _player!.open(Media(videoPath));
+      await _player!.play();
+
+      print('[KIOSK SPLIT] Menu video started playing');
+    } catch (e) {
+      print('[KIOSK SPLIT] Error playing menu video: $e');
+      _isPlayingMenuVideo = false;
+    }
+  }
+
+  Future<void> _returnToSavedVideo() async {
+    if (_player == null || _savedVideoPath == null) return;
+
+    print('[KIOSK SPLIT] Returning to saved video: $_savedVideoPath');
+
+    try {
+      // Return to saved video
+      await _player!.open(Media(_savedVideoPath!));
+      await _player!.seek(_savedPosition);
+      await _player!.play();
+
+      // Clear saved state
+      _isPlayingMenuVideo = false;
+      _savedVideoPath = null;
+      _savedPosition = Duration.zero;
+
+      print('[KIOSK SPLIT] Returned to saved video at position: $_savedPosition');
+    } catch (e) {
+      print('[KIOSK SPLIT] Error returning to saved video: $e');
+      _isPlayingMenuVideo = false;
+    }
   }
 
   @override
@@ -328,6 +389,7 @@ class _KioskSplitScreenState extends State<KioskSplitScreen> {
                     ),
                   );
                 },
+                onPlayMenuVideo: _playMenuVideo,
                 downloadPath: widget.downloadPath,
                 kioskId: widget.kioskId,
                 menuFilename: widget.menuFilename,

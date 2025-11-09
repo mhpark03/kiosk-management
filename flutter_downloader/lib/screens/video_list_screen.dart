@@ -1753,24 +1753,67 @@ class _VideoListScreenState extends State<VideoListScreen> {
                                   child: isLandscape
                                     ? Row(
                                         children: [
-                                          // 영상 ID
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 6,
-                                              vertical: 2,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: Colors.grey.shade300,
-                                              borderRadius: BorderRadius.circular(4),
-                                            ),
-                                            child: Text(
-                                              '#${video.id}',
-                                              style: TextStyle(
-                                                fontSize: 11,
-                                                color: Colors.grey.shade700,
-                                                fontWeight: FontWeight.w600,
+                                          // 영상 ID와 메뉴 배지
+                                          Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(
+                                                  horizontal: 6,
+                                                  vertical: 2,
+                                                ),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.grey.shade300,
+                                                  borderRadius: BorderRadius.circular(4),
+                                                ),
+                                                child: Text(
+                                                  '#${video.id}',
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    color: Colors.grey.shade700,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                ),
                                               ),
-                                            ),
+                                              // 메뉴 배지 (menuId가 있는 경우)
+                                              if (video.menuId != null && video.menuId!.isNotEmpty) ...[
+                                                const SizedBox(height: 2),
+                                                Container(
+                                                  padding: const EdgeInsets.symmetric(
+                                                    horizontal: 4,
+                                                    vertical: 1,
+                                                  ),
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.amber.shade100,
+                                                    borderRadius: BorderRadius.circular(3),
+                                                    border: Border.all(
+                                                      color: Colors.amber.shade600,
+                                                      width: 0.5,
+                                                    ),
+                                                  ),
+                                                  child: Row(
+                                                    mainAxisSize: MainAxisSize.min,
+                                                    children: [
+                                                      Icon(
+                                                        Icons.restaurant_menu,
+                                                        size: 8,
+                                                        color: Colors.amber.shade800,
+                                                      ),
+                                                      const SizedBox(width: 2),
+                                                      Text(
+                                                        '메뉴',
+                                                        style: TextStyle(
+                                                          fontSize: 8,
+                                                          color: Colors.amber.shade900,
+                                                          fontWeight: FontWeight.w600,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ],
+                                            ],
                                           ),
                                           const SizedBox(width: 8),
                                           // 제목
@@ -1810,23 +1853,66 @@ class _VideoListScreenState extends State<VideoListScreen> {
                                           // 영상 ID와 제목
                                           Row(
                                             children: [
-                                              Container(
-                                                padding: const EdgeInsets.symmetric(
-                                                  horizontal: 5,
-                                                  vertical: 2,
-                                                ),
-                                                decoration: BoxDecoration(
-                                                  color: Colors.grey.shade300,
-                                                  borderRadius: BorderRadius.circular(3),
-                                                ),
-                                                child: Text(
-                                                  '#${video.id}',
-                                                  style: TextStyle(
-                                                    fontSize: 10,
-                                                    color: Colors.grey.shade700,
-                                                    fontWeight: FontWeight.w600,
+                                              Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Container(
+                                                    padding: const EdgeInsets.symmetric(
+                                                      horizontal: 5,
+                                                      vertical: 2,
+                                                    ),
+                                                    decoration: BoxDecoration(
+                                                      color: Colors.grey.shade300,
+                                                      borderRadius: BorderRadius.circular(3),
+                                                    ),
+                                                    child: Text(
+                                                      '#${video.id}',
+                                                      style: TextStyle(
+                                                        fontSize: 10,
+                                                        color: Colors.grey.shade700,
+                                                        fontWeight: FontWeight.w600,
+                                                      ),
+                                                    ),
                                                   ),
-                                                ),
+                                                  // 메뉴 배지 (menuId가 있는 경우)
+                                                  if (video.menuId != null && video.menuId!.isNotEmpty) ...[
+                                                    const SizedBox(height: 2),
+                                                    Container(
+                                                      padding: const EdgeInsets.symmetric(
+                                                        horizontal: 3,
+                                                        vertical: 1,
+                                                      ),
+                                                      decoration: BoxDecoration(
+                                                        color: Colors.amber.shade100,
+                                                        borderRadius: BorderRadius.circular(2),
+                                                        border: Border.all(
+                                                          color: Colors.amber.shade600,
+                                                          width: 0.5,
+                                                        ),
+                                                      ),
+                                                      child: Row(
+                                                        mainAxisSize: MainAxisSize.min,
+                                                        children: [
+                                                          Icon(
+                                                            Icons.restaurant_menu,
+                                                            size: 7,
+                                                            color: Colors.amber.shade800,
+                                                          ),
+                                                          const SizedBox(width: 2),
+                                                          Text(
+                                                            '메뉴',
+                                                            style: TextStyle(
+                                                              fontSize: 7,
+                                                              color: Colors.amber.shade900,
+                                                              fontWeight: FontWeight.w600,
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ],
                                               ),
                                               const SizedBox(width: 6),
                                               Expanded(
@@ -1988,9 +2074,9 @@ class _VideoListScreenState extends State<VideoListScreen> {
             // Prevent duplicate navigation
             if (_isNavigating) return;
 
-            // Get only VIDEO files with local paths (exclude IMAGE and DOCUMENT)
+            // Get only VIDEO files with local paths (exclude IMAGE, DOCUMENT, and menu items)
             final availableVideos = _videos
-                .where((v) => v.localPath != null && v.mediaType == 'VIDEO')
+                .where((v) => v.localPath != null && v.mediaType == 'VIDEO' && (v.menuId == null || v.menuId!.isEmpty))
                 .toList();
 
             if (availableVideos.isEmpty) {

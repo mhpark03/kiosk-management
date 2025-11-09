@@ -91,6 +91,7 @@ class CoffeeMenuService {
             price: item.price,
             category: item.category,
             imageUrl: imageUrl,
+            videoFilename: item.videoFilename,
             description: item.description,
             isAvailable: item.available,
           );
@@ -123,6 +124,7 @@ class CoffeeMenuService {
       price: item.price,
       category: item.category,
       imageUrl: imageUrl,
+      videoFilename: item.videoFilename,
       description: item.description,
       isAvailable: item.available,
     );

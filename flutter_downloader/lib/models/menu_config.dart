@@ -52,6 +52,7 @@ class MenuItem {
   final String? thumbnailUrl;
   final String? imageId;  // Image ID for downloading from server
   final String? imageFilename;  // Image filename for offline kiosk operation
+  final String? videoFilename;  // Video filename for menu item video playback
   final bool available;
   final int order;
 
@@ -70,6 +71,7 @@ class MenuItem {
     this.thumbnailUrl,
     this.imageId,  // Image ID for downloading from server
     this.imageFilename,  // Image filename for offline kiosk operation
+    this.videoFilename,  // Video filename for menu item video playback
     this.available = true,
     required this.order,
     this.sizeEnabled = true,
