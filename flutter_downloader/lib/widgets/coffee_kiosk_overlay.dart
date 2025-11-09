@@ -11,7 +11,7 @@ import '../services/storage_service.dart';
 class CoffeeKioskOverlay extends StatefulWidget {
   final VoidCallback onClose;
   final Function(CoffeeOrder) onOrderComplete;
-  final Function(String videoPath)? onPlayMenuVideo; // Callback to play menu video on left screen
+  final Function(String videoPath, [String? actionType])? onPlayMenuVideo; // Callback to play menu video on left screen
   final bool showCloseButton;
   final String? downloadPath;
   final String? kioskId;
@@ -682,8 +682,8 @@ class _CoffeeKioskOverlayState extends State<CoffeeKioskOverlay> {
     }
 
     print('[ACTION VIDEO] Playing $actionType video: $videoPath');
-    // Call callback to play video on left screen
-    widget.onPlayMenuVideo!(videoPath);
+    // Call callback to play video on left screen with action type
+    widget.onPlayMenuVideo!(videoPath, actionType);
   }
 
   void _showItemOptionsDialog(CoffeeMenuItem item) {

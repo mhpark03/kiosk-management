@@ -42,6 +42,7 @@ class _KioskSplitScreenState extends State<KioskSplitScreen> {
 
   // Menu video playback
   bool _isPlayingMenuVideo = false;
+  String? _currentActionType; // Track the action type (checkout, addToCart, etc.)
   String? _savedVideoPath;
   Duration _savedPosition = Duration.zero;
 
@@ -114,9 +115,16 @@ class _KioskSplitScreenState extends State<KioskSplitScreen> {
       _player!.stream.completed.listen((completed) {
         if (completed) {
           if (_isPlayingMenuVideo) {
-            // Menu video completed, return to saved video
-            print('[KIOSK SPLIT] Menu video completed, returning to saved video');
-            _returnToSavedVideo();
+            // Check if this was a checkout video
+            if (_currentActionType == 'checkout') {
+              // Checkout video completed, play main video from beginning
+              print('[KIOSK SPLIT] Checkout video completed, playing main video');
+              _playMainVideo();
+            } else {
+              // Other menu video completed, return to saved video
+              print('[KIOSK SPLIT] Menu video completed, returning to saved video');
+              _returnToSavedVideo();
+            }
           } else {
             // Regular video completed, play next
             _playNextVideo();
@@ -151,10 +159,10 @@ class _KioskSplitScreenState extends State<KioskSplitScreen> {
     await _initializeVideo();
   }
 
-  Future<void> _playMenuVideo(String videoPath) async {
+  Future<void> _playMenuVideo(String videoPath, [String? actionType]) async {
     if (_player == null) return;
 
-    print('[KIOSK SPLIT] Playing menu video: $videoPath');
+    print('[KIOSK SPLIT] Playing menu video: $videoPath (action: $actionType)');
 
     try {
       // If already playing menu video, just switch to new menu video
@@ -172,6 +180,7 @@ class _KioskSplitScreenState extends State<KioskSplitScreen> {
       }
 
       _isPlayingMenuVideo = true;
+      _currentActionType = actionType; // Store the action type
 
       // Play menu video (this will stop current video if playing)
       await _player!.open(Media(videoPath));
@@ -181,6 +190,7 @@ class _KioskSplitScreenState extends State<KioskSplitScreen> {
     } catch (e) {
       print('[KIOSK SPLIT] Error playing menu video: $e');
       _isPlayingMenuVideo = false;
+      _currentActionType = null;
     }
   }
 
@@ -197,6 +207,7 @@ class _KioskSplitScreenState extends State<KioskSplitScreen> {
 
       // Clear saved state
       _isPlayingMenuVideo = false;
+      _currentActionType = null;
       _savedVideoPath = null;
       _savedPosition = Duration.zero;
 
@@ -204,6 +215,35 @@ class _KioskSplitScreenState extends State<KioskSplitScreen> {
     } catch (e) {
       print('[KIOSK SPLIT] Error returning to saved video: $e');
       _isPlayingMenuVideo = false;
+      _currentActionType = null;
+    }
+  }
+
+  Future<void> _playMainVideo() async {
+    if (_player == null || widget.videos.isEmpty) return;
+
+    print('[KIOSK SPLIT] Playing main video from beginning');
+
+    try {
+      // Reset to first video and play from beginning
+      _currentVideoIndex = 0;
+      final video = widget.videos[_currentVideoIndex];
+      final actualPath = await _downloadService.getActualFilePath(video.localPath!);
+
+      await _player!.open(Media(actualPath));
+      await _player!.play();
+
+      // Clear saved state
+      _isPlayingMenuVideo = false;
+      _currentActionType = null;
+      _savedVideoPath = null;
+      _savedPosition = Duration.zero;
+
+      print('[KIOSK SPLIT] Main video started playing: ${video.title}');
+    } catch (e) {
+      print('[KIOSK SPLIT] Error playing main video: $e');
+      _isPlayingMenuVideo = false;
+      _currentActionType = null;
     }
   }
 
