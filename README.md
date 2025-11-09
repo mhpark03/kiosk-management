@@ -130,20 +130,198 @@ Flutter Kiosk App             │                             │               
 
 ### 커피 메뉴 관리 (Coffee Menu Management)
 - ✅ 웹 기반 메뉴 편집기 (React)
-- ✅ XML 기반 메뉴 구성 (카테고리/메뉴/가격/이미지/영상)
+- ✅ XML 기반 메뉴 구성 (카테고리/메뉴/가격/이미지)
+- ✅ S3 기반 메뉴 XML 저장 및 버전 관리
 - ✅ 트리 구조 네비게이션 (Menu → Category → Item)
 - ✅ 실시간 인라인 편집 (왼쪽 트리 + 오른쪽 속성 패널)
-- ✅ 메뉴 CRUD: 생성, 복사, 가져오기(XML), 내보내기(XML)
-- ✅ 상품 이미지 URL 지원 (썸네일 + 상세 이미지)
-- ✅ 옵션 관리 (HOT/ICE, 샷 추가, 시럽 등)
-- ✅ localStorage 기반 자동 저장
-- ✅ Flutter 데스크톱 편집 앱 (Windows/macOS/Linux)
+- ✅ 메뉴 CRUD: 생성, 복사, 가져오기(XML), 내보내기(XML), 삭제
+- ✅ 상품 이미지 관리:
+  - S3에 업로드된 MENU 용도 이미지 선택
+  - 이미지 ID 기반 자동 다운로드 시스템
+  - Presigned URL을 통한 보안 접근
+  - 키오스크 앱에서 자동 이미지 다운로드 및 표시
+- ✅ 옵션 관리 (사이즈, 온도, 추가 옵션)
+- ✅ 메뉴 아이템별 옵션 활성화 제어
+- ✅ Flutter 키오스크 앱에서 XML 메뉴 자동 로드
 
 ### 대시보드 (Dashboard)
 - ✅ 월별 키오스크 설치 현황 차트
 - ✅ 주간 상태별 추이 그래프
 - ✅ 지역별 통계 테이블
 - ✅ 실시간 현황 모니터링
+
+## 🍵 메뉴 이미지 자동 다운로드 시스템
+
+### 개요
+키오스크 앱이 기존 영상 동기화 인프라를 활용하여 메뉴 이미지를 자동으로 다운로드하고 표시하는 시스템입니다.
+
+### 동작 Flow
+
+#### 1. 웹 관리 페이지 (메뉴 설정)
+```
+관리자 → 메뉴 편집 화면 → 이미지 선택 버튼 클릭
+       → S3의 MENU 용도 이미지 목록 조회
+       → 이미지 선택 (모달 리스트)
+       → imageId 및 presignedUrl 저장
+       → 메뉴 XML에 <imageId> 태그 포함
+       → S3에 메뉴 XML 업로드
+```
+
+**관련 파일:**
+- `firstapp/src/components/MenuEditor.jsx` - 이미지 선택 UI 및 imageId 저장
+- `firstapp/src/components/MenuList.jsx` - 메뉴 목록 표시 및 관리
+- `firstapp/src/services/videoService.js` - presignedUrl 요청
+
+#### 2. 백엔드 (자동 처리)
+```
+메뉴 XML 업로드 감지
+   → VideoService.uploadVideo() 호출
+   → MediaType.DOCUMENT && ImagePurpose.MENU 확인
+   → markMenuImagesAsDownloadable() 실행
+      → XML 파싱하여 <imageId> 태그 추출
+      → 해당 이미지의 downloadable = true 설정
+      → 키오스크 동기화 목록에 자동 포함 ✅
+```
+
+**관련 파일:**
+- `backend/src/main/java/com/kiosk/backend/service/VideoService.java:406-414` - 메뉴 XML 처리
+- `backend/src/main/java/com/kiosk/backend/service/VideoService.java:1268-1310` - imageId 추출 및 downloadable 설정
+
+**Entity 구조:**
+```java
+// Video.java
+public enum ImagePurpose {
+    GENERAL,   // 일반 이미지
+    REFERENCE, // 참조 이미지 (AI 생성용)
+    MENU       // 메뉴 상품 이미지
+}
+
+public enum MediaType {
+    VIDEO,     // 영상 파일
+    IMAGE,     // 이미지 파일
+    AUDIO,     // 음성 파일
+    DOCUMENT   // 문서 파일 (XML)
+}
+```
+
+#### 3. 키오스크 앱 (자동 다운로드)
+```
+정기 동기화 실행
+   → downloadable = true인 파일들 조회
+   → 메뉴 이미지 자동 다운로드 ✅
+   → {downloadPath}/{kioskId}/{imageId}.jpg 저장
+   → 기존 다운로드 UI에서 상태 모니터링 가능 ✅
+```
+
+**관련 파일:**
+- 키오스크 앱의 기존 동기화 시스템 자동 활용
+- 별도 로직 불필요 (downloadable 플래그만으로 처리)
+
+#### 4. 키오스크 앱 (메뉴 표시)
+```
+메뉴 XML 로드
+   → CoffeeMenuService.loadMenuFromXml() 실행
+   → XmlMenuParser로 <imageId> 파싱 ✅
+   → _toCoffeeMenuItem()에서 로컬 이미지 검색
+      → {downloadPath}/{kioskId}/{imageId}.* 파일 찾기
+      → 로컬 파일 경로를 imageUrl로 설정 ✅
+   → 키오스크 화면에 로컬 이미지 표시 ✅
+```
+
+**관련 파일:**
+- `flutter_downloader/lib/models/menu_config.dart:53,70` - MenuItem에 imageId 필드 추가
+- `flutter_downloader/lib/services/xml_menu_parser.dart:51-53` - imageId 파싱
+- `flutter_downloader/lib/services/coffee_menu_service.dart:76-131` - 로컬 이미지 경로 연결
+
+### 핵심 장점
+
+1. **기존 인프라 재사용**
+   - 별도 이미지 다운로드 로직 불필요
+   - 검증된 영상 동기화 시스템 활용
+   - 개발 및 유지보수 비용 절감
+
+2. **자동화**
+   - 메뉴 저장 시 이미지가 자동으로 다운로드 목록에 추가
+   - 관리자의 추가 작업 불필요
+   - 키오스크가 다음 동기화 시 자동 다운로드
+
+3. **모니터링**
+   - 관리자 페이지에서 다운로드 상태 확인 가능
+   - 기존 영상 관리 UI 재사용
+   - 다운로드 진행률 실시간 확인
+
+4. **보안**
+   - S3 Private 버킷 사용
+   - Presigned URL을 통한 임시 접근 (60분 유효)
+   - 백엔드를 통한 인증된 접근만 허용
+
+### S3 폴더 구조
+
+```
+s3://kiosk-bucket/
+├── videos/
+│   ├── uploads/        # 업로드된 영상
+│   └── ai/             # AI 생성 영상
+├── images/
+│   ├── uploads/        # 업로드된 이미지 (메뉴 이미지 포함)
+│   └── ai/             # AI 생성 이미지
+├── audios/
+│   ├── uploads/        # 업로드된 음성
+│   └── ai/             # AI 생성 음성 (TTS)
+├── documents/          # 메뉴 XML 파일
+└── thumbnails/
+    ├── uploads/        # 업로드 파일 썸네일
+    └── ai/             # AI 생성 파일 썸네일
+```
+
+### 메뉴 XML 구조 예시
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<kioskMenu>
+  <metadata>
+    <name>커피 메뉴</name>
+    <version>1.0.0</version>
+    <lastModified>2025-01-15T10:30:00</lastModified>
+  </metadata>
+
+  <categories>
+    <category id="coffee" name="커피" nameEn="Coffee" icon="coffee" order="1" />
+    <category id="beverage" name="음료" nameEn="Beverage" icon="local_drink" order="2" />
+  </categories>
+
+  <menuItems>
+    <item id="coffee_americano" category="coffee" order="1">
+      <name>아메리카노</name>
+      <nameEn>Americano</nameEn>
+      <price>4000</price>
+      <description>진한 에스프레소에 물을 더한 커피</description>
+      <thumbnailUrl>https://s3.presigned.url/...</thumbnailUrl>
+      <imageId>123</imageId>  <!-- 키오스크가 다운로드할 이미지 ID -->
+      <available>true</available>
+      <sizeEnabled>true</sizeEnabled>
+      <temperatureEnabled>true</temperatureEnabled>
+      <extrasEnabled>true</extrasEnabled>
+    </item>
+  </menuItems>
+
+  <options>
+    <sizes>
+      <size id="small" name="Small" nameKo="스몰" additionalPrice="0" />
+      <size id="medium" name="Medium (R)" nameKo="미디움" additionalPrice="500" />
+      <size id="large" name="Large" nameKo="라지" additionalPrice="1000" />
+    </sizes>
+    <temperatures>
+      <temperature id="hot" name="Hot" nameKo="따뜻하게" />
+      <temperature id="iced" name="Iced" nameKo="차갑게" />
+    </temperatures>
+    <extras>
+      <extra id="shot" name="샷 추가" nameEn="Extra Shot" additionalPrice="500" />
+      <extra id="syrup" name="시럽 추가" nameEn="Syrup" additionalPrice="500" />
+    </extras>
+  </options>
+</kioskMenu>
+```
 
 ## 📦 설치 및 실행
 

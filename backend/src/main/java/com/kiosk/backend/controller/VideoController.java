@@ -174,6 +174,14 @@ public class VideoController {
                     videoMap.put("thumbnailUrl", null);
                 }
 
+                // For IMAGE and DOCUMENT types, also generate presigned URL for the original file
+                if (video.getMediaType() == Video.MediaType.IMAGE || video.getMediaType() == Video.MediaType.DOCUMENT) {
+                    String presignedUrl = videoService.generatePresignedUrl(video.getId(), 10080); // 7 days
+                    videoMap.put("presignedUrl", presignedUrl);
+                } else {
+                    videoMap.put("presignedUrl", null);
+                }
+
                 videoMap.put("uploadedAt", video.getUploadedAt());
                 videoMap.put("title", video.getTitle());
                 videoMap.put("description", video.getDescription());
@@ -246,6 +254,14 @@ public class VideoController {
                     videoMap.put("thumbnailUrl", thumbnailPresignedUrl);
                 } else {
                     videoMap.put("thumbnailUrl", null);
+                }
+
+                // For IMAGE and DOCUMENT types, also generate presigned URL for the original file
+                if (video.getMediaType() == Video.MediaType.IMAGE || video.getMediaType() == Video.MediaType.DOCUMENT) {
+                    String presignedUrl = videoService.generatePresignedUrl(video.getId(), 10080); // 7 days
+                    videoMap.put("presignedUrl", presignedUrl);
+                } else {
+                    videoMap.put("presignedUrl", null);
                 }
 
                 videoMap.put("uploadedAt", video.getUploadedAt());

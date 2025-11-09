@@ -148,6 +148,7 @@ function MenuList() {
       price: parseInt(item.getElementsByTagName('price')[0]?.textContent || '0'),
       description: item.getElementsByTagName('description')[0]?.textContent || '',
       thumbnailUrl: item.getElementsByTagName('thumbnailUrl')[0]?.textContent || null,
+      imageId: item.getElementsByTagName('imageId')[0]?.textContent || null,
       available: item.getElementsByTagName('available')[0]?.textContent === 'true',
       sizeEnabled: item.getElementsByTagName('sizeEnabled')[0]?.textContent === 'true',
       temperatureEnabled: item.getElementsByTagName('temperatureEnabled')[0]?.textContent === 'true',

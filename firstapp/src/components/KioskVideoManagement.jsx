@@ -75,6 +75,7 @@ function KioskVideoManagement({ kioskProp = null, embedded = false }) {
   const loadMenus = async () => {
     try {
       const data = await menuService.getMenusFromS3();
+      // Backend already filters by imagePurpose=MENU and mediaType=DOCUMENT
       setMenus(data || []);
     } catch (err) {
       console.error('Failed to load menus:', err);
@@ -666,9 +667,9 @@ function KioskVideoManagement({ kioskProp = null, embedded = false }) {
                       </td>
                       <td>
                         <div className="filename-wrapper">
-                          {video.thumbnailUrl && (
+                          {(video.presignedUrl || video.thumbnailUrl) && (
                             <img
-                              src={video.thumbnailUrl}
+                              src={video.mediaType === 'IMAGE' && video.presignedUrl ? video.presignedUrl : video.thumbnailUrl}
                               alt="thumbnail"
                               className="video-thumbnail"
                             />
@@ -881,9 +882,9 @@ function KioskVideoManagement({ kioskProp = null, embedded = false }) {
                           </td>
                           <td>
                             <div className="filename-wrapper">
-                              {video.thumbnailUrl && (
+                              {(video.presignedUrl || video.thumbnailUrl) && (
                                 <img
-                                  src={video.thumbnailUrl}
+                                  src={video.mediaType === 'IMAGE' && video.presignedUrl ? video.presignedUrl : video.thumbnailUrl}
                                   alt="thumbnail"
                                   className="video-thumbnail"
                                 />

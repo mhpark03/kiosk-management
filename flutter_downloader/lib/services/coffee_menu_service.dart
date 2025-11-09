@@ -12,12 +12,18 @@ class CoffeeMenuService {
 
   MenuConfig? _menuConfig;
   bool _isXmlLoaded = false;
+  String? _downloadPath;
+  String? _kioskId;
 
   /// Load menu from XML file
   /// First tries to load from download path, then falls back to assets
   Future<void> loadMenuFromXml({String? downloadPath, String? kioskId, String? filename}) async {
     try {
       String xmlString;
+
+      // Store download path and kiosk ID for image lookup
+      _downloadPath = downloadPath;
+      _kioskId = kioskId;
 
       // Try to load from download folder first if path is provided
       if (downloadPath != null && kioskId != null && filename != null) {
@@ -68,16 +74,60 @@ class CoffeeMenuService {
 
   /// Convert MenuItem to CoffeeMenuItem
   CoffeeMenuItem _toCoffeeMenuItem(MenuItem item) {
+    // If imageId exists, try to find downloaded image file
+    String? imageUrl = item.thumbnailUrl;
+    if (item.imageId != null && _downloadPath != null && _kioskId != null) {
+      final localImagePath = _findLocalImage(item.imageId!);
+      if (localImagePath != null) {
+        imageUrl = localImagePath;
+        print('[MENU IMAGE] Using downloaded image for item ${item.id}: $localImagePath');
+      }
+    }
+
     return CoffeeMenuItem(
       id: item.id,
       name: item.name,
       nameEn: item.nameEn,
       price: item.price,
       category: item.category,
-      imageUrl: item.thumbnailUrl,
+      imageUrl: imageUrl,
       description: item.description,
       isAvailable: item.available,
     );
+  }
+
+  /// Find local downloaded image file by imageId
+  /// Returns absolute path to the image file if found
+  String? _findLocalImage(String imageId) {
+    if (_downloadPath == null || _kioskId == null) {
+      return null;
+    }
+
+    try {
+      final kioskDir = Directory('$_downloadPath/$_kioskId');
+      if (!kioskDir.existsSync()) {
+        return null;
+      }
+
+      // Look for file named {imageId}.{extension}
+      final files = kioskDir.listSync();
+      for (final file in files) {
+        if (file is File) {
+          final filename = file.path.split(Platform.pathSeparator).last;
+          // Check if filename starts with imageId
+          if (filename.startsWith('$imageId.')) {
+            print('[MENU IMAGE] Found local image: ${file.path}');
+            return file.path;
+          }
+        }
+      }
+
+      print('[MENU IMAGE] Local image not found for imageId: $imageId');
+      return null;
+    } catch (e) {
+      print('[MENU IMAGE] Error finding local image: $e');
+      return null;
+    }
   }
 
   /// Get menu from XML or fallback to sample

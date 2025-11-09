@@ -1,16 +1,17 @@
 import api from './api';
 
 export const menuService = {
-  // Get all menu files from S3 (MENU purpose only)
+  // Get all menu XML files from S3 (MENU purpose and DOCUMENT type only)
   async getMenusFromS3() {
     try {
       const response = await api.get('/videos', {
         params: {
-          imagePurpose: 'MENU'
+          imagePurpose: 'MENU',
+          mediaType: 'DOCUMENT'  // Only get XML files, not images
         }
       });
-      console.log('API Response from /videos?imagePurpose=MENU:', response.data);
-      console.log('Number of menus returned:', response.data?.length || 0);
+      console.log('API Response from /videos?imagePurpose=MENU&mediaType=DOCUMENT:', response.data);
+      console.log('Number of menu XML files returned:', response.data?.length || 0);
       return response.data;
     } catch (error) {
       console.error('Get menus from S3 error:', error);

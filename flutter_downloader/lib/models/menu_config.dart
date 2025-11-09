@@ -50,6 +50,7 @@ class MenuItem {
   final int price;
   final String description;
   final String? thumbnailUrl;
+  final String? imageId;  // Image ID for downloading from server
   final bool available;
   final int order;
 
@@ -66,6 +67,7 @@ class MenuItem {
     required this.price,
     required this.description,
     this.thumbnailUrl,
+    this.imageId,  // Image ID for downloading from server
     this.available = true,
     required this.order,
     this.sizeEnabled = true,

@@ -403,6 +403,16 @@ public class VideoService {
         Video savedVideo = videoRepository.save(video);
         log.info("Video uploaded successfully: {} (ID: {}) by user ID {}", savedVideo.getOriginalFilename(), savedVideo.getId(), uploadedById);
 
+        // If this is a menu XML file, extract imageIds and mark them as downloadable
+        if (mediaType == Video.MediaType.DOCUMENT && imagePurpose == Video.ImagePurpose.MENU) {
+            try {
+                markMenuImagesAsDownloadable(fileBytes);
+            } catch (Exception e) {
+                log.error("Failed to mark menu images as downloadable: {}", e.getMessage(), e);
+                // Don't fail the upload, just log the error
+            }
+        }
+
         return savedVideo;
     }
 
@@ -1255,5 +1265,48 @@ public class VideoService {
         return result.toString();
     }
 
+    /**
+     * Extract imageIds from menu XML and mark them as downloadable
+     * This allows kiosks to automatically download menu images through the existing sync mechanism
+     * @param xmlBytes XML file bytes
+     */
+    private void markMenuImagesAsDownloadable(byte[] xmlBytes) throws Exception {
+        // Parse XML
+        javax.xml.parsers.DocumentBuilderFactory factory = javax.xml.parsers.DocumentBuilderFactory.newInstance();
+        javax.xml.parsers.DocumentBuilder builder = factory.newDocumentBuilder();
+        org.w3c.dom.Document doc = builder.parse(new java.io.ByteArrayInputStream(xmlBytes));
+
+        // Find all <imageId> elements
+        org.w3c.dom.NodeList imageIdNodes = doc.getElementsByTagName("imageId");
+
+        log.info("Found {} imageId elements in menu XML", imageIdNodes.getLength());
+
+        for (int i = 0; i < imageIdNodes.getLength(); i++) {
+            org.w3c.dom.Node node = imageIdNodes.item(i);
+            String imageIdStr = node.getTextContent();
+
+            if (imageIdStr != null && !imageIdStr.trim().isEmpty()) {
+                try {
+                    Long imageId = Long.parseLong(imageIdStr.trim());
+
+                    // Find video by ID and set downloadable to true
+                    videoRepository.findById(imageId).ifPresentOrElse(
+                        video -> {
+                            if (!video.getDownloadable()) {
+                                video.setDownloadable(true);
+                                videoRepository.save(video);
+                                log.info("Marked image {} as downloadable (title: {})", imageId, video.getTitle());
+                            } else {
+                                log.debug("Image {} is already downloadable", imageId);
+                            }
+                        },
+                        () -> log.warn("Image {} not found in database, skipping", imageId)
+                    );
+                } catch (NumberFormatException e) {
+                    log.warn("Invalid imageId format: {}", imageIdStr);
+                }
+            }
+        }
+    }
 
 }
