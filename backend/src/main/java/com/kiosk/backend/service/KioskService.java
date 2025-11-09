@@ -9,6 +9,7 @@ import com.kiosk.backend.entity.Kiosk;
 import com.kiosk.backend.entity.KioskEvent;
 import com.kiosk.backend.entity.KioskVideo;
 import com.kiosk.backend.entity.Store;
+import com.kiosk.backend.entity.Video;
 import com.kiosk.backend.repository.EntityHistoryRepository;
 import com.kiosk.backend.repository.KioskRepository;
 import com.kiosk.backend.repository.KioskVideoRepository;
@@ -314,6 +315,23 @@ public class KioskService {
                     kiosk.setMenuFilename(video.getOriginalFilename());
                     log.info("Updated menuFilename to: {}", video.getOriginalFilename());
                 });
+
+                // Remove old menu and its images from kiosk_video
+                if (oldMenuId != null) {
+                    try {
+                        removeMenuAndImagesFromKiosk(kiosk.getId(), oldMenuId);
+                    } catch (Exception e) {
+                        log.error("Failed to remove old menu {} from kiosk {}: {}", oldMenuId, kiosk.getKioskid(), e.getMessage(), e);
+                    }
+                }
+
+                // Add new menu XML and images to kiosk_video
+                try {
+                    addMenuAndImagesToKiosk(kiosk.getId(), request.getMenuId(), kiosk.getKioskid());
+                } catch (Exception e) {
+                    log.error("Failed to add new menu {} to kiosk {}: {}", request.getMenuId(), kiosk.getKioskid(), e.getMessage(), e);
+                    // Don't fail the entire update if assignment fails
+                }
             }
         }
 
@@ -607,6 +625,12 @@ public class KioskService {
                         }
                     }
 
+                    // For IMAGE and DOCUMENT types, use presignedUrl field instead of url
+                    String imagePresignedUrl = null;
+                    if (video != null && (video.getMediaType() == Video.MediaType.IMAGE || video.getMediaType() == Video.MediaType.DOCUMENT)) {
+                        imagePresignedUrl = videoPresignedUrl;
+                    }
+
                     return com.kiosk.backend.dto.KioskVideoDTO.builder()
                             .id(kv.getId())
                             .kioskId(kv.getKioskId())
@@ -624,6 +648,9 @@ public class KioskService {
                             .duration(video != null ? video.getDuration() : null)
                             .url(videoPresignedUrl)  // Use presigned URL instead of raw S3 URL
                             .thumbnailUrl(thumbnailPresignedUrl)
+                            .mediaType(video != null ? video.getMediaType().toString() : null)
+                            .imagePurpose(video != null && video.getImagePurpose() != null ? video.getImagePurpose().toString() : null)
+                            .presignedUrl(imagePresignedUrl)  // For IMAGE and DOCUMENT types
                             .build();
                 })
                 .collect(Collectors.toList());
@@ -664,6 +691,12 @@ public class KioskService {
                         }
                     }
 
+                    // For IMAGE and DOCUMENT types, use presignedUrl field instead of url
+                    String imagePresignedUrl = null;
+                    if (video != null && (video.getMediaType() == Video.MediaType.IMAGE || video.getMediaType() == Video.MediaType.DOCUMENT)) {
+                        imagePresignedUrl = videoPresignedUrl;
+                    }
+
                     return com.kiosk.backend.dto.KioskVideoDTO.builder()
                             .id(kv.getId())
                             .kioskId(kv.getKioskId())
@@ -681,6 +714,9 @@ public class KioskService {
                             .duration(video != null ? video.getDuration() : null)
                             .url(videoPresignedUrl)  // Use presigned URL instead of raw S3 URL
                             .thumbnailUrl(thumbnailPresignedUrl)
+                            .mediaType(video != null ? video.getMediaType().toString() : null)
+                            .imagePurpose(video != null && video.getImagePurpose() != null ? video.getImagePurpose().toString() : null)
+                            .presignedUrl(imagePresignedUrl)  // For IMAGE and DOCUMENT types
                             .build();
                 })
                 .collect(Collectors.toList());
@@ -933,13 +969,28 @@ public class KioskService {
             kiosk.setMenuFilename(newMenuFilename);
             kioskRepository.save(kiosk);
 
+            // Remove old menu and its images from kiosk_video
+            try {
+                removeMenuAndImagesFromKiosk(kiosk.getId(), oldMenuId);
+            } catch (Exception e) {
+                log.error("Failed to remove old menu {} from kiosk {}: {}", oldMenuId, kiosk.getKioskid(), e.getMessage());
+            }
+
+            // Add new menu XML and images to kiosk_video
+            try {
+                addMenuAndImagesToKiosk(kiosk.getId(), newMenuId, kiosk.getKioskid());
+            } catch (Exception e) {
+                log.error("Failed to add new menu {} to kiosk {}: {}", newMenuId, kiosk.getKioskid(), e.getMessage());
+            }
+
             // Log history
             logHistory(kiosk.getKioskid(), kiosk.getPosid(), "system", "System", "UPDATE",
                 "menuId", oldMenuId.toString(), newMenuId.toString(),
-                String.format("Menu migrated from ID %d to %d (menu updated)", oldMenuId, newMenuId));
+                String.format("Menu migrated from ID %d to %d (menu updated with XML and images)",
+                    oldMenuId, newMenuId));
         }
 
-        log.info("Database migration completed: {} kiosks migrated from menu ID {} to menu ID {}",
+        log.info("Database migration completed: {} kiosks migrated from menu ID {} to menu ID {} (menu XML and images auto-assigned)",
                 kiosksToMigrate.size(), oldMenuId, newMenuId);
 
         // Send WebSocket notifications in batches (asynchronously to avoid blocking transaction)
@@ -1013,5 +1064,72 @@ public class KioskService {
 
             log.info("[BATCH NOTIFICATION] All batches completed for menu migration {} -> {}", oldMenuId, newMenuId);
         }).start();
+    }
+
+    /**
+     * Remove menu XML and its images from kiosk_video table
+     */
+    private void removeMenuAndImagesFromKiosk(Long kioskId, Long menuId) {
+        // Remove the menu XML itself from kiosk_video
+        boolean menuRemoved = kioskVideoRepository.deleteByKioskIdAndVideoId(kioskId, menuId) > 0;
+        if (menuRemoved) {
+            log.info("Removed menu {} from kiosk_video for kiosk ID {}", menuId, kioskId);
+        }
+
+        // Extract and remove all images referenced in the menu
+        try {
+            List<Long> menuImageIds = videoService.extractImageIdsFromMenu(menuId);
+            int removedCount = 0;
+            for (Long imageId : menuImageIds) {
+                int deleted = kioskVideoRepository.deleteByKioskIdAndVideoId(kioskId, imageId);
+                removedCount += deleted;
+            }
+            log.info("Removed {} menu images from kiosk_video for kiosk ID {}", removedCount, kioskId);
+        } catch (Exception e) {
+            log.error("Failed to extract/remove menu images for menu {}: {}", menuId, e.getMessage());
+        }
+    }
+
+    /**
+     * Add menu XML and its images to kiosk_video table
+     */
+    private void addMenuAndImagesToKiosk(Long kioskId, Long menuId, String kioskid) {
+        // Add the menu XML itself to kiosk_video
+        boolean alreadyAssigned = kioskVideoRepository.existsByKioskIdAndVideoId(kioskId, menuId);
+        if (!alreadyAssigned) {
+            KioskVideo menuKioskVideo = new KioskVideo();
+            menuKioskVideo.setKioskId(kioskId);
+            menuKioskVideo.setVideoId(menuId);
+            menuKioskVideo.setAssignedAt(LocalDateTime.now());
+            kioskVideoRepository.save(menuKioskVideo);
+            log.info("Automatically assigned menu XML {} to kiosk {}", menuId, kioskid);
+        } else {
+            log.debug("Menu XML {} already assigned to kiosk {}", menuId, kioskid);
+        }
+
+        // Extract and add all images referenced in the menu
+        try {
+            List<Long> menuImageIds = videoService.extractImageIdsFromMenu(menuId);
+            log.info("Found {} menu images in menu {}", menuImageIds.size(), menuId);
+
+            int addedCount = 0;
+            for (Long imageId : menuImageIds) {
+                boolean imageAlreadyAssigned = kioskVideoRepository.existsByKioskIdAndVideoId(kioskId, imageId);
+                if (!imageAlreadyAssigned) {
+                    KioskVideo imageKioskVideo = new KioskVideo();
+                    imageKioskVideo.setKioskId(kioskId);
+                    imageKioskVideo.setVideoId(imageId);
+                    imageKioskVideo.setAssignedAt(LocalDateTime.now());
+                    kioskVideoRepository.save(imageKioskVideo);
+                    addedCount++;
+                    log.debug("Automatically assigned menu image {} to kiosk {}", imageId, kioskid);
+                } else {
+                    log.debug("Menu image {} already assigned to kiosk {}", imageId, kioskid);
+                }
+            }
+            log.info("Assigned {} new menu images to kiosk {}", addedCount, kioskid);
+        } catch (Exception e) {
+            log.error("Failed to extract/assign menu images for menu {}: {}", menuId, e.getMessage(), e);
+        }
     }
 }

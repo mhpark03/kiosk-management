@@ -305,6 +305,8 @@ public class VideoController {
             Map<String, Object> response = new HashMap<>();
             response.put("id", video.getId());
             response.put("videoType", video.getVideoType().toString());
+            response.put("mediaType", video.getMediaType().toString());
+            response.put("imagePurpose", video.getImagePurpose() != null ? video.getImagePurpose().toString() : null);
             response.put("filename", video.getFilename());
             response.put("originalFilename", video.getOriginalFilename());
             response.put("fileSize", video.getFileSize());
@@ -313,6 +315,14 @@ public class VideoController {
             response.put("s3Url", presignedUrl);  // Use presigned URL instead of public URL
             response.put("thumbnailS3Key", video.getThumbnailS3Key());
             response.put("thumbnailUrl", thumbnailPresignedUrl);  // Use presigned URL for thumbnail
+
+            // For IMAGE and DOCUMENT types, also add presignedUrl field
+            if (video.getMediaType() == Video.MediaType.IMAGE || video.getMediaType() == Video.MediaType.DOCUMENT) {
+                response.put("presignedUrl", presignedUrl);
+            } else {
+                response.put("presignedUrl", null);
+            }
+
             response.put("uploadedAt", video.getUploadedAt());
             response.put("title", video.getTitle());
             response.put("description", video.getDescription());

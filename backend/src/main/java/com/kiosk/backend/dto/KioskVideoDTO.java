@@ -29,4 +29,7 @@ public class KioskVideoDTO {
     private Integer duration;
     private String url;
     private String thumbnailUrl;
+    private String mediaType;      // VIDEO, IMAGE, AUDIO, DOCUMENT
+    private String imagePurpose;   // GENERAL, REFERENCE, MENU
+    private String presignedUrl;   // For IMAGE and DOCUMENT files
 }

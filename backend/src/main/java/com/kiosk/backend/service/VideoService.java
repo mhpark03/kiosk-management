@@ -378,6 +378,11 @@ public class VideoService {
 
         // Save metadata to database with UPLOAD type
         log.info("Saving video metadata to database...");
+
+        // IMAGE and DOCUMENT types are always downloadable
+        // VIDEO type uses downloadable flag to distinguish between REFERENCE (edit-only) and downloadable
+        boolean isDownloadable = (mediaType == Video.MediaType.IMAGE || mediaType == Video.MediaType.DOCUMENT);
+
         Video.VideoBuilder videoBuilder = Video.builder()
                 .videoType(Video.VideoType.UPLOAD)
                 .mediaType(mediaType)
@@ -391,12 +396,15 @@ public class VideoService {
                 .thumbnailUrl(thumbnailUrl)
                 .uploadedById(uploadedById)
                 .title(truncate(title, MAX_TITLE_LENGTH))
-                .description(description); // TEXT column - no limit
+                .description(description) // TEXT column - no limit
+                .downloadable(isDownloadable); // Auto-set for IMAGE and DOCUMENT
 
         // Set imagePurpose if provided (for any media type, including XML files)
         if (imagePurpose != null) {
             videoBuilder.imagePurpose(imagePurpose);
         }
+
+        log.info("Media type: {}, Auto-downloadable: {}", mediaType, isDownloadable);
 
         Video video = videoBuilder.build();
 
@@ -1271,6 +1279,33 @@ public class VideoService {
      * @param xmlBytes XML file bytes
      */
     private void markMenuImagesAsDownloadable(byte[] xmlBytes) throws Exception {
+        List<Long> imageIds = extractImageIdsFromMenuXml(xmlBytes);
+
+        for (Long imageId : imageIds) {
+            // Find video by ID and set downloadable to true
+            videoRepository.findById(imageId).ifPresentOrElse(
+                video -> {
+                    if (!video.getDownloadable()) {
+                        video.setDownloadable(true);
+                        videoRepository.save(video);
+                        log.info("Marked image {} as downloadable (title: {})", imageId, video.getTitle());
+                    } else {
+                        log.debug("Image {} is already downloadable", imageId);
+                    }
+                },
+                () -> log.warn("Image {} not found in database, skipping", imageId)
+            );
+        }
+    }
+
+    /**
+     * Extract imageIds from menu XML
+     * @param xmlBytes XML file bytes
+     * @return List of image IDs found in the XML
+     */
+    public List<Long> extractImageIdsFromMenuXml(byte[] xmlBytes) throws Exception {
+        List<Long> imageIds = new java.util.ArrayList<>();
+
         // Parse XML
         javax.xml.parsers.DocumentBuilderFactory factory = javax.xml.parsers.DocumentBuilderFactory.newInstance();
         javax.xml.parsers.DocumentBuilder builder = factory.newDocumentBuilder();
@@ -1288,24 +1323,33 @@ public class VideoService {
             if (imageIdStr != null && !imageIdStr.trim().isEmpty()) {
                 try {
                     Long imageId = Long.parseLong(imageIdStr.trim());
-
-                    // Find video by ID and set downloadable to true
-                    videoRepository.findById(imageId).ifPresentOrElse(
-                        video -> {
-                            if (!video.getDownloadable()) {
-                                video.setDownloadable(true);
-                                videoRepository.save(video);
-                                log.info("Marked image {} as downloadable (title: {})", imageId, video.getTitle());
-                            } else {
-                                log.debug("Image {} is already downloadable", imageId);
-                            }
-                        },
-                        () -> log.warn("Image {} not found in database, skipping", imageId)
-                    );
+                    imageIds.add(imageId);
                 } catch (NumberFormatException e) {
                     log.warn("Invalid imageId format: {}", imageIdStr);
                 }
             }
+        }
+
+        return imageIds;
+    }
+
+    /**
+     * Extract imageIds from menu XML by menu video ID
+     * @param menuId Menu video ID
+     * @return List of image IDs found in the menu XML
+     */
+    public List<Long> extractImageIdsFromMenu(Long menuId) {
+        try {
+            Video menuVideo = videoRepository.findById(menuId)
+                .orElseThrow(() -> new RuntimeException("Menu not found with id: " + menuId));
+
+            // Download the XML content from S3
+            byte[] xmlBytes = s3Service.downloadFile(menuVideo.getS3Key());
+
+            return extractImageIdsFromMenuXml(xmlBytes);
+        } catch (Exception e) {
+            log.error("Failed to extract imageIds from menu {}: {}", menuId, e.getMessage(), e);
+            return new java.util.ArrayList<>();
         }
     }
 

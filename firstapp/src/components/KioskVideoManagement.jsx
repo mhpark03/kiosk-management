@@ -225,6 +225,13 @@ function KioskVideoManagement({ kioskProp = null, embedded = false }) {
       return;
     }
 
+    // Check if this is an image file
+    if (video && video.mediaType === 'IMAGE') {
+      setError('이미지는 메뉴에서 자동 관리되므로 삭제할 수 없습니다');
+      setTimeout(() => setError(''), 3000);
+      return;
+    }
+
     // Show confirmation dialog
     if (!window.confirm('이 영상을 키오스크에서 삭제하시겠습니까?')) {
       return;
@@ -707,12 +714,14 @@ function KioskVideoManagement({ kioskProp = null, embedded = false }) {
                           title={
                             video.imagePurpose === 'MENU' || selectedMenuId === video.id
                               ? '메뉴 파일은 삭제할 수 없습니다'
+                              : video.mediaType === 'IMAGE'
+                              ? '이미지는 메뉴에서 자동 관리되므로 삭제할 수 없습니다'
                               : '영상 삭제'
                           }
-                          disabled={video.imagePurpose === 'MENU' || selectedMenuId === video.id}
+                          disabled={video.imagePurpose === 'MENU' || selectedMenuId === video.id || video.mediaType === 'IMAGE'}
                           style={{
-                            opacity: video.imagePurpose === 'MENU' || selectedMenuId === video.id ? 0.5 : 1,
-                            cursor: video.imagePurpose === 'MENU' || selectedMenuId === video.id ? 'not-allowed' : 'pointer'
+                            opacity: video.imagePurpose === 'MENU' || selectedMenuId === video.id || video.mediaType === 'IMAGE' ? 0.5 : 1,
+                            cursor: video.imagePurpose === 'MENU' || selectedMenuId === video.id || video.mediaType === 'IMAGE' ? 'not-allowed' : 'pointer'
                           }}
                         >
                           <FiTrash2 />
