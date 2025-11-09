@@ -326,9 +326,11 @@ class _CoffeeKioskOverlayState extends State<CoffeeKioskOverlay> {
 
   Widget _buildCategoryTabs() {
     final categories = _menuService.getCategories();
+    final orientation = MediaQuery.of(context).orientation;
+    final isPortrait = orientation == Orientation.portrait;
 
     return Container(
-      padding: const EdgeInsets.all(8),
+      padding: EdgeInsets.all(isPortrait ? 6 : 8),
       decoration: BoxDecoration(
         color: Colors.grey.shade100,
         borderRadius: const BorderRadius.only(
@@ -347,11 +349,11 @@ class _CoffeeKioskOverlayState extends State<CoffeeKioskOverlay> {
                 _playCategoryVideo(category);
               },
               child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 4),
-                padding: const EdgeInsets.symmetric(vertical: 12),
+                margin: EdgeInsets.symmetric(horizontal: isPortrait ? 2 : 3),
+                padding: EdgeInsets.symmetric(vertical: isPortrait ? 6 : 8),
                 decoration: BoxDecoration(
                   color: isSelected ? Colors.brown.shade700 : Colors.white,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(isPortrait ? 6 : 6),
                   boxShadow: isSelected
                       ? [
                           BoxShadow(
@@ -367,7 +369,7 @@ class _CoffeeKioskOverlayState extends State<CoffeeKioskOverlay> {
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: isSelected ? Colors.white : Colors.black87,
-                    fontSize: 16,
+                    fontSize: isPortrait ? 12 : 13,
                     fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                   ),
                 ),
@@ -381,14 +383,16 @@ class _CoffeeKioskOverlayState extends State<CoffeeKioskOverlay> {
 
   Widget _buildMenuGrid() {
     final items = _menuService.getMenuByCategory(_selectedCategory);
+    final orientation = MediaQuery.of(context).orientation;
+    final isPortrait = orientation == Orientation.portrait;
 
     return GridView.builder(
-      padding: const EdgeInsets.all(16),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        childAspectRatio: 0.8,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
+      padding: EdgeInsets.all(isPortrait ? 6 : 8),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: isPortrait ? 2 : 3,
+        childAspectRatio: isPortrait ? 1.1 : 1.0, // Wider ratio to reduce height
+        crossAxisSpacing: isPortrait ? 6 : 8,
+        mainAxisSpacing: isPortrait ? 6 : 8,
       ),
       itemCount: items.length,
       itemBuilder: (context, index) {
@@ -399,12 +403,16 @@ class _CoffeeKioskOverlayState extends State<CoffeeKioskOverlay> {
   }
 
   Widget _buildMenuItem(CoffeeMenuItem item) {
+    final orientation = MediaQuery.of(context).orientation;
+    final isPortrait = orientation == Orientation.portrait;
+    final imageSize = isPortrait ? 60.0 : 70.0;
+
     return GestureDetector(
       onTap: () => _handleMenuItemTap(item),
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(isPortrait ? 8 : 12),
           border: Border.all(color: Colors.grey.shade300, width: 1),
           boxShadow: [
             BoxShadow(
@@ -414,84 +422,88 @@ class _CoffeeKioskOverlayState extends State<CoffeeKioskOverlay> {
             ),
           ],
         ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // Product Image or Icon
-            if (item.imageUrl != null && item.imageUrl!.isNotEmpty)
-              // Show local file or network image
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: _buildMenuItemImage(item),
-              )
-            else
-              // Fallback: Show icon
-              Container(
-                width: 100,
-                height: 100,
-                decoration: BoxDecoration(
-                  color: Colors.brown.shade100,
-                  borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: EdgeInsets.all(isPortrait ? 6 : 8),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Product Image or Icon
+              if (item.imageUrl != null && item.imageUrl!.isNotEmpty)
+                // Show local file or network image
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(6),
+                  child: _buildMenuItemImage(item, imageSize),
+                )
+              else
+                // Fallback: Show icon
+                Container(
+                  width: imageSize,
+                  height: imageSize,
+                  decoration: BoxDecoration(
+                    color: Colors.brown.shade100,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Icon(
+                    _getCategoryIcon(item.category),
+                    size: imageSize * 0.4,
+                    color: Colors.brown.shade700,
+                  ),
                 ),
-                child: Icon(
-                  _getCategoryIcon(item.category),
-                  size: 40,
-                  color: Colors.brown.shade700,
+              SizedBox(height: isPortrait ? 6 : 12),
+
+              // Name
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: isPortrait ? 4.0 : 6.0),
+                child: Text(
+                  item.name,
+                  style: TextStyle(
+                    fontSize: isPortrait ? 12 : 13,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
-            const SizedBox(height: 12),
+              SizedBox(height: isPortrait ? 2 : 2),
 
-            // Name
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8.0),
-              child: Text(
-                item.name,
-                style: const TextStyle(
-                  fontSize: 16,
+              // Name (English)
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: isPortrait ? 4.0 : 6.0),
+                child: Text(
+                  item.nameEn,
+                  style: TextStyle(
+                    fontSize: isPortrait ? 9 : 10,
+                    color: Colors.grey.shade600,
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              SizedBox(height: isPortrait ? 3 : 4),
+
+              // Price
+              Text(
+                '₩${item.price.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')}',
+                style: TextStyle(
+                  fontSize: isPortrait ? 11 : 12,
+                  color: Colors.brown.shade700,
                   fontWeight: FontWeight.bold,
                 ),
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
               ),
-            ),
-            const SizedBox(height: 4),
-
-            // Name (English)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8.0),
-              child: Text(
-                item.nameEn,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey.shade600,
-                ),
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            const SizedBox(height: 8),
-
-            // Price
-            Text(
-              '₩${item.price.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')}',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.brown.shade700,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildMenuItemImage(CoffeeMenuItem item) {
+  Widget _buildMenuItemImage(CoffeeMenuItem item, double size) {
     final imageUrl = item.imageUrl;
     if (imageUrl == null || imageUrl.isEmpty) {
-      return _buildFallbackIcon(item.category);
+      return _buildFallbackIcon(item.category, size);
     }
 
     // Check if it's a local file path (starts with '/' or drive letter on Windows)
@@ -505,24 +517,24 @@ class _CoffeeKioskOverlayState extends State<CoffeeKioskOverlay> {
 
       return Image.file(
         File(filePath),
-        width: 100,
-        height: 100,
+        width: size,
+        height: size,
         fit: BoxFit.cover,
         errorBuilder: (context, error, stackTrace) {
           print('[MENU IMAGE] Error loading local file: $filePath - $error');
-          return _buildFallbackIcon(item.category);
+          return _buildFallbackIcon(item.category, size);
         },
       );
     } else {
       // Network image with CachedNetworkImage
       return CachedNetworkImage(
         imageUrl: imageUrl,
-        width: 100,
-        height: 100,
+        width: size,
+        height: size,
         fit: BoxFit.cover,
         placeholder: (context, url) => Container(
-          width: 100,
-          height: 100,
+          width: size,
+          height: size,
           color: Colors.brown.shade100,
           child: const Center(
             child: CircularProgressIndicator(strokeWidth: 2),
@@ -530,23 +542,23 @@ class _CoffeeKioskOverlayState extends State<CoffeeKioskOverlay> {
         ),
         errorWidget: (context, url, error) {
           print('[MENU IMAGE] Error loading network image: $url - $error');
-          return _buildFallbackIcon(item.category);
+          return _buildFallbackIcon(item.category, size);
         },
       );
     }
   }
 
-  Widget _buildFallbackIcon(String category) {
+  Widget _buildFallbackIcon(String category, double size) {
     return Container(
-      width: 100,
-      height: 100,
+      width: size,
+      height: size,
       decoration: BoxDecoration(
         color: Colors.brown.shade100,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(6),
       ),
       child: Icon(
         _getCategoryIcon(category),
-        size: 40,
+        size: size * 0.4,
         color: Colors.brown.shade700,
       ),
     );

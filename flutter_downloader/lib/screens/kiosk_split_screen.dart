@@ -351,14 +351,14 @@ class _KioskSplitScreenState extends State<KioskSplitScreen> {
           children: [
             // Top (portrait) or Left (landscape): Video Player
             Expanded(
-              flex: isPortrait ? 3 : 1, // Larger in portrait mode
+              flex: isPortrait ? 1 : 1, // Smaller in portrait mode to give more space to menu
               child: Container(
                 color: Colors.black,
                 child: Stack(
                   children: [
-                    Center(
-                      child: _hasError
-                      ? Padding(
+                    if (_hasError)
+                      Center(
+                        child: Padding(
                           padding: const EdgeInsets.all(32.0),
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
@@ -405,73 +405,16 @@ class _KioskSplitScreenState extends State<KioskSplitScreen> {
                               ),
                             ],
                           ),
-                        )
-                      : _isInitialized && _controller != null
-                          ? GestureDetector(
-                              onTap: _togglePlayPause,
-                              child: media_kit_video.Video(
-                                controller: _controller!,
-                                controls: media_kit_video.NoVideoControls,
-                              ),
-                            )
-                          : const CircularProgressIndicator(),
-                    ),
-
-                    // Video info overlay (bottom)
-                    if (_isInitialized && !_hasError)
-                      Positioned(
-                        bottom: 0,
-                        left: 0,
-                        right: 0,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.bottomCenter,
-                              end: Alignment.topCenter,
-                              colors: [
-                                Colors.black.withOpacity(0.8),
-                                Colors.transparent,
-                              ],
-                            ),
-                          ),
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                widget.videos[_currentVideoIndex].title,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              const SizedBox(height: 8),
-                              Row(
-                                children: [
-                                  Text(
-                                    '${_currentVideoIndex + 1} / ${widget.videos.length}',
-                                    style: TextStyle(
-                                      color: Colors.grey.shade300,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 16),
-                                  if (_player != null)
-                                    Text(
-                                      '${_formatDuration(_position)} / ${_formatDuration(_duration)}',
-                                      style: TextStyle(
-                                        color: Colors.grey.shade300,
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                ],
-                              ),
-                            ],
-                          ),
+                        ),
+                      ),
+                    if (_isInitialized && _controller != null && !_hasError)
+                      GestureDetector(
+                        onTap: _togglePlayPause,
+                        child: media_kit_video.Video(
+                          controller: _controller!,
+                          controls: media_kit_video.NoVideoControls,
+                          fit: BoxFit.cover,
+                          aspectRatio: null,
                         ),
                       ),
                   ],
@@ -481,7 +424,7 @@ class _KioskSplitScreenState extends State<KioskSplitScreen> {
 
             // Bottom (portrait) or Right (landscape): Coffee Kiosk
             Expanded(
-              flex: isPortrait ? 2 : 1, // Smaller in portrait mode
+              flex: isPortrait ? 3 : 1, // Larger in portrait mode for menu visibility
               child: CoffeeKioskOverlay(
                 onClose: _exitKiosk,
                 onOrderComplete: (order) {

@@ -31,6 +31,12 @@ void main() async {
     DeviceOrientation.landscapeRight,
   ]);
 
+  // Hide status bar and navigation bar (immersive mode for kiosk)
+  await SystemChrome.setEnabledSystemUIMode(
+    SystemUiMode.immersiveSticky,
+    overlays: [],
+  );
+
   // Initialize storage service
   final storageService = await StorageService.init();
 
