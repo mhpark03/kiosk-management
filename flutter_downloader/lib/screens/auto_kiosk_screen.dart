@@ -31,10 +31,27 @@ class _AutoKioskScreenState extends State<AutoKioskScreen> {
   late PresenceDetectionService _presenceService;
   StreamSubscription<bool>? _presenceSubscription;
   bool _isKioskMode = false;
+  late List<Video> _advertisementVideos;
+  late List<Video> _allVideos;
 
   @override
   void initState() {
     super.initState();
+
+    // Separate videos into advertisement and all videos
+    // Advertisement videos: menuId is null (not linked to menu items)
+    // All videos: used in kiosk mode for menu item videos
+    _allVideos = widget.videos;
+    _advertisementVideos = widget.videos.where((video) => video.menuId == null).toList();
+
+    print('[AUTO KIOSK] Total videos: ${_allVideos.length}');
+    print('[AUTO KIOSK] Advertisement videos (menuId == null): ${_advertisementVideos.length}');
+
+    // If no advertisement videos, fallback to using all videos
+    if (_advertisementVideos.isEmpty) {
+      print('[AUTO KIOSK] WARNING: No advertisement videos found, using all videos for idle screen');
+      _advertisementVideos = _allVideos;
+    }
 
     // Initialize presence detection service
     // Using touch-based detection for now (can switch to camera later)
@@ -97,7 +114,7 @@ class _AutoKioskScreenState extends State<AutoKioskScreen> {
   Widget _buildIdleMode() {
     return IdleScreen(
       key: const ValueKey('idle'),
-      videos: widget.videos,
+      videos: _advertisementVideos, // Only advertisement videos (menuId == null)
       onUserPresence: _handleUserPresence,
     );
   }
@@ -110,7 +127,7 @@ class _AutoKioskScreenState extends State<AutoKioskScreen> {
       child: MouseRegion(
         onHover: (_) => _handleUserPresence(),
         child: KioskSplitScreen(
-          videos: widget.videos,
+          videos: _allVideos, // All videos for kiosk mode
           downloadPath: widget.downloadPath,
           kioskId: widget.kioskId,
           menuFilename: widget.menuFilename,
