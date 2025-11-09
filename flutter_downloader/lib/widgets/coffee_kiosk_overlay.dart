@@ -950,6 +950,7 @@ class _CoffeeKioskOverlayState extends State<CoffeeKioskOverlay> {
                 icon: const Icon(Icons.delete_outline, size: 20),
                 onPressed: () {
                   setState(() => _cartItems.removeAt(index));
+                  _playActionVideo('cancelItem');
                 },
                 color: Colors.red,
               ),
@@ -974,6 +975,7 @@ class _CoffeeKioskOverlayState extends State<CoffeeKioskOverlay> {
                             item.quantity--;
                           }
                         });
+                        _playActionVideo('decreaseQuantity');
                       },
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
@@ -991,6 +993,7 @@ class _CoffeeKioskOverlayState extends State<CoffeeKioskOverlay> {
                         setState(() {
                           item.quantity++;
                         });
+                        _playActionVideo('increaseQuantity');
                       },
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(minWidth: 32, minHeight: 32),

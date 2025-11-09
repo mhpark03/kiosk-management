@@ -107,6 +107,9 @@ class XmlMenuParser {
   static MenuActions _parseActions(XmlElement element) {
     ActionVideo? addToCart;
     ActionVideo? checkout;
+    ActionVideo? increaseQuantity;
+    ActionVideo? decreaseQuantity;
+    ActionVideo? cancelItem;
 
     // Parse addToCart action
     final addToCartElements = element.findElements('addToCart');
@@ -128,9 +131,42 @@ class XmlMenuParser {
       );
     }
 
+    // Parse increaseQuantity action
+    final increaseQuantityElements = element.findElements('increaseQuantity');
+    if (increaseQuantityElements.isNotEmpty) {
+      final increaseQuantityElement = increaseQuantityElements.first;
+      increaseQuantity = ActionVideo(
+        videoId: increaseQuantityElement.getAttribute('videoId'),
+        videoFilename: increaseQuantityElement.getAttribute('videoFilename'),
+      );
+    }
+
+    // Parse decreaseQuantity action
+    final decreaseQuantityElements = element.findElements('decreaseQuantity');
+    if (decreaseQuantityElements.isNotEmpty) {
+      final decreaseQuantityElement = decreaseQuantityElements.first;
+      decreaseQuantity = ActionVideo(
+        videoId: decreaseQuantityElement.getAttribute('videoId'),
+        videoFilename: decreaseQuantityElement.getAttribute('videoFilename'),
+      );
+    }
+
+    // Parse cancelItem action
+    final cancelItemElements = element.findElements('cancelItem');
+    if (cancelItemElements.isNotEmpty) {
+      final cancelItemElement = cancelItemElements.first;
+      cancelItem = ActionVideo(
+        videoId: cancelItemElement.getAttribute('videoId'),
+        videoFilename: cancelItemElement.getAttribute('videoFilename'),
+      );
+    }
+
     return MenuActions(
       addToCart: addToCart,
       checkout: checkout,
+      increaseQuantity: increaseQuantity,
+      decreaseQuantity: decreaseQuantity,
+      cancelItem: cancelItem,
     );
   }
 }

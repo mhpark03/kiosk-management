@@ -499,4 +499,28 @@ class CoffeeMenuService {
     }
     return null;
   }
+
+  /// Get video filename for "increase quantity" action
+  String? getIncreaseQuantityVideoFilename() {
+    if (_isXmlLoaded && _menuConfig != null && _menuConfig!.actions != null) {
+      return _menuConfig!.actions!.increaseQuantity?.videoFilename;
+    }
+    return null;
+  }
+
+  /// Get video filename for "decrease quantity" action
+  String? getDecreaseQuantityVideoFilename() {
+    if (_isXmlLoaded && _menuConfig != null && _menuConfig!.actions != null) {
+      return _menuConfig!.actions!.decreaseQuantity?.videoFilename;
+    }
+    return null;
+  }
+
+  /// Get video filename for "cancel item" action
+  String? getCancelItemVideoFilename() {
+    if (_isXmlLoaded && _menuConfig != null && _menuConfig!.actions != null) {
+      return _menuConfig!.actions!.cancelItem?.videoFilename;
+    }
+    return null;
+  }
 }

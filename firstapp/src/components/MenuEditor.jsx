@@ -159,6 +159,9 @@ function MenuEditor() {
     if (actionsElement) {
       const addToCartElement = actionsElement.getElementsByTagName('addToCart')[0];
       const checkoutElement = actionsElement.getElementsByTagName('checkout')[0];
+      const increaseQuantityElement = actionsElement.getElementsByTagName('increaseQuantity')[0];
+      const decreaseQuantityElement = actionsElement.getElementsByTagName('decreaseQuantity')[0];
+      const cancelItemElement = actionsElement.getElementsByTagName('cancelItem')[0];
 
       actions = {};
       if (addToCartElement) {
@@ -171,6 +174,24 @@ function MenuEditor() {
         actions.checkout = {
           videoId: checkoutElement.getAttribute('videoId') || null,
           videoFilename: checkoutElement.getAttribute('videoFilename') || null,
+        };
+      }
+      if (increaseQuantityElement) {
+        actions.increaseQuantity = {
+          videoId: increaseQuantityElement.getAttribute('videoId') || null,
+          videoFilename: increaseQuantityElement.getAttribute('videoFilename') || null,
+        };
+      }
+      if (decreaseQuantityElement) {
+        actions.decreaseQuantity = {
+          videoId: decreaseQuantityElement.getAttribute('videoId') || null,
+          videoFilename: decreaseQuantityElement.getAttribute('videoFilename') || null,
+        };
+      }
+      if (cancelItemElement) {
+        actions.cancelItem = {
+          videoId: cancelItemElement.getAttribute('videoId') || null,
+          videoFilename: cancelItemElement.getAttribute('videoFilename') || null,
         };
       }
     }
@@ -378,6 +399,36 @@ function MenuEditor() {
         }
         if (menu.actions.checkout.videoFilename) {
           xml += ` videoFilename="${escapeXML(menu.actions.checkout.videoFilename)}"`;
+        }
+        xml += ` />\n`;
+      }
+      if (menu.actions.increaseQuantity) {
+        xml += `    <increaseQuantity`;
+        if (menu.actions.increaseQuantity.videoId) {
+          xml += ` videoId="${escapeXML(menu.actions.increaseQuantity.videoId)}"`;
+        }
+        if (menu.actions.increaseQuantity.videoFilename) {
+          xml += ` videoFilename="${escapeXML(menu.actions.increaseQuantity.videoFilename)}"`;
+        }
+        xml += ` />\n`;
+      }
+      if (menu.actions.decreaseQuantity) {
+        xml += `    <decreaseQuantity`;
+        if (menu.actions.decreaseQuantity.videoId) {
+          xml += ` videoId="${escapeXML(menu.actions.decreaseQuantity.videoId)}"`;
+        }
+        if (menu.actions.decreaseQuantity.videoFilename) {
+          xml += ` videoFilename="${escapeXML(menu.actions.decreaseQuantity.videoFilename)}"`;
+        }
+        xml += ` />\n`;
+      }
+      if (menu.actions.cancelItem) {
+        xml += `    <cancelItem`;
+        if (menu.actions.cancelItem.videoId) {
+          xml += ` videoId="${escapeXML(menu.actions.cancelItem.videoId)}"`;
+        }
+        if (menu.actions.cancelItem.videoFilename) {
+          xml += ` videoFilename="${escapeXML(menu.actions.cancelItem.videoFilename)}"`;
         }
         xml += ` />\n`;
       }
@@ -655,19 +706,28 @@ function MenuInfoEditor({ menu, onUpdate }) {
     videoId: menu.videoId || null,
     videoFilename: menu.videoFilename || null,
     videoUrl: menu.videoUrl || null,
-    actions: menu.actions || { addToCart: null, checkout: null }
+    actions: menu.actions || { addToCart: null, checkout: null, increaseQuantity: null, decreaseQuantity: null, cancelItem: null }
   });
   const [videos, setVideos] = useState([]);
   const [showVideoSelector, setShowVideoSelector] = useState(false);
   const [showAddToCartVideoSelector, setShowAddToCartVideoSelector] = useState(false);
   const [showCheckoutVideoSelector, setShowCheckoutVideoSelector] = useState(false);
+  const [showIncreaseQuantityVideoSelector, setShowIncreaseQuantityVideoSelector] = useState(false);
+  const [showDecreaseQuantityVideoSelector, setShowDecreaseQuantityVideoSelector] = useState(false);
+  const [showCancelItemVideoSelector, setShowCancelItemVideoSelector] = useState(false);
   const [loadingVideos, setLoadingVideos] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [currentAddToCartPage, setCurrentAddToCartPage] = useState(1);
   const [currentCheckoutPage, setCurrentCheckoutPage] = useState(1);
+  const [currentIncreaseQuantityPage, setCurrentIncreaseQuantityPage] = useState(1);
+  const [currentDecreaseQuantityPage, setCurrentDecreaseQuantityPage] = useState(1);
+  const [currentCancelItemPage, setCurrentCancelItemPage] = useState(1);
   const [currentVideoUrl, setCurrentVideoUrl] = useState(menu.videoUrl);
   const [currentAddToCartVideoUrl, setCurrentAddToCartVideoUrl] = useState(menu.actions?.addToCart?.videoUrl);
   const [currentCheckoutVideoUrl, setCurrentCheckoutVideoUrl] = useState(menu.actions?.checkout?.videoUrl);
+  const [currentIncreaseQuantityVideoUrl, setCurrentIncreaseQuantityVideoUrl] = useState(menu.actions?.increaseQuantity?.videoUrl);
+  const [currentDecreaseQuantityVideoUrl, setCurrentDecreaseQuantityVideoUrl] = useState(menu.actions?.decreaseQuantity?.videoUrl);
+  const [currentCancelItemVideoUrl, setCurrentCancelItemVideoUrl] = useState(menu.actions?.cancelItem?.videoUrl);
   const videosPerPage = 10;
 
   // Update formData when menu prop changes
@@ -678,7 +738,7 @@ function MenuInfoEditor({ menu, onUpdate }) {
       videoId: menu.videoId || null,
       videoFilename: menu.videoFilename || null,
       videoUrl: menu.videoUrl || null,
-      actions: menu.actions || { addToCart: null, checkout: null }
+      actions: menu.actions || { addToCart: null, checkout: null, increaseQuantity: null, decreaseQuantity: null, cancelItem: null }
     });
   }, [menu]);
 
@@ -745,12 +805,75 @@ function MenuInfoEditor({ menu, onUpdate }) {
     loadCheckoutVideoUrl();
   }, [formData.actions?.checkout?.videoId]);
 
+  // Load fresh presigned URL for increaseQuantity video if videoId exists
+  useEffect(() => {
+    const loadIncreaseQuantityVideoUrl = async () => {
+      if (formData.actions?.increaseQuantity?.videoId) {
+        try {
+          const presignedData = await videoService.getPresignedUrl(formData.actions.increaseQuantity.videoId, 60);
+          const presignedUrl = presignedData.url || presignedData.presignedUrl || presignedData;
+          setCurrentIncreaseQuantityVideoUrl(presignedUrl);
+          console.log(`[INCREASE QUANTITY VIDEO] Loaded fresh presigned URL for videoId ${formData.actions.increaseQuantity.videoId}`);
+        } catch (error) {
+          console.error(`Failed to get presigned URL for increaseQuantity videoId:`, error);
+          setCurrentIncreaseQuantityVideoUrl(null);
+        }
+      } else {
+        setCurrentIncreaseQuantityVideoUrl(formData.actions?.increaseQuantity?.videoUrl);
+      }
+    };
+
+    loadIncreaseQuantityVideoUrl();
+  }, [formData.actions?.increaseQuantity?.videoId]);
+
+  // Load fresh presigned URL for decreaseQuantity video if videoId exists
+  useEffect(() => {
+    const loadDecreaseQuantityVideoUrl = async () => {
+      if (formData.actions?.decreaseQuantity?.videoId) {
+        try {
+          const presignedData = await videoService.getPresignedUrl(formData.actions.decreaseQuantity.videoId, 60);
+          const presignedUrl = presignedData.url || presignedData.presignedUrl || presignedData;
+          setCurrentDecreaseQuantityVideoUrl(presignedUrl);
+          console.log(`[DECREASE QUANTITY VIDEO] Loaded fresh presigned URL for videoId ${formData.actions.decreaseQuantity.videoId}`);
+        } catch (error) {
+          console.error(`Failed to get presigned URL for decreaseQuantity videoId:`, error);
+          setCurrentDecreaseQuantityVideoUrl(null);
+        }
+      } else {
+        setCurrentDecreaseQuantityVideoUrl(formData.actions?.decreaseQuantity?.videoUrl);
+      }
+    };
+
+    loadDecreaseQuantityVideoUrl();
+  }, [formData.actions?.decreaseQuantity?.videoId]);
+
+  // Load fresh presigned URL for cancelItem video if videoId exists
+  useEffect(() => {
+    const loadCancelItemVideoUrl = async () => {
+      if (formData.actions?.cancelItem?.videoId) {
+        try {
+          const presignedData = await videoService.getPresignedUrl(formData.actions.cancelItem.videoId, 60);
+          const presignedUrl = presignedData.url || presignedData.presignedUrl || presignedData;
+          setCurrentCancelItemVideoUrl(presignedUrl);
+          console.log(`[CANCEL ITEM VIDEO] Loaded fresh presigned URL for videoId ${formData.actions.cancelItem.videoId}`);
+        } catch (error) {
+          console.error(`Failed to get presigned URL for cancelItem videoId:`, error);
+          setCurrentCancelItemVideoUrl(null);
+        }
+      } else {
+        setCurrentCancelItemVideoUrl(formData.actions?.cancelItem?.videoUrl);
+      }
+    };
+
+    loadCancelItemVideoUrl();
+  }, [formData.actions?.cancelItem?.videoId]);
+
   // Load videos from S3
   useEffect(() => {
-    if ((showVideoSelector || showAddToCartVideoSelector || showCheckoutVideoSelector) && videos.length === 0) {
+    if ((showVideoSelector || showAddToCartVideoSelector || showCheckoutVideoSelector || showIncreaseQuantityVideoSelector || showDecreaseQuantityVideoSelector || showCancelItemVideoSelector) && videos.length === 0) {
       loadVideos();
     }
-  }, [showVideoSelector, showAddToCartVideoSelector, showCheckoutVideoSelector]);
+  }, [showVideoSelector, showAddToCartVideoSelector, showCheckoutVideoSelector, showIncreaseQuantityVideoSelector, showDecreaseQuantityVideoSelector, showCancelItemVideoSelector]);
 
   const loadVideos = async () => {
     try {
@@ -841,6 +964,54 @@ function MenuInfoEditor({ menu, onUpdate }) {
     setCurrentCheckoutPage(1);
   };
 
+  const handleSelectIncreaseQuantityVideo = (video) => {
+    const updatedActions = {
+      ...(formData.actions || {}),
+      increaseQuantity: {
+        videoUrl: video.presignedUrl,
+        videoId: String(video.id),
+        videoFilename: video.originalFilename
+      }
+    };
+    const updated = { ...menu, actions: updatedActions };
+    setFormData({ ...formData, actions: updatedActions });
+    onUpdate(updated);
+    setShowIncreaseQuantityVideoSelector(false);
+    setCurrentIncreaseQuantityPage(1);
+  };
+
+  const handleSelectDecreaseQuantityVideo = (video) => {
+    const updatedActions = {
+      ...(formData.actions || {}),
+      decreaseQuantity: {
+        videoUrl: video.presignedUrl,
+        videoId: String(video.id),
+        videoFilename: video.originalFilename
+      }
+    };
+    const updated = { ...menu, actions: updatedActions };
+    setFormData({ ...formData, actions: updatedActions });
+    onUpdate(updated);
+    setShowDecreaseQuantityVideoSelector(false);
+    setCurrentDecreaseQuantityPage(1);
+  };
+
+  const handleSelectCancelItemVideo = (video) => {
+    const updatedActions = {
+      ...(formData.actions || {}),
+      cancelItem: {
+        videoUrl: video.presignedUrl,
+        videoId: String(video.id),
+        videoFilename: video.originalFilename
+      }
+    };
+    const updated = { ...menu, actions: updatedActions };
+    setFormData({ ...formData, actions: updatedActions });
+    onUpdate(updated);
+    setShowCancelItemVideoSelector(false);
+    setCurrentCancelItemPage(1);
+  };
+
   // Pagination logic for main video selector
   const totalPages = Math.ceil(videos.length / videosPerPage);
   const indexOfLastVideo = currentPage * videosPerPage;
@@ -869,6 +1040,36 @@ function MenuInfoEditor({ menu, onUpdate }) {
 
   const handleCheckoutPageChange = (pageNumber) => {
     setCurrentCheckoutPage(pageNumber);
+  };
+
+  // Pagination logic for increaseQuantity video selector
+  const totalIncreaseQuantityPages = Math.ceil(videos.length / videosPerPage);
+  const indexOfLastIncreaseQuantityVideo = currentIncreaseQuantityPage * videosPerPage;
+  const indexOfFirstIncreaseQuantityVideo = indexOfLastIncreaseQuantityVideo - videosPerPage;
+  const currentIncreaseQuantityVideos = videos.slice(indexOfFirstIncreaseQuantityVideo, indexOfLastIncreaseQuantityVideo);
+
+  const handleIncreaseQuantityPageChange = (pageNumber) => {
+    setCurrentIncreaseQuantityPage(pageNumber);
+  };
+
+  // Pagination logic for decreaseQuantity video selector
+  const totalDecreaseQuantityPages = Math.ceil(videos.length / videosPerPage);
+  const indexOfLastDecreaseQuantityVideo = currentDecreaseQuantityPage * videosPerPage;
+  const indexOfFirstDecreaseQuantityVideo = indexOfLastDecreaseQuantityVideo - videosPerPage;
+  const currentDecreaseQuantityVideos = videos.slice(indexOfFirstDecreaseQuantityVideo, indexOfLastDecreaseQuantityVideo);
+
+  const handleDecreaseQuantityPageChange = (pageNumber) => {
+    setCurrentDecreaseQuantityPage(pageNumber);
+  };
+
+  // Pagination logic for cancelItem video selector
+  const totalCancelItemPages = Math.ceil(videos.length / videosPerPage);
+  const indexOfLastCancelItemVideo = currentCancelItemPage * videosPerPage;
+  const indexOfFirstCancelItemVideo = indexOfLastCancelItemVideo - videosPerPage;
+  const currentCancelItemVideos = videos.slice(indexOfFirstCancelItemVideo, indexOfLastCancelItemVideo);
+
+  const handleCancelItemPageChange = (pageNumber) => {
+    setCurrentCancelItemPage(pageNumber);
   };
 
   return (
@@ -920,8 +1121,8 @@ function MenuInfoEditor({ menu, onUpdate }) {
                     preload="metadata"
                     muted
                     style={{
-                      width: '200px',
-                      height: '120px',
+                      width: '120px',
+                      height: '72px',
                       objectFit: 'cover',
                       borderRadius: '4px',
                       border: '1px solid #e2e8f0',
@@ -986,8 +1187,8 @@ function MenuInfoEditor({ menu, onUpdate }) {
                     preload="metadata"
                     muted
                     style={{
-                      width: '200px',
-                      height: '120px',
+                      width: '120px',
+                      height: '72px',
                       objectFit: 'cover',
                       borderRadius: '4px',
                       border: '1px solid #e2e8f0',
@@ -1044,7 +1245,7 @@ function MenuInfoEditor({ menu, onUpdate }) {
             </tr>
 
             {/* 결제하기 영상 */}
-            <tr>
+            <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
               <td style={{ padding: '12px', fontWeight: '500' }}>결제하기</td>
               <td style={{ padding: '12px' }}>
                 {currentCheckoutVideoUrl ? (
@@ -1053,8 +1254,8 @@ function MenuInfoEditor({ menu, onUpdate }) {
                     preload="metadata"
                     muted
                     style={{
-                      width: '200px',
-                      height: '120px',
+                      width: '120px',
+                      height: '72px',
                       objectFit: 'cover',
                       borderRadius: '4px',
                       border: '1px solid #e2e8f0',
@@ -1092,6 +1293,207 @@ function MenuInfoEditor({ menu, onUpdate }) {
                         setFormData({ ...formData, actions: updatedActions });
                         onUpdate(updated);
                         setCurrentCheckoutVideoUrl(null);
+                      }}
+                      style={{
+                        padding: '8px 16px',
+                        backgroundColor: '#e53e3e',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '13px'
+                      }}
+                    >
+                      제거
+                    </button>
+                  )}
+                </div>
+              </td>
+            </tr>
+
+            {/* 수량 증가 영상 */}
+            <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
+              <td style={{ padding: '12px', fontWeight: '500' }}>수량 증가</td>
+              <td style={{ padding: '12px' }}>
+                {currentIncreaseQuantityVideoUrl ? (
+                  <video
+                    src={currentIncreaseQuantityVideoUrl}
+                    preload="metadata"
+                    muted
+                    style={{
+                      width: '120px',
+                      height: '72px',
+                      objectFit: 'cover',
+                      borderRadius: '4px',
+                      border: '1px solid #e2e8f0',
+                      backgroundColor: '#000'
+                    }}
+                  />
+                ) : (
+                  <span style={{ color: '#a0aec0', fontSize: '14px' }}>선택된 영상 없음</span>
+                )}
+              </td>
+              <td style={{ padding: '12px', textAlign: 'center' }}>
+                <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                  <button
+                    type="button"
+                    onClick={() => setShowIncreaseQuantityVideoSelector(true)}
+                    style={{
+                      padding: '8px 16px',
+                      backgroundColor: '#667eea',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '13px',
+                      fontWeight: '500'
+                    }}
+                  >
+                    {currentIncreaseQuantityVideoUrl ? '변경' : '선택'}
+                  </button>
+                  {currentIncreaseQuantityVideoUrl && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const updatedActions = { ...(formData.actions || {}), increaseQuantity: null };
+                        const updated = { ...menu, actions: updatedActions };
+                        setFormData({ ...formData, actions: updatedActions });
+                        onUpdate(updated);
+                        setCurrentIncreaseQuantityVideoUrl(null);
+                      }}
+                      style={{
+                        padding: '8px 16px',
+                        backgroundColor: '#e53e3e',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '13px'
+                      }}
+                    >
+                      제거
+                    </button>
+                  )}
+                </div>
+              </td>
+            </tr>
+
+            {/* 수량 감소 영상 */}
+            <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
+              <td style={{ padding: '12px', fontWeight: '500' }}>수량 감소</td>
+              <td style={{ padding: '12px' }}>
+                {currentDecreaseQuantityVideoUrl ? (
+                  <video
+                    src={currentDecreaseQuantityVideoUrl}
+                    preload="metadata"
+                    muted
+                    style={{
+                      width: '120px',
+                      height: '72px',
+                      objectFit: 'cover',
+                      borderRadius: '4px',
+                      border: '1px solid #e2e8f0',
+                      backgroundColor: '#000'
+                    }}
+                  />
+                ) : (
+                  <span style={{ color: '#a0aec0', fontSize: '14px' }}>선택된 영상 없음</span>
+                )}
+              </td>
+              <td style={{ padding: '12px', textAlign: 'center' }}>
+                <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                  <button
+                    type="button"
+                    onClick={() => setShowDecreaseQuantityVideoSelector(true)}
+                    style={{
+                      padding: '8px 16px',
+                      backgroundColor: '#667eea',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '13px',
+                      fontWeight: '500'
+                    }}
+                  >
+                    {currentDecreaseQuantityVideoUrl ? '변경' : '선택'}
+                  </button>
+                  {currentDecreaseQuantityVideoUrl && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const updatedActions = { ...(formData.actions || {}), decreaseQuantity: null };
+                        const updated = { ...menu, actions: updatedActions };
+                        setFormData({ ...formData, actions: updatedActions });
+                        onUpdate(updated);
+                        setCurrentDecreaseQuantityVideoUrl(null);
+                      }}
+                      style={{
+                        padding: '8px 16px',
+                        backgroundColor: '#e53e3e',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '13px'
+                      }}
+                    >
+                      제거
+                    </button>
+                  )}
+                </div>
+              </td>
+            </tr>
+
+            {/* 취소 영상 */}
+            <tr>
+              <td style={{ padding: '12px', fontWeight: '500' }}>취소</td>
+              <td style={{ padding: '12px' }}>
+                {currentCancelItemVideoUrl ? (
+                  <video
+                    src={currentCancelItemVideoUrl}
+                    preload="metadata"
+                    muted
+                    style={{
+                      width: '120px',
+                      height: '72px',
+                      objectFit: 'cover',
+                      borderRadius: '4px',
+                      border: '1px solid #e2e8f0',
+                      backgroundColor: '#000'
+                    }}
+                  />
+                ) : (
+                  <span style={{ color: '#a0aec0', fontSize: '14px' }}>선택된 영상 없음</span>
+                )}
+              </td>
+              <td style={{ padding: '12px', textAlign: 'center' }}>
+                <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                  <button
+                    type="button"
+                    onClick={() => setShowCancelItemVideoSelector(true)}
+                    style={{
+                      padding: '8px 16px',
+                      backgroundColor: '#667eea',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '13px',
+                      fontWeight: '500'
+                    }}
+                  >
+                    {currentCancelItemVideoUrl ? '변경' : '선택'}
+                  </button>
+                  {currentCancelItemVideoUrl && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const updatedActions = { ...(formData.actions || {}), cancelItem: null };
+                        const updated = { ...menu, actions: updatedActions };
+                        setFormData({ ...formData, actions: updatedActions });
+                        onUpdate(updated);
+                        setCurrentCancelItemVideoUrl(null);
                       }}
                       style={{
                         padding: '8px 16px',
@@ -1716,6 +2118,495 @@ function MenuInfoEditor({ menu, onUpdate }) {
             </div>
           </div>
         )}
+
+        {/* Increase Quantity Video Selector Modal */}
+        {showIncreaseQuantityVideoSelector && (
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1001
+          }}>
+            <div style={{
+              backgroundColor: 'white',
+              borderRadius: '12px',
+              width: '90%',
+              maxWidth: '800px',
+              maxHeight: '80vh',
+              display: 'flex',
+              flexDirection: 'column',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
+            }}>
+              <div style={{
+                padding: '20px 24px',
+                borderBottom: '1px solid #e2e8f0',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center'
+              }}>
+                <h3 style={{ margin: 0, fontSize: '20px', fontWeight: '600', color: '#2d3748' }}>
+                  수량 증가 영상 선택
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => { setShowIncreaseQuantityVideoSelector(false); setCurrentIncreaseQuantityPage(1); }}
+                  style={{
+                    padding: '8px 16px',
+                    backgroundColor: '#cbd5e0',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    fontWeight: '500'
+                  }}
+                >
+                  닫기
+                </button>
+              </div>
+              <div style={{
+                flex: 1,
+                overflowY: 'auto',
+                padding: '20px 24px'
+              }}>
+                {loadingVideos ? (
+                  <div style={{ textAlign: 'center', padding: '40px', color: '#718096' }}>
+                    영상 목록을 불러오는 중...
+                  </div>
+                ) : videos.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '40px', color: '#718096' }}>
+                    등록된 영상이 없습니다.<br />
+                    영상 관리 페이지에서 영상을 업로드하세요.
+                  </div>
+                ) : (
+                  <>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      {currentIncreaseQuantityVideos.map((video, index) => (
+                        <div
+                          key={video.id}
+                          onClick={() => handleSelectIncreaseQuantityVideo(video)}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '12px',
+                            padding: '10px',
+                            border: formData.actions?.increaseQuantity?.videoUrl === video.presignedUrl ? '2px solid #667eea' : '1px solid #e2e8f0',
+                            borderRadius: '6px',
+                            backgroundColor: formData.actions?.increaseQuantity?.videoUrl === video.presignedUrl ? '#eef2ff' : 'white',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s',
+                            minHeight: '60px'
+                          }}
+                          onMouseEnter={(e) => {
+                            if (formData.actions?.increaseQuantity?.videoUrl !== video.presignedUrl) {
+                              e.currentTarget.style.backgroundColor = '#f7fafc';
+                              e.currentTarget.style.borderColor = '#a0aec0';
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (formData.actions?.increaseQuantity?.videoUrl !== video.presignedUrl) {
+                              e.currentTarget.style.backgroundColor = 'white';
+                              e.currentTarget.style.borderColor = '#e2e8f0';
+                            }
+                          }}
+                        >
+                          <div style={{ width: '25px', textAlign: 'center', fontWeight: '600', color: '#718096', fontSize: '13px', flexShrink: 0 }}>
+                            {indexOfFirstIncreaseQuantityVideo + index + 1}
+                          </div>
+                          <video
+                            src={video.presignedUrl}
+                            preload="metadata"
+                            muted
+                            style={{
+                              width: '80px',
+                              height: '50px',
+                              objectFit: 'cover',
+                              borderRadius: '4px',
+                              border: '1px solid #e2e8f0',
+                              backgroundColor: '#000',
+                              flexShrink: 0
+                            }}
+                          />
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontWeight: '600', fontSize: '14px', color: '#2d3748' }}>
+                              {video.title}
+                            </div>
+                          </div>
+                          {formData.actions?.increaseQuantity?.videoUrl === video.presignedUrl && (
+                            <div style={{ padding: '4px 10px', backgroundColor: '#667eea', color: 'white', borderRadius: '4px', fontSize: '11px', fontWeight: '600', flexShrink: 0 }}>
+                              선택됨
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    {totalIncreaseQuantityPages > 1 && (
+                      <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
+                        <button
+                          onClick={() => handleIncreaseQuantityPageChange(currentIncreaseQuantityPage - 1)}
+                          disabled={currentIncreaseQuantityPage === 1}
+                          style={{ padding: '8px 16px', border: '1px solid #cbd5e0', borderRadius: '6px', backgroundColor: currentIncreaseQuantityPage === 1 ? '#f7fafc' : 'white', color: currentIncreaseQuantityPage === 1 ? '#a0aec0' : '#2d3748', cursor: currentIncreaseQuantityPage === 1 ? 'not-allowed' : 'pointer', fontSize: '14px', fontWeight: '500' }}
+                        >
+                          이전
+                        </button>
+                        {Array.from({ length: totalIncreaseQuantityPages }, (_, i) => i + 1).map(pageNum => (
+                          <button
+                            key={pageNum}
+                            onClick={() => handleIncreaseQuantityPageChange(pageNum)}
+                            style={{ padding: '8px 12px', border: pageNum === currentIncreaseQuantityPage ? '2px solid #667eea' : '1px solid #cbd5e0', borderRadius: '6px', backgroundColor: pageNum === currentIncreaseQuantityPage ? '#667eea' : 'white', color: pageNum === currentIncreaseQuantityPage ? 'white' : '#2d3748', cursor: 'pointer', fontSize: '14px', fontWeight: pageNum === currentIncreaseQuantityPage ? '600' : '500', minWidth: '40px' }}
+                          >
+                            {pageNum}
+                          </button>
+                        ))}
+                        <button
+                          onClick={() => handleIncreaseQuantityPageChange(currentIncreaseQuantityPage + 1)}
+                          disabled={currentIncreaseQuantityPage === totalIncreaseQuantityPages}
+                          style={{ padding: '8px 16px', border: '1px solid #cbd5e0', borderRadius: '6px', backgroundColor: currentIncreaseQuantityPage === totalIncreaseQuantityPages ? '#f7fafc' : 'white', color: currentIncreaseQuantityPage === totalIncreaseQuantityPages ? '#a0aec0' : '#2d3748', cursor: currentIncreaseQuantityPage === totalIncreaseQuantityPages ? 'not-allowed' : 'pointer', fontSize: '14px', fontWeight: '500' }}
+                        >
+                          다음
+                        </button>
+                      </div>
+                    )}
+                    <div style={{ marginTop: '16px', textAlign: 'center', fontSize: '13px', color: '#718096' }}>
+                      전체 {videos.length}개 영상 {totalIncreaseQuantityPages > 1 && `(${currentIncreaseQuantityPage} / ${totalIncreaseQuantityPages} 페이지)`}
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Decrease Quantity Video Selector Modal */}
+        {showDecreaseQuantityVideoSelector && (
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1001
+          }}>
+            <div style={{
+              backgroundColor: 'white',
+              borderRadius: '12px',
+              width: '90%',
+              maxWidth: '800px',
+              maxHeight: '80vh',
+              display: 'flex',
+              flexDirection: 'column',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
+            }}>
+              <div style={{
+                padding: '20px 24px',
+                borderBottom: '1px solid #e2e8f0',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center'
+              }}>
+                <h3 style={{ margin: 0, fontSize: '20px', fontWeight: '600', color: '#2d3748' }}>
+                  수량 감소 영상 선택
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => { setShowDecreaseQuantityVideoSelector(false); setCurrentDecreaseQuantityPage(1); }}
+                  style={{
+                    padding: '8px 16px',
+                    backgroundColor: '#cbd5e0',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    fontWeight: '500'
+                  }}
+                >
+                  닫기
+                </button>
+              </div>
+              <div style={{
+                flex: 1,
+                overflowY: 'auto',
+                padding: '20px 24px'
+              }}>
+                {loadingVideos ? (
+                  <div style={{ textAlign: 'center', padding: '40px', color: '#718096' }}>
+                    영상 목록을 불러오는 중...
+                  </div>
+                ) : videos.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '40px', color: '#718096' }}>
+                    등록된 영상이 없습니다.<br />
+                    영상 관리 페이지에서 영상을 업로드하세요.
+                  </div>
+                ) : (
+                  <>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      {currentDecreaseQuantityVideos.map((video, index) => (
+                        <div
+                          key={video.id}
+                          onClick={() => handleSelectDecreaseQuantityVideo(video)}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '12px',
+                            padding: '10px',
+                            border: formData.actions?.decreaseQuantity?.videoUrl === video.presignedUrl ? '2px solid #667eea' : '1px solid #e2e8f0',
+                            borderRadius: '6px',
+                            backgroundColor: formData.actions?.decreaseQuantity?.videoUrl === video.presignedUrl ? '#eef2ff' : 'white',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s',
+                            minHeight: '60px'
+                          }}
+                          onMouseEnter={(e) => {
+                            if (formData.actions?.decreaseQuantity?.videoUrl !== video.presignedUrl) {
+                              e.currentTarget.style.backgroundColor = '#f7fafc';
+                              e.currentTarget.style.borderColor = '#a0aec0';
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (formData.actions?.decreaseQuantity?.videoUrl !== video.presignedUrl) {
+                              e.currentTarget.style.backgroundColor = 'white';
+                              e.currentTarget.style.borderColor = '#e2e8f0';
+                            }
+                          }}
+                        >
+                          <div style={{ width: '25px', textAlign: 'center', fontWeight: '600', color: '#718096', fontSize: '13px', flexShrink: 0 }}>
+                            {indexOfFirstDecreaseQuantityVideo + index + 1}
+                          </div>
+                          <video
+                            src={video.presignedUrl}
+                            preload="metadata"
+                            muted
+                            style={{
+                              width: '80px',
+                              height: '50px',
+                              objectFit: 'cover',
+                              borderRadius: '4px',
+                              border: '1px solid #e2e8f0',
+                              backgroundColor: '#000',
+                              flexShrink: 0
+                            }}
+                          />
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontWeight: '600', fontSize: '14px', color: '#2d3748' }}>
+                              {video.title}
+                            </div>
+                          </div>
+                          {formData.actions?.decreaseQuantity?.videoUrl === video.presignedUrl && (
+                            <div style={{ padding: '4px 10px', backgroundColor: '#667eea', color: 'white', borderRadius: '4px', fontSize: '11px', fontWeight: '600', flexShrink: 0 }}>
+                              선택됨
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    {totalDecreaseQuantityPages > 1 && (
+                      <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
+                        <button
+                          onClick={() => handleDecreaseQuantityPageChange(currentDecreaseQuantityPage - 1)}
+                          disabled={currentDecreaseQuantityPage === 1}
+                          style={{ padding: '8px 16px', border: '1px solid #cbd5e0', borderRadius: '6px', backgroundColor: currentDecreaseQuantityPage === 1 ? '#f7fafc' : 'white', color: currentDecreaseQuantityPage === 1 ? '#a0aec0' : '#2d3748', cursor: currentDecreaseQuantityPage === 1 ? 'not-allowed' : 'pointer', fontSize: '14px', fontWeight: '500' }}
+                        >
+                          이전
+                        </button>
+                        {Array.from({ length: totalDecreaseQuantityPages }, (_, i) => i + 1).map(pageNum => (
+                          <button
+                            key={pageNum}
+                            onClick={() => handleDecreaseQuantityPageChange(pageNum)}
+                            style={{ padding: '8px 12px', border: pageNum === currentDecreaseQuantityPage ? '2px solid #667eea' : '1px solid #cbd5e0', borderRadius: '6px', backgroundColor: pageNum === currentDecreaseQuantityPage ? '#667eea' : 'white', color: pageNum === currentDecreaseQuantityPage ? 'white' : '#2d3748', cursor: 'pointer', fontSize: '14px', fontWeight: pageNum === currentDecreaseQuantityPage ? '600' : '500', minWidth: '40px' }}
+                          >
+                            {pageNum}
+                          </button>
+                        ))}
+                        <button
+                          onClick={() => handleDecreaseQuantityPageChange(currentDecreaseQuantityPage + 1)}
+                          disabled={currentDecreaseQuantityPage === totalDecreaseQuantityPages}
+                          style={{ padding: '8px 16px', border: '1px solid #cbd5e0', borderRadius: '6px', backgroundColor: currentDecreaseQuantityPage === totalDecreaseQuantityPages ? '#f7fafc' : 'white', color: currentDecreaseQuantityPage === totalDecreaseQuantityPages ? '#a0aec0' : '#2d3748', cursor: currentDecreaseQuantityPage === totalDecreaseQuantityPages ? 'not-allowed' : 'pointer', fontSize: '14px', fontWeight: '500' }}
+                        >
+                          다음
+                        </button>
+                      </div>
+                    )}
+                    <div style={{ marginTop: '16px', textAlign: 'center', fontSize: '13px', color: '#718096' }}>
+                      전체 {videos.length}개 영상 {totalDecreaseQuantityPages > 1 && `(${currentDecreaseQuantityPage} / ${totalDecreaseQuantityPages} 페이지)`}
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Cancel Item Video Selector Modal */}
+        {showCancelItemVideoSelector && (
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1001
+          }}>
+            <div style={{
+              backgroundColor: 'white',
+              borderRadius: '12px',
+              width: '90%',
+              maxWidth: '800px',
+              maxHeight: '80vh',
+              display: 'flex',
+              flexDirection: 'column',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
+            }}>
+              <div style={{
+                padding: '20px 24px',
+                borderBottom: '1px solid #e2e8f0',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center'
+              }}>
+                <h3 style={{ margin: 0, fontSize: '20px', fontWeight: '600', color: '#2d3748' }}>
+                  취소 영상 선택
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => { setShowCancelItemVideoSelector(false); setCurrentCancelItemPage(1); }}
+                  style={{
+                    padding: '8px 16px',
+                    backgroundColor: '#cbd5e0',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    fontWeight: '500'
+                  }}
+                >
+                  닫기
+                </button>
+              </div>
+              <div style={{
+                flex: 1,
+                overflowY: 'auto',
+                padding: '20px 24px'
+              }}>
+                {loadingVideos ? (
+                  <div style={{ textAlign: 'center', padding: '40px', color: '#718096' }}>
+                    영상 목록을 불러오는 중...
+                  </div>
+                ) : videos.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '40px', color: '#718096' }}>
+                    등록된 영상이 없습니다.<br />
+                    영상 관리 페이지에서 영상을 업로드하세요.
+                  </div>
+                ) : (
+                  <>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      {currentCancelItemVideos.map((video, index) => (
+                        <div
+                          key={video.id}
+                          onClick={() => handleSelectCancelItemVideo(video)}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '12px',
+                            padding: '10px',
+                            border: formData.actions?.cancelItem?.videoUrl === video.presignedUrl ? '2px solid #667eea' : '1px solid #e2e8f0',
+                            borderRadius: '6px',
+                            backgroundColor: formData.actions?.cancelItem?.videoUrl === video.presignedUrl ? '#eef2ff' : 'white',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s',
+                            minHeight: '60px'
+                          }}
+                          onMouseEnter={(e) => {
+                            if (formData.actions?.cancelItem?.videoUrl !== video.presignedUrl) {
+                              e.currentTarget.style.backgroundColor = '#f7fafc';
+                              e.currentTarget.style.borderColor = '#a0aec0';
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (formData.actions?.cancelItem?.videoUrl !== video.presignedUrl) {
+                              e.currentTarget.style.backgroundColor = 'white';
+                              e.currentTarget.style.borderColor = '#e2e8f0';
+                            }
+                          }}
+                        >
+                          <div style={{ width: '25px', textAlign: 'center', fontWeight: '600', color: '#718096', fontSize: '13px', flexShrink: 0 }}>
+                            {indexOfFirstCancelItemVideo + index + 1}
+                          </div>
+                          <video
+                            src={video.presignedUrl}
+                            preload="metadata"
+                            muted
+                            style={{
+                              width: '80px',
+                              height: '50px',
+                              objectFit: 'cover',
+                              borderRadius: '4px',
+                              border: '1px solid #e2e8f0',
+                              backgroundColor: '#000',
+                              flexShrink: 0
+                            }}
+                          />
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontWeight: '600', fontSize: '14px', color: '#2d3748' }}>
+                              {video.title}
+                            </div>
+                          </div>
+                          {formData.actions?.cancelItem?.videoUrl === video.presignedUrl && (
+                            <div style={{ padding: '4px 10px', backgroundColor: '#667eea', color: 'white', borderRadius: '4px', fontSize: '11px', fontWeight: '600', flexShrink: 0 }}>
+                              선택됨
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    {totalCancelItemPages > 1 && (
+                      <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
+                        <button
+                          onClick={() => handleCancelItemPageChange(currentCancelItemPage - 1)}
+                          disabled={currentCancelItemPage === 1}
+                          style={{ padding: '8px 16px', border: '1px solid #cbd5e0', borderRadius: '6px', backgroundColor: currentCancelItemPage === 1 ? '#f7fafc' : 'white', color: currentCancelItemPage === 1 ? '#a0aec0' : '#2d3748', cursor: currentCancelItemPage === 1 ? 'not-allowed' : 'pointer', fontSize: '14px', fontWeight: '500' }}
+                        >
+                          이전
+                        </button>
+                        {Array.from({ length: totalCancelItemPages }, (_, i) => i + 1).map(pageNum => (
+                          <button
+                            key={pageNum}
+                            onClick={() => handleCancelItemPageChange(pageNum)}
+                            style={{ padding: '8px 12px', border: pageNum === currentCancelItemPage ? '2px solid #667eea' : '1px solid #cbd5e0', borderRadius: '6px', backgroundColor: pageNum === currentCancelItemPage ? '#667eea' : 'white', color: pageNum === currentCancelItemPage ? 'white' : '#2d3748', cursor: 'pointer', fontSize: '14px', fontWeight: pageNum === currentCancelItemPage ? '600' : '500', minWidth: '40px' }}
+                          >
+                            {pageNum}
+                          </button>
+                        ))}
+                        <button
+                          onClick={() => handleCancelItemPageChange(currentCancelItemPage + 1)}
+                          disabled={currentCancelItemPage === totalCancelItemPages}
+                          style={{ padding: '8px 16px', border: '1px solid #cbd5e0', borderRadius: '6px', backgroundColor: currentCancelItemPage === totalCancelItemPages ? '#f7fafc' : 'white', color: currentCancelItemPage === totalCancelItemPages ? '#a0aec0' : '#2d3748', cursor: currentCancelItemPage === totalCancelItemPages ? 'not-allowed' : 'pointer', fontSize: '14px', fontWeight: '500' }}
+                        >
+                          다음
+                        </button>
+                      </div>
+                    )}
+                    <div style={{ marginTop: '16px', textAlign: 'center', fontSize: '13px', color: '#718096' }}>
+                      전체 {videos.length}개 영상 {totalCancelItemPages > 1 && `(${currentCancelItemPage} / ${totalCancelItemPages} 페이지)`}
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -1878,8 +2769,8 @@ function CategoryEditor({ category, onUpdate }) {
               preload="metadata"
               muted
               style={{
-                width: '200px',
-                height: '120px',
+                width: '120px',
+                height: '72px',
                 objectFit: 'cover',
                 borderRadius: '6px',
                 border: '2px solid #e2e8f0',
@@ -2794,8 +3685,8 @@ function ItemEditor({ item, onUpdate }) {
               preload="metadata"
               muted
               style={{
-                width: '200px',
-                height: '120px',
+                width: '120px',
+                height: '72px',
                 objectFit: 'cover',
                 borderRadius: '6px',
                 border: '2px solid #e2e8f0',

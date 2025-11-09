@@ -145,12 +145,18 @@ class ExtraOption {
 }
 
 class MenuActions {
-  final ActionVideo? addToCart;    // Video for adding item to cart
-  final ActionVideo? checkout;      // Video for checkout/payment
+  final ActionVideo? addToCart;          // Video for adding item to cart
+  final ActionVideo? checkout;            // Video for checkout/payment
+  final ActionVideo? increaseQuantity;    // Video for increasing item quantity
+  final ActionVideo? decreaseQuantity;    // Video for decreasing item quantity
+  final ActionVideo? cancelItem;          // Video for canceling/removing item
 
   MenuActions({
     this.addToCart,
     this.checkout,
+    this.increaseQuantity,
+    this.decreaseQuantity,
+    this.cancelItem,
   });
 }
 
