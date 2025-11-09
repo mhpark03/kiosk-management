@@ -710,12 +710,12 @@ function ItemEditor({ item, onUpdate }) {
   };
 
   const handleSelectImage = (image) => {
-    // Use presigned URL for display (S3 is private) and store imageId + filename for kiosk download
+    // Use presigned URL for display (S3 is private) and store imageId + originalFilename for kiosk download
     const updated = {
       ...formData,
       thumbnailUrl: image.presignedUrl,
       imageId: String(image.id), // Store image ID for kiosk to download later
-      imageFilename: image.filename // Store filename for offline kiosk usage
+      imageFilename: image.originalFilename // Store original filename (without UUID) for offline kiosk usage
     };
     setFormData(updated);
     onUpdate(updated);
