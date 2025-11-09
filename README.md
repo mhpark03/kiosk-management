@@ -65,8 +65,9 @@ Flutter Kiosk App             │                             │               
 - **State Management**: Provider
 - **Storage**: SharedPreferences + Secure Storage
 - **Real-time Sync**: WebSocket/STOMP
-- **Video Player**: video_player package
+- **Video Player**: media_kit (modern cross-platform video player)
 - **Background Tasks**: WorkManager
+- **User Detection**: Touch/Mouse-based (Camera-ready architecture)
 
 ### DevOps & Cloud
 - **CI/CD**: GitHub Actions
@@ -125,8 +126,22 @@ Flutter Kiosk App             │                             │               
 - ✅ 다운로드 진행률 표시
 - ✅ WebSocket/STOMP 실시간 동기화
 - ✅ 백그라운드 자동 동기화 (WorkManager)
-- ✅ 내장 비디오 플레이어
+- ✅ 내장 비디오 플레이어 (media_kit)
 - ✅ 반응형 Material Design UI
+- ✅ **자동 전환 키오스크 모드**:
+  - 대기 모드: 전체화면 광고 영상 자동 재생
+  - 키오스크 모드: 영상 + 메뉴 분할 화면
+  - 터치/마우스 기반 사용자 감지
+  - 30초 무반응 시 자동 대기 화면 복귀
+  - menuId 없는 영상을 광고 영상으로 필터링
+- ✅ **카테고리/메뉴 영상 재생**:
+  - 카테고리 선택 시 해당 카테고리 영상 재생
+  - 메뉴 아이템 선택 시 해당 아이템 영상 재생
+  - 좌측 화면에서 연관 영상 자동 재생
+- ✅ **메뉴 자동 업데이트**:
+  - 설정 가능한 동기화 간격 (syncIntervalHours)
+  - 최신 메뉴 XML 파일 자동 로드
+  - 메뉴 변경 시 실시간 반영
 
 ### 커피 메뉴 관리 (Coffee Menu Management)
 - ✅ 웹 기반 메뉴 편집기 (React)
@@ -286,8 +301,10 @@ s3://kiosk-bucket/
   </metadata>
 
   <categories>
-    <category id="coffee" name="커피" nameEn="Coffee" icon="coffee" order="1" />
-    <category id="beverage" name="음료" nameEn="Beverage" icon="local_drink" order="2" />
+    <category id="coffee" name="커피" nameEn="Coffee" icon="coffee" order="1"
+              videoId="15" videoFilename="coffee_category.mp4" />
+    <category id="beverage" name="음료" nameEn="Beverage" icon="local_drink" order="2"
+              videoId="16" videoFilename="beverage_category.mp4" />
   </categories>
 
   <menuItems>
@@ -298,6 +315,8 @@ s3://kiosk-bucket/
       <description>진한 에스프레소에 물을 더한 커피</description>
       <thumbnailUrl>https://s3.presigned.url/...</thumbnailUrl>
       <imageId>123</imageId>  <!-- 키오스크가 다운로드할 이미지 ID -->
+      <imageFilename>americano.jpg</imageFilename>  <!-- 오프라인용 이미지 파일명 -->
+      <videoFilename>americano_video.mp4</videoFilename>  <!-- 메뉴 아이템 영상 -->
       <available>true</available>
       <sizeEnabled>true</sizeEnabled>
       <temperatureEnabled>true</temperatureEnabled>
