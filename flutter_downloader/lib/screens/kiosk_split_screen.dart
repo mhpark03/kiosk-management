@@ -280,10 +280,13 @@ class _KioskSplitScreenState extends State<KioskSplitScreen> {
   }
 
   Future<void> _exitKiosk() async {
+    print('[KIOSK SPLIT] Exiting kiosk, clearing fullscreen...');
     await windowManager.setFullScreen(false);
+    print('[KIOSK SPLIT] Fullscreen cleared, popping navigation...');
     if (mounted) {
       Navigator.of(context).pop();
     }
+    print('[KIOSK SPLIT] Navigation popped');
   }
 
   String _formatDuration(Duration duration) {

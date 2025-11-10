@@ -44,6 +44,8 @@ class _AutoKioskScreenState extends State<AutoKioskScreen> {
   late List<Video> _advertisementVideos;
   late List<Video> _allVideos;
 
+  bool _isFullscreenReady = false; // Track if fullscreen transition is complete
+
   // Cache screen widgets to prevent recreation on every build
   Widget? _cachedIdleScreen;
   Widget? _cachedKioskScreen;
@@ -108,9 +110,11 @@ class _AutoKioskScreenState extends State<AutoKioskScreen> {
     // Wait for fullscreen transition to complete
     await Future.delayed(const Duration(milliseconds: 300));
 
-    // Force rebuild after fullscreen is active
+    // Mark fullscreen as ready and rebuild
     if (mounted) {
-      setState(() {});
+      setState(() {
+        _isFullscreenReady = true;
+      });
       print('[AUTO KIOSK] Fullscreen active, screen rebuilt');
     }
   }
@@ -121,8 +125,12 @@ class _AutoKioskScreenState extends State<AutoKioskScreen> {
 
   @override
   void dispose() {
+    print('[AUTO KIOSK] ========== DISPOSE START ==========');
     _presenceSubscription?.cancel();
     _presenceService.dispose();
+    // Ensure fullscreen is cleared (fire-and-forget)
+    windowManager.setFullScreen(false);
+    print('[AUTO KIOSK] ========== DISPOSE END ==========');
     super.dispose();
   }
 
@@ -131,15 +139,31 @@ class _AutoKioskScreenState extends State<AutoKioskScreen> {
     _presenceService.triggerPresence();
   }
 
-  void _handleExit() {
-    _exitFullscreen();
-    Navigator.of(context).pop();
+  Future<void> _handleExit() async {
+    print('[AUTO KIOSK] Exiting and clearing fullscreen...');
+    await _exitFullscreen();
+    if (mounted) {
+      Navigator.of(context).pop();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     print('[AUTO KIOSK] ========== build() START ==========');
+    print('[AUTO KIOSK] _isFullscreenReady: $_isFullscreenReady');
     print('[AUTO KIOSK] _isKioskMode: $_isKioskMode');
+
+    // Show loading screen until fullscreen transition completes
+    if (!_isFullscreenReady) {
+      print('[AUTO KIOSK] Fullscreen not ready, showing loading screen');
+      return const Scaffold(
+        backgroundColor: Colors.black,
+        body: Center(
+          child: CircularProgressIndicator(color: Colors.white),
+        ),
+      );
+    }
+
     print('[AUTO KIOSK] Will render: ${_isKioskMode ? "KioskSplitScreen" : "IdleScreen"}');
     final widget = Scaffold(
       body: _isKioskMode ? _buildKioskMode() : _buildIdleMode(),
