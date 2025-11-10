@@ -682,7 +682,8 @@ class _VideoListScreenState extends State<VideoListScreen> {
         setState(() {
           _videos = availableVideos;
           _isLoading = false;
-          _errorMessage = '오프라인 모드 (${availableVideos.length}개 파일 사용 가능)';
+          // Don't set error message - let videos display normally
+          // Offline state is indicated by cloud icon in app bar
         });
 
         if (config != null) {
@@ -704,7 +705,8 @@ class _VideoListScreenState extends State<VideoListScreen> {
           setState(() {
             _videos = scannedVideos;
             _isLoading = false;
-            _errorMessage = '오프라인 모드 (로컬 파일 ${scannedVideos.length}개 사용 가능)';
+            // Don't set error message - let videos display normally
+            // Offline state is indicated by cloud icon in app bar
           });
 
           if (config != null) {
