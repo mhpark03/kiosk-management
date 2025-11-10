@@ -343,7 +343,7 @@ class PersonDetectionService {
       // Convert to ONNX tensor
       final inputTensor = _convertImageToONNXTensor(image);
 
-      return await _runONNXInference(inputTensor, [1, 3, 1200, 1200]);
+      return await _runONNXInference(inputTensor, [1, 1200, 1200, 3]); // NHWC format
     } catch (e) {
       print('[PERSON DETECTION] Error in RGB888 detection: $e');
       return false;
@@ -360,7 +360,7 @@ class PersonDetectionService {
       // Convert camera image to input tensor format
       final inputTensor = _convertCameraImageToONNXTensor(image);
 
-      return await _runONNXInference(inputTensor, [1, 3, 1200, 1200]);
+      return await _runONNXInference(inputTensor, [1, 1200, 1200, 3]); // NHWC format
     } catch (e) {
       print('[PERSON DETECTION] Error in ONNX detection: $e');
       return false;
@@ -456,31 +456,18 @@ class PersonDetectionService {
     // Resize to 1200x1200
     final resizedImage = img.copyResize(image, width: inputSize, height: inputSize);
 
-    // Convert to NCHW format [1, 3, 1200, 1200] as uint8 (0-255)
-    final tensorData = Uint8List(1 * 3 * inputSize * inputSize);
+    // Convert to NHWC format [1, 1200, 1200, 3] as uint8 (0-255)
+    // TensorFlow models expect NHWC format: height, width, channels
+    final tensorData = Uint8List(1 * inputSize * inputSize * 3);
     int index = 0;
 
-    // Channel R
+    // Interleave RGB values (NHWC format)
     for (int y = 0; y < inputSize; y++) {
       for (int x = 0; x < inputSize; x++) {
         final pixel = resizedImage.getPixel(x, y);
-        tensorData[index++] = pixel.r.toInt();
-      }
-    }
-
-    // Channel G
-    for (int y = 0; y < inputSize; y++) {
-      for (int x = 0; x < inputSize; x++) {
-        final pixel = resizedImage.getPixel(x, y);
-        tensorData[index++] = pixel.g.toInt();
-      }
-    }
-
-    // Channel B
-    for (int y = 0; y < inputSize; y++) {
-      for (int x = 0; x < inputSize; x++) {
-        final pixel = resizedImage.getPixel(x, y);
-        tensorData[index++] = pixel.b.toInt();
+        tensorData[index++] = pixel.r.toInt(); // R
+        tensorData[index++] = pixel.g.toInt(); // G
+        tensorData[index++] = pixel.b.toInt(); // B
       }
     }
 
