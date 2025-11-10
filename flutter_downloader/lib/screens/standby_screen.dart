@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:camera/camera.dart';
 import '../services/person_detection_service.dart';
 import '../models/video.dart';
@@ -47,9 +48,20 @@ class _StandbyScreenState extends State<StandbyScreen>
   Timer? _frameRefreshTimer;
   Uint8List? _currentFrameData;
 
+  // Focus node for keyboard events
+  late FocusNode _focusNode;
+
   @override
   void initState() {
     super.initState();
+
+    // Initialize focus node
+    _focusNode = FocusNode();
+
+    // Request focus after frame is built
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _focusNode.requestFocus();
+    });
 
     // Setup pulse animation for waiting message
     _pulseController = AnimationController(
@@ -157,19 +169,33 @@ class _StandbyScreenState extends State<StandbyScreen>
     _previewTimer?.cancel();
     _countdownTimer?.cancel();
     _frameRefreshTimer?.cancel();
+    _focusNode.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: GestureDetector(
-        onTap: () {
-          print('[STANDBY] Screen tapped, activating kiosk...');
-          _activateKiosk();
-        },
-        child: Stack(
+    return Focus(
+      focusNode: _focusNode,
+      autofocus: true,
+      onKeyEvent: (node, event) {
+        if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.escape) {
+          print('[STANDBY] ESC key pressed, exiting app...');
+          if (Platform.isWindows || Platform.isAndroid) {
+            SystemNavigator.pop(); // Exit app
+          }
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        body: GestureDetector(
+          onTap: () {
+            print('[STANDBY] Screen tapped, activating kiosk...');
+            _activateKiosk();
+          },
+          child: Stack(
           children: [
             // Camera preview - full screen
             if (_detectionService.isInitialized) ...[
@@ -391,6 +417,7 @@ class _StandbyScreenState extends State<StandbyScreen>
           ],
         ),
       ),
+    ),
     );
   }
 }
