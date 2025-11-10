@@ -949,43 +949,28 @@ class _VideoListScreenState extends State<VideoListScreen> {
       } else {
         filePath = '${config.downloadPath}/${config.kioskId}/$fileName';
       }
-      print('[CHECK FILES] Checking: $filePath');
 
       try {
         final file = File(filePath);
         final exists = await file.exists();
 
-        if (exists && video.downloadStatus != 'completed') {
-          print('[CHECK FILES] File exists but status is ${video.downloadStatus}, marking as completed: $fileName');
+        if (exists) {
+          // File exists locally - mark as completed and set path
           video.downloadStatus = 'completed';
           video.localPath = filePath;
-          print('[CHECK FILES] localPath set to: $filePath');
-
-          // Update status in backend
-          await widget.apiService.updateVideoDownloadStatus(config.kioskId, video.id, 'COMPLETED');
-        } else if (!exists && video.downloadStatus == 'completed') {
-          print('[CHECK FILES] File missing but status is completed, marking as pending: $fileName');
+        } else {
+          // File missing - mark as pending
           video.downloadStatus = 'pending';
           video.localPath = null;
-
-          // Update status in backend
-          await widget.apiService.updateVideoDownloadStatus(config.kioskId, video.id, 'PENDING');
-        } else if (exists) {
-          print('[CHECK FILES] File exists: $fileName');
-          video.downloadStatus = 'completed';
-          video.localPath = filePath;
-
-          // Update status in backend
-          await widget.apiService.updateVideoDownloadStatus(config.kioskId, video.id, 'COMPLETED');
-        } else {
-          print('[CHECK FILES] File missing: $fileName');
-          video.downloadStatus = 'pending';
         }
       } catch (e) {
         print('[CHECK FILES] Error checking file $fileName: $e');
         video.downloadStatus = 'pending';
+        video.localPath = null;
       }
     }
+
+    print('[CHECK FILES] Completed checking ${videos.length} videos');
   }
 
   Future<void> _removeUnassignedFiles(List<Video> videos, dynamic config) async {
