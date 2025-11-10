@@ -20,7 +20,8 @@ class PersonDetectionService {
   CameraController? _cameraController;
 
   // Windows camera (flutter_lite_camera package)
-  StreamSubscription<Uint8List>? _liteCameraSubscription;
+  FlutterLiteCamera? _liteCamera;
+  Timer? _captureTimer;
 
   bool _isInitialized = false;
   bool _isDetecting = false;
@@ -42,7 +43,6 @@ class PersonDetectionService {
   static const double _confidenceThreshold = 0.5;
   static const int _personClassIndex = 1; // "person" class in COCO dataset
 
-  Timer? _detectionTimer;
   Timer? _timeoutTimer;
   bool _isProcessing = false;
 
@@ -58,8 +58,22 @@ class PersonDetectionService {
       await _initializeONNX();
 
       if (Platform.isWindows) {
-        // Windows: No initialization needed for flutter_lite_camera
+        // Windows: Initialize flutter_lite_camera
         print('[PERSON DETECTION] Using flutter_lite_camera for Windows');
+        _liteCamera = FlutterLiteCamera();
+
+        // Get available cameras
+        final devices = await _liteCamera!.getDeviceList();
+        if (devices.isEmpty) {
+          throw Exception('No cameras available on Windows');
+        }
+
+        print('[PERSON DETECTION] Available cameras: $devices');
+
+        // Open first camera (index 0)
+        await _liteCamera!.open(0);
+        print('[PERSON DETECTION] Windows camera opened successfully');
+
       } else if (Platform.isAndroid) {
         // Android: Initialize camera package
         final cameras = await availableCameras();
@@ -129,17 +143,23 @@ class PersonDetectionService {
 
     try {
       if (Platform.isWindows) {
-        // Windows: Use flutter_lite_camera
-        _liteCameraSubscription = FlutterLiteCamera.startCamera().listen(
-          (Uint8List rgb888Data) {
-            _processRGB888Async(rgb888Data);
-          },
-          onError: (e) {
-            print('[PERSON DETECTION] Windows camera error: $e');
-          },
-        );
+        // Windows: Use Timer to periodically capture frames
+        print('[PERSON DETECTION] Starting periodic frame capture (${_detectionInterval.inMilliseconds}ms)');
+        _captureTimer = Timer.periodic(_detectionInterval, (_) async {
+          if (!_isDetecting || _isProcessing) return;
+
+          try {
+            final rgb888Data = await _liteCamera!.captureFrame();
+            if (rgb888Data != null) {
+              _processRGB888Async(rgb888Data);
+            }
+          } catch (e) {
+            print('[PERSON DETECTION] Error capturing frame: $e');
+          }
+        });
+
       } else if (Platform.isAndroid) {
-        // Android: Use camera package
+        // Android: Use camera package image stream
         await _cameraController!.startImageStream((CameraImage image) {
           _processImageAsync(image);
         });
@@ -164,13 +184,14 @@ class PersonDetectionService {
 
     print('[PERSON DETECTION] Stopping detection');
     _isDetecting = false;
-    _detectionTimer?.cancel();
+    _captureTimer?.cancel();
     _timeoutTimer?.cancel();
 
     try {
       if (Platform.isWindows) {
-        await _liteCameraSubscription?.cancel();
-        FlutterLiteCamera.stopCamera();
+        // Windows: Release camera
+        await _liteCamera?.release();
+        print('[PERSON DETECTION] Windows camera released');
       } else if (Platform.isAndroid) {
         await _cameraController?.stopImageStream();
       }
@@ -462,6 +483,9 @@ class PersonDetectionService {
     if (Platform.isAndroid) {
       await _cameraController?.dispose();
       _cameraController = null;
+    } else if (Platform.isWindows) {
+      await _liteCamera?.release();
+      _liteCamera = null;
     }
 
     _ortSession?.release();
