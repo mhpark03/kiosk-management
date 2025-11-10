@@ -594,21 +594,83 @@ class _VideoListScreenState extends State<VideoListScreen> {
       _errorMessage = null;
     });
 
-    try {
-      final config = widget.storageService.getConfig();
-      if (config == null || !config.isValid) {
-        // 설정이 없으면 영상 목록 clear
+    final config = widget.storageService.getConfig();
+    if (config == null || !config.isValid) {
+      // 설정이 없으면 영상 목록 clear
+      setState(() {
+        _videos = [];
+        _isLoading = false;
+        _errorMessage = null;
+      });
+      return;
+    }
+
+    // Initialize EventLogger with download path
+    EventLogger().initialize(config.downloadPath);
+
+    // 1. 먼저 로컬 데이터 로드 (즉시 표시 - 오프라인 우선 접근)
+    await _loadLocalData(config);
+
+    // 2. 백그라운드에서 서버 동기화 시도 (타임아웃 발생해도 사용자는 이미 로컬 파일 사용 가능)
+    _syncWithServerInBackground(config);
+  }
+
+  /// Load local data first for instant display (offline-first approach)
+  Future<void> _loadLocalData(dynamic config) async {
+    print('[LOAD LOCAL] Loading local data first...');
+
+    // Try cached videos first
+    final cachedVideos = widget.storageService.getCachedVideos();
+
+    if (cachedVideos != null && cachedVideos.isNotEmpty) {
+      print('[LOAD LOCAL] Found ${cachedVideos.length} cached videos');
+
+      // Check which cached videos have local files
+      await _checkLocalFiles(cachedVideos, config);
+
+      // Filter to only show videos that exist locally
+      final availableVideos = cachedVideos.where((v) => v.localPath != null).toList();
+
+      if (availableVideos.isNotEmpty) {
+        print('[LOAD LOCAL] Displaying ${availableVideos.length} available cached videos');
         setState(() {
-          _videos = [];
+          _videos = availableVideos;
           _isLoading = false;
-          _errorMessage = null;
         });
         return;
       }
+    }
 
-      // Initialize EventLogger with download path
-      EventLogger().initialize(config.downloadPath);
+    // No cache or no available files - scan local folder
+    print('[LOAD LOCAL] No cached videos, scanning local folder...');
+    final scannedVideos = await _scanLocalFiles(config);
 
+    if (scannedVideos.isNotEmpty) {
+      print('[LOAD LOCAL] Found ${scannedVideos.length} local files');
+      setState(() {
+        _videos = scannedVideos;
+        _isLoading = false;
+      });
+
+      await EventLogger().logEvent(
+        eventType: 'OFFLINE_MODE_LOCAL_SCAN',
+        message: '로컬 파일 스캔 ${scannedVideos.length}개 발견',
+        metadata: '{"scannedCount": ${scannedVideos.length}}',
+      );
+    } else {
+      print('[LOAD LOCAL] No local files found');
+      setState(() {
+        _isLoading = false;
+        _errorMessage = '로컬 파일이 없습니다. 서버 연결을 확인하세요.';
+      });
+    }
+  }
+
+  /// Sync with server in background (non-blocking)
+  Future<void> _syncWithServerInBackground(dynamic config) async {
+    print('[SYNC] Starting background server sync...');
+
+    try {
       // Log sync started event
       await EventLogger().logEvent(
         eventType: 'SYNC_STARTED',
@@ -624,7 +686,7 @@ class _VideoListScreenState extends State<VideoListScreen> {
           });
         }
       } catch (e) {
-        print('Failed to fetch kiosk info: $e');
+        print('[SYNC] Failed to fetch kiosk info: $e');
         // Continue with video sync even if kiosk info fetch fails
       }
 
@@ -645,13 +707,16 @@ class _VideoListScreenState extends State<VideoListScreen> {
       // Remove files that are not in the server list
       await _removeUnassignedFiles(videos, config);
 
-      setState(() {
-        _videos = videos;
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _videos = videos;
+        });
+      }
 
       // Cache videos for offline use
       await widget.storageService.cacheVideos(videos);
+
+      print('[SYNC] Background sync completed successfully - ${videos.length} files');
 
       // Log sync completed event
       await EventLogger().logEvent(
@@ -663,77 +728,15 @@ class _VideoListScreenState extends State<VideoListScreen> {
       // Auto-download pending files (videos, images, menu XML) in background
       _downloadPendingVideosInBackground();
     } catch (e) {
-      print('[SYNC] Server sync failed: $e');
+      print('[SYNC] Background server sync failed: $e');
 
-      final config = widget.storageService.getConfig();
-
-      // Try to use cached videos for offline operation
-      final cachedVideos = widget.storageService.getCachedVideos();
-
-      if (cachedVideos != null && cachedVideos.isNotEmpty) {
-        print('[SYNC] Using ${cachedVideos.length} cached videos (offline mode)');
-
-        // Check which cached videos have local files
-        await _checkLocalFiles(cachedVideos, config);
-
-        // Filter to only show videos that exist locally
-        final availableVideos = cachedVideos.where((v) => v.localPath != null).toList();
-
-        setState(() {
-          _videos = availableVideos;
-          _isLoading = false;
-          // Don't set error message - let videos display normally
-          // Offline state is indicated by cloud icon in app bar
-        });
-
-        if (config != null) {
-          await EventLogger().logEvent(
-            eventType: 'OFFLINE_MODE',
-            message: '오프라인 모드로 전환 (캐시된 파일 ${availableVideos.length}개 사용)',
-            metadata: '{"cachedCount": ${cachedVideos.length}, "availableCount": ${availableVideos.length}}',
-          );
-        }
-      } else {
-        print('[SYNC] No cached videos available for offline mode');
-
-        // Try to scan local download folder for available files
-        final scannedVideos = await _scanLocalFiles(config);
-
-        if (scannedVideos.isNotEmpty) {
-          print('[SYNC] Found ${scannedVideos.length} files in local download folder');
-
-          setState(() {
-            _videos = scannedVideos;
-            _isLoading = false;
-            // Don't set error message - let videos display normally
-            // Offline state is indicated by cloud icon in app bar
-          });
-
-          if (config != null) {
-            await EventLogger().logEvent(
-              eventType: 'OFFLINE_MODE_LOCAL_SCAN',
-              message: '오프라인 모드로 전환 (로컬 파일 스캔 ${scannedVideos.length}개 사용)',
-              metadata: '{"scannedCount": ${scannedVideos.length}}',
-            );
-          }
-        } else {
-          print('[SYNC] No local files found in download folder');
-
-          if (config != null) {
-            // Log sync failed event
-            await EventLogger().logEvent(
-              eventType: 'SYNC_FAILED',
-              message: '동기화 실패 (오프라인 캐시 및 로컬 파일 없음): ${e.toString()}',
-              metadata: '{"error": "${e.toString()}"}',
-            );
-          }
-
-          setState(() {
-            _errorMessage = '서버 연결 실패: ${e.toString().replaceFirst('Exception: ', '')}';
-            _isLoading = false;
-          });
-        }
-      }
+      // Don't show error to user - local data is already displayed
+      // Just log the failure
+      await EventLogger().logEvent(
+        eventType: 'SYNC_FAILED',
+        message: '백그라운드 동기화 실패: ${e.toString()}',
+        metadata: '{"error": "${e.toString()}"}',
+      );
     }
   }
 
