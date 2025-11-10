@@ -104,17 +104,6 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
       _player = Player();
       _controller = media_kit_video.VideoController(_player!);
 
-      // IMPORTANT: Set initialized immediately after controller creation
-      // This allows Video widget to render and be ready to display frames
-      if (mounted) {
-        setState(() {
-          _isInitialized = true;
-          _hasError = false;
-        });
-      }
-
-      print('[VIDEO PLAYER WIDGET] Controller created, widget ready to render');
-
       // Listen to player state changes
       _playingSubscription = _player!.stream.playing.listen((playing) {
         if (mounted) {
@@ -142,10 +131,25 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
         }
       });
 
+      print('[VIDEO PLAYER WIDGET] Controller created, opening media...');
+
+      // Open media first
       await _player!.open(Media(widget.videoPath));
+
+      // IMPORTANT: Set initialized AFTER opening media but BEFORE play
+      // This ensures the video widget is built when media is loaded and ready
+      if (mounted) {
+        setState(() {
+          _isInitialized = true;
+          _hasError = false;
+        });
+      }
+
+      print('[VIDEO PLAYER WIDGET] Media opened, widget ready to render');
+
       await _player!.play();
 
-      print('[VIDEO PLAYER WIDGET] Player initialized successfully');
+      print('[VIDEO PLAYER WIDGET] Player initialized and playing');
     } catch (e) {
       print('[VIDEO PLAYER WIDGET] Error initializing player: $e');
       if (mounted) {
