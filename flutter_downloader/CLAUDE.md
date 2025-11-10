@@ -496,17 +496,25 @@ for (int y = 0; y < height; y++) {
 
 *Windows (flutter_lite_camera):*
 ```dart
-// Start camera
-_liteCameraSubscription = FlutterLiteCamera.startCamera().listen(
-  (Uint8List rgb888Data) {
-    _processRGB888Async(rgb888Data);
-  },
-);
+// Initialize camera
+_liteCamera = FlutterLiteCamera();
+final devices = await _liteCamera!.getDeviceList();
+await _liteCamera!.open(0);  // Open first camera
 
-// Stop camera
-await _liteCameraSubscription?.cancel();
-FlutterLiteCamera.stopCamera();
+// Start detection with Timer (polling approach)
+_captureTimer = Timer.periodic(Duration(milliseconds: 500), (_) async {
+  final rgb888Data = await _liteCamera!.captureFrame();
+  if (rgb888Data != null) {
+    _processRGB888Async(rgb888Data);
+  }
+});
+
+// Stop detection
+_captureTimer?.cancel();
+await _liteCamera?.release();
 ```
+
+**Note**: flutter_lite_camera uses **polling** (Timer + captureFrame) not streaming, as the package doesn't provide a continuous stream API.
 
 *Android (camera package):*
 ```dart
@@ -514,7 +522,7 @@ FlutterLiteCamera.stopCamera();
 _cameraController = CameraController(camera, ResolutionPreset.low, ...);
 await _cameraController!.initialize();
 
-// Start image stream
+// Start image stream (true streaming)
 await _cameraController!.startImageStream((CameraImage image) {
   _processImageAsync(image);
 });
