@@ -104,16 +104,21 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
       _player = Player();
       _controller = media_kit_video.VideoController(_player!);
 
+      // IMPORTANT: Set initialized immediately after controller creation
+      // This allows Video widget to render and be ready to display frames
+      if (mounted) {
+        setState(() {
+          _isInitialized = true;
+          _hasError = false;
+        });
+      }
+
+      print('[VIDEO PLAYER WIDGET] Controller created, widget ready to render');
+
       // Listen to player state changes
       _playingSubscription = _player!.stream.playing.listen((playing) {
         if (mounted) {
-          setState(() {
-            _isPlaying = playing;
-            // Set initialized when video starts playing
-            if (playing && !_isInitialized) {
-              _isInitialized = true;
-            }
-          });
+          setState(() => _isPlaying = playing);
         }
       });
 
