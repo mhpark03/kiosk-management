@@ -59,7 +59,8 @@ class _VideoListScreenState extends State<VideoListScreen> {
     _checkLoginStatus();
     _connectKiosk(); // Connect kiosk and get session token
     _loadVideos();
-    _initWebSocket();
+    // Don't call _initWebSocket() here - let the reconnect timer handle it
+    // after local files are loaded (prevents login popup in offline mode)
     _startAutoLogoutTimer();
     _startStatusHeartbeat(); // Start periodic status reporting (only when online)
     _startWebSocketReconnect(); // Start periodic WebSocket reconnection attempts
@@ -293,7 +294,15 @@ class _VideoListScreenState extends State<VideoListScreen> {
   void _startWebSocketReconnect() {
     _wsReconnectTimer?.cancel();
 
-    // Try every 30 seconds
+    // Try immediately first (after short delay to let local files load)
+    Future.delayed(const Duration(seconds: 3), () {
+      if (!_wsConnected) {
+        print('[WS RECONNECT] Initial WebSocket connection attempt...');
+        _initWebSocket(isAutoReconnect: true);
+      }
+    });
+
+    // Then try every 30 seconds
     _wsReconnectTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
       // Only attempt reconnection if currently disconnected
       if (!_wsConnected) {
@@ -304,7 +313,7 @@ class _VideoListScreenState extends State<VideoListScreen> {
       }
     });
 
-    print('[WS RECONNECT] WebSocket reconnection started (every 30 seconds)');
+    print('[WS RECONNECT] WebSocket reconnection started (initial attempt in 3s, then every 30 seconds)');
   }
 
   Future<void> _initWebSocket({bool isAutoReconnect = false}) async {
