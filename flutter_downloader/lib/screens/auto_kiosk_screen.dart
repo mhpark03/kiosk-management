@@ -120,19 +120,13 @@ class _AutoKioskScreenState extends State<AutoKioskScreen> {
   Widget build(BuildContext context) {
     print('[AUTO KIOSK] build() called with _isKioskMode: $_isKioskMode');
     return Scaffold(
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 500),
-        child: _isKioskMode
-            ? _buildKioskMode()
-            : _buildIdleMode(),
-      ),
+      body: _isKioskMode ? _buildKioskMode() : _buildIdleMode(),
     );
   }
 
   Widget _buildIdleMode() {
     print('[AUTO KIOSK] _buildIdleMode() called');
     return IdleScreen(
-      key: const ValueKey('idle'),
       videos: _advertisementVideos, // Only advertisement videos (menuId == null)
       onUserPresence: _handleUserPresence,
     );
@@ -141,7 +135,6 @@ class _AutoKioskScreenState extends State<AutoKioskScreen> {
   Widget _buildKioskMode() {
     print('[AUTO KIOSK] _buildKioskMode() called');
     return GestureDetector(
-      key: const ValueKey('kiosk'),
       onTap: _handleUserPresence,
       onPanUpdate: (_) => _handleUserPresence(),
       child: MouseRegion(
