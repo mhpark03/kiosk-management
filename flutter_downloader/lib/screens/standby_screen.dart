@@ -78,15 +78,12 @@ class _StandbyScreenState extends State<StandbyScreen>
 
   Future<void> _initializeDetection() async {
     try {
-      print('[STANDBY] Initializing person detection...');
-
       await _detectionService.initialize();
       await _detectionService.startDetection();
 
       // Start preview timer
       _previewStartTime = DateTime.now();
       _remainingSeconds = _minPreviewTime.inSeconds;
-      print('[STANDBY] Preview started, minimum display time: ${_minPreviewTime.inSeconds} seconds');
 
       // Set timer to allow activation after minimum preview time
       _previewTimer = Timer(_minPreviewTime, () {
@@ -94,7 +91,6 @@ class _StandbyScreenState extends State<StandbyScreen>
           _canActivate = true;
           _remainingSeconds = 0;
         });
-        print('[STANDBY] Preview time complete, activation enabled');
       });
 
       // Start countdown timer (updates every second)
@@ -112,18 +108,12 @@ class _StandbyScreenState extends State<StandbyScreen>
       _detectionSubscription =
           _detectionService.personDetectedStream.listen((personDetected) {
         if (personDetected && _canActivate) {
-          print('[STANDBY] Person detected and can activate, activating kiosk...');
           _activateKiosk();
-        } else if (personDetected && !_canActivate) {
-          final elapsed = DateTime.now().difference(_previewStartTime!);
-          final remaining = _minPreviewTime - elapsed;
-          print('[STANDBY] Person detected but preview time not complete (${remaining.inSeconds}s remaining)');
         }
       });
 
       // Start frame refresh timer for Windows
       if (Platform.isWindows) {
-        print('[STANDBY] Starting frame refresh timer for Windows preview');
         _frameRefreshTimer = Timer.periodic(const Duration(milliseconds: 100), (_) {
           if (mounted && _detectionService.latestFramePng != null) {
             setState(() {
@@ -136,8 +126,6 @@ class _StandbyScreenState extends State<StandbyScreen>
       setState(() {
         _isInitializing = false;
       });
-
-      print('[STANDBY] Person detection started successfully');
     } catch (e) {
       print('[STANDBY] Error initializing detection: $e');
       setState(() {
@@ -180,7 +168,6 @@ class _StandbyScreenState extends State<StandbyScreen>
       autofocus: true,
       onKeyEvent: (node, event) {
         if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.escape) {
-          print('[STANDBY] ESC key pressed, exiting app...');
           if (Platform.isWindows || Platform.isAndroid) {
             SystemNavigator.pop(); // Exit app
           }
@@ -192,7 +179,6 @@ class _StandbyScreenState extends State<StandbyScreen>
         backgroundColor: Colors.black,
         body: GestureDetector(
           onTap: () {
-            print('[STANDBY] Screen tapped, activating kiosk...');
             _activateKiosk();
           },
           child: Stack(
