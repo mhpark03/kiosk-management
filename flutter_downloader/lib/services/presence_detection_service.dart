@@ -105,6 +105,9 @@ class CameraPresenceDetectionService extends PresenceDetectionService {
   @override
   bool get isPresent => _isPresent;
 
+  /// Expose initialization progress stream from PersonDetectionService
+  Stream<InitializationProgress> get initProgressStream => _personDetectionService.initProgressStream;
+
   @override
   Future<void> start() async {
     print('[PRESENCE] Camera-based detection starting...');

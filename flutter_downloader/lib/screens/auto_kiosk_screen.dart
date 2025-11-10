@@ -5,6 +5,8 @@ import 'package:window_manager/window_manager.dart';
 import 'dart:async';
 import '../models/video.dart';
 import '../services/presence_detection_service.dart';
+import '../services/person_detection_service.dart';
+import '../widgets/kiosk_loading_screen.dart';
 import 'idle_screen.dart';
 import 'kiosk_split_screen.dart';
 
@@ -42,11 +44,14 @@ class AutoKioskScreen extends StatefulWidget {
 class _AutoKioskScreenState extends State<AutoKioskScreen> {
   late PresenceDetectionService _presenceService;
   StreamSubscription<bool>? _presenceSubscription;
+  StreamSubscription<InitializationProgress>? _initProgressSubscription;
   bool _isKioskMode = false;
   late List<Video> _advertisementVideos;
   late List<Video> _allVideos;
 
   bool _isFullscreenReady = false; // Track if fullscreen transition is complete
+  bool _isInitializing = true; // Track if initialization is in progress
+  InitializationProgress _initProgress = InitializationProgress(0.0, '초기화 준비 중...');
 
   // Cache screen widgets to prevent recreation on every build
   Widget? _cachedIdleScreen;
@@ -83,10 +88,27 @@ class _AutoKioskScreenState extends State<AutoKioskScreen> {
     // Initialize presence detection service based on detection mode
     if (widget.detectionMode == DetectionMode.camera) {
       _presenceService = CameraPresenceDetectionService();
+
+      // Listen to initialization progress for camera mode
+      if (_presenceService is CameraPresenceDetectionService) {
+        _initProgressSubscription = (_presenceService as CameraPresenceDetectionService)
+            .initProgressStream
+            .listen((progress) {
+          setState(() {
+            _initProgress = progress;
+            // Mark initialization complete when progress reaches 100%
+            if (progress.progress >= 1.0) {
+              _isInitializing = false;
+            }
+          });
+        });
+      }
     } else {
       _presenceService = TouchPresenceDetectionService(
         idleTimeout: widget.idleTimeout,
       );
+      // Touch mode doesn't need initialization time
+      _isInitializing = false;
     }
 
     // Listen to presence changes
@@ -105,7 +127,7 @@ class _AutoKioskScreenState extends State<AutoKioskScreen> {
       }
     });
 
-    // Start detection
+    // Start detection (this will trigger initialization for camera mode)
     _presenceService.start();
 
     // Enter fullscreen and wait for it to complete
@@ -152,6 +174,7 @@ class _AutoKioskScreenState extends State<AutoKioskScreen> {
   @override
   void dispose() {
     _presenceSubscription?.cancel();
+    _initProgressSubscription?.cancel();
     _presenceService.dispose();
     _focusNode.dispose();
     _cartWarningTimer?.cancel();
@@ -225,6 +248,13 @@ class _AutoKioskScreenState extends State<AutoKioskScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Show loading screen during initialization (camera setup, AI model loading)
+    if (_isInitializing) {
+      return Scaffold(
+        body: KioskLoadingScreen(progress: _initProgress),
+      );
+    }
+
     // Show loading screen until fullscreen transition completes
     if (!_isFullscreenReady) {
       return const Scaffold(
