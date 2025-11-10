@@ -44,9 +44,11 @@ class _IdleScreenState extends State<IdleScreen> {
   @override
   void initState() {
     super.initState();
+    print('[IDLE SCREEN] ========== INIT STATE ==========');
     WidgetsBinding.instance.addPostFrameCallback((_) {
       // Skip video initialization - only camera detection in idle mode
       // _initializeVideo();
+      print('[IDLE SCREEN] Initializing person detection from postFrameCallback...');
       _initializePersonDetection();
 
       // Enable touch detection after short delay
@@ -160,8 +162,13 @@ class _IdleScreenState extends State<IdleScreen> {
 
   @override
   void dispose() {
+    print('[IDLE SCREEN] ========== DISPOSE START ==========');
+    print('[IDLE SCREEN] Canceling person detection subscription...');
     _personDetectionSubscription?.cancel();
+    print('[IDLE SCREEN] Disposing person detection service...');
     _personDetection.dispose();
+    print('[IDLE SCREEN] IdleScreen disposed');
+    print('[IDLE SCREEN] ========== DISPOSE END ==========');
     super.dispose();
   }
 
