@@ -152,10 +152,15 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
         }
       });
 
-      print('[VIDEO PLAYER WIDGET] Controller created, preparing to render...');
+      print('[VIDEO PLAYER WIDGET] Controller created, opening media...');
 
-      // IMPORTANT: Set initialized BEFORE opening media
-      // This allows the Video widget to be built and receive layout constraints
+      // Open media first to get video dimensions
+      await _player!.open(Media(widget.videoPath));
+
+      print('[VIDEO PLAYER WIDGET] Media opened, dimensions available');
+
+      // IMPORTANT: Set initialized AFTER media is opened
+      // This ensures Video widget has proper dimensions from the start
       if (mounted) {
         setState(() {
           _isInitialized = true;
@@ -163,41 +168,11 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
         });
       }
 
-      print('[VIDEO PLAYER WIDGET] Widget set to render, waiting for layout...');
+      print('[VIDEO PLAYER WIDGET] Starting playback...');
 
-      // Use addPostFrameCallback to ensure layout has completed
-      // This is more reliable than a fixed delay
-      WidgetsBinding.instance.addPostFrameCallback((_) async {
-        // Check if widget is still mounted after layout
-        if (!mounted || _isDisposing) {
-          print('[VIDEO PLAYER WIDGET] Widget disposed during layout, skipping media open');
-          return;
-        }
+      await _player!.play();
 
-        try {
-          print('[VIDEO PLAYER WIDGET] Layout completed, opening media...');
-
-          // Open media after Video widget has proper constraints
-          await _player!.open(Media(widget.videoPath));
-
-          print('[VIDEO PLAYER WIDGET] Media opened, starting playback...');
-
-          await _player!.play();
-
-          print('[VIDEO PLAYER WIDGET] Player initialized and playing');
-        } catch (e) {
-          print('[VIDEO PLAYER WIDGET] Error opening media: $e');
-          if (mounted) {
-            setState(() {
-              _hasError = true;
-              _errorMessage = e.toString();
-            });
-          }
-          widget.onError?.call();
-        }
-      });
-
-      print('[VIDEO PLAYER WIDGET] PostFrameCallback scheduled');
+      print('[VIDEO PLAYER WIDGET] Player initialized and playing');
     } catch (e) {
       print('[VIDEO PLAYER WIDGET] Error initializing player: $e');
       if (mounted) {
