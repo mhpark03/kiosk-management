@@ -83,10 +83,13 @@ class CoffeeKioskOverlayState extends State<CoffeeKioskOverlay> {
     // Start periodic menu check (every 30 seconds)
     _startPeriodicMenuCheck();
 
-    // Play initial category video after a short delay to ensure menu is loaded
-    Future.delayed(const Duration(milliseconds: 500), () {
-      _playCategoryVideo(_selectedCategory);
-    });
+    // Play initial category video only for menu overlay (not cart overlay)
+    // Disabled for now to prevent rapid video switching on startup
+    // if (!widget.showOnlyCart) {
+    //   Future.delayed(const Duration(milliseconds: 500), () {
+    //     _playCategoryVideo(_selectedCategory);
+    //   });
+    // }
   }
 
   @override

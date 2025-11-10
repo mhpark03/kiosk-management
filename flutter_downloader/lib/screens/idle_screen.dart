@@ -40,6 +40,7 @@ class _IdleScreenState extends State<IdleScreen> {
   StreamSubscription<bool>? _personDetectionSubscription;
   bool _personDetected = false;
   String _detectionStatus = 'Initializing...';
+  bool _isDisposed = false; // Track if widget is disposed
 
   @override
   void initState() {
@@ -47,7 +48,7 @@ class _IdleScreenState extends State<IdleScreen> {
     print('[IDLE SCREEN] ========== INIT STATE ==========');
     WidgetsBinding.instance.addPostFrameCallback((_) {
       // Check if still mounted (widget might be disposed before callback executes)
-      if (!mounted) {
+      if (!mounted || _isDisposed) {
         print('[IDLE SCREEN] Widget disposed before postFrameCallback, skipping initialization');
         return;
       }
@@ -59,7 +60,7 @@ class _IdleScreenState extends State<IdleScreen> {
 
       // Enable touch detection after short delay
       Future.delayed(const Duration(milliseconds: 500), () {
-        if (mounted) {
+        if (mounted && !_isDisposed) {
           setState(() {
             _ignoreInitialTouch = false;
           });
@@ -71,13 +72,13 @@ class _IdleScreenState extends State<IdleScreen> {
 
   Future<void> _initializePersonDetection() async {
     // Early exit if widget is disposed
-    if (!mounted) {
-      print('[IDLE SCREEN] Widget not mounted, skipping person detection initialization');
+    if (!mounted || _isDisposed) {
+      print('[IDLE SCREEN] Widget disposed, skipping person detection initialization');
       return;
     }
 
     try {
-      if (mounted) {
+      if (mounted && !_isDisposed) {
         setState(() {
           _detectionStatus = 'Initializing camera...';
         });
@@ -85,7 +86,14 @@ class _IdleScreenState extends State<IdleScreen> {
 
       await _personDetection.initialize();
 
-      if (mounted) {
+      // Check if disposed after async operation
+      if (_isDisposed || !mounted) {
+        print('[IDLE SCREEN] Widget disposed during initialization, stopping person detection');
+        _personDetection.dispose();
+        return;
+      }
+
+      if (mounted && !_isDisposed) {
         setState(() {
           _detectionStatus = 'Starting detection...';
         });
@@ -93,9 +101,16 @@ class _IdleScreenState extends State<IdleScreen> {
 
       await _personDetection.startDetection();
 
+      // Check if disposed after async operation
+      if (_isDisposed || !mounted) {
+        print('[IDLE SCREEN] Widget disposed after startDetection, stopping person detection');
+        _personDetection.dispose();
+        return;
+      }
+
       // Subscribe to person detection stream
       _personDetectionSubscription = _personDetection.personDetectedStream.listen((detected) {
-        if (mounted) {
+        if (mounted && !_isDisposed) {
           setState(() {
             _personDetected = detected;
             _detectionStatus = detected ? 'Person detected!' : 'Monitoring...';
@@ -104,7 +119,7 @@ class _IdleScreenState extends State<IdleScreen> {
         }
       });
 
-      if (mounted) {
+      if (mounted && !_isDisposed) {
         setState(() {
           _detectionStatus = 'Monitoring...';
         });
@@ -113,7 +128,7 @@ class _IdleScreenState extends State<IdleScreen> {
       print('[IDLE SCREEN] Person detection initialized');
     } catch (e) {
       print('[IDLE SCREEN] Error initializing person detection: $e');
-      if (mounted) {
+      if (mounted && !_isDisposed) {
         setState(() {
           _detectionStatus = 'Error: $e';
         });
@@ -175,6 +190,7 @@ class _IdleScreenState extends State<IdleScreen> {
   @override
   void dispose() {
     print('[IDLE SCREEN] ========== DISPOSE START ==========');
+    _isDisposed = true; // Set flag to prevent async operations from continuing
     print('[IDLE SCREEN] Canceling person detection subscription...');
     _personDetectionSubscription?.cancel();
     print('[IDLE SCREEN] Disposing person detection service...');
