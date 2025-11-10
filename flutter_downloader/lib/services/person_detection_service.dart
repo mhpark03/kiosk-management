@@ -128,20 +128,29 @@ class PersonDetectionService {
   /// Initialize ONNX Runtime session
   Future<void> _initializeONNX() async {
     try {
+      print('[PERSON DETECTION] Initializing ONNX Runtime...');
+
       // Initialize ONNX Runtime
       OrtEnv.instance.init();
+      print('[PERSON DETECTION] ONNX Runtime environment initialized');
 
       // Create session options
       _sessionOptions = OrtSessionOptions();
+      print('[PERSON DETECTION] ONNX session options created');
 
       // Load ONNX model from assets
+      print('[PERSON DETECTION] Loading ONNX model from assets...');
       final modelBytes = await rootBundle.load('assets/detect.onnx');
       final modelData = modelBytes.buffer.asUint8List();
+      print('[PERSON DETECTION] ONNX model loaded: ${modelData.length} bytes');
 
       // Create ONNX Runtime session
+      print('[PERSON DETECTION] Creating ONNX session...');
       _ortSession = OrtSession.fromBuffer(modelData, _sessionOptions!);
-    } catch (e) {
+      print('[PERSON DETECTION] ONNX session created successfully');
+    } catch (e, stackTrace) {
       print('[PERSON DETECTION] Error loading ONNX model: $e');
+      print('[PERSON DETECTION] Stack trace: $stackTrace');
       throw Exception('Failed to initialize ONNX Runtime: $e');
     }
   }
@@ -201,9 +210,12 @@ class PersonDetectionService {
 
       } else if (Platform.isAndroid) {
         // Android: Use camera package image stream
+        print('[PERSON DETECTION] Starting Android camera image stream...');
         await _cameraController!.startImageStream((CameraImage image) {
+          print('[PERSON DETECTION] Image stream callback received (${image.width}x${image.height})');
           _processImageAsync(image);
         });
+        print('[PERSON DETECTION] Android camera image stream started');
       }
 
       // Start periodic timeout check
@@ -295,7 +307,18 @@ class PersonDetectionService {
 
   /// Process camera image asynchronously (Android)
   void _processImageAsync(CameraImage image) {
-    if (!_isDetecting || _isProcessing) return;
+    if (!_isDetecting) {
+      print('[PERSON DETECTION] Skipping image - not detecting');
+      return;
+    }
+
+    if (_isProcessing) {
+      // Only log occasionally to avoid spam
+      if (_totalDetections % 50 == 0) {
+        print('[PERSON DETECTION] Skipping image - still processing previous frame');
+      }
+      return;
+    }
 
     _isProcessing = true;
 
@@ -312,8 +335,9 @@ class PersonDetectionService {
         }
       }
       _isProcessing = false;
-    }).catchError((e) {
+    }).catchError((e, stackTrace) {
       print('[PERSON DETECTION] Error processing image: $e');
+      print('[PERSON DETECTION] Stack trace: $stackTrace');
       _isProcessing = false;
     });
   }
@@ -355,6 +379,7 @@ class PersonDetectionService {
   /// Detect person using ONNX Runtime (Android)
   Future<bool> _detectPersonONNX(CameraImage image) async {
     if (_ortSession == null) {
+      print('[PERSON DETECTION] ERROR: ONNX session is null!');
       return false;
     }
 
@@ -363,8 +388,9 @@ class PersonDetectionService {
       final inputTensor = _convertCameraImageToONNXTensor(image);
 
       return await _runONNXInference(inputTensor, [1, 1200, 1200, 3]); // NHWC format
-    } catch (e) {
+    } catch (e, stackTrace) {
       print('[PERSON DETECTION] Error in ONNX detection: $e');
+      print('[PERSON DETECTION] Stack trace: $stackTrace');
       return false;
     }
   }
