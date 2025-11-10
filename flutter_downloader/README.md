@@ -139,7 +139,8 @@ The kiosk operates in two modes:
 - Real-time person detection from camera feed
 - Confidence threshold: 50%
 - Detection timeout: 3 seconds
-- **Windows Support**: Uses `flutter_camera_windows` fork with `startImageStream()` support
+- **Windows Support**: Uses `flutter_lite_camera` (640x480 RGB888)
+- **Android Support**: Uses official `camera` plugin (YUV420)
 
 **2. Touch/Mouse Detection (Fallback)**
 - Detects screen interaction
@@ -171,13 +172,15 @@ AutoKioskScreen(
 ### Platform-Specific Notes
 
 **Windows:**
-- Uses modified `camera_windows` plugin with image streaming support
-- Image format: BGRA8888 → RGB conversion
-- Resolution: Low preset for better performance
+- Uses `flutter_lite_camera` package (pub.dev)
+- Image format: RGB888 (no conversion needed)
+- Resolution: Fixed 640x480
+- Simpler than Android (direct RGB stream)
 
 **Android:**
-- Uses official camera plugin
+- Uses official `camera` plugin
 - Image format: YUV420 → RGB conversion
+- Resolution: Low preset (adaptive)
 - Requires camera permission in AndroidManifest.xml
 
 ## 🛠️ Development
