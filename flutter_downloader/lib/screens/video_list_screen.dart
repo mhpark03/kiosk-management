@@ -2337,8 +2337,7 @@ class _VideoListScreenState extends State<VideoListScreen> {
           },
           icon: const Icon(Icons.coffee),
           label: const Text('커피 키오스크'),
-          backgroundColor: Colors.brown,
-          disabledBackgroundColor: Colors.grey,
+          backgroundColor: availableVideos.isEmpty ? Colors.grey : Colors.brown,
         );
       }(),
     );
