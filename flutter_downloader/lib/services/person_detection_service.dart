@@ -51,6 +51,12 @@ class PersonDetectionService {
   static const int _maxConsecutiveFailures = 10; // Only warn after 10 consecutive failures
   bool _cameraWarmedUp = false;
 
+  // Latest captured frame for preview (Windows only)
+  Uint8List? _latestFrameData; // RGB888 raw data
+  Uint8List? _latestFramePng;  // PNG encoded for display
+  int _latestFrameWidth = 640;
+  int _latestFrameHeight = 480;
+
   /// Initialize camera and ONNX Runtime
   Future<void> initialize() async {
     if (_isInitialized) {
@@ -168,6 +174,15 @@ class PersonDetectionService {
 
               // Successful capture - reset failure counter
               _consecutiveFailures = 0;
+
+              // Store latest frame for preview
+              _latestFrameData = rgb888Data;
+              _latestFrameWidth = width;
+              _latestFrameHeight = height;
+
+              // Convert RGB888 to PNG for preview (async to avoid blocking)
+              _convertRGB888ToPngAsync(rgb888Data, width, height);
+
               _processRGB888Async(rgb888Data);
             }
           } catch (e) {
@@ -222,6 +237,33 @@ class PersonDetectionService {
     } catch (e) {
       print('[PERSON DETECTION] Error stopping image stream: $e');
     }
+  }
+
+  /// Convert RGB888 to PNG for preview (async)
+  void _convertRGB888ToPngAsync(Uint8List rgb888Data, int width, int height) {
+    // Run in background to avoid blocking
+    Future(() {
+      try {
+        // Convert RGB888 to img.Image
+        final image = img.Image(width: width, height: height);
+
+        for (int y = 0; y < height; y++) {
+          for (int x = 0; x < width; x++) {
+            final int index = (y * width + x) * 3;
+            final int r = rgb888Data[index];
+            final int g = rgb888Data[index + 1];
+            final int b = rgb888Data[index + 2];
+            image.setPixelRgb(x, y, r, g, b);
+          }
+        }
+
+        // Encode to PNG
+        final pngBytes = img.encodePng(image);
+        _latestFramePng = Uint8List.fromList(pngBytes);
+      } catch (e) {
+        print('[PERSON DETECTION] Error converting RGB888 to PNG: $e');
+      }
+    });
   }
 
   /// Process RGB888 data from Windows camera asynchronously
@@ -487,6 +529,16 @@ class PersonDetectionService {
   /// Get camera controller for preview (Android only)
   CameraController? get cameraController => _cameraController;
 
+  /// Get latest captured frame data as PNG (Windows only)
+  Uint8List? get latestFramePng => _latestFramePng;
+
+  /// Get latest captured frame data as RGB888 raw (Windows only)
+  Uint8List? get latestFrameData => _latestFrameData;
+
+  /// Get latest frame dimensions
+  int get latestFrameWidth => _latestFrameWidth;
+  int get latestFrameHeight => _latestFrameHeight;
+
   /// Check if initialized
   bool get isInitialized => _isInitialized;
 
@@ -523,5 +575,7 @@ class PersonDetectionService {
     _sessionOptions = null;
     _consecutiveFailures = 0;
     _cameraWarmedUp = false;
+    _latestFrameData = null;
+    _latestFramePng = null;
   }
 }
