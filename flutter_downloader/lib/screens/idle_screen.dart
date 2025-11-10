@@ -46,6 +46,12 @@ class _IdleScreenState extends State<IdleScreen> {
     super.initState();
     print('[IDLE SCREEN] ========== INIT STATE ==========');
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Check if still mounted (widget might be disposed before callback executes)
+      if (!mounted) {
+        print('[IDLE SCREEN] Widget disposed before postFrameCallback, skipping initialization');
+        return;
+      }
+
       // Skip video initialization - only camera detection in idle mode
       // _initializeVideo();
       print('[IDLE SCREEN] Initializing person detection from postFrameCallback...');
@@ -64,6 +70,12 @@ class _IdleScreenState extends State<IdleScreen> {
   }
 
   Future<void> _initializePersonDetection() async {
+    // Early exit if widget is disposed
+    if (!mounted) {
+      print('[IDLE SCREEN] Widget not mounted, skipping person detection initialization');
+      return;
+    }
+
     try {
       if (mounted) {
         setState(() {
