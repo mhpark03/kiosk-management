@@ -2,11 +2,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-import 'package:camera/camera.dart';
 import 'dart:async';
 import '../models/video.dart';
 import '../services/download_service.dart';
-import '../services/person_detection_service.dart';
 import '../widgets/video_player_widget.dart';
 
 /// Idle screen that shows fullscreen advertisement videos
@@ -36,20 +34,7 @@ class _IdleScreenState extends State<IdleScreen> {
   // Grace period to ignore initial touches (prevent button click from activating kiosk)
   bool _ignoreInitialTouch = true;
 
-  // Grace period to ignore initial detections (camera warmup)
-  bool _ignoreInitialDetection = true;
-  Timer? _detectionGraceTimer;
-
-  // Person detection
-  final PersonDetectionService _personDetection = PersonDetectionService();
-  StreamSubscription<bool>? _personDetectionSubscription;
-  bool _personDetected = false;
-  String _detectionStatus = 'Initializing...';
   bool _isDisposed = false; // Track if widget is disposed
-  bool _isPersonDetectionInitialized = false; // Track initialization state
-
-  // UI update timer for real-time confidence display
-  Timer? _uiUpdateTimer;
 
   // Focus node for keyboard events
   late FocusNode _focusNode;
@@ -69,9 +54,6 @@ class _IdleScreenState extends State<IdleScreen> {
       // Request focus for keyboard events
       _focusNode.requestFocus();
 
-      // Skip video initialization - only camera detection in idle mode
-      _initializePersonDetection();
-
       // Enable touch detection after short delay
       Future.delayed(const Duration(milliseconds: 500), () {
         if (mounted && !_isDisposed) {
@@ -81,89 +63,6 @@ class _IdleScreenState extends State<IdleScreen> {
         }
       });
     });
-  }
-
-  Future<void> _initializePersonDetection() async {
-    // Early exit if widget is disposed
-    if (!mounted || _isDisposed) return;
-
-    try {
-      if (mounted && !_isDisposed) {
-        setState(() {
-          _detectionStatus = 'Initializing camera...';
-        });
-      }
-
-      await _personDetection.initialize();
-
-      // Check if disposed after async operation
-      if (_isDisposed || !mounted) {
-        _personDetection.dispose();
-        return;
-      }
-
-      if (mounted && !_isDisposed) {
-        setState(() {
-          _detectionStatus = 'Starting detection...';
-        });
-      }
-
-      await _personDetection.startDetection();
-
-      // Check if disposed after async operation
-      if (_isDisposed || !mounted) {
-        _personDetection.dispose();
-        return;
-      }
-
-      // Subscribe to person detection stream
-      _personDetectionSubscription = _personDetection.personDetectedStream.listen((detected) {
-        if (mounted && !_isDisposed) {
-          setState(() {
-            _personDetected = detected;
-            _detectionStatus = detected ? 'Person detected!' : 'Monitoring...';
-          });
-
-          // Trigger kiosk activation when person is detected (after grace period)
-          if (detected && widget.onUserPresence != null && !_ignoreInitialDetection) {
-            widget.onUserPresence!();
-          }
-        }
-      });
-
-      // Start grace period timer (2 seconds to allow camera to stabilize)
-      _detectionGraceTimer = Timer(const Duration(seconds: 2), () {
-        if (mounted && !_isDisposed) {
-          setState(() {
-            _ignoreInitialDetection = false;
-          });
-        }
-      });
-
-      // Mark as initialized and update UI
-      if (mounted && !_isDisposed) {
-        setState(() {
-          _isPersonDetectionInitialized = true;
-          _detectionStatus = 'Monitoring...';
-        });
-      }
-
-      // Start UI update timer for real-time confidence display (update every 200ms)
-      _uiUpdateTimer = Timer.periodic(const Duration(milliseconds: 200), (_) {
-        if (mounted && !_isDisposed && _personDetection.isDetecting) {
-          setState(() {
-            // Trigger rebuild to update confidence display
-          });
-        }
-      });
-    } catch (e) {
-      print('[IDLE SCREEN] Error initializing person detection: $e');
-      if (mounted && !_isDisposed) {
-        setState(() {
-          _detectionStatus = 'Error: $e';
-        });
-      }
-    }
   }
 
   Future<void> _initializeVideo() async {
@@ -217,11 +116,7 @@ class _IdleScreenState extends State<IdleScreen> {
   @override
   void dispose() {
     _isDisposed = true; // Set flag to prevent async operations from continuing
-    _personDetectionSubscription?.cancel();
-    _personDetection.dispose();
     _focusNode.dispose();
-    _detectionGraceTimer?.cancel();
-    _uiUpdateTimer?.cancel();
     super.dispose();
   }
 
@@ -258,200 +153,34 @@ class _IdleScreenState extends State<IdleScreen> {
             color: Colors.grey.shade900,
             child: Stack(
               children: [
-                // Camera preview (Android only)
-                if (Platform.isAndroid && _isPersonDetectionInitialized && _personDetection.cameraController != null) ...[
-                  Center(
-                    child: AspectRatio(
-                      aspectRatio: 4 / 3,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          border: Border.all(
-                            color: _personDetected ? Colors.greenAccent : Colors.blueAccent,
-                            width: 3,
-                          ),
-                        ),
-                        child: CameraPreview(_personDetection.cameraController!),
+                // Simple idle message
+                Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.touch_app,
+                        color: Colors.white70,
+                        size: 80,
                       ),
-                    ),
-                  ),
-                ]
-                // Detection status (Windows or initializing)
-                else if (Platform.isWindows && _isPersonDetectionInitialized) ...[
-                  Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          _personDetected ? Icons.person : Icons.person_search,
-                          color: _personDetected ? Colors.greenAccent : Colors.blueAccent,
-                          size: 120,
-                        ),
-                        const SizedBox(height: 40),
-                        Text(
-                          _personDetected ? 'Person Detected' : 'Monitoring...',
-                          style: TextStyle(
-                            color: _personDetected ? Colors.greenAccent : Colors.white,
-                            fontSize: 32,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-                        Text(
-                          'Camera active',
-                          style: TextStyle(
-                            color: Colors.grey.shade400,
-                            fontSize: 18,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ]
-                else ...[
-                  Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const CircularProgressIndicator(
-                          color: Colors.white,
-                        ),
-                        const SizedBox(height: 20),
-                        Text(
-                          _detectionStatus,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-
-                // Detection status overlay
-                Positioned(
-                  top: 20,
-                  left: 20,
-                  right: 20,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 12,
-                    ),
-                    decoration: BoxDecoration(
-                      color: _personDetected
-                          ? Colors.green.withOpacity(0.8)
-                          : Colors.blue.withOpacity(0.8),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: _personDetected ? Colors.greenAccent : Colors.blueAccent,
-                        width: 2,
-                      ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              _personDetected ? Icons.person : Icons.person_outline,
-                              color: Colors.white,
-                              size: 20,
-                            ),
-                            const SizedBox(width: 8),
-                            const Text(
-                              'Person Detection',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          _detectionStatus,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                          ),
-                        ),
-                        if (_personDetection.isInitialized) ...[
-                          const SizedBox(height: 8),
-                          // Confidence display
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(
-                                Icons.show_chart,
-                                color: Colors.white70,
-                                size: 14,
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                'Confidence: ${(_personDetection.latestConfidence * 100).toStringAsFixed(1)}%',
-                                style: TextStyle(
-                                  color: _personDetection.latestConfidence >= 0.7
-                                      ? Colors.greenAccent
-                                      : Colors.white70,
-                                  fontSize: 13,
-                                  fontWeight: _personDetection.latestConfidence >= 0.7
-                                      ? FontWeight.bold
-                                      : FontWeight.normal,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          // Detection stats
-                          Text(
-                            'Detections: ${_personDetection.successfulDetections}/${_personDetection.totalDetections}',
-                            style: const TextStyle(
-                              color: Colors.white70,
-                              fontSize: 10,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            'Mode: ${_personDetection.detectionMode}',
-                            style: const TextStyle(
-                              color: Colors.white60,
-                              fontSize: 9,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ),
-
-                // Hint overlay
-                Positioned(
-                  bottom: 40,
-                  left: 0,
-                  right: 0,
-                  child: Center(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 32,
-                        vertical: 16,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.5),
-                        borderRadius: BorderRadius.circular(30),
-                      ),
-                      child: const Text(
-                        '화면을 터치하여 주문하세요',
+                      const SizedBox(height: 40),
+                      Text(
+                        '대기 중...',
                         style: TextStyle(
                           color: Colors.white,
-                          fontSize: 24,
-                          fontWeight: FontWeight.w500,
+                          fontSize: 32,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
-                    ),
+                      const SizedBox(height: 20),
+                      Text(
+                        '화면을 터치하거나 카메라 앞에 서 주세요',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 18,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
