@@ -43,7 +43,7 @@ class PersonDetectionService {
   // Configuration
   static const Duration _detectionTimeout = Duration(seconds: 5); // 5 seconds timeout
   static const Duration _detectionInterval = Duration(milliseconds: 500);
-  static const double _confidenceThreshold = 0.7; // 70% confidence threshold
+  static const double _confidenceThreshold = 0.5; // 50% confidence threshold (lowered for better detection)
   static const int _personClassIndex = 1; // "person" class in COCO dataset
 
   Timer? _timeoutTimer;
@@ -406,6 +406,11 @@ class PersonDetectionService {
           final scoresData = scoresValue.value as List<dynamic>?;
 
           if (scoresData != null && labelsData != null) {
+            // Log total detections for debugging
+            if (_totalDetections % 10 == 0) {
+              print('[PERSON DETECTION] Detection attempt #$_totalDetections (${scoresData.length} objects detected)');
+            }
+
             for (int i = 0; i < scoresData.length && i < labelsData.length; i++) {
               final score = scoresData[i] is List ? scoresData[i][0] : scoresData[i];
               final label = labelsData[i] is List ? labelsData[i][0] : labelsData[i];
@@ -419,7 +424,7 @@ class PersonDetectionService {
               }
 
               if (labelValue == _personClassIndex && scoreValue >= _confidenceThreshold) {
-                print('[PERSON DETECTION] Person detected with confidence: ${(scoreValue * 100).toStringAsFixed(1)}%');
+                print('[PERSON DETECTION] ✓ Person detected with confidence: ${(scoreValue * 100).toStringAsFixed(1)}%');
                 personDetected = true;
                 _successfulDetections++;
                 break;
@@ -431,6 +436,14 @@ class PersonDetectionService {
 
       // Update latest confidence (even if below threshold, for debugging)
       _latestConfidence = maxConfidence;
+
+      // Log when person class is detected but confidence is too low
+      if (maxConfidence > 0 && maxConfidence < _confidenceThreshold) {
+        // Only log occasionally to avoid spam (every 20 attempts)
+        if (_totalDetections % 20 == 0) {
+          print('[PERSON DETECTION] Person detected but confidence too low: ${(maxConfidence * 100).toStringAsFixed(1)}% (threshold: ${(_confidenceThreshold * 100).toStringAsFixed(0)}%)');
+        }
+      }
 
       // Release outputs
       if (outputs != null) {
