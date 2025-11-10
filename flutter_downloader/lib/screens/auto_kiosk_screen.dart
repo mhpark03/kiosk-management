@@ -58,7 +58,6 @@ class _AutoKioskScreenState extends State<AutoKioskScreen> {
   @override
   void initState() {
     super.initState();
-    print('[AUTO KIOSK] ========== INIT STATE START ==========');
 
     // Initialize focus node
     _focusNode = FocusNode();
@@ -69,21 +68,15 @@ class _AutoKioskScreenState extends State<AutoKioskScreen> {
     _allVideos = widget.videos;
     _advertisementVideos = widget.videos.where((video) => video.menuId == null).toList();
 
-    print('[AUTO KIOSK] Total videos: ${_allVideos.length}');
-    print('[AUTO KIOSK] Advertisement videos (menuId == null): ${_advertisementVideos.length}');
-
     // If no advertisement videos, fallback to using all videos
     if (_advertisementVideos.isEmpty) {
-      print('[AUTO KIOSK] WARNING: No advertisement videos found, using all videos for idle screen');
       _advertisementVideos = _allVideos;
     }
 
     // Initialize presence detection service based on detection mode
     if (widget.detectionMode == DetectionMode.camera) {
-      print('[AUTO KIOSK] Using camera-based person detection');
       _presenceService = CameraPresenceDetectionService();
     } else {
-      print('[AUTO KIOSK] Using touch-based detection');
       _presenceService = TouchPresenceDetectionService(
         idleTimeout: widget.idleTimeout,
       );
@@ -91,49 +84,32 @@ class _AutoKioskScreenState extends State<AutoKioskScreen> {
 
     // Listen to presence changes
     _presenceSubscription = _presenceService.presenceStream.listen((isPresent) {
-      print('[AUTO KIOSK] ========== Presence Stream Event ==========');
-      print('[AUTO KIOSK] Presence changed: $isPresent');
-      print('[AUTO KIOSK] Current _isKioskMode: $_isKioskMode, changing to: $isPresent');
       if (_isKioskMode == isPresent) {
-        print('[AUTO KIOSK] WARNING: _isKioskMode already equals $isPresent, no change needed');
         return;
       }
       setState(() {
         _isKioskMode = isPresent;
       });
-      print('[AUTO KIOSK] setState completed, _isKioskMode is now: $_isKioskMode');
-      print('[AUTO KIOSK] ===============================================');
     });
 
     // Start detection
-    print('[AUTO KIOSK] Starting presence detection...');
     _presenceService.start();
 
     // Enter fullscreen and wait for it to complete
-    print('[AUTO KIOSK] Calling _enterFullscreen()...');
     _enterFullscreen();
-    print('[AUTO KIOSK] ========== INIT STATE END ==========');
   }
 
   Future<void> _enterFullscreen() async {
-    print('[AUTO KIOSK] _enterFullscreen() START');
-    print('[AUTO KIOSK] Calling setFullScreen(true)...');
     await windowManager.setFullScreen(true);
-    print('[AUTO KIOSK] setFullScreen(true) completed');
 
     // Wait for fullscreen transition to complete
-    print('[AUTO KIOSK] Waiting 300ms for transition...');
     await Future.delayed(const Duration(milliseconds: 300));
-    print('[AUTO KIOSK] 300ms wait completed');
 
     // Mark fullscreen as ready and rebuild
-    print('[AUTO KIOSK] Checking mounted: $mounted');
     if (mounted) {
-      print('[AUTO KIOSK] Setting _isFullscreenReady = true...');
       setState(() {
         _isFullscreenReady = true;
       });
-      print('[AUTO KIOSK] Fullscreen active, _isFullscreenReady = $_isFullscreenReady');
 
       // Request focus after fullscreen is ready
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -141,10 +117,7 @@ class _AutoKioskScreenState extends State<AutoKioskScreen> {
           _focusNode.requestFocus();
         }
       });
-    } else {
-      print('[AUTO KIOSK] Widget not mounted, skipping setState');
     }
-    print('[AUTO KIOSK] _enterFullscreen() END');
   }
 
   Future<void> _exitFullscreen() async {
@@ -153,23 +126,19 @@ class _AutoKioskScreenState extends State<AutoKioskScreen> {
 
   @override
   void dispose() {
-    print('[AUTO KIOSK] ========== DISPOSE START ==========');
     _presenceSubscription?.cancel();
     _presenceService.dispose();
     _focusNode.dispose();
     // Ensure fullscreen is cleared (fire-and-forget)
     windowManager.setFullScreen(false);
-    print('[AUTO KIOSK] ========== DISPOSE END ==========');
     super.dispose();
   }
 
   void _handleUserPresence() {
-    print('[AUTO KIOSK] User presence detected');
     _presenceService.triggerPresence();
   }
 
   Future<void> _handleExit() async {
-    print('[AUTO KIOSK] Exiting and clearing fullscreen...');
     await _exitFullscreen();
     if (mounted) {
       Navigator.of(context).pop();
@@ -178,13 +147,8 @@ class _AutoKioskScreenState extends State<AutoKioskScreen> {
 
   @override
   Widget build(BuildContext context) {
-    print('[AUTO KIOSK] ========== build() START ==========');
-    print('[AUTO KIOSK] _isFullscreenReady: $_isFullscreenReady');
-    print('[AUTO KIOSK] _isKioskMode: $_isKioskMode');
-
     // Show loading screen until fullscreen transition completes
     if (!_isFullscreenReady) {
-      print('[AUTO KIOSK] Fullscreen not ready, showing loading screen');
       return const Scaffold(
         backgroundColor: Colors.black,
         body: Center(
@@ -193,13 +157,11 @@ class _AutoKioskScreenState extends State<AutoKioskScreen> {
       );
     }
 
-    print('[AUTO KIOSK] Will render: ${_isKioskMode ? "KioskSplitScreen" : "IdleScreen"}');
     final widget = Focus(
       focusNode: _focusNode,
       autofocus: true,
       onKeyEvent: (node, event) {
         if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.escape) {
-          print('[AUTO KIOSK] ESC key pressed, exiting app...');
           if (Platform.isWindows || Platform.isAndroid) {
             SystemNavigator.pop(); // Exit app
           }
@@ -211,20 +173,16 @@ class _AutoKioskScreenState extends State<AutoKioskScreen> {
         body: _isKioskMode ? _buildKioskMode() : _buildIdleMode(),
       ),
     );
-    print('[AUTO KIOSK] ========== build() END ==========');
     return widget;
   }
 
   Widget _buildIdleMode() {
     // Create IdleScreen only once and cache it
     if (_cachedIdleScreen == null) {
-      print('[AUTO KIOSK] >>> _buildIdleMode() - Creating NEW IdleScreen <<<');
       _cachedIdleScreen = IdleScreen(
         videos: _advertisementVideos, // Only advertisement videos (menuId == null)
         onUserPresence: _handleUserPresence,
       );
-    } else {
-      print('[AUTO KIOSK] >>> _buildIdleMode() - Reusing cached IdleScreen <<<');
     }
     return _cachedIdleScreen!;
   }
@@ -232,7 +190,6 @@ class _AutoKioskScreenState extends State<AutoKioskScreen> {
   Widget _buildKioskMode() {
     // Create KioskSplitScreen only once and cache it
     if (_cachedKioskScreen == null) {
-      print('[AUTO KIOSK] >>> _buildKioskMode() - Creating NEW KioskSplitScreen <<<');
       _cachedKioskScreen = GestureDetector(
         onTap: _handleUserPresence,
         onPanUpdate: (_) => _handleUserPresence(),
@@ -246,8 +203,6 @@ class _AutoKioskScreenState extends State<AutoKioskScreen> {
           ),
         ),
       );
-    } else {
-      print('[AUTO KIOSK] >>> _buildKioskMode() - Reusing cached KioskSplitScreen <<<');
     }
     return _cachedKioskScreen!;
   }

@@ -38,9 +38,9 @@ class PersonDetectionService {
   OrtSessionOptions? _sessionOptions;
 
   // Configuration
-  static const Duration _detectionTimeout = Duration(seconds: 3);
+  static const Duration _detectionTimeout = Duration(seconds: 5); // 5 seconds timeout
   static const Duration _detectionInterval = Duration(milliseconds: 500);
-  static const double _confidenceThreshold = 0.8; // 80% confidence threshold
+  static const double _confidenceThreshold = 0.7; // 70% confidence threshold
   static const int _personClassIndex = 1; // "person" class in COCO dataset
 
   Timer? _timeoutTimer;
@@ -60,7 +60,6 @@ class PersonDetectionService {
   /// Initialize camera and ONNX Runtime
   Future<void> initialize() async {
     if (_isInitialized) {
-      print('[PERSON DETECTION] Already initialized');
       return;
     }
 
@@ -70,7 +69,6 @@ class PersonDetectionService {
 
       if (Platform.isWindows) {
         // Windows: Initialize flutter_lite_camera
-        print('[PERSON DETECTION] Using flutter_lite_camera for Windows');
         _liteCamera = FlutterLiteCamera();
 
         // Get available cameras
@@ -79,11 +77,8 @@ class PersonDetectionService {
           throw Exception('No cameras available on Windows');
         }
 
-        print('[PERSON DETECTION] Available cameras: $devices');
-
         // Open first camera (index 0)
         await _liteCamera!.open(0);
-        print('[PERSON DETECTION] Windows camera opened successfully');
 
       } else if (Platform.isAndroid) {
         // Android: Initialize camera package
@@ -93,7 +88,6 @@ class PersonDetectionService {
         }
 
         final camera = cameras.first;
-        print('[PERSON DETECTION] Using camera: ${camera.name}');
 
         _cameraController = CameraController(
           camera,
@@ -106,7 +100,7 @@ class PersonDetectionService {
       }
 
       _isInitialized = true;
-      print('[PERSON DETECTION] Initialized successfully (ONNX Runtime mode)');
+      print('[PERSON DETECTION] Initialized successfully');
     } catch (e) {
       print('[PERSON DETECTION] Error initializing: $e');
       rethrow;
@@ -128,10 +122,6 @@ class PersonDetectionService {
 
       // Create ONNX Runtime session
       _ortSession = OrtSession.fromBuffer(modelData, _sessionOptions!);
-
-      print('[PERSON DETECTION] ONNX model loaded successfully');
-      print('[PERSON DETECTION] Model inputs: ${_ortSession!.inputNames}');
-      print('[PERSON DETECTION] Model outputs: ${_ortSession!.outputNames}');
     } catch (e) {
       print('[PERSON DETECTION] Error loading ONNX model: $e');
       throw Exception('Failed to initialize ONNX Runtime: $e');
@@ -145,23 +135,19 @@ class PersonDetectionService {
     }
 
     if (_isDetecting) {
-      print('[PERSON DETECTION] Already detecting');
       return;
     }
 
     _isDetecting = true;
-    print('[PERSON DETECTION] Starting detection (ONNX Runtime mode)');
 
     try {
       if (Platform.isWindows) {
         // Windows: Wait for camera to warm up before starting capture
-        print('[PERSON DETECTION] Waiting 2 seconds for camera warmup...');
         await Future.delayed(const Duration(seconds: 2));
         _cameraWarmedUp = true;
         _consecutiveFailures = 0;
 
         // Windows: Use Timer to periodically capture frames
-        print('[PERSON DETECTION] Starting periodic frame capture (${_detectionInterval.inMilliseconds}ms)');
         _captureTimer = Timer.periodic(_detectionInterval, (_) async {
           if (!_isDetecting || _isProcessing) return;
 
@@ -219,7 +205,6 @@ class PersonDetectionService {
       return;
     }
 
-    print('[PERSON DETECTION] Stopping detection');
     _isDetecting = false;
     _captureTimer?.cancel();
     _timeoutTimer?.cancel();
@@ -230,7 +215,6 @@ class PersonDetectionService {
       if (Platform.isWindows) {
         // Windows: Release camera
         await _liteCamera?.release();
-        print('[PERSON DETECTION] Windows camera released');
       } else if (Platform.isAndroid) {
         await _cameraController?.stopImageStream();
       }
@@ -562,7 +546,6 @@ class PersonDetectionService {
 
   /// Dispose resources
   Future<void> dispose() async {
-    print('[PERSON DETECTION] Disposing service');
     await stopDetection();
 
     if (Platform.isAndroid) {
