@@ -62,15 +62,19 @@ class _IdleScreenState extends State<IdleScreen> {
 
   Future<void> _initializePersonDetection() async {
     try {
-      setState(() {
-        _detectionStatus = 'Initializing camera...';
-      });
+      if (mounted) {
+        setState(() {
+          _detectionStatus = 'Initializing camera...';
+        });
+      }
 
       await _personDetection.initialize();
 
-      setState(() {
-        _detectionStatus = 'Starting detection...';
-      });
+      if (mounted) {
+        setState(() {
+          _detectionStatus = 'Starting detection...';
+        });
+      }
 
       await _personDetection.startDetection();
 
@@ -85,25 +89,31 @@ class _IdleScreenState extends State<IdleScreen> {
         }
       });
 
-      setState(() {
-        _detectionStatus = 'Monitoring...';
-      });
+      if (mounted) {
+        setState(() {
+          _detectionStatus = 'Monitoring...';
+        });
+      }
 
       print('[IDLE SCREEN] Person detection initialized');
     } catch (e) {
       print('[IDLE SCREEN] Error initializing person detection: $e');
-      setState(() {
-        _detectionStatus = 'Error: $e';
-      });
+      if (mounted) {
+        setState(() {
+          _detectionStatus = 'Error: $e';
+        });
+      }
     }
   }
 
   Future<void> _initializeVideo() async {
     if (widget.videos.isEmpty) {
-      setState(() {
-        _hasError = true;
-        _errorMessage = '재생할 영상이 없습니다';
-      });
+      if (mounted) {
+        setState(() {
+          _hasError = true;
+          _errorMessage = '재생할 영상이 없습니다';
+        });
+      }
       return;
     }
 
@@ -122,19 +132,23 @@ class _IdleScreenState extends State<IdleScreen> {
         throw Exception('영상 파일을 찾을 수 없습니다: $actualPath');
       }
 
-      setState(() {
-        _currentVideoPath = actualPath;
-        _hasError = false;
-        _videoPlayerKeyCounter++;
-      });
+      if (mounted) {
+        setState(() {
+          _currentVideoPath = actualPath;
+          _hasError = false;
+          _videoPlayerKeyCounter++;
+        });
+      }
 
       print('[IDLE SCREEN] Video path set successfully');
     } catch (e) {
       print('[IDLE SCREEN] Error initializing video: $e');
-      setState(() {
-        _hasError = true;
-        _errorMessage = e.toString();
-      });
+      if (mounted) {
+        setState(() {
+          _hasError = true;
+          _errorMessage = e.toString();
+        });
+      }
     }
   }
 
@@ -180,52 +194,58 @@ class _IdleScreenState extends State<IdleScreen> {
                     children: [
                       // Video content
                       if (_hasError)
-                        Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(
-                                Icons.error_outline,
-                                color: Colors.red,
-                                size: 64,
-                              ),
-                              const SizedBox(height: 24),
-                              const Text(
-                                '동영상을 재생할 수 없습니다',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
+                        Positioned.fill(
+                          child: Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(
+                                  Icons.error_outline,
+                                  color: Colors.red,
+                                  size: 64,
                                 ),
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                _errorMessage ?? '',
-                                style: const TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 14,
+                                const SizedBox(height: 24),
+                                const Text(
+                                  '동영상을 재생할 수 없습니다',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
-                                textAlign: TextAlign.center,
-                              ),
-                            ],
+                                const SizedBox(height: 16),
+                                Text(
+                                  _errorMessage ?? '',
+                                  style: const TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 14,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ],
+                            ),
                           ),
                         )
                       else if (_currentVideoPath != null)
-                        VideoPlayerWidget(
-                          key: ValueKey(_videoPlayerKeyCounter),
-                          videoPath: _currentVideoPath!,
-                          onCompleted: _playNextVideo,
-                          onError: () {
-                            setState(() {
-                              _hasError = true;
-                              _errorMessage = '동영상 재생 중 오류가 발생했습니다';
-                            });
-                          },
+                        Positioned.fill(
+                          child: VideoPlayerWidget(
+                            key: ValueKey(_videoPlayerKeyCounter),
+                            videoPath: _currentVideoPath!,
+                            onCompleted: _playNextVideo,
+                            onError: () {
+                              setState(() {
+                                _hasError = true;
+                                _errorMessage = '동영상 재생 중 오류가 발생했습니다';
+                              });
+                            },
+                          ),
                         )
                       else
-                        const Center(
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
+                        const Positioned.fill(
+                          child: Center(
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                            ),
                           ),
                         ),
 
@@ -290,15 +310,15 @@ class _IdleScreenState extends State<IdleScreen> {
                 color: Colors.white.withOpacity(0.3),
               ),
 
-              // Right side: Camera preview
+              // Right side: Camera preview (Android) or Detection status (Windows)
               Expanded(
                 flex: 1,
                 child: Container(
                   color: Colors.grey.shade900,
                   child: Stack(
                     children: [
-                      // Camera preview
-                      if (_personDetection.isInitialized && _personDetection.cameraController != null)
+                      // Camera preview (Android only)
+                      if (Platform.isAndroid && _personDetection.isInitialized && _personDetection.cameraController != null)
                         Center(
                           child: AspectRatio(
                             aspectRatio: 4 / 3,
@@ -311,6 +331,37 @@ class _IdleScreenState extends State<IdleScreen> {
                               ),
                               child: CameraPreview(_personDetection.cameraController!),
                             ),
+                          ),
+                        )
+                      // Detection status (Windows or initializing)
+                      else if (Platform.isWindows && _personDetection.isInitialized)
+                        Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                _personDetected ? Icons.person : Icons.person_search,
+                                color: _personDetected ? Colors.greenAccent : Colors.blueAccent,
+                                size: 120,
+                              ),
+                              const SizedBox(height: 40),
+                              Text(
+                                _personDetected ? 'Person Detected' : 'Monitoring...',
+                                style: TextStyle(
+                                  color: _personDetected ? Colors.greenAccent : Colors.white,
+                                  fontSize: 32,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 20),
+                              Text(
+                                'Camera active',
+                                style: TextStyle(
+                                  color: Colors.grey.shade400,
+                                  fontSize: 18,
+                                ),
+                              ),
+                            ],
                           ),
                         )
                       else

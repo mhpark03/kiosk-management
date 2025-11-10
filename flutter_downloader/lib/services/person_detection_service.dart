@@ -46,6 +46,11 @@ class PersonDetectionService {
   Timer? _timeoutTimer;
   bool _isProcessing = false;
 
+  // Camera warmup and error tracking
+  int _consecutiveFailures = 0;
+  static const int _maxConsecutiveFailures = 10; // Only warn after 10 consecutive failures
+  bool _cameraWarmedUp = false;
+
   /// Initialize camera and ONNX Runtime
   Future<void> initialize() async {
     if (_isInitialized) {
@@ -143,6 +148,12 @@ class PersonDetectionService {
 
     try {
       if (Platform.isWindows) {
+        // Windows: Wait for camera to warm up before starting capture
+        print('[PERSON DETECTION] Waiting 2 seconds for camera warmup...');
+        await Future.delayed(const Duration(seconds: 2));
+        _cameraWarmedUp = true;
+        _consecutiveFailures = 0;
+
         // Windows: Use Timer to periodically capture frames
         print('[PERSON DETECTION] Starting periodic frame capture (${_detectionInterval.inMilliseconds}ms)');
         _captureTimer = Timer.periodic(_detectionInterval, (_) async {
@@ -155,11 +166,17 @@ class PersonDetectionService {
               final width = frame['width'] as int? ?? 640;
               final height = frame['height'] as int? ?? 480;
 
-              print('[PERSON DETECTION] Captured frame: ${width}x${height}, ${rgb888Data.length} bytes');
+              // Successful capture - reset failure counter
+              _consecutiveFailures = 0;
               _processRGB888Async(rgb888Data);
             }
           } catch (e) {
-            print('[PERSON DETECTION] Error capturing frame: $e');
+            _consecutiveFailures++;
+
+            // Only log error after multiple consecutive failures
+            if (_consecutiveFailures == _maxConsecutiveFailures) {
+              print('[PERSON DETECTION] Camera capture failing consistently after $_maxConsecutiveFailures attempts: $e');
+            }
           }
         });
 
@@ -191,6 +208,8 @@ class PersonDetectionService {
     _isDetecting = false;
     _captureTimer?.cancel();
     _timeoutTimer?.cancel();
+    _consecutiveFailures = 0;
+    _cameraWarmedUp = false;
 
     try {
       if (Platform.isWindows) {
@@ -502,5 +521,7 @@ class PersonDetectionService {
     _isInitialized = false;
     _ortSession = null;
     _sessionOptions = null;
+    _consecutiveFailures = 0;
+    _cameraWarmedUp = false;
   }
 }

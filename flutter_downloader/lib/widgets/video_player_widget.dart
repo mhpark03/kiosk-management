@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart' as media_kit_video;
@@ -29,6 +30,14 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
   bool _isPlaying = false;
   Duration _position = Duration.zero;
   Duration _duration = Duration.zero;
+  bool _isInitializing = false;
+  bool _isDisposing = false;
+
+  // Stream subscriptions
+  StreamSubscription<bool>? _playingSubscription;
+  StreamSubscription<Duration>? _positionSubscription;
+  StreamSubscription<Duration>? _durationSubscription;
+  StreamSubscription<bool>? _completedSubscription;
 
   @override
   void initState() {
@@ -47,12 +56,30 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
 
   @override
   void dispose() {
+    _isDisposing = true;
+    _cancelSubscriptions();
     _player?.dispose();
     super.dispose();
   }
 
+  void _cancelSubscriptions() {
+    _playingSubscription?.cancel();
+    _positionSubscription?.cancel();
+    _durationSubscription?.cancel();
+    _completedSubscription?.cancel();
+  }
+
   Future<void> _reinitializePlayer() async {
+    // Wait for any ongoing initialization to complete
+    while (_isInitializing) {
+      await Future.delayed(const Duration(milliseconds: 100));
+    }
+
+    _cancelSubscriptions();
     await _player?.dispose();
+    _player = null;
+    _controller = null;
+
     if (mounted) {
       setState(() {
         _isInitialized = false;
@@ -63,6 +90,14 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
   }
 
   Future<void> _initializePlayer() async {
+    // Prevent concurrent initialization
+    if (_isInitializing || _isDisposing || !mounted) {
+      print('[VIDEO PLAYER WIDGET] Skipping initialization (initializing: $_isInitializing, disposing: $_isDisposing, mounted: $mounted)');
+      return;
+    }
+
+    _isInitializing = true;
+
     try {
       print('[VIDEO PLAYER WIDGET] Initializing player for: ${widget.videoPath}');
 
@@ -70,47 +105,42 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
       _controller = media_kit_video.VideoController(_player!);
 
       // Listen to player state changes
-      _player!.stream.playing.listen((playing) {
+      _playingSubscription = _player!.stream.playing.listen((playing) {
         if (mounted) {
-          setState(() => _isPlaying = playing);
+          setState(() {
+            _isPlaying = playing;
+            // Set initialized when video starts playing
+            if (playing && !_isInitialized) {
+              _isInitialized = true;
+            }
+          });
         }
       });
 
-      _player!.stream.position.listen((position) {
+      _positionSubscription = _player!.stream.position.listen((position) {
         if (mounted) {
           setState(() => _position = position);
         }
       });
 
-      _player!.stream.duration.listen((duration) {
+      _durationSubscription = _player!.stream.duration.listen((duration) {
         if (mounted) {
           setState(() => _duration = duration);
         }
       });
 
       // Listen for video completion
-      _player!.stream.completed.listen((completed) {
+      _completedSubscription = _player!.stream.completed.listen((completed) {
         if (completed && mounted) {
           print('[VIDEO PLAYER WIDGET] Video completed');
           widget.onCompleted?.call();
         }
       });
 
-      // IMPORTANT: Set initialized BEFORE opening media
-      // This allows the Video widget to be built and ready to render
-      if (mounted) {
-        setState(() {
-          _isInitialized = true;
-          _hasError = false;
-        });
-      }
-
-      print('[VIDEO PLAYER WIDGET] Controller created, opening media...');
-
       await _player!.open(Media(widget.videoPath));
       await _player!.play();
 
-      print('[VIDEO PLAYER WIDGET] Player initialized and playing');
+      print('[VIDEO PLAYER WIDGET] Player initialized successfully');
     } catch (e) {
       print('[VIDEO PLAYER WIDGET] Error initializing player: $e');
       if (mounted) {
@@ -120,6 +150,8 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
         });
       }
       widget.onError?.call();
+    } finally {
+      _isInitializing = false;
     }
   }
 
@@ -182,10 +214,18 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
 
     return GestureDetector(
       onTap: _togglePlayPause,
-      child: media_kit_video.Video(
-        controller: _controller!,
-        controls: media_kit_video.NoVideoControls,
-        fit: BoxFit.contain,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return SizedBox(
+            width: constraints.maxWidth,
+            height: constraints.maxHeight,
+            child: media_kit_video.Video(
+              controller: _controller!,
+              controls: media_kit_video.NoVideoControls,
+              fit: BoxFit.contain,
+            ),
+          );
+        },
       ),
     );
   }
