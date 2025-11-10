@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import '../services/person_detection_service.dart';
@@ -33,6 +35,18 @@ class _StandbyScreenState extends State<StandbyScreen>
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
 
+  // Minimum preview time before allowing activation (5 seconds)
+  static const Duration _minPreviewTime = Duration(seconds: 5);
+  DateTime? _previewStartTime;
+  bool _canActivate = false;
+  Timer? _previewTimer;
+  Timer? _countdownTimer;
+  int _remainingSeconds = 5;
+
+  // For Windows camera preview refresh
+  Timer? _frameRefreshTimer;
+  Uint8List? _currentFrameData;
+
   @override
   void initState() {
     super.initState();
@@ -57,14 +71,55 @@ class _StandbyScreenState extends State<StandbyScreen>
       await _detectionService.initialize();
       await _detectionService.startDetection();
 
+      // Start preview timer
+      _previewStartTime = DateTime.now();
+      _remainingSeconds = _minPreviewTime.inSeconds;
+      print('[STANDBY] Preview started, minimum display time: ${_minPreviewTime.inSeconds} seconds');
+
+      // Set timer to allow activation after minimum preview time
+      _previewTimer = Timer(_minPreviewTime, () {
+        setState(() {
+          _canActivate = true;
+          _remainingSeconds = 0;
+        });
+        print('[STANDBY] Preview time complete, activation enabled');
+      });
+
+      // Start countdown timer (updates every second)
+      _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+        if (_remainingSeconds > 0) {
+          setState(() {
+            _remainingSeconds--;
+          });
+        } else {
+          timer.cancel();
+        }
+      });
+
       // Listen for person detection
       _detectionSubscription =
           _detectionService.personDetectedStream.listen((personDetected) {
-        if (personDetected) {
-          print('[STANDBY] Person detected, activating kiosk...');
+        if (personDetected && _canActivate) {
+          print('[STANDBY] Person detected and can activate, activating kiosk...');
           _activateKiosk();
+        } else if (personDetected && !_canActivate) {
+          final elapsed = DateTime.now().difference(_previewStartTime!);
+          final remaining = _minPreviewTime - elapsed;
+          print('[STANDBY] Person detected but preview time not complete (${remaining.inSeconds}s remaining)');
         }
       });
+
+      // Start frame refresh timer for Windows
+      if (Platform.isWindows) {
+        print('[STANDBY] Starting frame refresh timer for Windows preview');
+        _frameRefreshTimer = Timer.periodic(const Duration(milliseconds: 100), (_) {
+          if (mounted && _detectionService.latestFramePng != null) {
+            setState(() {
+              _currentFrameData = _detectionService.latestFramePng;
+            });
+          }
+        });
+      }
 
       setState(() {
         _isInitializing = false;
@@ -99,6 +154,9 @@ class _StandbyScreenState extends State<StandbyScreen>
     _detectionSubscription?.cancel();
     _detectionService.stopDetection();
     _pulseController.dispose();
+    _previewTimer?.cancel();
+    _countdownTimer?.cancel();
+    _frameRefreshTimer?.cancel();
     super.dispose();
   }
 
@@ -113,19 +171,33 @@ class _StandbyScreenState extends State<StandbyScreen>
         },
         child: Stack(
           children: [
-            // Camera preview (if available) - full screen
-            if (_detectionService.isInitialized &&
-                _detectionService.cameraController != null)
-              SizedBox.expand(
-                child: FittedBox(
-                  fit: BoxFit.cover,
-                  child: SizedBox(
-                    width: _detectionService.cameraController!.value.previewSize?.height ?? 1,
-                    height: _detectionService.cameraController!.value.previewSize?.width ?? 1,
-                    child: CameraPreview(_detectionService.cameraController!),
+            // Camera preview - full screen
+            if (_detectionService.isInitialized) ...[
+              // Android: Use CameraPreview
+              if (Platform.isAndroid && _detectionService.cameraController != null)
+                SizedBox.expand(
+                  child: FittedBox(
+                    fit: BoxFit.cover,
+                    child: SizedBox(
+                      width: _detectionService.cameraController!.value.previewSize?.height ?? 1,
+                      height: _detectionService.cameraController!.value.previewSize?.width ?? 1,
+                      child: CameraPreview(_detectionService.cameraController!),
+                    ),
                   ),
                 ),
-              ),
+              // Windows: Display captured frame (PNG encoded)
+              if (Platform.isWindows && _currentFrameData != null)
+                SizedBox.expand(
+                  child: FittedBox(
+                    fit: BoxFit.cover,
+                    child: Image.memory(
+                      _currentFrameData!,
+                      gaplessPlayback: true, // Smooth frame transitions
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                ),
+            ],
 
             // Light overlay (more transparent to see camera)
             Container(
@@ -284,6 +356,34 @@ class _StandbyScreenState extends State<StandbyScreen>
                         fontSize: 12,
                       ),
                     ),
+                    if (!_canActivate)
+                      Text(
+                        '프리뷰 시간: ${_remainingSeconds}초 남음',
+                        style: const TextStyle(
+                          color: Colors.yellow,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    if (_canActivate)
+                      const Text(
+                        '활성화 준비 완료',
+                        style: TextStyle(
+                          color: Colors.green,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    if (Platform.isWindows)
+                      Text(
+                        '프레임: ${_currentFrameData != null ? "수신 중" : "대기 중"}',
+                        style: TextStyle(
+                          color: _currentFrameData != null
+                              ? Colors.green
+                              : Colors.white70,
+                          fontSize: 12,
+                        ),
+                      ),
                   ],
                 ),
               ),
