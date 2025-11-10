@@ -650,6 +650,9 @@ class _VideoListScreenState extends State<VideoListScreen> {
         _isLoading = false;
       });
 
+      // Cache videos for offline use
+      await widget.storageService.cacheVideos(videos);
+
       // Log sync completed event
       await EventLogger().logEvent(
         eventType: 'SYNC_COMPLETED',
@@ -660,20 +663,52 @@ class _VideoListScreenState extends State<VideoListScreen> {
       // Auto-download pending files (videos, images, menu XML) in background
       _downloadPendingVideosInBackground();
     } catch (e) {
-      final config = widget.storageService.getConfig();
-      if (config != null) {
-        // Log sync failed event
-        await EventLogger().logEvent(
-          eventType: 'SYNC_FAILED',
-          message: '동기화 실패: ${e.toString()}',
-          metadata: '{"error": "${e.toString()}"}',
-        );
-      }
+      print('[SYNC] Server sync failed: $e');
 
-      setState(() {
-        _errorMessage = e.toString().replaceFirst('Exception: ', '');
-        _isLoading = false;
-      });
+      final config = widget.storageService.getConfig();
+
+      // Try to use cached videos for offline operation
+      final cachedVideos = widget.storageService.getCachedVideos();
+
+      if (cachedVideos != null && cachedVideos.isNotEmpty) {
+        print('[SYNC] Using ${cachedVideos.length} cached videos (offline mode)');
+
+        // Check which cached videos have local files
+        await _checkLocalFiles(cachedVideos, config);
+
+        // Filter to only show videos that exist locally
+        final availableVideos = cachedVideos.where((v) => v.localPath != null).toList();
+
+        setState(() {
+          _videos = availableVideos;
+          _isLoading = false;
+          _errorMessage = '오프라인 모드 (${availableVideos.length}개 파일 사용 가능)';
+        });
+
+        if (config != null) {
+          await EventLogger().logEvent(
+            eventType: 'OFFLINE_MODE',
+            message: '오프라인 모드로 전환 (캐시된 파일 ${availableVideos.length}개 사용)',
+            metadata: '{"cachedCount": ${cachedVideos.length}, "availableCount": ${availableVideos.length}}',
+          );
+        }
+      } else {
+        print('[SYNC] No cached videos available for offline mode');
+
+        if (config != null) {
+          // Log sync failed event
+          await EventLogger().logEvent(
+            eventType: 'SYNC_FAILED',
+            message: '동기화 실패 (오프라인 캐시 없음): ${e.toString()}',
+            metadata: '{"error": "${e.toString()}"}',
+          );
+        }
+
+        setState(() {
+          _errorMessage = '서버 연결 실패: ${e.toString().replaceFirst('Exception: ', '')}';
+          _isLoading = false;
+        });
+      }
     }
   }
 
