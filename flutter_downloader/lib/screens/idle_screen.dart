@@ -127,6 +127,12 @@ class _IdleScreenState extends State<IdleScreen> {
             _detectionStatus = detected ? 'Person detected!' : 'Monitoring...';
           });
           print('[IDLE SCREEN] Person detection: $detected');
+
+          // Trigger kiosk activation when person is detected
+          if (detected && widget.onUserPresence != null) {
+            print('[IDLE SCREEN] Triggering kiosk activation due to person detection');
+            widget.onUserPresence!();
+          }
         }
       });
 
