@@ -80,8 +80,12 @@ class PersonDetectionService {
           throw Exception('No cameras available on Windows');
         }
 
-        // Open first camera (index 0)
+        print('[PERSON DETECTION] Available Windows cameras: $devices');
+
+        // Open first camera (index 0) - usually the built-in front camera on laptops
+        // If wrong camera is selected, change the index (0, 1, 2, etc.)
         await _liteCamera!.open(0);
+        print('[PERSON DETECTION] Opened Windows camera index: 0');
 
       } else if (Platform.isAndroid) {
         // Android: Initialize camera package
@@ -90,10 +94,21 @@ class PersonDetectionService {
           throw Exception('No cameras available');
         }
 
-        final camera = cameras.first;
+        // Find front camera (for kiosk use - facing the user)
+        CameraDescription? frontCamera;
+        try {
+          frontCamera = cameras.firstWhere(
+            (camera) => camera.lensDirection == CameraLensDirection.front,
+          );
+          print('[PERSON DETECTION] Using front camera: ${frontCamera.name}');
+        } catch (e) {
+          // If no front camera found, use first available camera
+          frontCamera = cameras.first;
+          print('[PERSON DETECTION] No front camera found, using: ${frontCamera.name}');
+        }
 
         _cameraController = CameraController(
-          camera,
+          frontCamera,
           ResolutionPreset.low,
           enableAudio: false,
           imageFormatGroup: ImageFormatGroup.yuv420,
