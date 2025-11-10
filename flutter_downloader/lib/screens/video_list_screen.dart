@@ -784,7 +784,6 @@ class _VideoListScreenState extends State<VideoListScreen> {
           // Check if it's a media file
           if (_isMediaFile(extension)) {
             final mediaType = _getMediaType(extension);
-            final contentType = _getContentType(extension);
 
             print('[SCAN] Found ${mediaType} file: $fileName');
 
@@ -795,7 +794,9 @@ class _VideoListScreenState extends State<VideoListScreen> {
               title: fileName.replaceAll('_', ' ').replaceAll('.${extension}', ''),
               description: 'Offline file',
               mediaType: mediaType,
-              contentType: contentType,
+              videoType: 'UPLOAD', // Mark as UPLOAD type for local files
+              createdAt: DateTime.now(),
+              updatedAt: DateTime.now(),
               downloadStatus: 'completed',
               localPath: entity.path,
               menuId: menuId,
@@ -835,39 +836,6 @@ class _VideoListScreenState extends State<VideoListScreen> {
     if (audioExtensions.contains(extension)) return 'AUDIO';
     if (documentExtensions.contains(extension)) return 'DOCUMENT';
     return 'VIDEO'; // Default
-  }
-
-  /// Get content type from extension
-  String _getContentType(String extension) {
-    const Map<String, String> contentTypes = {
-      'mp4': 'video/mp4',
-      'avi': 'video/x-msvideo',
-      'mkv': 'video/x-matroska',
-      'mov': 'video/quicktime',
-      'wmv': 'video/x-ms-wmv',
-      'flv': 'video/x-flv',
-      'webm': 'video/webm',
-      'm4v': 'video/x-m4v',
-      'jpg': 'image/jpeg',
-      'jpeg': 'image/jpeg',
-      'png': 'image/png',
-      'gif': 'image/gif',
-      'bmp': 'image/bmp',
-      'webp': 'image/webp',
-      'svg': 'image/svg+xml',
-      'mp3': 'audio/mpeg',
-      'wav': 'audio/wav',
-      'aac': 'audio/aac',
-      'flac': 'audio/flac',
-      'm4a': 'audio/mp4',
-      'ogg': 'audio/ogg',
-      'wma': 'audio/x-ms-wma',
-      'xml': 'application/xml',
-      'json': 'application/json',
-      'txt': 'text/plain',
-    };
-
-    return contentTypes[extension] ?? 'application/octet-stream';
   }
 
   Future<void> _checkLocalFiles(List<Video> videos, dynamic config) async {
