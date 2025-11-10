@@ -2,9 +2,11 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:camera/camera.dart';
 import 'dart:async';
 import '../models/video.dart';
 import '../services/download_service.dart';
+import '../services/person_detection_service.dart';
 import '../widgets/video_player_widget.dart';
 
 /// Idle screen that shows fullscreen advertisement videos
@@ -35,6 +37,9 @@ class _IdleScreenState extends State<IdleScreen> {
   bool _ignoreInitialTouch = true;
 
   bool _isDisposed = false; // Track if widget is disposed
+
+  // Access to shared PersonDetectionService (managed by AutoKioskScreen)
+  final PersonDetectionService _personDetection = PersonDetectionService();
 
   // Focus node for keyboard events
   late FocusNode _focusNode;
@@ -153,34 +158,72 @@ class _IdleScreenState extends State<IdleScreen> {
             color: Colors.grey.shade900,
             child: Stack(
               children: [
-                // Simple idle message
-                Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.touch_app,
-                        color: Colors.white70,
-                        size: 80,
-                      ),
-                      const SizedBox(height: 40),
-                      Text(
-                        '대기 중...',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 32,
-                          fontWeight: FontWeight.bold,
+                // Camera preview (Android only) - use camera from PersonDetectionService
+                if (Platform.isAndroid && _personDetection.isInitialized && _personDetection.cameraController != null) ...[
+                  Center(
+                    child: AspectRatio(
+                      aspectRatio: _personDetection.cameraController!.value.aspectRatio,
+                      child: CameraPreview(_personDetection.cameraController!),
+                    ),
+                  ),
+                ]
+                // Simple idle message for Windows or when camera not ready
+                else ...[
+                  Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.camera_alt,
+                          color: Colors.white70,
+                          size: 80,
                         ),
+                        const SizedBox(height: 40),
+                        Text(
+                          '카메라 준비 중...',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 32,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        Text(
+                          '화면을 터치하여 시작하세요',
+                          style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: 18,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+
+                // Hint overlay
+                Positioned(
+                  bottom: 40,
+                  left: 0,
+                  right: 0,
+                  child: Center(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 32,
+                        vertical: 16,
                       ),
-                      const SizedBox(height: 20),
-                      Text(
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.7),
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                      child: const Text(
                         '화면을 터치하거나 카메라 앞에 서 주세요',
                         style: TextStyle(
-                          color: Colors.white70,
-                          fontSize: 18,
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
-                    ],
+                    ),
                   ),
                 ),
               ],
