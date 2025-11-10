@@ -40,7 +40,7 @@ class PersonDetectionService {
   // Configuration
   static const Duration _detectionTimeout = Duration(seconds: 3);
   static const Duration _detectionInterval = Duration(milliseconds: 500);
-  static const double _confidenceThreshold = 0.5;
+  static const double _confidenceThreshold = 0.8; // 80% confidence threshold
   static const int _personClassIndex = 1; // "person" class in COCO dataset
 
   Timer? _timeoutTimer;
