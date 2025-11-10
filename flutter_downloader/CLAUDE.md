@@ -503,8 +503,11 @@ await _liteCamera!.open(0);  // Open first camera
 
 // Start detection with Timer (polling approach)
 _captureTimer = Timer.periodic(Duration(milliseconds: 500), (_) async {
-  final rgb888Data = await _liteCamera!.captureFrame();
-  if (rgb888Data != null) {
+  final frame = await _liteCamera!.captureFrame();  // Returns Map<String, dynamic>
+  if (frame != null && frame.containsKey('data')) {
+    final rgb888Data = frame['data'] as Uint8List;  // Extract RGB888 data
+    final width = frame['width'] as int;             // 640
+    final height = frame['height'] as int;           // 480
     _processRGB888Async(rgb888Data);
   }
 });
@@ -514,7 +517,12 @@ _captureTimer?.cancel();
 await _liteCamera?.release();
 ```
 
-**Note**: flutter_lite_camera uses **polling** (Timer + captureFrame) not streaming, as the package doesn't provide a continuous stream API.
+**Note**:
+- flutter_lite_camera uses **polling** (Timer + captureFrame) not streaming
+- `captureFrame()` returns `Map<String, dynamic>` with keys:
+  - `'data'`: `Uint8List` - RGB888 buffer (3 bytes per pixel)
+  - `'width'`: `int` - Frame width (640)
+  - `'height'`: `int` - Frame height (480)
 
 *Android (camera package):*
 ```dart
