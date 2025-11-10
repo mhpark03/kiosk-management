@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:camera/camera.dart';
 import 'dart:async';
 import '../models/video.dart';
@@ -43,16 +44,25 @@ class _IdleScreenState extends State<IdleScreen> {
   bool _isDisposed = false; // Track if widget is disposed
   bool _isPersonDetectionInitialized = false; // Track initialization state
 
+  // Focus node for keyboard events
+  late FocusNode _focusNode;
+
   @override
   void initState() {
     super.initState();
     print('[IDLE SCREEN] ========== INIT STATE ==========');
+
+    // Initialize focus node
+    _focusNode = FocusNode();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       // Check if still mounted (widget might be disposed before callback executes)
       if (!mounted || _isDisposed) {
         print('[IDLE SCREEN] Widget disposed before postFrameCallback, skipping initialization');
         return;
       }
+
+      // Request focus for keyboard events
+      _focusNode.requestFocus();
 
       // Skip video initialization - only camera detection in idle mode
       // _initializeVideo();
@@ -198,6 +208,8 @@ class _IdleScreenState extends State<IdleScreen> {
     _personDetectionSubscription?.cancel();
     print('[IDLE SCREEN] Disposing person detection service...');
     _personDetection.dispose();
+    print('[IDLE SCREEN] Disposing focus node...');
+    _focusNode.dispose();
     print('[IDLE SCREEN] IdleScreen disposed');
     print('[IDLE SCREEN] ========== DISPOSE END ==========');
     super.dispose();
@@ -216,12 +228,25 @@ class _IdleScreenState extends State<IdleScreen> {
   @override
   Widget build(BuildContext context) {
     print('[IDLE SCREEN] build() called - _isPersonDetectionInitialized: $_isPersonDetectionInitialized, Platform: ${Platform.operatingSystem}');
-    return GestureDetector(
-      onTap: _handleUserInteraction,
-      onPanUpdate: (_) => _handleUserInteraction(),
-      child: MouseRegion(
-        onHover: (_) => _handleUserInteraction(),
-        child: Scaffold(
+    return Focus(
+      focusNode: _focusNode,
+      autofocus: true,
+      onKeyEvent: (node, event) {
+        if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.escape) {
+          print('[IDLE SCREEN] ESC key pressed, exiting app...');
+          if (Platform.isWindows || Platform.isAndroid) {
+            SystemNavigator.pop(); // Exit app
+          }
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: GestureDetector(
+        onTap: _handleUserInteraction,
+        onPanUpdate: (_) => _handleUserInteraction(),
+        child: MouseRegion(
+          onHover: (_) => _handleUserInteraction(),
+          child: Scaffold(
           backgroundColor: Colors.black,
           body: Container(
             color: Colors.grey.shade900,
@@ -401,6 +426,7 @@ class _IdleScreenState extends State<IdleScreen> {
           ),
         ),
       ),
+    ),
     );
   }
 }

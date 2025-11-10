@@ -368,18 +368,23 @@ class PersonDetectionService {
   }
 
   /// Run ONNX inference (common for both platforms)
-  Future<bool> _runONNXInference(List<double> inputTensor) async {
+  Future<bool> _runONNXInference(List<int> inputTensor) async {
+    OrtValueTensor? inputOrt;
+    OrtRunOptions? runOptions;
+    List<OrtValue?>? outputs;
+
     try {
-      // Create ONNX value from tensor
-      final inputOrt = OrtValueTensor.createTensorWithDataList(
+      // Create ONNX value from tensor with uint8 data type
+      inputOrt = OrtValueTensor.createTensorWithDataList(
         inputTensor,
         [1, 3, 1200, 1200], // NCHW format for ONNX
+        OrtTensorType.ortTensorTypeUInt8, // Specify uint8 type
       );
 
       // Run inference
       final inputs = {'inputs': inputOrt};  // Changed from 'image' to 'inputs' to match model input name
-      final runOptions = OrtRunOptions();
-      final outputs = _ortSession!.run(runOptions, inputs);
+      runOptions = OrtRunOptions();
+      outputs = _ortSession!.run(runOptions, inputs);
 
       // Parse outputs
       // Output 0: bboxes [1, N, 4]
@@ -415,34 +420,51 @@ class PersonDetectionService {
       }
 
       // Release outputs
-      for (var output in outputs) {
-        output?.release();
+      if (outputs != null) {
+        for (var output in outputs) {
+          output?.release();
+        }
       }
-      inputOrt.release();
-      runOptions.release();
+      inputOrt?.release();
+      runOptions?.release();
 
       return personDetected;
-    } catch (e) {
+    } catch (e, stackTrace) {
       print('[PERSON DETECTION] Error in ONNX inference: $e');
+      print('[PERSON DETECTION] Stack trace: $stackTrace');
+
+      // Clean up resources in case of error
+      try {
+        if (outputs != null) {
+          for (var output in outputs) {
+            output?.release();
+          }
+        }
+        inputOrt?.release();
+        runOptions?.release();
+      } catch (cleanupError) {
+        print('[PERSON DETECTION] Error cleaning up resources: $cleanupError');
+      }
+
       return false;
     }
   }
 
   /// Convert img.Image to ONNX tensor format (common for both platforms)
-  List<double> _convertImageToONNXTensor(img.Image image) {
+  List<int> _convertImageToONNXTensor(img.Image image) {
     const int inputSize = 1200;
 
     // Resize to 1200x1200
     final resizedImage = img.copyResize(image, width: inputSize, height: inputSize);
 
-    // Convert to NCHW format [1, 3, 1200, 1200] and normalize to [0, 1]
-    final tensorData = <double>[];
+    // Convert to NCHW format [1, 3, 1200, 1200] as uint8 (0-255)
+    final tensorData = <int>[];
 
     // Channel R
     for (int y = 0; y < inputSize; y++) {
       for (int x = 0; x < inputSize; x++) {
         final pixel = resizedImage.getPixel(x, y);
-        tensorData.add(pixel.r / 255.0);
+        tensorData.add(pixel.r.toInt());
       }
     }
 
@@ -450,7 +472,7 @@ class PersonDetectionService {
     for (int y = 0; y < inputSize; y++) {
       for (int x = 0; x < inputSize; x++) {
         final pixel = resizedImage.getPixel(x, y);
-        tensorData.add(pixel.g / 255.0);
+        tensorData.add(pixel.g.toInt());
       }
     }
 
@@ -458,7 +480,7 @@ class PersonDetectionService {
     for (int y = 0; y < inputSize; y++) {
       for (int x = 0; x < inputSize; x++) {
         final pixel = resizedImage.getPixel(x, y);
-        tensorData.add(pixel.b / 255.0);
+        tensorData.add(pixel.b.toInt());
       }
     }
 
@@ -466,7 +488,7 @@ class PersonDetectionService {
   }
 
   /// Convert CameraImage to ONNX tensor format (Android only)
-  List<double> _convertCameraImageToONNXTensor(CameraImage image) {
+  List<int> _convertCameraImageToONNXTensor(CameraImage image) {
     // Convert camera image to RGB
     final convertedImage = _convertYUV420ToImage(image);
 

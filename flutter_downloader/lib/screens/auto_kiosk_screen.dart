@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:window_manager/window_manager.dart';
 import 'dart:async';
 import '../models/video.dart';
@@ -50,10 +52,16 @@ class _AutoKioskScreenState extends State<AutoKioskScreen> {
   Widget? _cachedIdleScreen;
   Widget? _cachedKioskScreen;
 
+  // Focus node for keyboard events
+  late FocusNode _focusNode;
+
   @override
   void initState() {
     super.initState();
     print('[AUTO KIOSK] ========== INIT STATE START ==========');
+
+    // Initialize focus node
+    _focusNode = FocusNode();
 
     // Separate videos into advertisement and all videos
     // Advertisement videos: menuId is null (not linked to menu items)
@@ -126,6 +134,13 @@ class _AutoKioskScreenState extends State<AutoKioskScreen> {
         _isFullscreenReady = true;
       });
       print('[AUTO KIOSK] Fullscreen active, _isFullscreenReady = $_isFullscreenReady');
+
+      // Request focus after fullscreen is ready
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _focusNode.requestFocus();
+        }
+      });
     } else {
       print('[AUTO KIOSK] Widget not mounted, skipping setState');
     }
@@ -141,6 +156,7 @@ class _AutoKioskScreenState extends State<AutoKioskScreen> {
     print('[AUTO KIOSK] ========== DISPOSE START ==========');
     _presenceSubscription?.cancel();
     _presenceService.dispose();
+    _focusNode.dispose();
     // Ensure fullscreen is cleared (fire-and-forget)
     windowManager.setFullScreen(false);
     print('[AUTO KIOSK] ========== DISPOSE END ==========');
@@ -178,8 +194,22 @@ class _AutoKioskScreenState extends State<AutoKioskScreen> {
     }
 
     print('[AUTO KIOSK] Will render: ${_isKioskMode ? "KioskSplitScreen" : "IdleScreen"}');
-    final widget = Scaffold(
-      body: _isKioskMode ? _buildKioskMode() : _buildIdleMode(),
+    final widget = Focus(
+      focusNode: _focusNode,
+      autofocus: true,
+      onKeyEvent: (node, event) {
+        if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.escape) {
+          print('[AUTO KIOSK] ESC key pressed, exiting app...');
+          if (Platform.isWindows || Platform.isAndroid) {
+            SystemNavigator.pop(); // Exit app
+          }
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: Scaffold(
+        body: _isKioskMode ? _buildKioskMode() : _buildIdleMode(),
+      ),
     );
     print('[AUTO KIOSK] ========== build() END ==========');
     return widget;
