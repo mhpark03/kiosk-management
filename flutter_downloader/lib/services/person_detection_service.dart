@@ -343,7 +343,7 @@ class PersonDetectionService {
       // Convert to ONNX tensor
       final inputTensor = _convertImageToONNXTensor(image);
 
-      return await _runONNXInference(inputTensor);
+      return await _runONNXInference(inputTensor, [1, 3, 1200, 1200]);
     } catch (e) {
       print('[PERSON DETECTION] Error in RGB888 detection: $e');
       return false;
@@ -360,7 +360,7 @@ class PersonDetectionService {
       // Convert camera image to input tensor format
       final inputTensor = _convertCameraImageToONNXTensor(image);
 
-      return await _runONNXInference(inputTensor);
+      return await _runONNXInference(inputTensor, [1, 3, 1200, 1200]);
     } catch (e) {
       print('[PERSON DETECTION] Error in ONNX detection: $e');
       return false;
@@ -368,17 +368,16 @@ class PersonDetectionService {
   }
 
   /// Run ONNX inference (common for both platforms)
-  Future<bool> _runONNXInference(List<int> inputTensor) async {
+  Future<bool> _runONNXInference(Uint8List inputTensor, List<int> shape) async {
     OrtValueTensor? inputOrt;
     OrtRunOptions? runOptions;
     List<OrtValue?>? outputs;
 
     try {
-      // Create ONNX value from tensor with uint8 data type
+      // Create ONNX value from tensor with uint8 data (Uint8List automatically uses uint8 type)
       inputOrt = OrtValueTensor.createTensorWithDataList(
         inputTensor,
-        [1, 3, 1200, 1200], // NCHW format for ONNX
-        OrtTensorType.ortTensorTypeUInt8, // Specify uint8 type
+        shape, // NCHW format for ONNX
       );
 
       // Run inference
@@ -451,20 +450,21 @@ class PersonDetectionService {
   }
 
   /// Convert img.Image to ONNX tensor format (common for both platforms)
-  List<int> _convertImageToONNXTensor(img.Image image) {
+  Uint8List _convertImageToONNXTensor(img.Image image) {
     const int inputSize = 1200;
 
     // Resize to 1200x1200
     final resizedImage = img.copyResize(image, width: inputSize, height: inputSize);
 
     // Convert to NCHW format [1, 3, 1200, 1200] as uint8 (0-255)
-    final tensorData = <int>[];
+    final tensorData = Uint8List(1 * 3 * inputSize * inputSize);
+    int index = 0;
 
     // Channel R
     for (int y = 0; y < inputSize; y++) {
       for (int x = 0; x < inputSize; x++) {
         final pixel = resizedImage.getPixel(x, y);
-        tensorData.add(pixel.r.toInt());
+        tensorData[index++] = pixel.r.toInt();
       }
     }
 
@@ -472,7 +472,7 @@ class PersonDetectionService {
     for (int y = 0; y < inputSize; y++) {
       for (int x = 0; x < inputSize; x++) {
         final pixel = resizedImage.getPixel(x, y);
-        tensorData.add(pixel.g.toInt());
+        tensorData[index++] = pixel.g.toInt();
       }
     }
 
@@ -480,7 +480,7 @@ class PersonDetectionService {
     for (int y = 0; y < inputSize; y++) {
       for (int x = 0; x < inputSize; x++) {
         final pixel = resizedImage.getPixel(x, y);
-        tensorData.add(pixel.b.toInt());
+        tensorData[index++] = pixel.b.toInt();
       }
     }
 
@@ -488,7 +488,7 @@ class PersonDetectionService {
   }
 
   /// Convert CameraImage to ONNX tensor format (Android only)
-  List<int> _convertCameraImageToONNXTensor(CameraImage image) {
+  Uint8List _convertCameraImageToONNXTensor(CameraImage image) {
     // Convert camera image to RGB
     final convertedImage = _convertYUV420ToImage(image);
 
