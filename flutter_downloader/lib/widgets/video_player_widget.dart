@@ -136,8 +136,13 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
       // Open media first
       await _player!.open(Media(widget.videoPath));
 
-      // IMPORTANT: Set initialized AFTER opening media but BEFORE play
-      // This ensures the video widget is built when media is loaded and ready
+      print('[VIDEO PLAYER WIDGET] Media opened, waiting for next frame...');
+
+      // IMPORTANT: Wait for next frame before setting initialized
+      // This ensures the layout is complete and the Video widget can receive proper constraints
+      await Future.delayed(const Duration(milliseconds: 100));
+
+      // Set initialized after layout is ready
       if (mounted) {
         setState(() {
           _isInitialized = true;
@@ -145,7 +150,7 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
         });
       }
 
-      print('[VIDEO PLAYER WIDGET] Media opened, widget ready to render');
+      print('[VIDEO PLAYER WIDGET] Widget ready to render');
 
       await _player!.play();
 
