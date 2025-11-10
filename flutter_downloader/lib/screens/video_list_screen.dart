@@ -42,6 +42,7 @@ class _VideoListScreenState extends State<VideoListScreen> {
   Timer? _autoLogoutTimer;
   Timer? _tokenRenewalTimer;
   Timer? _statusHeartbeatTimer; // Timer for periodic status reporting
+  Timer? _wsReconnectTimer; // Timer for WebSocket reconnection attempts
   bool _isLoggedIn = false;
   Kiosk? _kiosk; // Store kiosk info for display
   bool _isNavigating = false; // Flag to prevent duplicate navigation
@@ -60,7 +61,8 @@ class _VideoListScreenState extends State<VideoListScreen> {
     _loadVideos();
     _initWebSocket();
     _startAutoLogoutTimer();
-    _startStatusHeartbeat(); // Start periodic status reporting
+    _startStatusHeartbeat(); // Start periodic status reporting (only when online)
+    _startWebSocketReconnect(); // Start periodic WebSocket reconnection attempts
   }
 
   @override
@@ -69,6 +71,7 @@ class _VideoListScreenState extends State<VideoListScreen> {
     _autoLogoutTimer?.cancel();
     _tokenRenewalTimer?.cancel();
     _statusHeartbeatTimer?.cancel();
+    _wsReconnectTimer?.cancel();
     super.dispose();
   }
 
@@ -220,26 +223,39 @@ class _VideoListScreenState extends State<VideoListScreen> {
   }
 
   // Start periodic status heartbeat (every 2 minutes)
-  // This allows admin to monitor kiosk health even when tokens are expired
+  // This allows admin to monitor kiosk health - only when WebSocket is connected
   void _startStatusHeartbeat() {
     _statusHeartbeatTimer?.cancel();
 
-    // Send heartbeat immediately
-    _reportKioskStatus();
+    // Send heartbeat immediately if connected
+    if (_wsConnected) {
+      _reportKioskStatus();
+    }
 
     // Then every 2 minutes
     _statusHeartbeatTimer = Timer.periodic(const Duration(minutes: 2), (timer) {
-      _reportKioskStatus();
+      // Only send heartbeat if WebSocket is connected (online)
+      if (_wsConnected) {
+        _reportKioskStatus();
+      } else {
+        print('[HEARTBEAT] Skipping heartbeat (offline mode)');
+      }
     });
 
-    print('[HEARTBEAT] Status reporting started (every 2 minutes)');
+    print('[HEARTBEAT] Status reporting started (every 2 minutes, only when online)');
   }
 
-  // Report kiosk status to server (no auth required)
+  // Report kiosk status to server (requires WebSocket connection)
   Future<void> _reportKioskStatus() async {
     final config = widget.storageService.getConfig();
     if (config == null || config.kioskId.isEmpty) {
       print('[HEARTBEAT] No config, skipping status report');
+      return;
+    }
+
+    // Skip if not connected to WebSocket (offline mode)
+    if (!_wsConnected) {
+      print('[HEARTBEAT] Skipping status report (offline mode)');
       return;
     }
 
@@ -270,6 +286,25 @@ class _VideoListScreenState extends State<VideoListScreen> {
       print('[HEARTBEAT] Failed to report status: $e');
       // Don't crash app on heartbeat failure
     }
+  }
+
+  // Start periodic WebSocket reconnection attempts (every 30 seconds)
+  // This ensures kiosk reconnects automatically when server comes back online
+  void _startWebSocketReconnect() {
+    _wsReconnectTimer?.cancel();
+
+    // Try every 30 seconds
+    _wsReconnectTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+      // Only attempt reconnection if currently disconnected
+      if (!_wsConnected) {
+        print('[WS RECONNECT] Attempting WebSocket reconnection...');
+        _initWebSocket();
+      } else {
+        print('[WS RECONNECT] Already connected, skipping reconnection attempt');
+      }
+    });
+
+    print('[WS RECONNECT] WebSocket reconnection started (every 30 seconds)');
   }
 
   Future<void> _initWebSocket() async {
