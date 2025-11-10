@@ -77,9 +77,11 @@ class _AutoKioskScreenState extends State<AutoKioskScreen> {
     // Listen to presence changes
     _presenceSubscription = _presenceService.presenceStream.listen((isPresent) {
       print('[AUTO KIOSK] Presence changed: $isPresent');
+      print('[AUTO KIOSK] Current _isKioskMode: $_isKioskMode, changing to: $isPresent');
       setState(() {
         _isKioskMode = isPresent;
       });
+      print('[AUTO KIOSK] setState completed, _isKioskMode is now: $_isKioskMode');
     });
 
     // Start detection
@@ -116,6 +118,7 @@ class _AutoKioskScreenState extends State<AutoKioskScreen> {
 
   @override
   Widget build(BuildContext context) {
+    print('[AUTO KIOSK] build() called with _isKioskMode: $_isKioskMode');
     return Scaffold(
       body: AnimatedSwitcher(
         duration: const Duration(milliseconds: 500),
@@ -127,6 +130,7 @@ class _AutoKioskScreenState extends State<AutoKioskScreen> {
   }
 
   Widget _buildIdleMode() {
+    print('[AUTO KIOSK] _buildIdleMode() called');
     return IdleScreen(
       key: const ValueKey('idle'),
       videos: _advertisementVideos, // Only advertisement videos (menuId == null)
@@ -135,6 +139,7 @@ class _AutoKioskScreenState extends State<AutoKioskScreen> {
   }
 
   Widget _buildKioskMode() {
+    print('[AUTO KIOSK] _buildKioskMode() called');
     return GestureDetector(
       key: const ValueKey('kiosk'),
       onTap: _handleUserPresence,
