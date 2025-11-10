@@ -299,6 +299,11 @@ class _KioskSplitScreenState extends State<KioskSplitScreen> {
     final orientation = MediaQuery.of(context).orientation;
     final isPortrait = orientation == Orientation.portrait;
 
+    print('[KIOSK SPLIT] ========== build() ==========');
+    print('[KIOSK SPLIT] Orientation: $orientation');
+    print('[KIOSK SPLIT] isPortrait: $isPortrait');
+    print('[KIOSK SPLIT] Will use: ${isPortrait ? "Portrait" : "Landscape"} layout');
+
     return Focus(
       focusNode: _focusNode,
       autofocus: true,
@@ -407,7 +412,10 @@ class _KioskSplitScreenState extends State<KioskSplitScreen> {
 
   // Build video player widget
   Widget _buildVideoPlayer() {
+    print('[KIOSK SPLIT] _buildVideoPlayer() called - _currentVideoPath: $_currentVideoPath, _hasError: $_hasError');
+
     if (_hasError) {
+      print('[KIOSK SPLIT] Showing error screen');
       return Container(
         color: Colors.black,
         child: Center(
@@ -464,6 +472,7 @@ class _KioskSplitScreenState extends State<KioskSplitScreen> {
     }
 
     if (_currentVideoPath == null) {
+      print('[KIOSK SPLIT] Video path is null, showing loading screen');
       return Container(
         color: Colors.black,
         child: const Center(
@@ -472,6 +481,7 @@ class _KioskSplitScreenState extends State<KioskSplitScreen> {
       );
     }
 
+    print('[KIOSK SPLIT] Rendering VideoPlayerWidget with path: $_currentVideoPath');
     return VideoPlayerWidget(
       key: ValueKey(_videoPlayerKeyCounter),
       videoPath: _currentVideoPath!,
