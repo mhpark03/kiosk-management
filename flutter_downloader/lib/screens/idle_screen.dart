@@ -45,7 +45,8 @@ class _IdleScreenState extends State<IdleScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _initializeVideo();
+      // Skip video initialization - only camera detection in idle mode
+      // _initializeVideo();
       _initializePersonDetection();
 
       // Enable touch detection after short delay
@@ -183,275 +184,169 @@ class _IdleScreenState extends State<IdleScreen> {
         onHover: (_) => _handleUserInteraction(),
         child: Scaffold(
           backgroundColor: Colors.black,
-          body: Row(
-            children: [
-              // Left side: Video player
-              Expanded(
-                flex: 1,
-                child: Container(
-                  color: Colors.black,
-                  child: Stack(
-                    children: [
-                      // Video content
-                      if (_hasError)
-                        Positioned.fill(
-                          child: Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Icon(
-                                  Icons.error_outline,
-                                  color: Colors.red,
-                                  size: 64,
-                                ),
-                                const SizedBox(height: 24),
-                                const Text(
-                                  '동영상을 재생할 수 없습니다',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                const SizedBox(height: 16),
-                                Text(
-                                  _errorMessage ?? '',
-                                  style: const TextStyle(
-                                    color: Colors.white70,
-                                    fontSize: 14,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ],
-                            ),
-                          ),
-                        )
-                      else if (_currentVideoPath != null)
-                        Positioned.fill(
-                          child: VideoPlayerWidget(
-                            key: ValueKey(_videoPlayerKeyCounter),
-                            videoPath: _currentVideoPath!,
-                            onCompleted: _playNextVideo,
-                            onError: () {
-                              setState(() {
-                                _hasError = true;
-                                _errorMessage = '동영상 재생 중 오류가 발생했습니다';
-                              });
-                            },
-                          ),
-                        )
-                      else
-                        const Positioned.fill(
-                          child: Center(
-                            child: CircularProgressIndicator(
-                              color: Colors.white,
-                            ),
+          body: Container(
+            color: Colors.grey.shade900,
+            child: Stack(
+              children: [
+                // Camera preview (Android only)
+                if (Platform.isAndroid && _personDetection.isInitialized && _personDetection.cameraController != null)
+                  Center(
+                    child: AspectRatio(
+                      aspectRatio: 4 / 3,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          border: Border.all(
+                            color: _personDetected ? Colors.greenAccent : Colors.blueAccent,
+                            width: 3,
                           ),
                         ),
+                        child: CameraPreview(_personDetection.cameraController!),
+                      ),
+                    ),
+                  )
+                // Detection status (Windows or initializing)
+                else if (Platform.isWindows && _personDetection.isInitialized)
+                  Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          _personDetected ? Icons.person : Icons.person_search,
+                          color: _personDetected ? Colors.greenAccent : Colors.blueAccent,
+                          size: 120,
+                        ),
+                        const SizedBox(height: 40),
+                        Text(
+                          _personDetected ? 'Person Detected' : 'Monitoring...',
+                          style: TextStyle(
+                            color: _personDetected ? Colors.greenAccent : Colors.white,
+                            fontSize: 32,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        Text(
+                          'Camera active',
+                          style: TextStyle(
+                            color: Colors.grey.shade400,
+                            fontSize: 18,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                else
+                  Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const CircularProgressIndicator(
+                          color: Colors.white,
+                        ),
+                        const SizedBox(height: 20),
+                        Text(
+                          _detectionStatus,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
 
-                      // Hint overlay
-                      Positioned(
-                        bottom: 40,
-                        left: 0,
-                        right: 0,
-                        child: Center(
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 32,
-                              vertical: 16,
+                // Detection status overlay
+                Positioned(
+                  top: 20,
+                  left: 20,
+                  right: 20,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 12,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _personDetected
+                          ? Colors.green.withOpacity(0.8)
+                          : Colors.blue.withOpacity(0.8),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: _personDetected ? Colors.greenAccent : Colors.blueAccent,
+                        width: 2,
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              _personDetected ? Icons.person : Icons.person_outline,
+                              color: Colors.white,
+                              size: 20,
                             ),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withOpacity(0.5),
-                              borderRadius: BorderRadius.circular(30),
-                            ),
-                            child: const Text(
-                              '화면을 터치하여 주문하세요',
+                            const SizedBox(width: 8),
+                            const Text(
+                              'Person Detection',
                               style: TextStyle(
                                 color: Colors.white,
-                                fontSize: 24,
-                                fontWeight: FontWeight.w500,
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          _detectionStatus,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
                           ),
                         ),
-                      ),
-
-                      // Video label
-                      Positioned(
-                        top: 20,
-                        left: 20,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 12,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.blue.withOpacity(0.8),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Text(
-                            '영상 재생',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
+                        if (_personDetection.isInitialized)
+                          Text(
+                            'Mode: ${_personDetection.detectionMode}',
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 10,
                             ),
                           ),
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-              ),
 
-              // Divider
-              Container(
-                width: 2,
-                color: Colors.white.withOpacity(0.3),
-              ),
-
-              // Right side: Camera preview (Android) or Detection status (Windows)
-              Expanded(
-                flex: 1,
-                child: Container(
-                  color: Colors.grey.shade900,
-                  child: Stack(
-                    children: [
-                      // Camera preview (Android only)
-                      if (Platform.isAndroid && _personDetection.isInitialized && _personDetection.cameraController != null)
-                        Center(
-                          child: AspectRatio(
-                            aspectRatio: 4 / 3,
-                            child: Container(
-                              decoration: BoxDecoration(
-                                border: Border.all(
-                                  color: _personDetected ? Colors.greenAccent : Colors.blueAccent,
-                                  width: 3,
-                                ),
-                              ),
-                              child: CameraPreview(_personDetection.cameraController!),
-                            ),
-                          ),
-                        )
-                      // Detection status (Windows or initializing)
-                      else if (Platform.isWindows && _personDetection.isInitialized)
-                        Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                _personDetected ? Icons.person : Icons.person_search,
-                                color: _personDetected ? Colors.greenAccent : Colors.blueAccent,
-                                size: 120,
-                              ),
-                              const SizedBox(height: 40),
-                              Text(
-                                _personDetected ? 'Person Detected' : 'Monitoring...',
-                                style: TextStyle(
-                                  color: _personDetected ? Colors.greenAccent : Colors.white,
-                                  fontSize: 32,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(height: 20),
-                              Text(
-                                'Camera active',
-                                style: TextStyle(
-                                  color: Colors.grey.shade400,
-                                  fontSize: 18,
-                                ),
-                              ),
-                            ],
-                          ),
-                        )
-                      else
-                        Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const CircularProgressIndicator(
-                                color: Colors.white,
-                              ),
-                              const SizedBox(height: 20),
-                              Text(
-                                _detectionStatus,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 16,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-
-                      // Detection status overlay
-                      Positioned(
-                        top: 20,
-                        left: 20,
-                        right: 20,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 12,
-                          ),
-                          decoration: BoxDecoration(
-                            color: _personDetected
-                                ? Colors.green.withOpacity(0.8)
-                                : Colors.blue.withOpacity(0.8),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: _personDetected ? Colors.greenAccent : Colors.blueAccent,
-                              width: 2,
-                            ),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    _personDetected ? Icons.person : Icons.person_outline,
-                                    color: Colors.white,
-                                    size: 20,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  const Text(
-                                    'Person Detection',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                _detectionStatus,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                ),
-                              ),
-                              if (_personDetection.isInitialized)
-                                Text(
-                                  'Mode: ${_personDetection.detectionMode}',
-                                  style: const TextStyle(
-                                    color: Colors.white70,
-                                    fontSize: 10,
-                                  ),
-                                ),
-                            ],
-                          ),
+                // Hint overlay
+                Positioned(
+                  bottom: 40,
+                  left: 0,
+                  right: 0,
+                  child: Center(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 32,
+                        vertical: 16,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.5),
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                      child: const Text(
+                        '화면을 터치하여 주문하세요',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 24,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
-                    ],
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

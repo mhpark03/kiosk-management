@@ -335,7 +335,7 @@ class PersonDetectionService {
       );
 
       // Run inference
-      final inputs = {'image': inputOrt};
+      final inputs = {'inputs': inputOrt};  // Changed from 'image' to 'inputs' to match model input name
       final runOptions = OrtRunOptions();
       final outputs = _ortSession!.run(runOptions, inputs);
 
