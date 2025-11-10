@@ -2108,15 +2108,18 @@ class _VideoListScreenState extends State<VideoListScreen> {
 
                 print('[VIDEO LIST] Using detection mode: $detectionMode for platform: $defaultTargetPlatform');
 
+                // Use PageRouteBuilder for instant transition without animation
                 await Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => AutoKioskScreen(
+                  PageRouteBuilder(
+                    pageBuilder: (context, animation, secondaryAnimation) => AutoKioskScreen(
                       videos: availableVideos,
                       downloadPath: config?.downloadPath,
                       kioskId: config?.kioskId,
                       menuFilename: _kiosk?.menuFilename,
                       detectionMode: detectionMode,
                     ),
+                    transitionDuration: Duration.zero, // Instant transition
+                    reverseTransitionDuration: Duration.zero,
                   ),
                 );
               }
