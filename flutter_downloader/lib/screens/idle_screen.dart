@@ -2,8 +2,11 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart' as media_kit_video;
+import 'package:camera/camera.dart';
+import 'dart:async';
 import '../models/video.dart';
 import '../services/download_service.dart';
+import '../services/person_detection_service.dart';
 
 /// Idle screen that shows fullscreen advertisement videos
 /// Displayed when no user is present at the kiosk
@@ -30,12 +33,70 @@ class _IdleScreenState extends State<IdleScreen> {
   int _currentVideoIndex = 0;
   final DownloadService _downloadService = DownloadService();
 
+  // Grace period to ignore initial touches (prevent button click from activating kiosk)
+  bool _ignoreInitialTouch = true;
+
+  // Person detection
+  final PersonDetectionService _personDetection = PersonDetectionService();
+  StreamSubscription<bool>? _personDetectionSubscription;
+  bool _personDetected = false;
+  String _detectionStatus = 'Initializing...';
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializeVideo();
+      _initializePersonDetection();
+
+      // Enable touch detection after short delay
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted) {
+          setState(() {
+            _ignoreInitialTouch = false;
+          });
+          print('[IDLE SCREEN] Touch detection enabled');
+        }
+      });
     });
+  }
+
+  Future<void> _initializePersonDetection() async {
+    try {
+      setState(() {
+        _detectionStatus = 'Initializing camera...';
+      });
+
+      await _personDetection.initialize();
+
+      setState(() {
+        _detectionStatus = 'Starting detection...';
+      });
+
+      await _personDetection.startDetection();
+
+      // Subscribe to person detection stream
+      _personDetectionSubscription = _personDetection.personDetectedStream.listen((detected) {
+        if (mounted) {
+          setState(() {
+            _personDetected = detected;
+            _detectionStatus = detected ? 'Person detected!' : 'Monitoring...';
+          });
+          print('[IDLE SCREEN] Person detection: $detected');
+        }
+      });
+
+      setState(() {
+        _detectionStatus = 'Monitoring...';
+      });
+
+      print('[IDLE SCREEN] Person detection initialized');
+    } catch (e) {
+      print('[IDLE SCREEN] Error initializing person detection: $e');
+      setState(() {
+        _detectionStatus = 'Error: $e';
+      });
+    }
   }
 
   Future<void> _initializeVideo() async {
@@ -102,10 +163,17 @@ class _IdleScreenState extends State<IdleScreen> {
   @override
   void dispose() {
     _player?.dispose();
+    _personDetectionSubscription?.cancel();
+    _personDetection.dispose();
     super.dispose();
   }
 
   void _handleUserInteraction() {
+    // Ignore initial touches to prevent button click from activating kiosk
+    if (_ignoreInitialTouch) {
+      print('[IDLE SCREEN] Ignoring initial user interaction (grace period)');
+      return;
+    }
     print('[IDLE SCREEN] User interaction detected');
     widget.onUserPresence?.call();
   }
@@ -200,6 +268,98 @@ class _IdleScreenState extends State<IdleScreen> {
                   ),
                 ),
               ),
+
+              // Detection status overlay (top left)
+              Positioned(
+                top: 20,
+                left: 20,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: _personDetected
+                        ? Colors.green.withOpacity(0.8)
+                        : Colors.blue.withOpacity(0.8),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: _personDetected ? Colors.greenAccent : Colors.blueAccent,
+                      width: 2,
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            _personDetected ? Icons.person : Icons.person_outline,
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Person Detection',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        _detectionStatus,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                        ),
+                      ),
+                      if (_personDetection.isInitialized)
+                        Text(
+                          'Mode: ${_personDetection.detectionMode}',
+                          style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: 10,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+
+              // Camera preview overlay (bottom right)
+              if (_personDetection.isInitialized && _personDetection.cameraController != null)
+                Positioned(
+                  bottom: 20,
+                  right: 20,
+                  child: Container(
+                    width: 320,
+                    height: 240,
+                    decoration: BoxDecoration(
+                      border: Border.all(
+                        color: _personDetected ? Colors.greenAccent : Colors.blueAccent,
+                        width: 3,
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.5),
+                          blurRadius: 10,
+                          spreadRadius: 2,
+                        ),
+                      ],
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: CameraPreview(_personDetection.cameraController!),
+                    ),
+                  ),
+                ),
             ],
           ),
         ),
