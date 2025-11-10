@@ -298,7 +298,7 @@ class _VideoListScreenState extends State<VideoListScreen> {
       // Only attempt reconnection if currently disconnected
       if (!_wsConnected) {
         print('[WS RECONNECT] Attempting WebSocket reconnection...');
-        _initWebSocket();
+        _initWebSocket(isAutoReconnect: true);
       } else {
         print('[WS RECONNECT] Already connected, skipping reconnection attempt');
       }
@@ -307,7 +307,7 @@ class _VideoListScreenState extends State<VideoListScreen> {
     print('[WS RECONNECT] WebSocket reconnection started (every 30 seconds)');
   }
 
-  Future<void> _initWebSocket() async {
+  Future<void> _initWebSocket({bool isAutoReconnect = false}) async {
     final config = widget.storageService.getConfig();
 
     // 설정이 없거나 유효하지 않으면 WebSocket 연결 안 함
@@ -397,10 +397,13 @@ class _VideoListScreenState extends State<VideoListScreen> {
         if (hasLocalFiles) {
           // Operating in offline mode with local files - no need to show login popup
           print('WebSocket: 오프라인 모드로 동작 중 (로컬 파일 사용)');
-        } else {
-          // No local files - show login required notification
+        } else if (!isAutoReconnect) {
+          // No local files and not auto-reconnect - show login required notification
           print('WebSocket: 로그인이 필요하여 연결할 수 없습니다');
           _showLoginRequiredForWebSocket();
+        } else {
+          // Auto-reconnect attempt failed silently - no popup
+          print('[WS RECONNECT] Reconnection failed (no login), will retry in 30 seconds');
         }
       } else {
         print('WebSocket: 앱은 WebSocket 없이 계속 동작합니다 (수동 새로고침 사용 가능)');
