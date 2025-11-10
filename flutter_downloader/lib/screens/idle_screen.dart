@@ -48,6 +48,9 @@ class _IdleScreenState extends State<IdleScreen> {
   bool _isDisposed = false; // Track if widget is disposed
   bool _isPersonDetectionInitialized = false; // Track initialization state
 
+  // UI update timer for real-time confidence display
+  Timer? _uiUpdateTimer;
+
   // Focus node for keyboard events
   late FocusNode _focusNode;
 
@@ -144,6 +147,15 @@ class _IdleScreenState extends State<IdleScreen> {
           _detectionStatus = 'Monitoring...';
         });
       }
+
+      // Start UI update timer for real-time confidence display (update every 200ms)
+      _uiUpdateTimer = Timer.periodic(const Duration(milliseconds: 200), (_) {
+        if (mounted && !_isDisposed && _personDetection.isDetecting) {
+          setState(() {
+            // Trigger rebuild to update confidence display
+          });
+        }
+      });
     } catch (e) {
       print('[IDLE SCREEN] Error initializing person detection: $e');
       if (mounted && !_isDisposed) {
@@ -209,6 +221,7 @@ class _IdleScreenState extends State<IdleScreen> {
     _personDetection.dispose();
     _focusNode.dispose();
     _detectionGraceTimer?.cancel();
+    _uiUpdateTimer?.cancel();
     super.dispose();
   }
 
@@ -366,14 +379,50 @@ class _IdleScreenState extends State<IdleScreen> {
                             fontSize: 12,
                           ),
                         ),
-                        if (_personDetection.isInitialized)
+                        if (_personDetection.isInitialized) ...[
+                          const SizedBox(height: 8),
+                          // Confidence display
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.show_chart,
+                                color: Colors.white70,
+                                size: 14,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Confidence: ${(_personDetection.latestConfidence * 100).toStringAsFixed(1)}%',
+                                style: TextStyle(
+                                  color: _personDetection.latestConfidence >= 0.7
+                                      ? Colors.greenAccent
+                                      : Colors.white70,
+                                  fontSize: 13,
+                                  fontWeight: _personDetection.latestConfidence >= 0.7
+                                      ? FontWeight.bold
+                                      : FontWeight.normal,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          // Detection stats
                           Text(
-                            'Mode: ${_personDetection.detectionMode}',
+                            'Detections: ${_personDetection.successfulDetections}/${_personDetection.totalDetections}',
                             style: const TextStyle(
                               color: Colors.white70,
                               fontSize: 10,
                             ),
                           ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Mode: ${_personDetection.detectionMode}',
+                            style: const TextStyle(
+                              color: Colors.white60,
+                              fontSize: 9,
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),

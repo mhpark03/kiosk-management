@@ -32,6 +32,9 @@ class PersonDetectionService {
 
   bool _personPresent = false;
   DateTime? _lastDetectionTime;
+  double _latestConfidence = 0.0; // Latest detection confidence (0.0 - 1.0)
+  int _totalDetections = 0; // Total number of detection attempts
+  int _successfulDetections = 0; // Number of successful person detections
 
   // ONNX objects
   OrtSession? _ortSession;
@@ -77,8 +80,12 @@ class PersonDetectionService {
           throw Exception('No cameras available on Windows');
         }
 
-        // Open first camera (index 0)
+        print('[PERSON DETECTION] Available Windows cameras: $devices');
+
+        // Open first camera (index 0) - usually the built-in front camera on laptops
+        // If wrong camera is selected, change the index (0, 1, 2, etc.)
         await _liteCamera!.open(0);
+        print('[PERSON DETECTION] Opened Windows camera index: 0');
 
       } else if (Platform.isAndroid) {
         // Android: Initialize camera package
@@ -87,10 +94,21 @@ class PersonDetectionService {
           throw Exception('No cameras available');
         }
 
-        final camera = cameras.first;
+        // Find front camera (for kiosk use - facing the user)
+        CameraDescription? frontCamera;
+        try {
+          frontCamera = cameras.firstWhere(
+            (camera) => camera.lensDirection == CameraLensDirection.front,
+          );
+          print('[PERSON DETECTION] Using front camera: ${frontCamera.name}');
+        } catch (e) {
+          // If no front camera found, use first available camera
+          frontCamera = cameras.first;
+          print('[PERSON DETECTION] No front camera found, using: ${frontCamera.name}');
+        }
 
         _cameraController = CameraController(
-          camera,
+          frontCamera,
           ResolutionPreset.low,
           enableAudio: false,
           imageFormatGroup: ImageFormatGroup.yuv420,
@@ -375,6 +393,9 @@ class PersonDetectionService {
       // Output 2: scores [1, N]
 
       bool personDetected = false;
+      double maxConfidence = 0.0;
+
+      _totalDetections++; // Increment detection attempts
 
       if (outputs.isNotEmpty && outputs.length >= 3) {
         final labelsValue = outputs[1];
@@ -392,15 +413,24 @@ class PersonDetectionService {
               final scoreValue = score is num ? score.toDouble() : 0.0;
               final labelValue = label is num ? label.toInt() : 0;
 
+              // Track highest confidence for person class
+              if (labelValue == _personClassIndex && scoreValue > maxConfidence) {
+                maxConfidence = scoreValue;
+              }
+
               if (labelValue == _personClassIndex && scoreValue >= _confidenceThreshold) {
                 print('[PERSON DETECTION] Person detected with confidence: ${(scoreValue * 100).toStringAsFixed(1)}%');
                 personDetected = true;
+                _successfulDetections++;
                 break;
               }
             }
           }
         }
       }
+
+      // Update latest confidence (even if below threshold, for debugging)
+      _latestConfidence = maxConfidence;
 
       // Release outputs
       if (outputs != null) {
@@ -541,6 +571,15 @@ class PersonDetectionService {
   /// Check if person is currently present
   bool get personPresent => _personPresent;
 
+  /// Get latest detection confidence (0.0 - 1.0)
+  double get latestConfidence => _latestConfidence;
+
+  /// Get total number of detection attempts
+  int get totalDetections => _totalDetections;
+
+  /// Get number of successful detections
+  int get successfulDetections => _successfulDetections;
+
   /// Get current detection mode
   String get detectionMode => Platform.isWindows ? 'ONNX Runtime (Windows)' : 'ONNX Runtime (Android)';
 
@@ -569,5 +608,8 @@ class PersonDetectionService {
     _cameraWarmedUp = false;
     _latestFrameData = null;
     _latestFramePng = null;
+    _latestConfidence = 0.0;
+    _totalDetections = 0;
+    _successfulDetections = 0;
   }
 }
