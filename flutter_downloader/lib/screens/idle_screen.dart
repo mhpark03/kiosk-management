@@ -1,13 +1,12 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
-import 'package:media_kit/media_kit.dart';
-import 'package:media_kit_video/media_kit_video.dart' as media_kit_video;
 import 'package:camera/camera.dart';
 import 'dart:async';
 import '../models/video.dart';
 import '../services/download_service.dart';
 import '../services/person_detection_service.dart';
+import '../widgets/video_player_widget.dart';
 
 /// Idle screen that shows fullscreen advertisement videos
 /// Displayed when no user is present at the kiosk
@@ -26,13 +25,12 @@ class IdleScreen extends StatefulWidget {
 }
 
 class _IdleScreenState extends State<IdleScreen> {
-  Player? _player;
-  media_kit_video.VideoController? _controller;
-  bool _isInitialized = false;
-  bool _hasError = false;
-  String? _errorMessage;
   int _currentVideoIndex = 0;
   final DownloadService _downloadService = DownloadService();
+  String? _currentVideoPath;
+  bool _hasError = false;
+  String? _errorMessage;
+  int _videoPlayerKeyCounter = 0;
 
   // Grace period to ignore initial touches (prevent button click from activating kiosk)
   bool _ignoreInitialTouch = true;
@@ -124,25 +122,13 @@ class _IdleScreenState extends State<IdleScreen> {
         throw Exception('영상 파일을 찾을 수 없습니다: $actualPath');
       }
 
-      _player = Player();
-      _controller = media_kit_video.VideoController(_player!);
-
-      // Listen for video completion to play next video
-      _player!.stream.completed.listen((completed) {
-        if (completed) {
-          _playNextVideo();
-        }
-      });
-
-      await _player!.open(Media(actualPath));
-      await _player!.play();
-
       setState(() {
-        _isInitialized = true;
+        _currentVideoPath = actualPath;
         _hasError = false;
+        _videoPlayerKeyCounter++;
       });
 
-      print('[IDLE SCREEN] Video initialized successfully');
+      print('[IDLE SCREEN] Video path set successfully');
     } catch (e) {
       print('[IDLE SCREEN] Error initializing video: $e');
       setState(() {
@@ -154,16 +140,11 @@ class _IdleScreenState extends State<IdleScreen> {
 
   Future<void> _playNextVideo() async {
     _currentVideoIndex = (_currentVideoIndex + 1) % widget.videos.length;
-    await _player?.dispose();
-    setState(() {
-      _isInitialized = false;
-    });
     await _initializeVideo();
   }
 
   @override
   void dispose() {
-    _player?.dispose();
     _personDetectionSubscription?.cancel();
     _personDetection.dispose();
     super.dispose();
@@ -188,179 +169,237 @@ class _IdleScreenState extends State<IdleScreen> {
         onHover: (_) => _handleUserInteraction(),
         child: Scaffold(
           backgroundColor: Colors.black,
-          body: Stack(
+          body: Row(
             children: [
-              // Fullscreen video
-              if (_hasError)
-                Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(
-                        Icons.error_outline,
-                        color: Colors.red,
-                        size: 64,
-                      ),
-                      const SizedBox(height: 24),
-                      const Text(
-                        '동영상을 재생할 수 없습니다',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        _errorMessage ?? '',
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 14,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
-                  ),
-                )
-              else if (_isInitialized && _controller != null)
-                SizedBox.expand(
-                  child: FittedBox(
-                    fit: BoxFit.cover,
-                    child: SizedBox(
-                      width: (_controller!.player.state.width ?? 1920).toDouble(),
-                      height: (_controller!.player.state.height ?? 1080).toDouble(),
-                      child: media_kit_video.Video(
-                        controller: _controller!,
-                        controls: media_kit_video.NoVideoControls,
-                      ),
-                    ),
-                  ),
-                )
-              else
-                const Center(
-                  child: CircularProgressIndicator(
-                    color: Colors.white,
-                  ),
-                ),
-
-              // Subtle hint overlay
-              Positioned(
-                bottom: 40,
-                left: 0,
-                right: 0,
-                child: Center(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 32,
-                      vertical: 16,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.5),
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                    child: const Text(
-                      '화면을 터치하여 주문하세요',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 24,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-
-              // Detection status overlay (top left)
-              Positioned(
-                top: 20,
-                left: 20,
+              // Left side: Video player
+              Expanded(
+                flex: 1,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 12,
-                  ),
-                  decoration: BoxDecoration(
-                    color: _personDetected
-                        ? Colors.green.withOpacity(0.8)
-                        : Colors.blue.withOpacity(0.8),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: _personDetected ? Colors.greenAccent : Colors.blueAccent,
-                      width: 2,
-                    ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
+                  color: Colors.black,
+                  child: Stack(
                     children: [
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            _personDetected ? Icons.person : Icons.person_outline,
-                            color: Colors.white,
-                            size: 20,
+                      // Video content
+                      if (_hasError)
+                        Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(
+                                Icons.error_outline,
+                                color: Colors.red,
+                                size: 64,
+                              ),
+                              const SizedBox(height: 24),
+                              const Text(
+                                '동영상을 재생할 수 없습니다',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                _errorMessage ?? '',
+                                style: const TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 14,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
                           ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Person Detection',
+                        )
+                      else if (_currentVideoPath != null)
+                        VideoPlayerWidget(
+                          key: ValueKey(_videoPlayerKeyCounter),
+                          videoPath: _currentVideoPath!,
+                          onCompleted: _playNextVideo,
+                          onError: () {
+                            setState(() {
+                              _hasError = true;
+                              _errorMessage = '동영상 재생 중 오류가 발생했습니다';
+                            });
+                          },
+                        )
+                      else
+                        const Center(
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                          ),
+                        ),
+
+                      // Hint overlay
+                      Positioned(
+                        bottom: 40,
+                        left: 0,
+                        right: 0,
+                        child: Center(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 32,
+                              vertical: 16,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.5),
+                              borderRadius: BorderRadius.circular(30),
+                            ),
+                            child: const Text(
+                              '화면을 터치하여 주문하세요',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 24,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      // Video label
+                      Positioned(
+                        top: 20,
+                        left: 20,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 12,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.withOpacity(0.8),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Text(
+                            '영상 재생',
                             style: TextStyle(
                               color: Colors.white,
-                              fontSize: 14,
+                              fontSize: 16,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        _detectionStatus,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
                         ),
                       ),
-                      if (_personDetection.isInitialized)
-                        Text(
-                          'Mode: ${_personDetection.detectionMode}',
-                          style: TextStyle(
-                            color: Colors.white70,
-                            fontSize: 10,
-                          ),
-                        ),
                     ],
                   ),
                 ),
               ),
 
-              // Camera preview overlay (bottom right)
-              if (_personDetection.isInitialized && _personDetection.cameraController != null)
-                Positioned(
-                  bottom: 20,
-                  right: 20,
-                  child: Container(
-                    width: 320,
-                    height: 240,
-                    decoration: BoxDecoration(
-                      border: Border.all(
-                        color: _personDetected ? Colors.greenAccent : Colors.blueAccent,
-                        width: 3,
-                      ),
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.5),
-                          blurRadius: 10,
-                          spreadRadius: 2,
+              // Divider
+              Container(
+                width: 2,
+                color: Colors.white.withOpacity(0.3),
+              ),
+
+              // Right side: Camera preview
+              Expanded(
+                flex: 1,
+                child: Container(
+                  color: Colors.grey.shade900,
+                  child: Stack(
+                    children: [
+                      // Camera preview
+                      if (_personDetection.isInitialized && _personDetection.cameraController != null)
+                        Center(
+                          child: AspectRatio(
+                            aspectRatio: 4 / 3,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                border: Border.all(
+                                  color: _personDetected ? Colors.greenAccent : Colors.blueAccent,
+                                  width: 3,
+                                ),
+                              ),
+                              child: CameraPreview(_personDetection.cameraController!),
+                            ),
+                          ),
+                        )
+                      else
+                        Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const CircularProgressIndicator(
+                                color: Colors.white,
+                              ),
+                              const SizedBox(height: 20),
+                              Text(
+                                _detectionStatus,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ],
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(10),
-                      child: CameraPreview(_personDetection.cameraController!),
-                    ),
+
+                      // Detection status overlay
+                      Positioned(
+                        top: 20,
+                        left: 20,
+                        right: 20,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 12,
+                          ),
+                          decoration: BoxDecoration(
+                            color: _personDetected
+                                ? Colors.green.withOpacity(0.8)
+                                : Colors.blue.withOpacity(0.8),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: _personDetected ? Colors.greenAccent : Colors.blueAccent,
+                              width: 2,
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    _personDetected ? Icons.person : Icons.person_outline,
+                                    color: Colors.white,
+                                    size: 20,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  const Text(
+                                    'Person Detection',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                _detectionStatus,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                ),
+                              ),
+                              if (_personDetection.isInitialized)
+                                Text(
+                                  'Mode: ${_personDetection.detectionMode}',
+                                  style: const TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 10,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
+              ),
             ],
           ),
         ),

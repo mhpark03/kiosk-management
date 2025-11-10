@@ -1,12 +1,11 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:media_kit/media_kit.dart';
-import 'package:media_kit_video/media_kit_video.dart' as media_kit_video;
 import 'package:window_manager/window_manager.dart';
 import '../models/video.dart';
 import '../models/coffee_order.dart';
 import '../widgets/coffee_kiosk_overlay.dart';
+import '../widgets/video_player_widget.dart';
 import '../services/download_service.dart';
 import '../services/coffee_menu_service.dart';
 
@@ -29,21 +28,21 @@ class KioskSplitScreen extends StatefulWidget {
 }
 
 class _KioskSplitScreenState extends State<KioskSplitScreen> {
-  Player? _player;
-  media_kit_video.VideoController? _controller;
-  bool _isInitialized = false;
-  bool _hasError = false;
-  String? _errorMessage;
   int _currentVideoIndex = 0;
   final FocusNode _focusNode = FocusNode();
-  bool _isPlaying = false;
-  Duration _position = Duration.zero;
-  Duration _duration = Duration.zero;
   final DownloadService _downloadService = DownloadService();
   final CoffeeMenuService _menuService = CoffeeMenuService();
 
   // GlobalKey for cart widget (for landscape split layout)
   final GlobalKey<CoffeeKioskOverlayState> _cartKey = GlobalKey<CoffeeKioskOverlayState>();
+
+  // Current video path to display
+  String? _currentVideoPath;
+  bool _hasError = false;
+  String? _errorMessage;
+
+  // Video player key counter to force recreation
+  int _videoPlayerKeyCounter = 0;
 
   // Menu video playback
   bool _isPlayingMenuVideo = false;
@@ -95,62 +94,13 @@ class _KioskSplitScreenState extends State<KioskSplitScreen> {
       final fileSize = await videoFile.length();
       print('[KIOSK SPLIT] Video file size: ${fileSize / (1024 * 1024)} MB');
 
-      _player = Player();
-      _controller = media_kit_video.VideoController(_player!);
-
-      // Listen to player state changes
-      _player!.stream.playing.listen((playing) {
-        if (mounted) {
-          setState(() => _isPlaying = playing);
-        }
-      });
-
-      _player!.stream.position.listen((position) {
-        if (mounted) {
-          setState(() => _position = position);
-        }
-      });
-
-      _player!.stream.duration.listen((duration) {
-        if (mounted) {
-          setState(() => _duration = duration);
-        }
-      });
-
-      // Listen for video completion
-      _player!.stream.completed.listen((completed) {
-        if (completed) {
-          if (_isPlayingMenuVideo) {
-            // Check if this was a checkout video
-            if (_currentActionType == 'checkout') {
-              // Checkout video completed, play main video from beginning
-              print('[KIOSK SPLIT] Checkout video completed, playing main video');
-              _playMainVideo();
-            } else if (_currentActionType == 'addToCart' || _currentActionType == 'cancelItem') {
-              // addToCart or cancelItem completed, play category video
-              print('[KIOSK SPLIT] $_currentActionType video completed, playing category video');
-              _playCategoryVideo();
-            } else {
-              // Other menu video completed, return to saved video
-              print('[KIOSK SPLIT] Menu video completed, returning to saved video');
-              _returnToSavedVideo();
-            }
-          } else {
-            // Regular video completed, play next
-            _playNextVideo();
-          }
-        }
-      });
-
-      await _player!.open(Media(actualPath));
-      await _player!.play();
-
       setState(() {
-        _isInitialized = true;
+        _currentVideoPath = actualPath;
         _hasError = false;
+        _videoPlayerKeyCounter++;
       });
 
-      print('[KIOSK SPLIT] Video initialized successfully: ${video.title}');
+      print('[KIOSK SPLIT] Video path set successfully: ${video.title}');
     } catch (e) {
       print('[KIOSK SPLIT] Error initializing video: $e');
       setState(() {
@@ -160,31 +110,44 @@ class _KioskSplitScreenState extends State<KioskSplitScreen> {
     }
   }
 
+  void _onVideoCompleted() {
+    if (_isPlayingMenuVideo) {
+      // Check if this was a checkout video
+      if (_currentActionType == 'checkout') {
+        // Checkout video completed, play main video from beginning
+        print('[KIOSK SPLIT] Checkout video completed, playing main video');
+        _playMainVideo();
+      } else if (_currentActionType == 'addToCart' || _currentActionType == 'cancelItem') {
+        // addToCart or cancelItem completed, play category video
+        print('[KIOSK SPLIT] $_currentActionType video completed, playing category video');
+        _playCategoryVideo();
+      } else {
+        // Other menu video completed, return to saved video
+        print('[KIOSK SPLIT] Menu video completed, returning to saved video');
+        _returnToSavedVideo();
+      }
+    } else {
+      // Regular video completed, play next
+      _playNextVideo();
+    }
+  }
+
   Future<void> _playNextVideo() async {
     _currentVideoIndex = (_currentVideoIndex + 1) % widget.videos.length;
-    await _player?.dispose();
-    setState(() {
-      _isInitialized = false;
-    });
     await _initializeVideo();
   }
 
   Future<void> _playMenuVideo(String videoPath, [String? actionType, String? categoryId]) async {
-    if (_player == null) return;
-
     print('[KIOSK SPLIT] Playing menu video: $videoPath (action: $actionType, category: $categoryId)');
 
     try {
       // If already playing menu video, just switch to new menu video
       // Don't save the state again (keep the original saved state)
       if (!_isPlayingMenuVideo) {
-        // Save current video state only if not already playing menu video
-        final video = widget.videos[_currentVideoIndex];
-        final actualPath = await _downloadService.getActualFilePath(video.localPath!);
-        _savedVideoPath = actualPath;
-        _savedPosition = _position;
-
-        print('[KIOSK SPLIT] Saved video: $actualPath at position: $_savedPosition');
+        // Save current video path only if not already playing menu video
+        _savedVideoPath = _currentVideoPath;
+        _savedPosition = Duration.zero;
+        print('[KIOSK SPLIT] Saved video: $_savedVideoPath');
       } else {
         print('[KIOSK SPLIT] Already playing menu video, switching to new menu video');
       }
@@ -193,11 +156,13 @@ class _KioskSplitScreenState extends State<KioskSplitScreen> {
       _currentActionType = actionType; // Store the action type
       _currentCategoryId = categoryId; // Store the category ID
 
-      // Play menu video (this will stop current video if playing)
-      await _player!.open(Media(videoPath));
-      await _player!.play();
+      // Update current video path to play menu video
+      setState(() {
+        _currentVideoPath = videoPath;
+        _videoPlayerKeyCounter++;
+      });
 
-      print('[KIOSK SPLIT] Menu video started playing');
+      print('[KIOSK SPLIT] Menu video path set');
     } catch (e) {
       print('[KIOSK SPLIT] Error playing menu video: $e');
       _isPlayingMenuVideo = false;
@@ -207,15 +172,16 @@ class _KioskSplitScreenState extends State<KioskSplitScreen> {
   }
 
   Future<void> _returnToSavedVideo() async {
-    if (_player == null || _savedVideoPath == null) return;
+    if (_savedVideoPath == null) return;
 
     print('[KIOSK SPLIT] Returning to saved video: $_savedVideoPath');
 
     try {
       // Return to saved video
-      await _player!.open(Media(_savedVideoPath!));
-      await _player!.seek(_savedPosition);
-      await _player!.play();
+      setState(() {
+        _currentVideoPath = _savedVideoPath;
+        _videoPlayerKeyCounter++;
+      });
 
       // Clear saved state
       _isPlayingMenuVideo = false;
@@ -223,7 +189,7 @@ class _KioskSplitScreenState extends State<KioskSplitScreen> {
       _savedVideoPath = null;
       _savedPosition = Duration.zero;
 
-      print('[KIOSK SPLIT] Returned to saved video at position: $_savedPosition');
+      print('[KIOSK SPLIT] Returned to saved video');
     } catch (e) {
       print('[KIOSK SPLIT] Error returning to saved video: $e');
       _isPlayingMenuVideo = false;
@@ -232,7 +198,7 @@ class _KioskSplitScreenState extends State<KioskSplitScreen> {
   }
 
   Future<void> _playMainVideo() async {
-    if (_player == null || widget.videos.isEmpty) return;
+    if (widget.videos.isEmpty) return;
 
     print('[KIOSK SPLIT] Playing main video from beginning');
 
@@ -242,8 +208,10 @@ class _KioskSplitScreenState extends State<KioskSplitScreen> {
       final video = widget.videos[_currentVideoIndex];
       final actualPath = await _downloadService.getActualFilePath(video.localPath!);
 
-      await _player!.open(Media(actualPath));
-      await _player!.play();
+      setState(() {
+        _currentVideoPath = actualPath;
+        _videoPlayerKeyCounter++;
+      });
 
       // Clear saved state
       _isPlayingMenuVideo = false;
@@ -251,7 +219,7 @@ class _KioskSplitScreenState extends State<KioskSplitScreen> {
       _savedVideoPath = null;
       _savedPosition = Duration.zero;
 
-      print('[KIOSK SPLIT] Main video started playing: ${video.title}');
+      print('[KIOSK SPLIT] Main video path set: ${video.title}');
     } catch (e) {
       print('[KIOSK SPLIT] Error playing main video: $e');
       _isPlayingMenuVideo = false;
@@ -260,7 +228,7 @@ class _KioskSplitScreenState extends State<KioskSplitScreen> {
   }
 
   Future<void> _playCategoryVideo() async {
-    if (_player == null || _currentCategoryId == null || widget.downloadPath == null || widget.kioskId == null) return;
+    if (_currentCategoryId == null || widget.downloadPath == null || widget.kioskId == null) return;
 
     print('[KIOSK SPLIT] Playing category video for: $_currentCategoryId');
 
@@ -291,12 +259,14 @@ class _KioskSplitScreenState extends State<KioskSplitScreen> {
 
       print('[KIOSK SPLIT] Playing category video: $videoPath');
 
-      await _player!.open(Media(videoPath));
-      await _player!.play();
+      setState(() {
+        _currentVideoPath = videoPath;
+        _videoPlayerKeyCounter++;
+      });
 
       // Keep _isPlayingMenuVideo true, this is still a menu video
       // Will return to saved video when this category video completes
-      print('[KIOSK SPLIT] Category video started playing');
+      print('[KIOSK SPLIT] Category video path set');
     } catch (e) {
       print('[KIOSK SPLIT] Error playing category video: $e');
       _returnToSavedVideo();
@@ -305,14 +275,8 @@ class _KioskSplitScreenState extends State<KioskSplitScreen> {
 
   @override
   void dispose() {
-    _player?.dispose();
     _focusNode.dispose();
     super.dispose();
-  }
-
-  void _togglePlayPause() {
-    if (_player == null) return;
-    _player!.playOrPause();
   }
 
   Future<void> _exitKiosk() async {
@@ -443,73 +407,81 @@ class _KioskSplitScreenState extends State<KioskSplitScreen> {
 
   // Build video player widget
   Widget _buildVideoPlayer() {
-    return Container(
-      color: Colors.black,
-      child: Stack(
-        children: [
-          if (_hasError)
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.all(32.0),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(
-                      Icons.error_outline,
-                      color: Colors.red,
-                      size: 64,
-                    ),
-                    const SizedBox(height: 24),
-                    const Text(
-                      '동영상을 재생할 수 없습니다',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      _errorMessage ?? '',
-                      style: TextStyle(
-                        color: Colors.grey.shade400,
-                        fontSize: 14,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 32),
-                    ElevatedButton.icon(
-                      onPressed: () {
-                        // Try to skip to next video
-                        if (widget.videos.length > 1) {
-                          _playNextVideo();
-                        }
-                      },
-                      icon: const Icon(Icons.skip_next),
-                      label: const Text('다음 영상'),
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 24,
-                          vertical: 12,
-                        ),
-                      ),
-                    ),
-                  ],
+    if (_hasError) {
+      return Container(
+        color: Colors.black,
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(
+                  Icons.error_outline,
+                  color: Colors.red,
+                  size: 64,
                 ),
-              ),
+                const SizedBox(height: 24),
+                const Text(
+                  '동영상을 재생할 수 없습니다',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  _errorMessage ?? '',
+                  style: TextStyle(
+                    color: Colors.grey.shade400,
+                    fontSize: 14,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 32),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    // Try to skip to next video
+                    if (widget.videos.length > 1) {
+                      _playNextVideo();
+                    }
+                  },
+                  icon: const Icon(Icons.skip_next),
+                  label: const Text('다음 영상'),
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 12,
+                    ),
+                  ),
+                ),
+              ],
             ),
-          if (_isInitialized && _controller != null && !_hasError)
-            GestureDetector(
-              onTap: _togglePlayPause,
-              child: media_kit_video.Video(
-                controller: _controller!,
-                controls: media_kit_video.NoVideoControls,
-                fit: BoxFit.cover,
-                aspectRatio: null,
-              ),
-            ),
-        ],
-      ),
+          ),
+        ),
+      );
+    }
+
+    if (_currentVideoPath == null) {
+      return Container(
+        color: Colors.black,
+        child: const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    return VideoPlayerWidget(
+      key: ValueKey(_videoPlayerKeyCounter),
+      videoPath: _currentVideoPath!,
+      onCompleted: _onVideoCompleted,
+      onError: () {
+        setState(() {
+          _hasError = true;
+          _errorMessage = '동영상 재생 중 오류가 발생했습니다';
+        });
+      },
     );
   }
 

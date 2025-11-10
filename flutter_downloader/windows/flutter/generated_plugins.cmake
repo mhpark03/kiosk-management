@@ -3,7 +3,7 @@
 #
 
 list(APPEND FLUTTER_PLUGIN_LIST
-  camera_windows
+  flutter_lite_camera
   flutter_secure_storage_windows
   media_kit_libs_windows_video
   media_kit_video

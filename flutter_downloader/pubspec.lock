@@ -97,15 +97,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.3.5"
-  camera_windows:
-    dependency: "direct main"
-    description:
-      path: "."
-      ref: main
-      resolved-ref: "5cb2e2acc2932a8d85b318b593661046152a424f"
-      url: "https://github.com/yushulx/flutter_camera_windows"
-    source: git
-    version: "0.2.1+5"
   characters:
     dependency: transitive
     description:
@@ -239,6 +230,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "5.0.0"
+  flutter_lite_camera:
+    dependency: "direct main"
+    description:
+      name: flutter_lite_camera
+      sha256: "511531afa9cd82de77d6f46ca9ecfae062f1d1c25c7c4651eb6cf4879a93277a"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.0.2"
   flutter_plugin_android_lifecycle:
     dependency: transitive
     description:
