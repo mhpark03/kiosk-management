@@ -95,11 +95,12 @@ class TouchPresenceDetectionService extends PresenceDetectionService {
 /// Camera-based presence detection using ML person detection
 class CameraPresenceDetectionService extends PresenceDetectionService {
   final PersonDetectionService _personDetectionService = PersonDetectionService();
+  final StreamController<bool> _presenceController = StreamController<bool>.broadcast();
   StreamSubscription<bool>? _detectionSubscription;
   bool _isPresent = false;
 
   @override
-  Stream<bool> get presenceStream => _personDetectionService.personDetectedStream;
+  Stream<bool> get presenceStream => _presenceController.stream;
 
   @override
   bool get isPresent => _isPresent;
@@ -113,9 +114,9 @@ class CameraPresenceDetectionService extends PresenceDetectionService {
       await _personDetectionService.initialize();
       await _personDetectionService.startDetection();
 
-      // Listen for person detection events
+      // Listen for person detection events and forward to our stream
       _detectionSubscription = _personDetectionService.personDetectedStream.listen((detected) {
-        _isPresent = detected;
+        _updatePresence(detected);
         print('[PRESENCE] Camera presence changed: $detected');
       });
 
@@ -133,20 +134,29 @@ class CameraPresenceDetectionService extends PresenceDetectionService {
     await _detectionSubscription?.cancel();
     await _personDetectionService.stopDetection();
 
-    _isPresent = false;
+    _updatePresence(false);
     print('[PRESENCE] Camera-based detection stopped');
   }
 
   @override
   void triggerPresence() {
-    // For camera mode, manual trigger is not typically used
-    // but can be used for testing or override
-    print('[PRESENCE] Manual trigger (camera mode) - no effect');
+    // For camera mode, manual trigger can be used for testing or override
+    // This allows touch input to work alongside camera detection
+    print('[PRESENCE] Manual trigger (camera mode) - activating kiosk');
+    _updatePresence(true);
+  }
+
+  void _updatePresence(bool present) {
+    if (_isPresent != present) {
+      _isPresent = present;
+      _presenceController.add(present);
+    }
   }
 
   @override
   void dispose() {
     _detectionSubscription?.cancel();
     _personDetectionService.dispose();
+    _presenceController.close();
   }
 }
