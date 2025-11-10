@@ -504,6 +504,7 @@ class KioskSplitScreenState extends State<KioskSplitScreen> {
   // Build kiosk overlay widget (for portrait mode - full overlay)
   Widget _buildKioskOverlay() {
     return CoffeeKioskOverlay(
+      key: _cartKey, // Assign GlobalKey to enable cart state access
       onClose: _exitKiosk,
       onOrderComplete: (order) {
         print('[KIOSK SPLIT] Order completed: ${order.toJson()}');
