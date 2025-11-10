@@ -152,15 +152,10 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
         }
       });
 
-      print('[VIDEO PLAYER WIDGET] Controller created, opening media...');
+      print('[VIDEO PLAYER WIDGET] Controller created, rendering Video widget first...');
 
-      // Open media first to get video dimensions
-      await _player!.open(Media(widget.videoPath));
-
-      print('[VIDEO PLAYER WIDGET] Media opened, dimensions available');
-
-      // IMPORTANT: Set initialized AFTER media is opened
-      // This ensures Video widget has proper dimensions from the start
+      // CRITICAL: Render Video widget BEFORE opening media
+      // This ensures layout is complete when VideoOutput is created
       if (mounted) {
         setState(() {
           _isInitialized = true;
@@ -168,7 +163,21 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
         });
       }
 
-      print('[VIDEO PLAYER WIDGET] Starting playback...');
+      // Wait for Video widget to be laid out before opening media
+      await Future.delayed(const Duration(milliseconds: 150));
+
+      // Check if still mounted after delay
+      if (!mounted || _isDisposing) {
+        print('[VIDEO PLAYER WIDGET] Widget disposed during layout wait');
+        return;
+      }
+
+      print('[VIDEO PLAYER WIDGET] Opening media after layout...');
+
+      // Open media after Video widget has received layout constraints
+      await _player!.open(Media(widget.videoPath));
+
+      print('[VIDEO PLAYER WIDGET] Media opened, starting playback...');
 
       await _player!.play();
 
