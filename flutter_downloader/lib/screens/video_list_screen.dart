@@ -2100,8 +2100,11 @@ class _VideoListScreenState extends State<VideoListScreen> {
               if (mounted) {
                 final config = widget.storageService.getConfig();
 
-                // Use camera detection for person detection (all platforms)
-                final detectionMode = DetectionMode.camera;
+                // Use camera detection only on Android/iOS (Windows doesn't support startImageStream)
+                final detectionMode = (defaultTargetPlatform == TargetPlatform.android ||
+                        defaultTargetPlatform == TargetPlatform.iOS)
+                    ? DetectionMode.camera
+                    : DetectionMode.touch;
 
                 print('[VIDEO LIST] Using detection mode: $detectionMode for platform: $defaultTargetPlatform');
 
