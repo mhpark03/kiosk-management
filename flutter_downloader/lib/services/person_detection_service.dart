@@ -279,16 +279,6 @@ class PersonDetectionService {
     }
   }
 
-  /// Dispose resources (usually not called as this is a singleton)
-  void dispose() {
-    _captureTimer?.cancel();
-    _timeoutTimer?.cancel();
-    _personDetectedController.close();
-    _initProgressController.close();
-    _ortSession?.release();
-    _sessionOptions?.release();
-  }
-
   /// Convert RGB888 to PNG for preview (async)
   void _convertRGB888ToPngAsync(Uint8List rgb888Data, int width, int height) {
     // Run in background to avoid blocking
