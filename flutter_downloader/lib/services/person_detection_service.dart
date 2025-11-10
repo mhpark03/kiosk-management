@@ -149,8 +149,13 @@ class PersonDetectionService {
           if (!_isDetecting || _isProcessing) return;
 
           try {
-            final rgb888Data = await _liteCamera!.captureFrame();
-            if (rgb888Data != null) {
+            final frame = await _liteCamera!.captureFrame();
+            if (frame != null && frame.containsKey('data')) {
+              final rgb888Data = frame['data'] as Uint8List;
+              final width = frame['width'] as int? ?? 640;
+              final height = frame['height'] as int? ?? 480;
+
+              print('[PERSON DETECTION] Captured frame: ${width}x${height}, ${rgb888Data.length} bytes');
               _processRGB888Async(rgb888Data);
             }
           } catch (e) {
