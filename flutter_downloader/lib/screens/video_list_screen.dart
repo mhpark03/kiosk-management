@@ -175,6 +175,9 @@ class _VideoListScreenState extends State<VideoListScreen> {
         });
       }
 
+      // Cache kiosk info for offline use
+      await widget.storageService.cacheKiosk(kiosk);
+
       // Set kiosk authentication headers for API requests (for unattended operation)
       widget.apiService.setKioskAuth(
         config.posId,
@@ -295,6 +298,9 @@ class _VideoListScreenState extends State<VideoListScreen> {
           _kiosk = kiosk;
         });
       }
+
+      // Cache kiosk info for offline use
+      await widget.storageService.cacheKiosk(kiosk);
 
       // Set kiosk authentication headers for API requests (for unattended operation)
       // (if not already set by _connectKiosk)
@@ -619,6 +625,26 @@ class _VideoListScreenState extends State<VideoListScreen> {
   Future<void> _loadLocalData(dynamic config) async {
     print('[LOAD LOCAL] Loading local data first...');
 
+    // Set kiosk authentication from cached kiosk info (for offline operation)
+    final cachedKiosk = widget.storageService.getCachedKiosk();
+    if (cachedKiosk != null && cachedKiosk.kioskNumber != null) {
+      print('[LOAD LOCAL] Setting kiosk auth from cache');
+      widget.apiService.setKioskAuth(
+        config.posId,
+        config.kioskId,
+        cachedKiosk.kioskNumber,
+      );
+
+      // Also set _kiosk for display
+      if (mounted && _kiosk == null) {
+        setState(() {
+          _kiosk = cachedKiosk;
+        });
+      }
+    } else {
+      print('[LOAD LOCAL] No cached kiosk info available - API calls may fail with 403');
+    }
+
     // Try cached videos first
     final cachedVideos = widget.storageService.getCachedVideos();
 
@@ -684,6 +710,18 @@ class _VideoListScreenState extends State<VideoListScreen> {
           setState(() {
             _kiosk = kiosk;
           });
+        }
+
+        // Cache kiosk info for offline use
+        await widget.storageService.cacheKiosk(kiosk);
+
+        // Update kiosk authentication with fresh data
+        if (kiosk.kioskNumber != null) {
+          widget.apiService.setKioskAuth(
+            config.posId,
+            config.kioskId,
+            kiosk.kioskNumber,
+          );
         }
       } catch (e) {
         print('[SYNC] Failed to fetch kiosk info: $e');

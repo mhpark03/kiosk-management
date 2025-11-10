@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../models/user.dart';
 import '../models/kiosk_config.dart';
+import '../models/kiosk.dart';
 import '../models/video.dart';
 
 class StorageService {
@@ -13,6 +14,7 @@ class StorageService {
   static const String _keyLastServer = 'last_server';
   static const String _keyCustomServerUrl = 'custom_server_url';
   static const String _keyCachedVideos = 'cached_videos'; // 오프라인 모드용 비디오 캐시
+  static const String _keyCachedKiosk = 'cached_kiosk'; // 오프라인 모드용 키오스크 정보 캐시
 
   final SharedPreferences _prefs;
   final FlutterSecureStorage _secureStorage;
@@ -181,5 +183,36 @@ class StorageService {
   Future<void> clearCachedVideos() async {
     await _prefs.remove(_keyCachedVideos);
     print('[STORAGE] Cleared cached videos');
+  }
+
+  // Kiosk cache management (for offline operation)
+  Future<void> cacheKiosk(Kiosk kiosk) async {
+    try {
+      final json = jsonEncode(kiosk.toJson());
+      await _prefs.setString(_keyCachedKiosk, json);
+      print('[STORAGE] Cached kiosk info for offline use: ${kiosk.kioskid}');
+    } catch (e) {
+      print('[STORAGE] Failed to cache kiosk: $e');
+      // Don't throw - caching failure is not critical
+    }
+  }
+
+  Kiosk? getCachedKiosk() {
+    try {
+      final json = _prefs.getString(_keyCachedKiosk);
+      if (json == null) return null;
+
+      final kiosk = Kiosk.fromJson(jsonDecode(json) as Map<String, dynamic>);
+      print('[STORAGE] Loaded cached kiosk: ${kiosk.kioskid}');
+      return kiosk;
+    } catch (e) {
+      print('[STORAGE] Failed to load cached kiosk: $e');
+      return null;
+    }
+  }
+
+  Future<void> clearCachedKiosk() async {
+    await _prefs.remove(_keyCachedKiosk);
+    print('[STORAGE] Cleared cached kiosk');
   }
 }
