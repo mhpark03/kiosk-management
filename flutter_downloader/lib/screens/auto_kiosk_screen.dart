@@ -55,6 +55,13 @@ class _AutoKioskScreenState extends State<AutoKioskScreen> {
   // Focus node for keyboard events
   late FocusNode _focusNode;
 
+  // GlobalKey to access KioskSplitScreen state
+  final GlobalKey<_KioskSplitScreenWrapperState> _kioskKey = GlobalKey<_KioskSplitScreenWrapperState>();
+
+  // Cart warning popup timer
+  Timer? _cartWarningTimer;
+  bool _isShowingCartWarning = false;
+
   @override
   void initState() {
     super.initState();
@@ -87,9 +94,15 @@ class _AutoKioskScreenState extends State<AutoKioskScreen> {
       if (_isKioskMode == isPresent) {
         return;
       }
-      setState(() {
-        _isKioskMode = isPresent;
-      });
+
+      // When transitioning from kiosk to idle mode, check cart
+      if (!isPresent && _isKioskMode) {
+        _handleTransitionToIdle();
+      } else {
+        setState(() {
+          _isKioskMode = isPresent;
+        });
+      }
     });
 
     // Start detection
@@ -141,11 +154,62 @@ class _AutoKioskScreenState extends State<AutoKioskScreen> {
     _presenceSubscription?.cancel();
     _presenceService.dispose();
     _focusNode.dispose();
+    _cartWarningTimer?.cancel();
     // Ensure fullscreen is cleared (fire-and-forget)
     if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
       windowManager.setFullScreen(false);
     }
     super.dispose();
+  }
+
+  /// Handle transition to idle mode with cart warning if needed
+  void _handleTransitionToIdle() {
+    // Check if cart has items
+    final kioskState = _kioskKey.currentState;
+    final hasCartItems = kioskState?.hasCartItems() ?? false;
+
+    if (hasCartItems && !_isShowingCartWarning) {
+      // Show warning popup
+      _showCartWarningPopup();
+    } else {
+      // Direct transition to idle
+      setState(() {
+        _isKioskMode = false;
+      });
+    }
+  }
+
+  /// Show cart warning popup with 10 second auto-dismiss
+  void _showCartWarningPopup() {
+    if (!mounted || _isShowingCartWarning) return;
+
+    _isShowingCartWarning = true;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => _CartWarningDialog(
+        onContinue: () {
+          Navigator.of(context).pop();
+          _isShowingCartWarning = false;
+          _cartWarningTimer?.cancel();
+          // Stay in kiosk mode and re-trigger presence
+          _presenceService.triggerPresence();
+        },
+        onTimeout: () {
+          if (mounted) {
+            Navigator.of(context).pop();
+            _isShowingCartWarning = false;
+            setState(() {
+              _isKioskMode = false;
+            });
+          }
+        },
+      ),
+    ).then((_) {
+      _isShowingCartWarning = false;
+      _cartWarningTimer?.cancel();
+    });
   }
 
   void _handleUserPresence() {
@@ -209,8 +273,9 @@ class _AutoKioskScreenState extends State<AutoKioskScreen> {
         onPanUpdate: (_) => _handleUserPresence(),
         child: MouseRegion(
           onHover: (_) => _handleUserPresence(),
-          child: KioskSplitScreen(
-            videos: _allVideos, // All videos for kiosk mode
+          child: _KioskSplitScreenWrapper(
+            key: _kioskKey,
+            videos: _allVideos,
             downloadPath: widget.downloadPath,
             kioskId: widget.kioskId,
             menuFilename: widget.menuFilename,
@@ -219,5 +284,164 @@ class _AutoKioskScreenState extends State<AutoKioskScreen> {
       );
     }
     return _cachedKioskScreen!;
+  }
+}
+
+/// Wrapper widget to access KioskSplitScreen's cart state
+class _KioskSplitScreenWrapper extends StatefulWidget {
+  final List<Video> videos;
+  final String? downloadPath;
+  final String? kioskId;
+  final String? menuFilename;
+
+  const _KioskSplitScreenWrapper({
+    super.key,
+    required this.videos,
+    this.downloadPath,
+    this.kioskId,
+    this.menuFilename,
+  });
+
+  @override
+  State<_KioskSplitScreenWrapper> createState() => _KioskSplitScreenWrapperState();
+}
+
+class _KioskSplitScreenWrapperState extends State<_KioskSplitScreenWrapper> {
+  final GlobalKey<KioskSplitScreenState> _splitScreenKey = GlobalKey<KioskSplitScreenState>();
+
+  bool hasCartItems() {
+    final splitScreenState = _splitScreenKey.currentState;
+    if (splitScreenState == null) return false;
+
+    // Access cart key from KioskSplitScreen
+    final cartKey = splitScreenState.cartKey;
+    final cartState = cartKey.currentState;
+
+    if (cartState == null) return false;
+    return cartState.cartItems.isNotEmpty;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return KioskSplitScreen(
+      key: _splitScreenKey,
+      videos: widget.videos,
+      downloadPath: widget.downloadPath,
+      kioskId: widget.kioskId,
+      menuFilename: widget.menuFilename,
+    );
+  }
+}
+
+/// Cart warning dialog with 10 second auto-dismiss
+class _CartWarningDialog extends StatefulWidget {
+  final VoidCallback onContinue;
+  final VoidCallback onTimeout;
+
+  const _CartWarningDialog({
+    required this.onContinue,
+    required this.onTimeout,
+  });
+
+  @override
+  State<_CartWarningDialog> createState() => _CartWarningDialogState();
+}
+
+class _CartWarningDialogState extends State<_CartWarningDialog> {
+  Timer? _countdownTimer;
+  int _secondsRemaining = 10;
+
+  @override
+  void initState() {
+    super.initState();
+    _startCountdown();
+  }
+
+  void _startCountdown() {
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_secondsRemaining > 0) {
+        setState(() {
+          _secondsRemaining--;
+        });
+      } else {
+        timer.cancel();
+        widget.onTimeout();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _countdownTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+      ),
+      title: Row(
+        children: [
+          Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 32),
+          const SizedBox(width: 12),
+          const Text(
+            '주문을 계속하시겠습니까?',
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text(
+            '장바구니에 상품이 담겨 있습니다.',
+            style: TextStyle(fontSize: 18),
+          ),
+          const SizedBox(height: 20),
+          Text(
+            '$_secondsRemaining초 후 자동으로 취소됩니다',
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.grey[600],
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () {
+            _countdownTimer?.cancel();
+            widget.onTimeout();
+          },
+          child: const Text(
+            '주문 취소',
+            style: TextStyle(fontSize: 18, color: Colors.grey),
+          ),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            _countdownTimer?.cancel();
+            widget.onContinue();
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.brown,
+            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+          child: const Text(
+            '계속 주문하기',
+            style: TextStyle(fontSize: 18, color: Colors.white),
+          ),
+        ),
+      ],
+    );
   }
 }

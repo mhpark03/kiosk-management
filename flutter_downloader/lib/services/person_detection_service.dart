@@ -41,7 +41,7 @@ class PersonDetectionService {
   OrtSessionOptions? _sessionOptions;
 
   // Configuration
-  static const Duration _detectionTimeout = Duration(seconds: 5); // 5 seconds timeout
+  static const Duration _detectionTimeout = Duration(seconds: 30); // 30 seconds timeout for kiosk use
   static const Duration _detectionInterval = Duration(milliseconds: 500);
   static const double _confidenceThreshold = 0.5; // 50% confidence threshold (lowered for better detection)
   static const int _personClassIndex = 1; // "person" class in COCO dataset

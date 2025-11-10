@@ -24,10 +24,10 @@ class KioskSplitScreen extends StatefulWidget {
   });
 
   @override
-  State<KioskSplitScreen> createState() => _KioskSplitScreenState();
+  State<KioskSplitScreen> createState() => KioskSplitScreenState();
 }
 
-class _KioskSplitScreenState extends State<KioskSplitScreen> {
+class KioskSplitScreenState extends State<KioskSplitScreen> {
   int _currentVideoIndex = 0;
   final FocusNode _focusNode = FocusNode();
   final DownloadService _downloadService = DownloadService();
@@ -48,6 +48,9 @@ class _KioskSplitScreenState extends State<KioskSplitScreen> {
   bool _isPlayingMenuVideo = false;
   String? _currentActionType; // Track the action type (checkout, addToCart, etc.)
   String? _currentCategoryId; // Track the current category ID
+
+  // Public getter for cart key (accessed by AutoKioskScreen)
+  GlobalKey<CoffeeKioskOverlayState> get cartKey => _cartKey;
   String? _savedVideoPath;
   Duration _savedPosition = Duration.zero;
 

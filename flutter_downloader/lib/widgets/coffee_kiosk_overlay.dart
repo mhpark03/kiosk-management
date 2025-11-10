@@ -47,6 +47,9 @@ class CoffeeKioskOverlayState extends State<CoffeeKioskOverlay> {
   List<OrderItem> _cartItems = [];
   CoffeeMenuItem? _selectedMenuItem;
 
+  // Public getter for cart items (accessed by AutoKioskScreen)
+  List<OrderItem> get cartItems => _cartItems;
+
   // Options for selected item
   String _selectedSize = 'medium';
   String _selectedTemperature = 'hot';
