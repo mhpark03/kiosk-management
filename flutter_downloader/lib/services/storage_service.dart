@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../models/user.dart';
 import '../models/kiosk_config.dart';
+import '../models/video.dart';
 
 class StorageService {
   static const String _keyUser = 'user';
@@ -11,6 +12,7 @@ class StorageService {
   static const String _keyToken = 'auth_token';
   static const String _keyLastServer = 'last_server';
   static const String _keyCustomServerUrl = 'custom_server_url';
+  static const String _keyCachedVideos = 'cached_videos'; // 오프라인 모드용 비디오 캐시
 
   final SharedPreferences _prefs;
   final FlutterSecureStorage _secureStorage;
@@ -146,5 +148,38 @@ class StorageService {
 
   String? getCustomServerUrl() {
     return _prefs.getString(_keyCustomServerUrl);
+  }
+
+  // Video cache management (for offline operation)
+  Future<void> cacheVideos(List<Video> videos) async {
+    try {
+      final jsonList = videos.map((v) => v.toJson()).toList();
+      final json = jsonEncode(jsonList);
+      await _prefs.setString(_keyCachedVideos, json);
+      print('[STORAGE] Cached ${videos.length} videos for offline use');
+    } catch (e) {
+      print('[STORAGE] Failed to cache videos: $e');
+      // Don't throw - caching failure is not critical
+    }
+  }
+
+  List<Video>? getCachedVideos() {
+    try {
+      final json = _prefs.getString(_keyCachedVideos);
+      if (json == null) return null;
+
+      final jsonList = jsonDecode(json) as List;
+      final videos = jsonList.map((item) => Video.fromJson(item as Map<String, dynamic>)).toList();
+      print('[STORAGE] Loaded ${videos.length} cached videos');
+      return videos;
+    } catch (e) {
+      print('[STORAGE] Failed to load cached videos: $e');
+      return null;
+    }
+  }
+
+  Future<void> clearCachedVideos() async {
+    await _prefs.remove(_keyCachedVideos);
+    print('[STORAGE] Cleared cached videos');
   }
 }
