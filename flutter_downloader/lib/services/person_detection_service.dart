@@ -1,11 +1,14 @@
 import 'dart:async';
 import 'dart:io';
-import 'package:camera/camera.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'dart:typed_data';
 import 'package:image/image.dart' as img;
 import 'package:onnxruntime/onnxruntime.dart';
+
+// Platform-specific imports
+import 'package:camera/camera.dart' if (dart.library.io) 'package:camera/camera.dart';
+import 'package:flutter_lite_camera/flutter_lite_camera.dart' if (dart.library.io) 'package:flutter_lite_camera/flutter_lite_camera.dart';
 
 /// Service for detecting person presence using ONNX Runtime on all platforms
 class PersonDetectionService {
@@ -13,7 +16,12 @@ class PersonDetectionService {
   factory PersonDetectionService() => _instance;
   PersonDetectionService._internal();
 
+  // Android camera (camera package)
   CameraController? _cameraController;
+
+  // Windows camera (flutter_lite_camera package)
+  StreamSubscription<Uint8List>? _liteCameraSubscription;
+
   bool _isInitialized = false;
   bool _isDetecting = false;
 
@@ -49,27 +57,28 @@ class PersonDetectionService {
       print('[PERSON DETECTION] Initializing ONNX Runtime mode for ${Platform.operatingSystem}');
       await _initializeONNX();
 
-      // Get available cameras
-      final cameras = await availableCameras();
-      if (cameras.isEmpty) {
-        throw Exception('No cameras available');
+      if (Platform.isWindows) {
+        // Windows: No initialization needed for flutter_lite_camera
+        print('[PERSON DETECTION] Using flutter_lite_camera for Windows');
+      } else if (Platform.isAndroid) {
+        // Android: Initialize camera package
+        final cameras = await availableCameras();
+        if (cameras.isEmpty) {
+          throw Exception('No cameras available');
+        }
+
+        final camera = cameras.first;
+        print('[PERSON DETECTION] Using camera: ${camera.name}');
+
+        _cameraController = CameraController(
+          camera,
+          ResolutionPreset.low,
+          enableAudio: false,
+          imageFormatGroup: ImageFormatGroup.yuv420,
+        );
+
+        await _cameraController!.initialize();
       }
-
-      // Use first available camera (typically front-facing)
-      final camera = cameras.first;
-      print('[PERSON DETECTION] Using camera: ${camera.name}');
-
-      // Initialize camera controller
-      _cameraController = CameraController(
-        camera,
-        ResolutionPreset.low, // Use low resolution for better performance
-        enableAudio: false,
-        imageFormatGroup: Platform.isAndroid
-            ? ImageFormatGroup.yuv420
-            : ImageFormatGroup.bgra8888,
-      );
-
-      await _cameraController!.initialize();
 
       _isInitialized = true;
       print('[PERSON DETECTION] Initialized successfully (ONNX Runtime mode)');
@@ -119,10 +128,22 @@ class PersonDetectionService {
     print('[PERSON DETECTION] Starting detection (ONNX Runtime mode)');
 
     try {
-      // Start image stream for detection
-      await _cameraController!.startImageStream((CameraImage image) {
-        _processImageAsync(image);
-      });
+      if (Platform.isWindows) {
+        // Windows: Use flutter_lite_camera
+        _liteCameraSubscription = FlutterLiteCamera.startCamera().listen(
+          (Uint8List rgb888Data) {
+            _processRGB888Async(rgb888Data);
+          },
+          onError: (e) {
+            print('[PERSON DETECTION] Windows camera error: $e');
+          },
+        );
+      } else if (Platform.isAndroid) {
+        // Android: Use camera package
+        await _cameraController!.startImageStream((CameraImage image) {
+          _processImageAsync(image);
+        });
+      }
 
       // Start periodic timeout check
       _timeoutTimer = Timer.periodic(_detectionInterval, (_) {
@@ -147,13 +168,43 @@ class PersonDetectionService {
     _timeoutTimer?.cancel();
 
     try {
-      await _cameraController?.stopImageStream();
+      if (Platform.isWindows) {
+        await _liteCameraSubscription?.cancel();
+        FlutterLiteCamera.stopCamera();
+      } else if (Platform.isAndroid) {
+        await _cameraController?.stopImageStream();
+      }
     } catch (e) {
       print('[PERSON DETECTION] Error stopping image stream: $e');
     }
   }
 
-  /// Process camera image asynchronously
+  /// Process RGB888 data from Windows camera asynchronously
+  void _processRGB888Async(Uint8List rgb888Data) {
+    if (!_isDetecting || _isProcessing) return;
+
+    _isProcessing = true;
+
+    _detectPersonFromRGB888(rgb888Data).then((detected) {
+      if (detected) {
+        _lastDetectionTime = DateTime.now();
+
+        if (!_personPresent) {
+          _personPresent = true;
+          if (!_personDetectedController.isClosed) {
+            _personDetectedController.add(true);
+          }
+          print('[PERSON DETECTION] Person detected');
+        }
+      }
+      _isProcessing = false;
+    }).catchError((e) {
+      print('[PERSON DETECTION] Error processing RGB888: $e');
+      _isProcessing = false;
+    });
+  }
+
+  /// Process camera image asynchronously (Android)
   void _processImageAsync(CameraImage image) {
     if (!_isDetecting || _isProcessing) return;
 
@@ -178,16 +229,60 @@ class PersonDetectionService {
     });
   }
 
-  /// Detect person using ONNX Runtime
+  /// Detect person from RGB888 data (Windows)
+  Future<bool> _detectPersonFromRGB888(Uint8List rgb888Data) async {
+    if (_ortSession == null) {
+      return false;
+    }
+
+    try {
+      // flutter_lite_camera provides 640x480 RGB888
+      const int width = 640;
+      const int height = 480;
+
+      // Convert RGB888 to img.Image
+      final image = img.Image(width: width, height: height);
+
+      for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++) {
+          final int index = (y * width + x) * 3;
+          final int r = rgb888Data[index];
+          final int g = rgb888Data[index + 1];
+          final int b = rgb888Data[index + 2];
+          image.setPixelRgb(x, y, r, g, b);
+        }
+      }
+
+      // Convert to ONNX tensor
+      final inputTensor = _convertImageToONNXTensor(image);
+
+      return await _runONNXInference(inputTensor);
+    } catch (e) {
+      print('[PERSON DETECTION] Error in RGB888 detection: $e');
+      return false;
+    }
+  }
+
+  /// Detect person using ONNX Runtime (Android)
   Future<bool> _detectPersonONNX(CameraImage image) async {
     if (_ortSession == null) {
       return false;
     }
 
     try {
-      // Convert camera image to input tensor format (1200x1200 RGB for ONNX SSD MobileNet)
+      // Convert camera image to input tensor format
       final inputTensor = _convertCameraImageToONNXTensor(image);
 
+      return await _runONNXInference(inputTensor);
+    } catch (e) {
+      print('[PERSON DETECTION] Error in ONNX detection: $e');
+      return false;
+    }
+  }
+
+  /// Run ONNX inference (common for both platforms)
+  Future<bool> _runONNXInference(List<double> inputTensor) async {
+    try {
       // Create ONNX value from tensor
       final inputOrt = OrtValueTensor.createTensorWithDataList(
         inputTensor,
@@ -204,8 +299,9 @@ class PersonDetectionService {
       // Output 1: labels [1, N]
       // Output 2: scores [1, N]
 
+      bool personDetected = false;
+
       if (outputs.isNotEmpty && outputs.length >= 3) {
-        // Get outputs by index (outputs is a List<OrtValue?>)
         final labelsValue = outputs[1];
         final scoresValue = outputs[2];
 
@@ -214,7 +310,6 @@ class PersonDetectionService {
           final scoresData = scoresValue.value as List<dynamic>?;
 
           if (scoresData != null && labelsData != null) {
-            // Check each detection
             for (int i = 0; i < scoresData.length && i < labelsData.length; i++) {
               final score = scoresData[i] is List ? scoresData[i][0] : scoresData[i];
               final label = labelsData[i] is List ? labelsData[i][0] : labelsData[i];
@@ -222,10 +317,10 @@ class PersonDetectionService {
               final scoreValue = score is num ? score.toDouble() : 0.0;
               final labelValue = label is num ? label.toInt() : 0;
 
-              // Check if it's a person (class 1) with sufficient confidence
               if (labelValue == _personClassIndex && scoreValue >= _confidenceThreshold) {
                 print('[PERSON DETECTION] Person detected with confidence: ${(scoreValue * 100).toStringAsFixed(1)}%');
-                return true;
+                personDetected = true;
+                break;
               }
             }
           }
@@ -239,32 +334,19 @@ class PersonDetectionService {
       inputOrt.release();
       runOptions.release();
 
-      return false;
+      return personDetected;
     } catch (e) {
-      print('[PERSON DETECTION] Error in ONNX detection: $e');
+      print('[PERSON DETECTION] Error in ONNX inference: $e');
       return false;
     }
   }
 
-  /// Convert CameraImage to ONNX tensor format (NCHW: 1, 3, 1200, 1200)
-  List<double> _convertCameraImageToONNXTensor(CameraImage image) {
+  /// Convert img.Image to ONNX tensor format (common for both platforms)
+  List<double> _convertImageToONNXTensor(img.Image image) {
     const int inputSize = 1200;
 
-    // Convert camera image to RGB
-    img.Image? convertedImage;
-
-    if (Platform.isAndroid) {
-      convertedImage = _convertYUV420ToImage(image);
-    } else {
-      convertedImage = _convertBGRA8888ToImage(image);
-    }
-
-    if (convertedImage == null) {
-      throw Exception('Failed to convert camera image');
-    }
-
     // Resize to 1200x1200
-    final resizedImage = img.copyResize(convertedImage, width: inputSize, height: inputSize);
+    final resizedImage = img.copyResize(image, width: inputSize, height: inputSize);
 
     // Convert to NCHW format [1, 3, 1200, 1200] and normalize to [0, 1]
     final tensorData = <double>[];
@@ -294,6 +376,18 @@ class PersonDetectionService {
     }
 
     return tensorData;
+  }
+
+  /// Convert CameraImage to ONNX tensor format (Android only)
+  List<double> _convertCameraImageToONNXTensor(CameraImage image) {
+    // Convert camera image to RGB
+    final convertedImage = _convertYUV420ToImage(image);
+
+    if (convertedImage == null) {
+      throw Exception('Failed to convert camera image');
+    }
+
+    return _convertImageToONNXTensor(convertedImage);
   }
 
   /// Convert YUV420 to Image (Android)
@@ -330,35 +424,6 @@ class PersonDetectionService {
     }
   }
 
-  /// Convert BGRA8888 to Image (iOS/Windows)
-  img.Image? _convertBGRA8888ToImage(CameraImage image) {
-    try {
-      final int width = image.width;
-      final int height = image.height;
-      final bytes = image.planes[0].bytes;
-
-      final img.Image convertedImage = img.Image(width: width, height: height);
-
-      for (int y = 0; y < height; y++) {
-        for (int x = 0; x < width; x++) {
-          final int pixelIndex = (y * width + x) * 4;
-
-          final int b = bytes[pixelIndex];
-          final int g = bytes[pixelIndex + 1];
-          final int r = bytes[pixelIndex + 2];
-          // bytes[pixelIndex + 3] is alpha, not used
-
-          convertedImage.setPixelRgb(x, y, r, g, b);
-        }
-      }
-
-      return convertedImage;
-    } catch (e) {
-      print('[PERSON DETECTION] Error converting BGRA8888: $e');
-      return null;
-    }
-  }
-
   /// Check if detection has timed out
   void _checkDetectionTimeout() {
     if (_lastDetectionTime == null) return;
@@ -374,7 +439,7 @@ class PersonDetectionService {
     }
   }
 
-  /// Get camera controller for preview
+  /// Get camera controller for preview (Android only)
   CameraController? get cameraController => _cameraController;
 
   /// Check if initialized
@@ -387,13 +452,18 @@ class PersonDetectionService {
   bool get personPresent => _personPresent;
 
   /// Get current detection mode
-  String get detectionMode => 'ONNX Runtime';
+  String get detectionMode => Platform.isWindows ? 'ONNX Runtime (Windows)' : 'ONNX Runtime (Android)';
 
   /// Dispose resources
   Future<void> dispose() async {
     print('[PERSON DETECTION] Disposing service');
     await stopDetection();
-    await _cameraController?.dispose();
+
+    if (Platform.isAndroid) {
+      await _cameraController?.dispose();
+      _cameraController = null;
+    }
+
     _ortSession?.release();
     _sessionOptions?.release();
 
@@ -401,7 +471,6 @@ class PersonDetectionService {
     _personPresent = false;
     _lastDetectionTime = null;
     _isInitialized = false;
-    _cameraController = null;
     _ortSession = null;
     _sessionOptions = null;
   }

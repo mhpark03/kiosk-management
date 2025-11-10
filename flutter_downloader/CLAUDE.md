@@ -441,22 +441,22 @@ void _checkDetectionTimeout() {
 ### Platform-Specific Camera Integration
 
 **Windows:**
-- **Challenge**: Official `camera_windows` plugin doesn't support `startImageStream()`
-- **Solution**: Uses forked version from yushulx with streaming support
+- **Challenge**: Official `camera` plugin's `startImageStream()` doesn't support Windows
+- **Solution**: Uses `flutter_lite_camera` package (lightweight, published on pub.dev)
 - **pubspec.yaml:**
 ```yaml
-camera_windows:
-  git:
-    url: https://github.com/yushulx/flutter_camera_windows
-    ref: main
+flutter_lite_camera: ^1.0.3
 ```
-- **Image format**: BGRA8888 (32-bit per pixel, 4 channels)
-- **Resolution preset**: Low (better performance for real-time processing)
+- **Image format**: RGB888 (3 bytes per pixel, already in RGB)
+- **Resolution**: Fixed 640x480 (optimized for performance)
+- **Data stream**: Direct Uint8List stream (no CameraImage conversion needed)
+- **API**: `FlutterLiteCamera.startCamera()` returns `Stream<Uint8List>`
 
 **Android:**
 - Uses official `camera` plugin (works out of the box)
 - **Image format**: YUV420 (multi-plane format, memory efficient)
 - **Conversion complexity**: Higher due to YUV color space math
+- **API**: `CameraController.startImageStream()` with `CameraImage`
 
 **Image Conversion Details:**
 
@@ -472,14 +472,55 @@ int g = (yp - up * 46549 / 131072 + 44 - vp * 93604 / 131072 + 91).round().clamp
 int b = (yp + up * 1814 / 1024 - 227).round().clamp(0, 255);
 ```
 
-*BGRA8888 → RGB (Windows):*
+*RGB888 → img.Image (Windows):*
 ```dart
-// Single plane, 4 bytes per pixel: B, G, R, A
-final int pixelIndex = (y * width + x) * 4;
-final int b = bytes[pixelIndex];
-final int g = bytes[pixelIndex + 1];
-final int r = bytes[pixelIndex + 2];
-// Alpha channel (pixelIndex + 3) ignored
+// flutter_lite_camera provides 640x480 RGB888
+// 3 bytes per pixel: R, G, B (already in correct format)
+const int width = 640;
+const int height = 480;
+
+final image = img.Image(width: width, height: height);
+for (int y = 0; y < height; y++) {
+  for (int x = 0; x < width; x++) {
+    final int index = (y * width + x) * 3;
+    final int r = rgb888Data[index];
+    final int g = rgb888Data[index + 1];
+    final int b = rgb888Data[index + 2];
+    image.setPixelRgb(x, y, r, g, b);
+  }
+}
+// No color space conversion needed - much simpler than YUV420!
+```
+
+**Platform-Specific Implementation:**
+
+*Windows (flutter_lite_camera):*
+```dart
+// Start camera
+_liteCameraSubscription = FlutterLiteCamera.startCamera().listen(
+  (Uint8List rgb888Data) {
+    _processRGB888Async(rgb888Data);
+  },
+);
+
+// Stop camera
+await _liteCameraSubscription?.cancel();
+FlutterLiteCamera.stopCamera();
+```
+
+*Android (camera package):*
+```dart
+// Initialize camera
+_cameraController = CameraController(camera, ResolutionPreset.low, ...);
+await _cameraController!.initialize();
+
+// Start image stream
+await _cameraController!.startImageStream((CameraImage image) {
+  _processImageAsync(image);
+});
+
+// Stop image stream
+await _cameraController?.stopImageStream();
 ```
 
 ### AutoKioskScreen Integration
