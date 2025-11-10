@@ -76,12 +76,18 @@ class _AutoKioskScreenState extends State<AutoKioskScreen> {
 
     // Listen to presence changes
     _presenceSubscription = _presenceService.presenceStream.listen((isPresent) {
+      print('[AUTO KIOSK] ========== Presence Stream Event ==========');
       print('[AUTO KIOSK] Presence changed: $isPresent');
       print('[AUTO KIOSK] Current _isKioskMode: $_isKioskMode, changing to: $isPresent');
+      if (_isKioskMode == isPresent) {
+        print('[AUTO KIOSK] WARNING: _isKioskMode already equals $isPresent, no change needed');
+        return;
+      }
       setState(() {
         _isKioskMode = isPresent;
       });
       print('[AUTO KIOSK] setState completed, _isKioskMode is now: $_isKioskMode');
+      print('[AUTO KIOSK] ===============================================');
     });
 
     // Start detection
@@ -118,14 +124,18 @@ class _AutoKioskScreenState extends State<AutoKioskScreen> {
 
   @override
   Widget build(BuildContext context) {
-    print('[AUTO KIOSK] build() called with _isKioskMode: $_isKioskMode');
-    return Scaffold(
+    print('[AUTO KIOSK] ========== build() START ==========');
+    print('[AUTO KIOSK] _isKioskMode: $_isKioskMode');
+    print('[AUTO KIOSK] Will render: ${_isKioskMode ? "KioskSplitScreen" : "IdleScreen"}');
+    final widget = Scaffold(
       body: _isKioskMode ? _buildKioskMode() : _buildIdleMode(),
     );
+    print('[AUTO KIOSK] ========== build() END ==========');
+    return widget;
   }
 
   Widget _buildIdleMode() {
-    print('[AUTO KIOSK] _buildIdleMode() called');
+    print('[AUTO KIOSK] >>> _buildIdleMode() - Creating NEW IdleScreen <<<');
     return IdleScreen(
       videos: _advertisementVideos, // Only advertisement videos (menuId == null)
       onUserPresence: _handleUserPresence,
@@ -133,7 +143,7 @@ class _AutoKioskScreenState extends State<AutoKioskScreen> {
   }
 
   Widget _buildKioskMode() {
-    print('[AUTO KIOSK] _buildKioskMode() called');
+    print('[AUTO KIOSK] >>> _buildKioskMode() - Creating NEW KioskSplitScreen <<<');
     return GestureDetector(
       onTap: _handleUserPresence,
       onPanUpdate: (_) => _handleUserPresence(),
