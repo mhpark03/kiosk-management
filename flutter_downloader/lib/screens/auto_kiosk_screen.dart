@@ -53,6 +53,7 @@ class _AutoKioskScreenState extends State<AutoKioskScreen> {
   @override
   void initState() {
     super.initState();
+    print('[AUTO KIOSK] ========== INIT STATE START ==========');
 
     // Separate videos into advertisement and all videos
     // Advertisement videos: menuId is null (not linked to menu items)
@@ -97,26 +98,38 @@ class _AutoKioskScreenState extends State<AutoKioskScreen> {
     });
 
     // Start detection
+    print('[AUTO KIOSK] Starting presence detection...');
     _presenceService.start();
 
     // Enter fullscreen and wait for it to complete
+    print('[AUTO KIOSK] Calling _enterFullscreen()...');
     _enterFullscreen();
+    print('[AUTO KIOSK] ========== INIT STATE END ==========');
   }
 
   Future<void> _enterFullscreen() async {
-    print('[AUTO KIOSK] Entering fullscreen...');
+    print('[AUTO KIOSK] _enterFullscreen() START');
+    print('[AUTO KIOSK] Calling setFullScreen(true)...');
     await windowManager.setFullScreen(true);
+    print('[AUTO KIOSK] setFullScreen(true) completed');
 
     // Wait for fullscreen transition to complete
+    print('[AUTO KIOSK] Waiting 300ms for transition...');
     await Future.delayed(const Duration(milliseconds: 300));
+    print('[AUTO KIOSK] 300ms wait completed');
 
     // Mark fullscreen as ready and rebuild
+    print('[AUTO KIOSK] Checking mounted: $mounted');
     if (mounted) {
+      print('[AUTO KIOSK] Setting _isFullscreenReady = true...');
       setState(() {
         _isFullscreenReady = true;
       });
-      print('[AUTO KIOSK] Fullscreen active, screen rebuilt');
+      print('[AUTO KIOSK] Fullscreen active, _isFullscreenReady = $_isFullscreenReady');
+    } else {
+      print('[AUTO KIOSK] Widget not mounted, skipping setState');
     }
+    print('[AUTO KIOSK] _enterFullscreen() END');
   }
 
   Future<void> _exitFullscreen() async {
