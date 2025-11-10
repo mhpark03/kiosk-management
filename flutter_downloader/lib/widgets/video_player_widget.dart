@@ -70,23 +70,44 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
   }
 
   Future<void> _reinitializePlayer() async {
+    print('[VIDEO PLAYER WIDGET] _reinitializePlayer() called for: ${widget.videoPath}');
+
     // Wait for any ongoing initialization to complete
     while (_isInitializing) {
+      print('[VIDEO PLAYER WIDGET] Waiting for ongoing initialization to complete...');
       await Future.delayed(const Duration(milliseconds: 100));
     }
 
+    print('[VIDEO PLAYER WIDGET] Canceling subscriptions...');
     _cancelSubscriptions();
-    await _player?.dispose();
+
+    print('[VIDEO PLAYER WIDGET] Disposing old player...');
+    final oldPlayer = _player;
     _player = null;
     _controller = null;
 
-    if (mounted) {
+    // Dispose old player and wait for it to complete
+    if (oldPlayer != null) {
+      try {
+        await oldPlayer.dispose();
+        print('[VIDEO PLAYER WIDGET] Old player disposed successfully');
+      } catch (e) {
+        print('[VIDEO PLAYER WIDGET] Error disposing old player: $e');
+      }
+      // Give extra time for resources to be fully released
+      await Future.delayed(const Duration(milliseconds: 100));
+    }
+
+    if (mounted && !_isDisposing) {
       setState(() {
         _isInitialized = false;
         _hasError = false;
       });
+      print('[VIDEO PLAYER WIDGET] Starting new player initialization...');
+      await _initializePlayer();
+    } else {
+      print('[VIDEO PLAYER WIDGET] Skipping new player initialization (mounted: $mounted, disposing: $_isDisposing)');
     }
-    await _initializePlayer();
   }
 
   Future<void> _initializePlayer() async {
