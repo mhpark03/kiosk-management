@@ -44,6 +44,10 @@ class _AutoKioskScreenState extends State<AutoKioskScreen> {
   late List<Video> _advertisementVideos;
   late List<Video> _allVideos;
 
+  // Cache screen widgets to prevent recreation on every build
+  Widget? _cachedIdleScreen;
+  Widget? _cachedKioskScreen;
+
   @override
   void initState() {
     super.initState();
@@ -135,27 +139,39 @@ class _AutoKioskScreenState extends State<AutoKioskScreen> {
   }
 
   Widget _buildIdleMode() {
-    print('[AUTO KIOSK] >>> _buildIdleMode() - Creating NEW IdleScreen <<<');
-    return IdleScreen(
-      videos: _advertisementVideos, // Only advertisement videos (menuId == null)
-      onUserPresence: _handleUserPresence,
-    );
+    // Create IdleScreen only once and cache it
+    if (_cachedIdleScreen == null) {
+      print('[AUTO KIOSK] >>> _buildIdleMode() - Creating NEW IdleScreen <<<');
+      _cachedIdleScreen = IdleScreen(
+        videos: _advertisementVideos, // Only advertisement videos (menuId == null)
+        onUserPresence: _handleUserPresence,
+      );
+    } else {
+      print('[AUTO KIOSK] >>> _buildIdleMode() - Reusing cached IdleScreen <<<');
+    }
+    return _cachedIdleScreen!;
   }
 
   Widget _buildKioskMode() {
-    print('[AUTO KIOSK] >>> _buildKioskMode() - Creating NEW KioskSplitScreen <<<');
-    return GestureDetector(
-      onTap: _handleUserPresence,
-      onPanUpdate: (_) => _handleUserPresence(),
-      child: MouseRegion(
-        onHover: (_) => _handleUserPresence(),
-        child: KioskSplitScreen(
-          videos: _allVideos, // All videos for kiosk mode
-          downloadPath: widget.downloadPath,
-          kioskId: widget.kioskId,
-          menuFilename: widget.menuFilename,
+    // Create KioskSplitScreen only once and cache it
+    if (_cachedKioskScreen == null) {
+      print('[AUTO KIOSK] >>> _buildKioskMode() - Creating NEW KioskSplitScreen <<<');
+      _cachedKioskScreen = GestureDetector(
+        onTap: _handleUserPresence,
+        onPanUpdate: (_) => _handleUserPresence(),
+        child: MouseRegion(
+          onHover: (_) => _handleUserPresence(),
+          child: KioskSplitScreen(
+            videos: _allVideos, // All videos for kiosk mode
+            downloadPath: widget.downloadPath,
+            kioskId: widget.kioskId,
+            menuFilename: widget.menuFilename,
+          ),
         ),
-      ),
-    );
+      );
+    } else {
+      print('[AUTO KIOSK] >>> _buildKioskMode() - Reusing cached KioskSplitScreen <<<');
+    }
+    return _cachedKioskScreen!;
   }
 }
