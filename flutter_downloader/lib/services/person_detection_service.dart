@@ -18,6 +18,27 @@ class InitializationProgress {
   InitializationProgress(this.progress, this.message);
 }
 
+/// Detection status information
+class DetectionStatus {
+  final bool personPresent;
+  final double latestConfidence; // 0.0 to 1.0
+  final int totalDetections;
+  final int successfulDetections;
+  final bool isDetecting;
+  final bool isInitialized;
+
+  DetectionStatus({
+    required this.personPresent,
+    required this.latestConfidence,
+    required this.totalDetections,
+    required this.successfulDetections,
+    required this.isDetecting,
+    required this.isInitialized,
+  });
+
+  double get successRate => totalDetections > 0 ? successfulDetections / totalDetections : 0.0;
+}
+
 /// Service for detecting person presence using ONNX Runtime on all platforms
 class PersonDetectionService {
   static final PersonDetectionService _instance = PersonDetectionService._internal();
@@ -42,6 +63,10 @@ class PersonDetectionService {
   final _initProgressController = StreamController<InitializationProgress>.broadcast();
   Stream<InitializationProgress> get initProgressStream => _initProgressController.stream;
 
+  // Detection status state (for UI display)
+  final _detectionStatusController = StreamController<DetectionStatus>.broadcast();
+  Stream<DetectionStatus> get detectionStatusStream => _detectionStatusController.stream;
+
   bool _personPresent = false;
   DateTime? _lastDetectionTime;
   double _latestConfidence = 0.0; // Latest detection confidence (0.0 - 1.0)
@@ -55,7 +80,7 @@ class PersonDetectionService {
   // Configuration
   static const Duration _detectionTimeout = Duration(seconds: 30); // 30 seconds timeout for kiosk use
   static const Duration _detectionInterval = Duration(milliseconds: 500);
-  static const double _confidenceThreshold = 0.5; // 50% confidence threshold (lowered for better detection)
+  static const double _confidenceThreshold = 0.6; // 60% confidence threshold
   static const int _personClassIndex = 1; // "person" class in COCO dataset
 
   Timer? _timeoutTimer;
@@ -279,16 +304,6 @@ class PersonDetectionService {
     }
   }
 
-  /// Dispose resources (usually not called as this is a singleton)
-  void dispose() {
-    _captureTimer?.cancel();
-    _timeoutTimer?.cancel();
-    _personDetectedController.close();
-    _initProgressController.close();
-    _ortSession?.release();
-    _sessionOptions?.release();
-  }
-
   /// Convert RGB888 to PNG for preview (async)
   void _convertRGB888ToPngAsync(Uint8List rgb888Data, int width, int height) {
     // Run in background to avoid blocking
@@ -334,6 +349,7 @@ class PersonDetectionService {
           print('[PERSON DETECTION] Person detected');
         }
       }
+      _emitDetectionStatus(); // Emit status update after each detection
       _isProcessing = false;
     }).catchError((e) {
       print('[PERSON DETECTION] Error processing RGB888: $e');
@@ -370,6 +386,7 @@ class PersonDetectionService {
           print('[PERSON DETECTION] Person detected');
         }
       }
+      _emitDetectionStatus(); // Emit status update after each detection
       _isProcessing = false;
     }).catchError((e, stackTrace) {
       print('[PERSON DETECTION] Error processing image: $e');
@@ -621,6 +638,21 @@ class PersonDetectionService {
         _personDetectedController.add(false);
       }
       print('[PERSON DETECTION] No person (detection timeout)');
+      _emitDetectionStatus(); // Emit status update
+    }
+  }
+
+  /// Emit current detection status to stream
+  void _emitDetectionStatus() {
+    if (!_detectionStatusController.isClosed) {
+      _detectionStatusController.add(DetectionStatus(
+        personPresent: _personPresent,
+        latestConfidence: _latestConfidence,
+        totalDetections: _totalDetections,
+        successfulDetections: _successfulDetections,
+        isDetecting: _isDetecting,
+        isInitialized: _isInitialized,
+      ));
     }
   }
 

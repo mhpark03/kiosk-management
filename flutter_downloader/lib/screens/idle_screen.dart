@@ -8,6 +8,7 @@ import '../models/video.dart';
 import '../services/download_service.dart';
 import '../services/person_detection_service.dart';
 import '../widgets/video_player_widget.dart';
+import '../widgets/camera_status_overlay.dart';
 
 /// Idle screen that shows fullscreen advertisement videos
 /// Displayed when no user is present at the kiosk
@@ -199,6 +200,28 @@ class _IdleScreenState extends State<IdleScreen> {
                     ),
                   ),
                 ],
+
+                // Camera status overlay (shows detection confidence and stats)
+                if (Platform.isAndroid && _personDetection.isInitialized && _personDetection.isDetecting)
+                  StreamBuilder<DetectionStatus>(
+                    stream: _personDetection.detectionStatusStream,
+                    builder: (context, snapshot) {
+                      if (snapshot.hasData) {
+                        return CameraStatusOverlay(status: snapshot.data!);
+                      }
+                      // Show default status while waiting for first update
+                      return CameraStatusOverlay(
+                        status: DetectionStatus(
+                          personPresent: false,
+                          latestConfidence: 0.0,
+                          totalDetections: 0,
+                          successfulDetections: 0,
+                          isDetecting: _personDetection.isDetecting,
+                          isInitialized: _personDetection.isInitialized,
+                        ),
+                      );
+                    },
+                  ),
 
                 // Hint overlay
                 Positioned(
