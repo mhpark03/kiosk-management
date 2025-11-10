@@ -177,6 +177,7 @@ class _IdleScreenState extends State<IdleScreen> {
 
   @override
   Widget build(BuildContext context) {
+    print('[IDLE SCREEN] build() called - personDetection.isInitialized: ${_personDetection.isInitialized}, Platform: ${Platform.operatingSystem}');
     return GestureDetector(
       onTap: _handleUserInteraction,
       onPanUpdate: (_) => _handleUserInteraction(),
@@ -189,7 +190,8 @@ class _IdleScreenState extends State<IdleScreen> {
             child: Stack(
               children: [
                 // Camera preview (Android only)
-                if (Platform.isAndroid && _personDetection.isInitialized && _personDetection.cameraController != null)
+                if (Platform.isAndroid && _personDetection.isInitialized && _personDetection.cameraController != null) ...[
+                  const SizedBox.shrink(), // Placeholder for logging
                   Center(
                     child: AspectRatio(
                       aspectRatio: 4 / 3,
@@ -203,9 +205,14 @@ class _IdleScreenState extends State<IdleScreen> {
                         child: CameraPreview(_personDetection.cameraController!),
                       ),
                     ),
-                  )
+                  ),
+                ]
                 // Detection status (Windows or initializing)
-                else if (Platform.isWindows && _personDetection.isInitialized)
+                else if (Platform.isWindows && _personDetection.isInitialized) ...[
+                  Builder(builder: (context) {
+                    print('[IDLE SCREEN] Building Windows UI - personDetected: $_personDetected');
+                    return const SizedBox.shrink();
+                  }),
                   Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -234,8 +241,13 @@ class _IdleScreenState extends State<IdleScreen> {
                         ),
                       ],
                     ),
-                  )
-                else
+                  ),
+                ]
+                else ...[
+                  Builder(builder: (context) {
+                    print('[IDLE SCREEN] Building loading UI - status: $_detectionStatus');
+                    return const SizedBox.shrink();
+                  }),
                   Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -254,6 +266,7 @@ class _IdleScreenState extends State<IdleScreen> {
                       ],
                     ),
                   ),
+                ],
 
                 // Detection status overlay
                 Positioned(
