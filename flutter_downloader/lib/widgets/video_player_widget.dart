@@ -96,9 +96,8 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
         }
       });
 
-      await _player!.open(Media(widget.videoPath));
-      await _player!.play();
-
+      // IMPORTANT: Set initialized BEFORE opening media
+      // This allows the Video widget to be built and ready to render
       if (mounted) {
         setState(() {
           _isInitialized = true;
@@ -106,7 +105,12 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
         });
       }
 
-      print('[VIDEO PLAYER WIDGET] Player initialized successfully');
+      print('[VIDEO PLAYER WIDGET] Controller created, opening media...');
+
+      await _player!.open(Media(widget.videoPath));
+      await _player!.play();
+
+      print('[VIDEO PLAYER WIDGET] Player initialized and playing');
     } catch (e) {
       print('[VIDEO PLAYER WIDGET] Error initializing player: $e');
       if (mounted) {
