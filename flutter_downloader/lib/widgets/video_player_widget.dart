@@ -133,16 +133,8 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
 
       print('[VIDEO PLAYER WIDGET] Controller created, opening media...');
 
-      // Open media first
-      await _player!.open(Media(widget.videoPath));
-
-      print('[VIDEO PLAYER WIDGET] Media opened, waiting for next frame...');
-
-      // IMPORTANT: Wait for next frame before setting initialized
-      // This ensures the layout is complete and the Video widget can receive proper constraints
-      await Future.delayed(const Duration(milliseconds: 100));
-
-      // Set initialized after layout is ready
+      // IMPORTANT: Set initialized BEFORE opening media
+      // This allows the Video widget to be built and receive layout constraints
       if (mounted) {
         setState(() {
           _isInitialized = true;
@@ -150,7 +142,17 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
         });
       }
 
-      print('[VIDEO PLAYER WIDGET] Widget ready to render');
+      print('[VIDEO PLAYER WIDGET] Widget set to render, waiting for layout...');
+
+      // Wait for next frame to ensure Video widget has received proper layout constraints
+      await Future.delayed(const Duration(milliseconds: 100));
+
+      print('[VIDEO PLAYER WIDGET] Layout ready, opening media...');
+
+      // Open media after Video widget has proper constraints
+      await _player!.open(Media(widget.videoPath));
+
+      print('[VIDEO PLAYER WIDGET] Media opened, starting playback...');
 
       await _player!.play();
 
