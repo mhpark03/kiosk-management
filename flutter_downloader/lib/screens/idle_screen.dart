@@ -41,6 +41,7 @@ class _IdleScreenState extends State<IdleScreen> {
   bool _personDetected = false;
   String _detectionStatus = 'Initializing...';
   bool _isDisposed = false; // Track if widget is disposed
+  bool _isPersonDetectionInitialized = false; // Track initialization state
 
   @override
   void initState() {
@@ -119,13 +120,15 @@ class _IdleScreenState extends State<IdleScreen> {
         }
       });
 
+      // Mark as initialized and update UI
       if (mounted && !_isDisposed) {
         setState(() {
+          _isPersonDetectionInitialized = true;
           _detectionStatus = 'Monitoring...';
         });
       }
 
-      print('[IDLE SCREEN] Person detection initialized');
+      print('[IDLE SCREEN] Person detection initialized and UI updated');
     } catch (e) {
       print('[IDLE SCREEN] Error initializing person detection: $e');
       if (mounted && !_isDisposed) {
@@ -212,7 +215,7 @@ class _IdleScreenState extends State<IdleScreen> {
 
   @override
   Widget build(BuildContext context) {
-    print('[IDLE SCREEN] build() called - personDetection.isInitialized: ${_personDetection.isInitialized}, Platform: ${Platform.operatingSystem}');
+    print('[IDLE SCREEN] build() called - _isPersonDetectionInitialized: $_isPersonDetectionInitialized, Platform: ${Platform.operatingSystem}');
     return GestureDetector(
       onTap: _handleUserInteraction,
       onPanUpdate: (_) => _handleUserInteraction(),
@@ -225,7 +228,7 @@ class _IdleScreenState extends State<IdleScreen> {
             child: Stack(
               children: [
                 // Camera preview (Android only)
-                if (Platform.isAndroid && _personDetection.isInitialized && _personDetection.cameraController != null) ...[
+                if (Platform.isAndroid && _isPersonDetectionInitialized && _personDetection.cameraController != null) ...[
                   const SizedBox.shrink(), // Placeholder for logging
                   Center(
                     child: AspectRatio(
@@ -243,7 +246,7 @@ class _IdleScreenState extends State<IdleScreen> {
                   ),
                 ]
                 // Detection status (Windows or initializing)
-                else if (Platform.isWindows && _personDetection.isInitialized) ...[
+                else if (Platform.isWindows && _isPersonDetectionInitialized) ...[
                   Builder(builder: (context) {
                     print('[IDLE SCREEN] Building Windows UI - personDetected: $_personDetected');
                     return const SizedBox.shrink();
