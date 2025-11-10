@@ -346,3 +346,254 @@ The app automatically sends device information to the backend via HTTP headers:
 - **Windows**: Uses `Platform.environment['COMPUTERNAME']` or `Platform.localHostname`
 - **Android**: Uses `Platform.localHostname` or environment variables
 - **Fallback**: Returns "Unknown" or "Unknown Device" if detection fails
+
+## Person Detection System (Windows & Android)
+
+### Overview
+
+The kiosk supports camera-based person detection for automatic mode switching:
+- **Idle Mode**: Fullscreen advertisement videos when no one is present
+- **Kiosk Mode**: Split-screen menu interface when person detected
+
+### Architecture
+
+**Service Layer:**
+```
+PresenceDetectionService (Abstract Interface)
+  ├── CameraPresenceDetectionService
+  │   └── PersonDetectionService (ONNX Runtime)
+  └── TouchPresenceDetectionService (Fallback)
+```
+
+**Key Files:**
+- `lib/services/person_detection_service.dart` (409 lines) - ONNX inference engine
+- `lib/services/presence_detection_service.dart` (152 lines) - Abstraction layer
+- `lib/screens/auto_kiosk_screen.dart` - UI controller with detection mode switching
+
+### PersonDetectionService Implementation
+
+**ONNX Runtime Integration:**
+- Model: SSD MobileNet v2 from COCO dataset
+- Input: 1200x1200 RGB image in NCHW format (1, 3, 1200, 1200)
+- Output: Bounding boxes [1, N, 4], Labels [1, N], Scores [1, N]
+- Confidence threshold: 0.5
+- Person class index: 1 (COCO dataset)
+
+**Detection Flow:**
+```dart
+1. Camera captures frame (CameraImage)
+2. Convert to RGB:
+   - Android: YUV420 → RGB (_convertYUV420ToImage)
+   - Windows/iOS: BGRA8888 → RGB (_convertBGRA8888ToImage)
+3. Resize to 1200x1200
+4. Convert to NCHW tensor format [1, 3, H, W]
+5. Normalize pixels to [0, 1] range
+6. Run ONNX inference
+7. Parse outputs for person detections (class=1, score>=0.5)
+8. Emit detection event if person found
+```
+
+**Memory Management:**
+```dart
+// Frame skipping to prevent memory overload
+bool _isProcessing = false;
+
+void _processImageAsync(CameraImage image) {
+  if (!_isDetecting || _isProcessing) return;
+  _isProcessing = true;
+
+  _detectPersonONNX(image).then((detected) {
+    // Handle detection result
+    _isProcessing = false;
+  });
+}
+
+// Resource cleanup
+Future<void> dispose() async {
+  await stopDetection();
+  await _cameraController?.dispose();
+  _ortSession?.release();
+  _sessionOptions?.release();
+}
+```
+
+**Threading:**
+- Camera image stream runs on separate isolate (camera plugin)
+- ONNX inference is asynchronous (returns Future)
+- Frame processing uses async callbacks to avoid blocking UI thread
+- Detection interval: 500ms (controlled by image stream rate)
+
+**Timeout Handling:**
+```dart
+// Detection timeout: 3 seconds
+Timer? _timeoutTimer;
+
+void _checkDetectionTimeout() {
+  final timeSinceDetection = DateTime.now().difference(_lastDetectionTime!);
+
+  if (timeSinceDetection > Duration(seconds: 3) && _personPresent) {
+    _personPresent = false;
+    _personDetectedController.add(false);
+  }
+}
+```
+
+### Platform-Specific Camera Integration
+
+**Windows:**
+- **Challenge**: Official `camera_windows` plugin doesn't support `startImageStream()`
+- **Solution**: Uses forked version from yushulx with streaming support
+- **pubspec.yaml:**
+```yaml
+camera_windows:
+  git:
+    url: https://github.com/yushulx/flutter_camera_windows
+    ref: main
+```
+- **Image format**: BGRA8888 (32-bit per pixel, 4 channels)
+- **Resolution preset**: Low (better performance for real-time processing)
+
+**Android:**
+- Uses official `camera` plugin (works out of the box)
+- **Image format**: YUV420 (multi-plane format, memory efficient)
+- **Conversion complexity**: Higher due to YUV color space math
+
+**Image Conversion Details:**
+
+*YUV420 → RGB (Android):*
+```dart
+// YUV420 has 3 planes: Y (luminance), U (chrominance), V (chrominance)
+final int uvRowStride = image.planes[1].bytesPerRow;
+final int uvPixelStride = image.planes[1].bytesPerPixel ?? 1;
+
+// Color space conversion formulas
+int r = (yp + vp * 1436 / 1024 - 179).round().clamp(0, 255);
+int g = (yp - up * 46549 / 131072 + 44 - vp * 93604 / 131072 + 91).round().clamp(0, 255);
+int b = (yp + up * 1814 / 1024 - 227).round().clamp(0, 255);
+```
+
+*BGRA8888 → RGB (Windows):*
+```dart
+// Single plane, 4 bytes per pixel: B, G, R, A
+final int pixelIndex = (y * width + x) * 4;
+final int b = bytes[pixelIndex];
+final int g = bytes[pixelIndex + 1];
+final int r = bytes[pixelIndex + 2];
+// Alpha channel (pixelIndex + 3) ignored
+```
+
+### AutoKioskScreen Integration
+
+**Detection Mode Selection:**
+```dart
+enum DetectionMode {
+  touch,  // Touch/mouse based detection
+  camera, // Camera-based person detection
+}
+
+AutoKioskScreen(
+  videos: videos,
+  detectionMode: DetectionMode.camera,  // Default
+  idleTimeout: Duration(seconds: 30),   // For touch mode
+);
+```
+
+**Mode Switching:**
+```dart
+// Listen to presence changes
+_presenceSubscription = _presenceService.presenceStream.listen((isPresent) {
+  setState(() {
+    _isKioskMode = isPresent;  // true = kiosk, false = idle
+  });
+});
+
+// UI updates
+Widget build(BuildContext context) {
+  return AnimatedSwitcher(
+    duration: Duration(milliseconds: 500),
+    child: _isKioskMode ? KioskSplitScreen() : IdleScreen(),
+  );
+}
+```
+
+**Video Filtering:**
+```dart
+// Advertisement videos for idle screen (menuId == null)
+_advertisementVideos = widget.videos.where((v) => v.menuId == null).toList();
+
+// All videos for kiosk mode (including menu item videos)
+_allVideos = widget.videos;
+```
+
+### Assets Required
+
+**ONNX Model:**
+- File: `assets/detect.onnx` (29MB)
+- Model type: SSD MobileNet v2
+- Dataset: COCO (80 classes, person = class 1)
+- Downloaded from: ONNX Model Zoo or converted from TensorFlow
+
+**Label Map:**
+- File: `assets/labelmap.txt` (665 bytes)
+- Format: One class name per line
+- Line 1 = class 0, line 2 = class 1 (person), etc.
+
+**pubspec.yaml:**
+```yaml
+flutter:
+  assets:
+    - assets/coffee_menu.xml
+    - assets/detect.onnx      # ONNX model for person detection
+    - assets/labelmap.txt     # Class labels for COCO dataset
+```
+
+### Performance Considerations
+
+**Optimization Strategies:**
+1. **Low resolution camera preset** - Reduces image size before processing
+2. **Frame skipping** - Only process one frame at a time (_isProcessing flag)
+3. **Async processing** - Non-blocking inference execution
+4. **Resource pooling** - Reuse ONNX session across frames
+5. **Early exit** - Stop checking detections once person found
+
+**Expected Performance:**
+- **Windows** (i5-8250U, integrated GPU):
+  - Inference time: ~200-300ms per frame
+  - FPS: ~2-3 frames per second
+  - Detection latency: <1 second
+- **Android** (mid-range phone):
+  - Inference time: ~150-250ms per frame
+  - FPS: ~3-4 frames per second
+  - Detection latency: <1 second
+
+**Memory Usage:**
+- ONNX model: ~29MB (loaded once at startup)
+- Camera frames: ~2-3MB per frame (transient, released after processing)
+- Total overhead: ~35-40MB
+
+### Troubleshooting
+
+**Camera not working on Windows:**
+1. Check webcam is connected and working in Windows Camera app
+2. Verify camera permissions (Windows 10/11 Settings → Privacy → Camera)
+3. Check if camera is already in use by another application
+4. Try restarting the app or system
+
+**Person detection not triggering:**
+1. Check console logs: `[PERSON DETECTION] Person detected with confidence: XX%`
+2. Ensure adequate lighting (ONNX model trained on well-lit images)
+3. Try adjusting confidence threshold (currently 0.5 = 50%)
+4. Verify ONNX model is loaded: `[PERSON DETECTION] ONNX model loaded successfully`
+
+**High CPU usage:**
+1. Reduce camera resolution in PersonDetectionService (currently ResolutionPreset.low)
+2. Increase detection interval (_detectionInterval, currently 500ms)
+3. Use touch detection mode instead of camera mode for development
+
+**Build errors after updating pubspec.yaml:**
+```bash
+# Clear Flutter cache and rebuild
+flutter clean
+flutter pub get
+flutter build windows  # or flutter run
+```

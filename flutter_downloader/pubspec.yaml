@@ -83,7 +83,12 @@ dependencies:
 
   # Camera for person detection
   camera: ^0.10.5+9
-  camera_windows: ^0.2.1+8
+  # camera_windows: ^0.2.1+8  # Official version doesn't support startImageStream
+  # Using fork with startImageStream support for Windows person detection
+  camera_windows:
+    git:
+      url: https://github.com/yushulx/flutter_camera_windows
+      ref: main
 
   # ONNX Runtime for person detection (all platforms)
   onnxruntime: ^1.4.1

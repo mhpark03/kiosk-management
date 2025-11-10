@@ -11,6 +11,10 @@ Flutter-based kiosk video downloader application for Android and Windows. Connec
 - **Video Management**: Download, track, and play videos locally
 - **Event Logging**: Comprehensive logging for debugging and auditing
 - **Cross-Platform**: Supports Android and Windows
+- **🎥 Camera-Based Person Detection**: AI-powered presence detection using ONNX Runtime
+  - Automatic kiosk activation when person detected
+  - Touch/mouse fallback mode for testing
+  - Works on Windows and Android
 
 ## 🚀 Quick Start
 
@@ -117,6 +121,64 @@ Logs all kiosk activities to local files:
 - **Location**: `{downloadPath}/logs/events_YYYYMMDD.log`
 - **Events**: LOGIN, SYNC, DOWNLOAD, CONFIG updates
 - **Format**: `[timestamp] [eventType] message | metadata: {...}`
+
+## 🎥 Person Detection (Windows & Android)
+
+AI-powered presence detection for automatic kiosk activation:
+
+### How It Works
+
+The kiosk operates in two modes:
+- **Idle Mode**: Plays fullscreen advertisement videos (menuId == null)
+- **Kiosk Mode**: Activates when person detected, shows split-screen menu
+
+### Detection Methods
+
+**1. Camera-Based Detection (Default)**
+- Uses ONNX Runtime with SSD MobileNet v2 model
+- Real-time person detection from camera feed
+- Confidence threshold: 50%
+- Detection timeout: 3 seconds
+- **Windows Support**: Uses `flutter_camera_windows` fork with `startImageStream()` support
+
+**2. Touch/Mouse Detection (Fallback)**
+- Detects screen interaction
+- Idle timeout: 30 seconds (configurable)
+- Useful for testing without camera
+
+### Technical Implementation
+
+```dart
+// Using AutoKioskScreen with camera detection
+AutoKioskScreen(
+  videos: videos,
+  detectionMode: DetectionMode.camera,  // or DetectionMode.touch
+  idleTimeout: Duration(seconds: 30),
+);
+```
+
+**Components:**
+- `PersonDetectionService` - ONNX inference engine
+- `CameraPresenceDetectionService` - Camera-based wrapper
+- `TouchPresenceDetectionService` - Touch/mouse fallback
+- `AutoKioskScreen` - Auto-switching UI
+
+**Requirements:**
+- ONNX model: `assets/detect.onnx` (29MB, included)
+- Camera permission (Android)
+- Working webcam (Windows)
+
+### Platform-Specific Notes
+
+**Windows:**
+- Uses modified `camera_windows` plugin with image streaming support
+- Image format: BGRA8888 → RGB conversion
+- Resolution: Low preset for better performance
+
+**Android:**
+- Uses official camera plugin
+- Image format: YUV420 → RGB conversion
+- Requires camera permission in AndroidManifest.xml
 
 ## 🛠️ Development
 
