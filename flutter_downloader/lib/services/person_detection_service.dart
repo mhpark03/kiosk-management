@@ -10,6 +10,14 @@ import 'package:onnxruntime/onnxruntime.dart';
 import 'package:camera/camera.dart' if (dart.library.io) 'package:camera/camera.dart';
 import 'package:flutter_lite_camera/flutter_lite_camera.dart' if (dart.library.io) 'package:flutter_lite_camera/flutter_lite_camera.dart';
 
+/// Initialization progress information
+class InitializationProgress {
+  final double progress; // 0.0 to 1.0
+  final String message;
+
+  InitializationProgress(this.progress, this.message);
+}
+
 /// Service for detecting person presence using ONNX Runtime on all platforms
 class PersonDetectionService {
   static final PersonDetectionService _instance = PersonDetectionService._internal();
@@ -30,6 +38,10 @@ class PersonDetectionService {
   final _personDetectedController = StreamController<bool>.broadcast();
   Stream<bool> get personDetectedStream => _personDetectedController.stream;
 
+  // Initialization progress state
+  final _initProgressController = StreamController<InitializationProgress>.broadcast();
+  Stream<InitializationProgress> get initProgressStream => _initProgressController.stream;
+
   bool _personPresent = false;
   DateTime? _lastDetectionTime;
   double _latestConfidence = 0.0; // Latest detection confidence (0.0 - 1.0)
@@ -41,7 +53,7 @@ class PersonDetectionService {
   OrtSessionOptions? _sessionOptions;
 
   // Configuration
-  static const Duration _detectionTimeout = Duration(seconds: 5); // 5 seconds timeout
+  static const Duration _detectionTimeout = Duration(seconds: 30); // 30 seconds timeout for kiosk use
   static const Duration _detectionInterval = Duration(milliseconds: 500);
   static const double _confidenceThreshold = 0.5; // 50% confidence threshold (lowered for better detection)
   static const int _personClassIndex = 1; // "person" class in COCO dataset
@@ -68,10 +80,15 @@ class PersonDetectionService {
 
     try {
       print('[PERSON DETECTION] Initializing ONNX Runtime mode for ${Platform.operatingSystem}');
+
+      // Step 1: Initialize ONNX (0% - 40%)
+      _initProgressController.add(InitializationProgress(0.0, 'AI 모델 로딩 중...'));
       await _initializeONNX();
+      _initProgressController.add(InitializationProgress(0.4, 'AI 모델 로딩 완료'));
 
       if (Platform.isWindows) {
         // Windows: Initialize flutter_lite_camera
+        _initProgressController.add(InitializationProgress(0.5, '카메라 초기화 중...'));
         _liteCamera = FlutterLiteCamera();
 
         // Get available cameras
@@ -86,9 +103,11 @@ class PersonDetectionService {
         // If wrong camera is selected, change the index (0, 1, 2, etc.)
         await _liteCamera!.open(0);
         print('[PERSON DETECTION] Opened Windows camera index: 0');
+        _initProgressController.add(InitializationProgress(0.8, '카메라 초기화 완료'));
 
       } else if (Platform.isAndroid) {
         // Android: Initialize camera package
+        _initProgressController.add(InitializationProgress(0.5, '카메라 초기화 중...'));
         final cameras = await availableCameras();
         if (cameras.isEmpty) {
           throw Exception('No cameras available');
@@ -107,6 +126,7 @@ class PersonDetectionService {
           print('[PERSON DETECTION] No front camera found, using: ${frontCamera.name}');
         }
 
+        _initProgressController.add(InitializationProgress(0.6, '카메라 설정 중...'));
         _cameraController = CameraController(
           frontCamera,
           ResolutionPreset.low,
@@ -115,6 +135,7 @@ class PersonDetectionService {
         );
 
         await _cameraController!.initialize();
+        _initProgressController.add(InitializationProgress(0.8, '카메라 초기화 완료'));
       }
 
       _isInitialized = true;
@@ -168,6 +189,8 @@ class PersonDetectionService {
     _isDetecting = true;
 
     try {
+      _initProgressController.add(InitializationProgress(0.9, '감지 시스템 시작 중...'));
+
       if (Platform.isWindows) {
         // Windows: Wait for camera to warm up before starting capture
         await Future.delayed(const Duration(seconds: 2));
@@ -222,6 +245,9 @@ class PersonDetectionService {
       _timeoutTimer = Timer.periodic(_detectionInterval, (_) {
         _checkDetectionTimeout();
       });
+
+      // Initialization complete
+      _initProgressController.add(InitializationProgress(1.0, '초기화 완료'));
     } catch (e) {
       print('[PERSON DETECTION] Error starting detection: $e');
       _isDetecting = false;
@@ -251,6 +277,16 @@ class PersonDetectionService {
     } catch (e) {
       print('[PERSON DETECTION] Error stopping image stream: $e');
     }
+  }
+
+  /// Dispose resources (usually not called as this is a singleton)
+  void dispose() {
+    _captureTimer?.cancel();
+    _timeoutTimer?.cancel();
+    _personDetectedController.close();
+    _initProgressController.close();
+    _ortSession?.release();
+    _sessionOptions?.release();
   }
 
   /// Convert RGB888 to PNG for preview (async)
