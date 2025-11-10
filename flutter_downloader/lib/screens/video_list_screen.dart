@@ -695,21 +695,179 @@ class _VideoListScreenState extends State<VideoListScreen> {
       } else {
         print('[SYNC] No cached videos available for offline mode');
 
-        if (config != null) {
-          // Log sync failed event
-          await EventLogger().logEvent(
-            eventType: 'SYNC_FAILED',
-            message: '동기화 실패 (오프라인 캐시 없음): ${e.toString()}',
-            metadata: '{"error": "${e.toString()}"}',
-          );
-        }
+        // Try to scan local download folder for available files
+        final scannedVideos = await _scanLocalFiles(config);
 
-        setState(() {
-          _errorMessage = '서버 연결 실패: ${e.toString().replaceFirst('Exception: ', '')}';
-          _isLoading = false;
-        });
+        if (scannedVideos.isNotEmpty) {
+          print('[SYNC] Found ${scannedVideos.length} files in local download folder');
+
+          setState(() {
+            _videos = scannedVideos;
+            _isLoading = false;
+            _errorMessage = '오프라인 모드 (로컬 파일 ${scannedVideos.length}개 사용 가능)';
+          });
+
+          if (config != null) {
+            await EventLogger().logEvent(
+              eventType: 'OFFLINE_MODE_LOCAL_SCAN',
+              message: '오프라인 모드로 전환 (로컬 파일 스캔 ${scannedVideos.length}개 사용)',
+              metadata: '{"scannedCount": ${scannedVideos.length}}',
+            );
+          }
+        } else {
+          print('[SYNC] No local files found in download folder');
+
+          if (config != null) {
+            // Log sync failed event
+            await EventLogger().logEvent(
+              eventType: 'SYNC_FAILED',
+              message: '동기화 실패 (오프라인 캐시 및 로컬 파일 없음): ${e.toString()}',
+              metadata: '{"error": "${e.toString()}"}',
+            );
+          }
+
+          setState(() {
+            _errorMessage = '서버 연결 실패: ${e.toString().replaceFirst('Exception: ', '')}';
+            _isLoading = false;
+          });
+        }
       }
     }
+  }
+
+  /// Scan local download folder for available files (offline mode)
+  Future<List<Video>> _scanLocalFiles(dynamic config) async {
+    final scannedVideos = <Video>[];
+
+    if (config == null || config.downloadPath == null || config.kioskId == null) {
+      print('[SCAN] No config available for scanning local files');
+      return scannedVideos;
+    }
+
+    try {
+      // Main kiosk folder: downloadPath/kioskId/
+      final kioskDir = Directory('${config.downloadPath}/${config.kioskId}');
+      print('[SCAN] Scanning kiosk folder: ${kioskDir.path}');
+
+      if (await kioskDir.exists()) {
+        // Scan main folder
+        await _scanDirectory(kioskDir, scannedVideos, menuId: null);
+
+        // Scan menu subfolder
+        final menuDir = Directory('${kioskDir.path}/menu');
+        if (await menuDir.exists()) {
+          print('[SCAN] Scanning menu folder: ${menuDir.path}');
+          await _scanDirectory(menuDir, scannedVideos, menuId: 'menu');
+        }
+      } else {
+        print('[SCAN] Kiosk folder does not exist: ${kioskDir.path}');
+      }
+
+      print('[SCAN] Total files found: ${scannedVideos.length}');
+    } catch (e) {
+      print('[SCAN] Error scanning local files: $e');
+    }
+
+    return scannedVideos;
+  }
+
+  /// Scan a directory and add files to the list
+  Future<void> _scanDirectory(Directory dir, List<Video> videos, {String? menuId}) async {
+    try {
+      final entities = await dir.list().toList();
+
+      for (final entity in entities) {
+        if (entity is File) {
+          final fileName = entity.path.split('/').last;
+          final extension = fileName.split('.').last.toLowerCase();
+
+          // Check if it's a media file
+          if (_isMediaFile(extension)) {
+            final mediaType = _getMediaType(extension);
+            final contentType = _getContentType(extension);
+
+            print('[SCAN] Found ${mediaType} file: $fileName');
+
+            // Create Video object
+            final video = Video(
+              id: fileName.hashCode, // Use hash as temporary ID
+              filename: fileName,
+              title: fileName.replaceAll('_', ' ').replaceAll('.${extension}', ''),
+              description: 'Offline file',
+              mediaType: mediaType,
+              contentType: contentType,
+              downloadStatus: 'completed',
+              localPath: entity.path,
+              menuId: menuId,
+            );
+
+            videos.add(video);
+          }
+        }
+      }
+    } catch (e) {
+      print('[SCAN] Error scanning directory ${dir.path}: $e');
+    }
+  }
+
+  /// Check if file extension is a media file
+  bool _isMediaFile(String extension) {
+    const videoExtensions = ['mp4', 'avi', 'mkv', 'mov', 'wmv', 'flv', 'webm', 'm4v'];
+    const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg'];
+    const audioExtensions = ['mp3', 'wav', 'aac', 'flac', 'm4a', 'ogg', 'wma'];
+    const documentExtensions = ['xml', 'json', 'txt'];
+
+    return videoExtensions.contains(extension) ||
+        imageExtensions.contains(extension) ||
+        audioExtensions.contains(extension) ||
+        documentExtensions.contains(extension);
+  }
+
+  /// Get media type from extension
+  String _getMediaType(String extension) {
+    const videoExtensions = ['mp4', 'avi', 'mkv', 'mov', 'wmv', 'flv', 'webm', 'm4v'];
+    const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg'];
+    const audioExtensions = ['mp3', 'wav', 'aac', 'flac', 'm4a', 'ogg', 'wma'];
+    const documentExtensions = ['xml', 'json', 'txt'];
+
+    if (videoExtensions.contains(extension)) return 'VIDEO';
+    if (imageExtensions.contains(extension)) return 'IMAGE';
+    if (audioExtensions.contains(extension)) return 'AUDIO';
+    if (documentExtensions.contains(extension)) return 'DOCUMENT';
+    return 'VIDEO'; // Default
+  }
+
+  /// Get content type from extension
+  String _getContentType(String extension) {
+    const Map<String, String> contentTypes = {
+      'mp4': 'video/mp4',
+      'avi': 'video/x-msvideo',
+      'mkv': 'video/x-matroska',
+      'mov': 'video/quicktime',
+      'wmv': 'video/x-ms-wmv',
+      'flv': 'video/x-flv',
+      'webm': 'video/webm',
+      'm4v': 'video/x-m4v',
+      'jpg': 'image/jpeg',
+      'jpeg': 'image/jpeg',
+      'png': 'image/png',
+      'gif': 'image/gif',
+      'bmp': 'image/bmp',
+      'webp': 'image/webp',
+      'svg': 'image/svg+xml',
+      'mp3': 'audio/mpeg',
+      'wav': 'audio/wav',
+      'aac': 'audio/aac',
+      'flac': 'audio/flac',
+      'm4a': 'audio/mp4',
+      'ogg': 'audio/ogg',
+      'wma': 'audio/x-ms-wma',
+      'xml': 'application/xml',
+      'json': 'application/json',
+      'txt': 'text/plain',
+    };
+
+    return contentTypes[extension] ?? 'application/octet-stream';
   }
 
   Future<void> _checkLocalFiles(List<Video> videos, dynamic config) async {
