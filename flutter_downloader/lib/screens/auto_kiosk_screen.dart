@@ -100,7 +100,13 @@ class _AutoKioskScreenState extends State<AutoKioskScreen> {
   }
 
   Future<void> _enterFullscreen() async {
-    await windowManager.setFullScreen(true);
+    // Only use window_manager on desktop platforms
+    if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
+      await windowManager.setFullScreen(true);
+    } else if (Platform.isAndroid) {
+      // On Android, use SystemChrome for fullscreen
+      await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    }
 
     // Wait for fullscreen transition to complete
     await Future.delayed(const Duration(milliseconds: 300));
@@ -121,7 +127,13 @@ class _AutoKioskScreenState extends State<AutoKioskScreen> {
   }
 
   Future<void> _exitFullscreen() async {
-    await windowManager.setFullScreen(false);
+    // Only use window_manager on desktop platforms
+    if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
+      await windowManager.setFullScreen(false);
+    } else if (Platform.isAndroid) {
+      // On Android, restore system UI
+      await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    }
   }
 
   @override
@@ -130,7 +142,9 @@ class _AutoKioskScreenState extends State<AutoKioskScreen> {
     _presenceService.dispose();
     _focusNode.dispose();
     // Ensure fullscreen is cleared (fire-and-forget)
-    windowManager.setFullScreen(false);
+    if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
+      windowManager.setFullScreen(false);
+    }
     super.dispose();
   }
 
