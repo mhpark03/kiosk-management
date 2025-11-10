@@ -187,15 +187,41 @@ class _AutoKioskScreenState extends State<AutoKioskScreen> {
 
   /// Handle transition to idle mode with cart warning if needed
   void _handleTransitionToIdle() {
+    print('[AUTO KIOSK] Handling transition to idle mode...');
+    print('[AUTO KIOSK] _isKioskMode: $_isKioskMode, _isInitializing: $_isInitializing');
+
+    // If still initializing or never entered kiosk mode, skip cart check
+    if (_isInitializing || !_isKioskMode) {
+      print('[AUTO KIOSK] Skipping cart check (still initializing or not in kiosk mode)');
+      setState(() {
+        _isKioskMode = false;
+      });
+      return;
+    }
+
+    // Check if kiosk screen has been built
+    if (_cachedKioskScreen == null) {
+      print('[AUTO KIOSK] Kiosk screen not yet built, skipping cart check');
+      setState(() {
+        _isKioskMode = false;
+      });
+      return;
+    }
+
     // Check if cart has items
     final kioskState = _kioskKey.currentState;
+    print('[AUTO KIOSK] kioskState: $kioskState');
+
     final hasCartItems = kioskState?.hasCartItems() ?? false;
+    print('[AUTO KIOSK] hasCartItems: $hasCartItems, _isShowingCartWarning: $_isShowingCartWarning');
 
     if (hasCartItems && !_isShowingCartWarning) {
       // Show warning popup
+      print('[AUTO KIOSK] Showing cart warning popup');
       _showCartWarningPopup();
     } else {
       // Direct transition to idle
+      print('[AUTO KIOSK] Direct transition to idle (no cart items or already showing warning)');
       setState(() {
         _isKioskMode = false;
       });
@@ -340,15 +366,30 @@ class _KioskSplitScreenWrapperState extends State<_KioskSplitScreenWrapper> {
   final GlobalKey<KioskSplitScreenState> _splitScreenKey = GlobalKey<KioskSplitScreenState>();
 
   bool hasCartItems() {
+    print('[CART CHECK] Checking cart items...');
+
     final splitScreenState = _splitScreenKey.currentState;
-    if (splitScreenState == null) return false;
+    print('[CART CHECK] splitScreenState: $splitScreenState');
+
+    if (splitScreenState == null) {
+      print('[CART CHECK] splitScreenState is null, returning false');
+      return false;
+    }
 
     // Access cart key from KioskSplitScreen
     final cartKey = splitScreenState.cartKey;
     final cartState = cartKey.currentState;
+    print('[CART CHECK] cartState: $cartState');
 
-    if (cartState == null) return false;
-    return cartState.cartItems.isNotEmpty;
+    if (cartState == null) {
+      print('[CART CHECK] cartState is null, returning false');
+      return false;
+    }
+
+    final hasItems = cartState.cartItems.isNotEmpty;
+    print('[CART CHECK] cartItems count: ${cartState.cartItems.length}, hasItems: $hasItems');
+
+    return hasItems;
   }
 
   @override
