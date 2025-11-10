@@ -36,6 +36,10 @@ class _IdleScreenState extends State<IdleScreen> {
   // Grace period to ignore initial touches (prevent button click from activating kiosk)
   bool _ignoreInitialTouch = true;
 
+  // Grace period to ignore initial detections (camera warmup)
+  bool _ignoreInitialDetection = true;
+  Timer? _detectionGraceTimer;
+
   // Person detection
   final PersonDetectionService _personDetection = PersonDetectionService();
   StreamSubscription<bool>? _personDetectionSubscription;
@@ -128,11 +132,23 @@ class _IdleScreenState extends State<IdleScreen> {
           });
           print('[IDLE SCREEN] Person detection: $detected');
 
-          // Trigger kiosk activation when person is detected
-          if (detected && widget.onUserPresence != null) {
+          // Trigger kiosk activation when person is detected (after grace period)
+          if (detected && widget.onUserPresence != null && !_ignoreInitialDetection) {
             print('[IDLE SCREEN] Triggering kiosk activation due to person detection');
             widget.onUserPresence!();
+          } else if (detected && _ignoreInitialDetection) {
+            print('[IDLE SCREEN] Ignoring detection during grace period (camera warming up)');
           }
+        }
+      });
+
+      // Start grace period timer (3 seconds to allow camera to stabilize)
+      _detectionGraceTimer = Timer(const Duration(seconds: 3), () {
+        if (mounted && !_isDisposed) {
+          setState(() {
+            _ignoreInitialDetection = false;
+          });
+          print('[IDLE SCREEN] Detection grace period complete, activation enabled');
         }
       });
 
@@ -216,6 +232,8 @@ class _IdleScreenState extends State<IdleScreen> {
     _personDetection.dispose();
     print('[IDLE SCREEN] Disposing focus node...');
     _focusNode.dispose();
+    print('[IDLE SCREEN] Canceling detection grace timer...');
+    _detectionGraceTimer?.cancel();
     print('[IDLE SCREEN] IdleScreen disposed');
     print('[IDLE SCREEN] ========== DISPOSE END ==========');
     super.dispose();
