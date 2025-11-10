@@ -445,7 +445,7 @@ void _checkDetectionTimeout() {
 - **Solution**: Uses `flutter_lite_camera` package (lightweight, published on pub.dev)
 - **pubspec.yaml:**
 ```yaml
-flutter_lite_camera: ^1.0.3
+flutter_lite_camera: ^0.0.2
 ```
 - **Image format**: RGB888 (3 bytes per pixel, already in RGB)
 - **Resolution**: Fixed 640x480 (optimized for performance)

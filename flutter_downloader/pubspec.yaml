@@ -84,7 +84,7 @@ dependencies:
   # Camera for person detection
   camera: ^0.10.5+9  # For Android
   # Windows: Use flutter_lite_camera (camera plugin's startImageStream doesn't support Windows)
-  flutter_lite_camera: ^1.0.3
+  flutter_lite_camera: ^0.0.2
 
   # ONNX Runtime for person detection (all platforms)
   onnxruntime: ^1.4.1
