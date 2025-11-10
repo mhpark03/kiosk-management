@@ -97,12 +97,22 @@ class _AutoKioskScreenState extends State<AutoKioskScreen> {
     // Start detection
     _presenceService.start();
 
-    // Enter fullscreen
+    // Enter fullscreen and wait for it to complete
     _enterFullscreen();
   }
 
   Future<void> _enterFullscreen() async {
+    print('[AUTO KIOSK] Entering fullscreen...');
     await windowManager.setFullScreen(true);
+
+    // Wait for fullscreen transition to complete
+    await Future.delayed(const Duration(milliseconds: 300));
+
+    // Force rebuild after fullscreen is active
+    if (mounted) {
+      setState(() {});
+      print('[AUTO KIOSK] Fullscreen active, screen rebuilt');
+    }
   }
 
   Future<void> _exitFullscreen() async {
