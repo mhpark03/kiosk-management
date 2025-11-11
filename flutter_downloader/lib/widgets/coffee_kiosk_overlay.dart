@@ -713,7 +713,7 @@ class CoffeeKioskOverlayState extends State<CoffeeKioskOverlay> {
     widget.onPlayMenuVideo!(videoPath, 'category', category);
   }
 
-  /// Play action video (addToCart or checkout)
+  /// Play action video (addToCart, checkout, increaseQuantity, decreaseQuantity, cancelItem)
   void _playActionVideo(String actionType) {
     String? videoFilename;
 
@@ -721,6 +721,12 @@ class CoffeeKioskOverlayState extends State<CoffeeKioskOverlay> {
       videoFilename = _menuService.getAddToCartVideoFilename();
     } else if (actionType == 'checkout') {
       videoFilename = _menuService.getCheckoutVideoFilename();
+    } else if (actionType == 'increaseQuantity') {
+      videoFilename = _menuService.getIncreaseQuantityVideoFilename();
+    } else if (actionType == 'decreaseQuantity') {
+      videoFilename = _menuService.getDecreaseQuantityVideoFilename();
+    } else if (actionType == 'cancelItem') {
+      videoFilename = _menuService.getCancelItemVideoFilename();
     }
 
     if (videoFilename == null || videoFilename.isEmpty) {

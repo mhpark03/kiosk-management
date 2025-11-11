@@ -196,6 +196,11 @@ class KioskSplitScreenState extends State<KioskSplitScreen> {
         // addToCart or cancelItem completed, play category video
         print('[KIOSK SPLIT] $_currentActionType video completed, playing category video');
         _playCategoryVideo();
+      } else if (_currentActionType == 'increaseQuantity' ||
+                 _currentActionType == 'decreaseQuantity') {
+        // Quantity change completed, return to saved video
+        print('[KIOSK SPLIT] $_currentActionType video completed, returning to saved video');
+        _returnToSavedVideo();
       } else {
         // Other menu video completed, return to saved video
         print('[KIOSK SPLIT] Menu video completed, returning to saved video');
