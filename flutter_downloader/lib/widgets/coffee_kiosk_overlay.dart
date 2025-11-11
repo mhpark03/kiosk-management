@@ -1212,8 +1212,8 @@ class CoffeeKioskOverlayState extends State<CoffeeKioskOverlay> {
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       color: Colors.brown.shade700,
-                ),
-              ),
+                    ),
+                  ),
             ],
           ),
         ],
