@@ -438,13 +438,16 @@ class _VideoListScreenState extends State<VideoListScreen> {
           _wsConnected = connected;
         });
         if (connected) {
+          print('[WebSocket] Connected successfully, triggering auto-sync...');
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('실시간 연결됨'),
+              content: Text('실시간 연결됨 - 자동 동기화 시작'),
               duration: Duration(seconds: 2),
               backgroundColor: Colors.green,
             ),
           );
+          // Auto-sync when WebSocket connects (especially useful after offline)
+          _loadVideos();
         }
       }
     };
