@@ -379,6 +379,8 @@ class KioskSplitScreenState extends State<KioskSplitScreen> {
         _videoPlayerKeyCounter++;
       });
 
+      // Update action type to 'category' so it returns to saved video when completed
+      _currentActionType = 'category';
       // Keep _isPlayingMenuVideo true, this is still a menu video
       // Will return to saved video when this category video completes
       print('[KIOSK SPLIT] Category video path set');
