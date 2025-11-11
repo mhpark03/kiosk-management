@@ -214,6 +214,7 @@ class _IdleScreenState extends State<IdleScreen> {
                 // Always show for testing purposes
                 Positioned(
                   top: 20,
+                  left: 20,
                   right: 20,
                   child: StreamBuilder<DetectionStatus>(
                     stream: _personDetection.detectionStatusStream,
