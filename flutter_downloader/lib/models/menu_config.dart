@@ -20,11 +20,15 @@ class MenuMetadata {
   final String name;
   final String version;
   final String lastModified;
+  final String? videoId;  // Main video ID
+  final String? videoFilename;  // Main video filename
 
   MenuMetadata({
     required this.name,
     required this.version,
     required this.lastModified,
+    this.videoId,
+    this.videoFilename,
   });
 }
 

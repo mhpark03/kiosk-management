@@ -66,11 +66,32 @@ class KioskSplitScreenState extends State<KioskSplitScreen> {
       video.menuId != null && video.menuId!.isNotEmpty
     ).toList();
 
+    // If no menu videos found, use all videos as fallback
+    if (_menuVideos.isEmpty) {
+      print('[KIOSK SPLIT] No menu videos found, using all videos as fallback');
+      _menuVideos = widget.videos;
+    }
+
     print('[KIOSK SPLIT] Total videos: ${widget.videos.length}');
     print('[KIOSK SPLIT] Menu videos: ${_menuVideos.length}');
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       _focusNode.requestFocus();
+
+      // Load menu XML to get main video info
+      if (widget.downloadPath != null && widget.kioskId != null) {
+        try {
+          await _menuService.loadMenuFromXml(
+            downloadPath: widget.downloadPath,
+            kioskId: widget.kioskId,
+            filename: widget.menuFilename,
+          );
+          print('[KIOSK SPLIT] Menu XML loaded successfully');
+        } catch (e) {
+          print('[KIOSK SPLIT] Failed to load menu XML: $e');
+        }
+      }
+
       _initializeVideo();
     });
   }
@@ -85,37 +106,76 @@ class KioskSplitScreenState extends State<KioskSplitScreen> {
     }
 
     try {
-      final video = _menuVideos[_currentVideoIndex];
+      String? videoPath;
+      String? videoTitle;
 
-      // Check if localPath exists
-      if (video.localPath == null || video.localPath!.isEmpty) {
-        throw Exception('영상 파일 경로가 없습니다. 영상을 먼저 다운로드해주세요.');
+      // Try to get main video from menu XML first
+      final mainVideoFilename = _menuService.getMainVideoFilename();
+
+      if (mainVideoFilename != null && widget.downloadPath != null && widget.kioskId != null) {
+        print('[KIOSK SPLIT] Main video filename from menu: $mainVideoFilename');
+
+        // Check if main video file exists in menu folder first
+        String mainVideoPath = '${widget.downloadPath}/${widget.kioskId}/menu/$mainVideoFilename';
+        File mainVideoFile = File(mainVideoPath);
+
+        // If not in menu folder, try kiosk folder
+        if (!await mainVideoFile.exists()) {
+          mainVideoPath = '${widget.downloadPath}/${widget.kioskId}/$mainVideoFilename';
+          mainVideoFile = File(mainVideoPath);
+        }
+
+        // If main video file exists, use it
+        if (await mainVideoFile.exists()) {
+          print('[KIOSK SPLIT] Found main video at: $mainVideoPath');
+          videoPath = mainVideoPath;
+          videoTitle = 'Main Video';
+
+          final fileSize = await mainVideoFile.length();
+          print('[KIOSK SPLIT] Main video file size: ${fileSize / (1024 * 1024)} MB');
+        } else {
+          print('[KIOSK SPLIT] Main video file not found: $mainVideoPath');
+        }
       }
 
-      // Convert Android path to actual Windows path if needed
-      final actualPath = await _downloadService.getActualFilePath(video.localPath!);
-      print('[KIOSK SPLIT] Original path: ${video.localPath}');
-      print('[KIOSK SPLIT] Actual path: $actualPath');
+      // Fallback: use first menu video
+      if (videoPath == null) {
+        print('[KIOSK SPLIT] Using first menu video as fallback');
+        final video = _menuVideos[_currentVideoIndex];
 
-      final videoFile = File(actualPath);
-      print('[KIOSK SPLIT] Loading video from: $actualPath');
+        // Check if localPath exists
+        if (video.localPath == null || video.localPath!.isEmpty) {
+          throw Exception('영상 파일 경로가 없습니다. 영상을 먼저 다운로드해주세요.');
+        }
 
-      // Check if file exists
-      if (!await videoFile.exists()) {
-        throw Exception('영상 파일을 찾을 수 없습니다:\n$actualPath');
+        // Convert Android path to actual Windows path if needed
+        final actualPath = await _downloadService.getActualFilePath(video.localPath!);
+        print('[KIOSK SPLIT] Original path: ${video.localPath}');
+        print('[KIOSK SPLIT] Actual path: $actualPath');
+
+        final videoFile = File(actualPath);
+        print('[KIOSK SPLIT] Loading video from: $actualPath');
+
+        // Check if file exists
+        if (!await videoFile.exists()) {
+          throw Exception('영상 파일을 찾을 수 없습니다:\n$actualPath');
+        }
+
+        // Get file size to verify it's accessible
+        final fileSize = await videoFile.length();
+        print('[KIOSK SPLIT] Video file size: ${fileSize / (1024 * 1024)} MB');
+
+        videoPath = actualPath;
+        videoTitle = video.title;
       }
-
-      // Get file size to verify it's accessible
-      final fileSize = await videoFile.length();
-      print('[KIOSK SPLIT] Video file size: ${fileSize / (1024 * 1024)} MB');
 
       setState(() {
-        _currentVideoPath = actualPath;
+        _currentVideoPath = videoPath;
         _hasError = false;
         _videoPlayerKeyCounter++;
       });
 
-      print('[KIOSK SPLIT] Video path set successfully: ${video.title}');
+      print('[KIOSK SPLIT] Video path set successfully: $videoTitle');
     } catch (e) {
       print('[KIOSK SPLIT] Error initializing video: $e');
       setState(() {
@@ -136,14 +196,20 @@ class KioskSplitScreenState extends State<KioskSplitScreen> {
         // addToCart or cancelItem completed, play category video
         print('[KIOSK SPLIT] $_currentActionType video completed, playing category video');
         _playCategoryVideo();
+      } else if (_currentActionType == 'increaseQuantity' ||
+                 _currentActionType == 'decreaseQuantity') {
+        // Quantity change completed, return to saved video
+        print('[KIOSK SPLIT] $_currentActionType video completed, returning to saved video');
+        _returnToSavedVideo();
       } else {
         // Other menu video completed, return to saved video
         print('[KIOSK SPLIT] Menu video completed, returning to saved video');
         _returnToSavedVideo();
       }
     } else {
-      // Regular video completed, play next
-      _playNextVideo();
+      // Regular video completed, replay the first (main) video
+      print('[KIOSK SPLIT] Main video completed, replaying from beginning');
+      _playMainVideo();
     }
   }
 
@@ -218,7 +284,46 @@ class KioskSplitScreenState extends State<KioskSplitScreen> {
     print('[KIOSK SPLIT] Playing main video from beginning');
 
     try {
-      // Reset to first video and play from beginning
+      // Try to get main video from menu XML
+      final mainVideoFilename = _menuService.getMainVideoFilename();
+
+      if (mainVideoFilename != null && widget.downloadPath != null && widget.kioskId != null) {
+        print('[KIOSK SPLIT] Main video filename from menu: $mainVideoFilename');
+
+        // Check if main video file exists in menu folder first
+        String mainVideoPath = '${widget.downloadPath}/${widget.kioskId}/menu/$mainVideoFilename';
+        File mainVideoFile = File(mainVideoPath);
+
+        // If not in menu folder, try kiosk folder
+        if (!await mainVideoFile.exists()) {
+          mainVideoPath = '${widget.downloadPath}/${widget.kioskId}/$mainVideoFilename';
+          mainVideoFile = File(mainVideoPath);
+        }
+
+        // If main video file exists, play it
+        if (await mainVideoFile.exists()) {
+          print('[KIOSK SPLIT] Found main video at: $mainVideoPath');
+
+          setState(() {
+            _currentVideoPath = mainVideoPath;
+            _videoPlayerKeyCounter++;
+          });
+
+          // Clear saved state
+          _isPlayingMenuVideo = false;
+          _currentActionType = null;
+          _savedVideoPath = null;
+          _savedPosition = Duration.zero;
+
+          print('[KIOSK SPLIT] Main video from menu XML is playing');
+          return;
+        } else {
+          print('[KIOSK SPLIT] Main video file not found: $mainVideoPath');
+        }
+      }
+
+      // Fallback: play first menu video
+      print('[KIOSK SPLIT] Fallback to first menu video');
       _currentVideoIndex = 0;
       final video = _menuVideos[_currentVideoIndex];
       final actualPath = await _downloadService.getActualFilePath(video.localPath!);
@@ -234,7 +339,7 @@ class KioskSplitScreenState extends State<KioskSplitScreen> {
       _savedVideoPath = null;
       _savedPosition = Duration.zero;
 
-      print('[KIOSK SPLIT] Main video path set: ${video.title}');
+      print('[KIOSK SPLIT] Main video path set (fallback): ${video.title}');
     } catch (e) {
       print('[KIOSK SPLIT] Error playing main video: $e');
       _isPlayingMenuVideo = false;
@@ -279,6 +384,8 @@ class KioskSplitScreenState extends State<KioskSplitScreen> {
         _videoPlayerKeyCounter++;
       });
 
+      // Update action type to 'category' so it returns to saved video when completed
+      _currentActionType = 'category';
       // Keep _isPlayingMenuVideo true, this is still a menu video
       // Will return to saved video when this category video completes
       print('[KIOSK SPLIT] Category video path set');
@@ -391,6 +498,10 @@ class KioskSplitScreenState extends State<KioskSplitScreen> {
                     );
                   },
                   onPlayMenuVideo: _playMenuVideo,
+                  onCheckoutComplete: () {
+                    print('[KIOSK SPLIT] Checkout completed, returning to main video');
+                    _playMainVideo();
+                  },
                   downloadPath: widget.downloadPath,
                   kioskId: widget.kioskId,
                   menuFilename: widget.menuFilename,
@@ -417,6 +528,10 @@ class KioskSplitScreenState extends State<KioskSplitScreen> {
               );
             },
             onPlayMenuVideo: _playMenuVideo,
+            onCheckoutComplete: () {
+              print('[KIOSK SPLIT] Checkout completed, returning to main video');
+              _playMainVideo();
+            },
             downloadPath: widget.downloadPath,
             kioskId: widget.kioskId,
             menuFilename: widget.menuFilename,
@@ -529,6 +644,10 @@ class KioskSplitScreenState extends State<KioskSplitScreen> {
         );
       },
       onPlayMenuVideo: _playMenuVideo,
+      onCheckoutComplete: () {
+        print('[KIOSK SPLIT] Checkout completed, returning to main video');
+        _playMainVideo();
+      },
       downloadPath: widget.downloadPath,
       kioskId: widget.kioskId,
       menuFilename: widget.menuFilename,

@@ -25,6 +25,12 @@ class XmlMenuParser {
       name: element.findElements('name').first.innerText,
       version: element.findElements('version').first.innerText,
       lastModified: element.findElements('lastModified').first.innerText,
+      videoId: element.findElements('videoId').isNotEmpty
+          ? element.findElements('videoId').first.innerText
+          : null,
+      videoFilename: element.findElements('videoFilename').isNotEmpty
+          ? element.findElements('videoFilename').first.innerText
+          : null,
     );
   }
 

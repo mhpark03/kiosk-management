@@ -291,6 +291,9 @@ function MenuEditor() {
   };
 
   const generateXML = (menu) => {
+    console.log('[GENERATE XML] Generating XML for menu:', menu.name);
+    console.log('[GENERATE XML] Menu actions:', JSON.stringify(menu.actions, null, 2));
+
     let xml = '<?xml version="1.0" encoding="UTF-8"?>\n<kioskMenu>\n';
 
     // Metadata
@@ -933,6 +936,12 @@ function MenuInfoEditor({ menu, onUpdate }) {
   };
 
   const handleSelectAddToCartVideo = (video) => {
+    console.log('[ADD TO CART] Selected video:', {
+      id: video.id,
+      title: video.title,
+      originalFilename: video.originalFilename
+    });
+
     const updatedActions = {
       ...(formData.actions || {}),
       addToCart: {
@@ -942,6 +951,8 @@ function MenuInfoEditor({ menu, onUpdate }) {
       }
     };
     const updated = { ...menu, actions: updatedActions };
+    console.log('[ADD TO CART] Updated menu actions:', updatedActions);
+
     setFormData({ ...formData, actions: updatedActions });
     onUpdate(updated);
     setShowAddToCartVideoSelector(false);

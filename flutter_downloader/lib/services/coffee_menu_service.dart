@@ -523,4 +523,20 @@ class CoffeeMenuService {
     }
     return null;
   }
+
+  /// Get main video filename from menu metadata
+  String? getMainVideoFilename() {
+    if (_isXmlLoaded && _menuConfig != null) {
+      return _menuConfig!.metadata.videoFilename;
+    }
+    return null;
+  }
+
+  /// Get main video ID from menu metadata
+  String? getMainVideoId() {
+    if (_isXmlLoaded && _menuConfig != null) {
+      return _menuConfig!.metadata.videoId;
+    }
+    return null;
+  }
 }
