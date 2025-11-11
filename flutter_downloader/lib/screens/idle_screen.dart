@@ -168,10 +168,7 @@ class _IdleScreenState extends State<IdleScreen> {
                   VideoPlayerWidget(
                     key: ValueKey('idle_video_$_videoPlayerKeyCounter'),
                     videoPath: _currentVideoPath!,
-                    onVideoEnd: _playNextVideo,
-                    autoPlay: true,
-                    loop: false,
-                    showControls: false, // Hide controls in idle mode
+                    onCompleted: _playNextVideo,
                   ),
                 ]
                 // Error or loading state
