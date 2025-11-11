@@ -31,136 +31,135 @@ class CameraStatusOverlay extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-              // Camera status indicator
-              Row(
-                children: [
-                  // Status indicator dot
-                  Container(
-                    width: 12,
-                    height: 12,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: status.isDetecting ? Colors.green : Colors.grey,
-                      boxShadow: status.isDetecting
-                          ? [
-                              BoxShadow(
-                                color: Colors.green.withOpacity(0.5),
-                                blurRadius: 8,
-                                spreadRadius: 2,
-                              ),
-                            ]
-                          : null,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  // Status text
-                  Text(
-                    status.isDetecting ? '카메라 감지 중' : '카메라 대기',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const Spacer(),
-                  // Person detected indicator
-                  if (status.personPresent)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.green.withOpacity(0.3),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: Colors.green,
-                          width: 1,
-                        ),
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.person,
-                            color: Colors.green,
-                            size: 16,
-                          ),
-                          SizedBox(width: 4),
-                          Text(
-                            '사람 감지됨',
-                            style: TextStyle(
-                              color: Colors.green,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
+            // Camera status indicator
+            Row(
+              children: [
+                // Status indicator dot
+                Container(
+                  width: 12,
+                  height: 12,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: status.isDetecting ? Colors.green : Colors.grey,
+                    boxShadow: status.isDetecting
+                        ? [
+                            BoxShadow(
+                              color: Colors.green.withOpacity(0.5),
+                              blurRadius: 8,
+                              spreadRadius: 2,
                             ),
-                          ),
-                        ],
+                          ]
+                        : null,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // Status text
+                Text(
+                  status.isDetecting ? '카메라 감지 중' : '카메라 대기',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const Spacer(),
+                // Person detected indicator
+                if (status.personPresent)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.green.withOpacity(0.3),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: Colors.green,
+                        width: 1,
                       ),
                     ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              // Detection metrics
-              Row(
-                children: [
-                  // Confidence meter
-                  Expanded(
-                    flex: 2,
-                    child: _buildMetricCard(
-                      label: '신뢰도',
-                      value: '${(status.latestConfidence * 100).toStringAsFixed(1)}%',
-                      color: _getConfidenceColor(status.latestConfidence),
-                      icon: Icons.analytics,
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.person,
+                          color: Colors.green,
+                          size: 16,
+                        ),
+                        SizedBox(width: 4),
+                        Text(
+                          '사람 감지됨',
+                          style: TextStyle(
+                            color: Colors.green,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  // Detection count
-                  Expanded(
-                    child: _buildMetricCard(
-                      label: '감지',
-                      value: '${status.successfulDetections}',
-                      color: Colors.blue,
-                      icon: Icons.check_circle,
-                    ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            // Detection metrics
+            Row(
+              children: [
+                // Confidence meter
+                Expanded(
+                  flex: 2,
+                  child: _buildMetricCard(
+                    label: '신뢰도',
+                    value: '${(status.latestConfidence * 100).toStringAsFixed(1)}%',
+                    color: _getConfidenceColor(status.latestConfidence),
+                    icon: Icons.analytics,
                   ),
-                  const SizedBox(width: 8),
-                  // Total attempts
-                  Expanded(
-                    child: _buildMetricCard(
-                      label: '시도',
-                      value: '${status.totalDetections}',
-                      color: Colors.grey,
-                      icon: Icons.camera,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  // Success rate
-                  Expanded(
-                    child: _buildMetricCard(
-                      label: '성공률',
-                      value: '${(status.successRate * 100).toStringAsFixed(0)}%',
-                      color: Colors.orange,
-                      icon: Icons.trending_up,
-                    ),
-                  ),
-                ],
-              ),
-              // Confidence progress bar
-              const SizedBox(height: 8),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: LinearProgressIndicator(
-                  value: status.latestConfidence,
-                  backgroundColor: Colors.white.withOpacity(0.2),
-                  valueColor: AlwaysStoppedAnimation<Color>(
-                    _getConfidenceColor(status.latestConfidence),
-                  ),
-                  minHeight: 4,
                 ),
+                const SizedBox(width: 8),
+                // Detection count
+                Expanded(
+                  child: _buildMetricCard(
+                    label: '감지',
+                    value: '${status.successfulDetections}',
+                    color: Colors.blue,
+                    icon: Icons.check_circle,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // Total attempts
+                Expanded(
+                  child: _buildMetricCard(
+                    label: '시도',
+                    value: '${status.totalDetections}',
+                    color: Colors.grey,
+                    icon: Icons.camera,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // Success rate
+                Expanded(
+                  child: _buildMetricCard(
+                    label: '성공률',
+                    value: '${(status.successRate * 100).toStringAsFixed(0)}%',
+                    color: Colors.orange,
+                    icon: Icons.trending_up,
+                  ),
+                ),
+              ],
+            ),
+            // Confidence progress bar
+            const SizedBox(height: 8),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: status.latestConfidence,
+                backgroundColor: Colors.white.withOpacity(0.2),
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  _getConfidenceColor(status.latestConfidence),
+                ),
+                minHeight: 4,
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
