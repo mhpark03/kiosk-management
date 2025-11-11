@@ -12,6 +12,7 @@ class CoffeeKioskOverlay extends StatefulWidget {
   final VoidCallback onClose;
   final Function(CoffeeOrder) onOrderComplete;
   final Function(String videoPath, [String? actionType, String? categoryId])? onPlayMenuVideo; // Callback to play menu video on left screen
+  final VoidCallback? onCheckoutComplete; // Callback when checkout is completed and dialog is closed
   final bool showCloseButton;
   final String? downloadPath;
   final String? kioskId;
@@ -26,6 +27,7 @@ class CoffeeKioskOverlay extends StatefulWidget {
     required this.onClose,
     required this.onOrderComplete,
     this.onPlayMenuVideo,
+    this.onCheckoutComplete,
     this.showCloseButton = false,
     this.downloadPath,
     this.kioskId,
@@ -1208,6 +1210,7 @@ class CoffeeKioskOverlayState extends State<CoffeeKioskOverlay> {
             onPressed: () {
               Navigator.pop(context); // Close dialog
               setState(() => _cartItems.clear()); // Clear cart and stay in kiosk
+
               // Show success message
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
@@ -1216,6 +1219,12 @@ class CoffeeKioskOverlayState extends State<CoffeeKioskOverlay> {
                   backgroundColor: Colors.green.shade700,
                 ),
               );
+
+              // Call checkout complete callback to return to main video
+              if (widget.onCheckoutComplete != null) {
+                print('[CHECKOUT] Calling onCheckoutComplete callback');
+                widget.onCheckoutComplete!();
+              }
             },
             child: const Text('확인'),
           ),

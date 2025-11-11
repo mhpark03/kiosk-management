@@ -491,6 +491,10 @@ class KioskSplitScreenState extends State<KioskSplitScreen> {
                     );
                   },
                   onPlayMenuVideo: _playMenuVideo,
+                  onCheckoutComplete: () {
+                    print('[KIOSK SPLIT] Checkout completed, returning to main video');
+                    _playMainVideo();
+                  },
                   downloadPath: widget.downloadPath,
                   kioskId: widget.kioskId,
                   menuFilename: widget.menuFilename,
@@ -517,6 +521,10 @@ class KioskSplitScreenState extends State<KioskSplitScreen> {
               );
             },
             onPlayMenuVideo: _playMenuVideo,
+            onCheckoutComplete: () {
+              print('[KIOSK SPLIT] Checkout completed, returning to main video');
+              _playMainVideo();
+            },
             downloadPath: widget.downloadPath,
             kioskId: widget.kioskId,
             menuFilename: widget.menuFilename,
@@ -629,6 +637,10 @@ class KioskSplitScreenState extends State<KioskSplitScreen> {
         );
       },
       onPlayMenuVideo: _playMenuVideo,
+      onCheckoutComplete: () {
+        print('[KIOSK SPLIT] Checkout completed, returning to main video');
+        _playMainVideo();
+      },
       downloadPath: widget.downloadPath,
       kioskId: widget.kioskId,
       menuFilename: widget.menuFilename,
