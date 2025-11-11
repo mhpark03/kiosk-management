@@ -8,6 +8,7 @@ import '../services/storage_service.dart';
 import '../services/download_service.dart';
 import '../services/websocket_service.dart';
 import '../services/event_logger.dart';
+import '../services/xml_menu_parser.dart';
 import '../utils/device_info_util.dart';
 import '../models/video.dart';
 import '../models/kiosk.dart';
@@ -1201,6 +1202,9 @@ class _VideoListScreenState extends State<VideoListScreen> {
         message: '메뉴 파일 다운로드 완료: $filename',
         metadata: '{"menuId": $menuId, "filename": "$filename"}',
       );
+
+      // Download action videos referenced in menu XML
+      await _downloadActionVideos(menuDirPath, filename);
     } catch (e) {
       print('[MENU DOWNLOAD] Failed to download menu file: $e');
 
@@ -1211,6 +1215,105 @@ class _VideoListScreenState extends State<VideoListScreen> {
         metadata: '{"error": "${e.toString()}"}',
       );
       // Don't throw error - menu download failure should not stop video sync
+    }
+  }
+
+  /// Download action videos referenced in menu XML
+  Future<void> _downloadActionVideos(String menuDirPath, String filename) async {
+    try {
+      print('[ACTION VIDEOS] Checking for action videos in menu XML');
+
+      // Read and parse the menu XML file
+      final menuFilePath = '$menuDirPath${Platform.pathSeparator}$filename';
+      final menuFile = File(menuFilePath);
+
+      if (!await menuFile.exists()) {
+        print('[ACTION VIDEOS] Menu file not found: $menuFilePath');
+        return;
+      }
+
+      final xmlContent = await menuFile.readAsString();
+      final menuConfig = XmlMenuParser.parseXml(xmlContent);
+
+      if (menuConfig.actions == null) {
+        print('[ACTION VIDEOS] No actions section found in menu XML');
+        return;
+      }
+
+      // Collect all action video IDs
+      final List<String> actionVideoIds = [];
+
+      if (menuConfig.actions!.addToCart?.videoId != null) {
+        actionVideoIds.add(menuConfig.actions!.addToCart!.videoId!);
+      }
+      if (menuConfig.actions!.checkout?.videoId != null) {
+        actionVideoIds.add(menuConfig.actions!.checkout!.videoId!);
+      }
+      if (menuConfig.actions!.increaseQuantity?.videoId != null) {
+        actionVideoIds.add(menuConfig.actions!.increaseQuantity!.videoId!);
+      }
+      if (menuConfig.actions!.decreaseQuantity?.videoId != null) {
+        actionVideoIds.add(menuConfig.actions!.decreaseQuantity!.videoId!);
+      }
+      if (menuConfig.actions!.cancelItem?.videoId != null) {
+        actionVideoIds.add(menuConfig.actions!.cancelItem!.videoId!);
+      }
+
+      if (actionVideoIds.isEmpty) {
+        print('[ACTION VIDEOS] No action videos defined in menu XML');
+        return;
+      }
+
+      print('[ACTION VIDEOS] Found ${actionVideoIds.length} action video IDs: $actionVideoIds');
+
+      // Download each action video
+      for (final videoIdStr in actionVideoIds) {
+        try {
+          final videoId = int.parse(videoIdStr);
+
+          // Check if video is already in our list
+          final existingVideo = _videos.where((v) => v.id == videoId).firstOrNull;
+
+          if (existingVideo != null) {
+            print('[ACTION VIDEOS] Video ID $videoId already in list');
+
+            // Download if not already downloaded
+            if (existingVideo.downloadStatus != 'completed') {
+              print('[ACTION VIDEOS] Downloading existing video: ${existingVideo.title}');
+              await _downloadVideo(existingVideo, isBackgroundDownload: true);
+            } else {
+              print('[ACTION VIDEOS] Video already downloaded: ${existingVideo.title}');
+            }
+          } else {
+            // Fetch video info from API
+            print('[ACTION VIDEOS] Fetching video info for ID: $videoId');
+            final video = await widget.apiService.getVideoById(videoId);
+
+            // Add to videos list
+            if (mounted) {
+              setState(() {
+                _videos.add(video);
+              });
+            }
+
+            print('[ACTION VIDEOS] Added action video to list: ${video.title}');
+
+            // Download the video
+            await _downloadVideo(video, isBackgroundDownload: true);
+          }
+
+          // Small delay between downloads
+          await Future.delayed(const Duration(milliseconds: 500));
+        } catch (e) {
+          print('[ACTION VIDEOS] Failed to download action video ID $videoIdStr: $e');
+          // Continue with next video
+        }
+      }
+
+      print('[ACTION VIDEOS] Completed downloading action videos');
+    } catch (e) {
+      print('[ACTION VIDEOS] Error downloading action videos: $e');
+      // Don't throw - action video download failures shouldn't stop the app
     }
   }
 
