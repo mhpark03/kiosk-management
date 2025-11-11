@@ -211,31 +211,30 @@ class _IdleScreenState extends State<IdleScreen> {
                 ],
 
                 // Camera status overlay (shows detection confidence and stats)
-                // Keep camera detection running in background for presence detection
-                if (Platform.isAndroid && _personDetection.isInitialized && _personDetection.isDetecting)
-                  Positioned(
-                    top: 20,
-                    right: 20,
-                    child: StreamBuilder<DetectionStatus>(
-                      stream: _personDetection.detectionStatusStream,
-                      builder: (context, snapshot) {
-                        if (snapshot.hasData) {
-                          return CameraStatusOverlay(status: snapshot.data!);
-                        }
-                        // Show default status while waiting for first update
-                        return CameraStatusOverlay(
-                          status: DetectionStatus(
-                            personPresent: false,
-                            latestConfidence: 0.0,
-                            totalDetections: 0,
-                            successfulDetections: 0,
-                            isDetecting: _personDetection.isDetecting,
-                            isInitialized: _personDetection.isInitialized,
-                          ),
-                        );
-                      },
-                    ),
+                // Always show for testing purposes
+                Positioned(
+                  top: 20,
+                  right: 20,
+                  child: StreamBuilder<DetectionStatus>(
+                    stream: _personDetection.detectionStatusStream,
+                    builder: (context, snapshot) {
+                      if (snapshot.hasData) {
+                        return CameraStatusOverlay(status: snapshot.data!);
+                      }
+                      // Show default status while waiting for first update
+                      return CameraStatusOverlay(
+                        status: DetectionStatus(
+                          personPresent: false,
+                          latestConfidence: 0.0,
+                          totalDetections: 0,
+                          successfulDetections: 0,
+                          isDetecting: _personDetection.isDetecting,
+                          isInitialized: _personDetection.isInitialized,
+                        ),
+                      );
+                    },
                   ),
+                ),
 
                 // Hint overlay
                 Positioned(
