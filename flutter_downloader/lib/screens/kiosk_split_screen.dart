@@ -54,9 +54,21 @@ class KioskSplitScreenState extends State<KioskSplitScreen> {
   String? _savedVideoPath;
   Duration _savedPosition = Duration.zero;
 
+  // Filtered list of menu-related videos only (menuId is not null/empty)
+  late List<Video> _menuVideos;
+
   @override
   void initState() {
     super.initState();
+
+    // Filter videos to only include menu-related videos (has menuId)
+    _menuVideos = widget.videos.where((video) =>
+      video.menuId != null && video.menuId!.isNotEmpty
+    ).toList();
+
+    print('[KIOSK SPLIT] Total videos: ${widget.videos.length}');
+    print('[KIOSK SPLIT] Menu videos: ${_menuVideos.length}');
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _focusNode.requestFocus();
       _initializeVideo();
@@ -64,16 +76,16 @@ class KioskSplitScreenState extends State<KioskSplitScreen> {
   }
 
   Future<void> _initializeVideo() async {
-    if (widget.videos.isEmpty) {
+    if (_menuVideos.isEmpty) {
       setState(() {
         _hasError = true;
-        _errorMessage = '재생할 영상이 없습니다';
+        _errorMessage = '재생할 메뉴 영상이 없습니다';
       });
       return;
     }
 
     try {
-      final video = widget.videos[_currentVideoIndex];
+      final video = _menuVideos[_currentVideoIndex];
 
       // Check if localPath exists
       if (video.localPath == null || video.localPath!.isEmpty) {
@@ -136,7 +148,7 @@ class KioskSplitScreenState extends State<KioskSplitScreen> {
   }
 
   Future<void> _playNextVideo() async {
-    _currentVideoIndex = (_currentVideoIndex + 1) % widget.videos.length;
+    _currentVideoIndex = (_currentVideoIndex + 1) % _menuVideos.length;
     await _initializeVideo();
   }
 
@@ -201,14 +213,14 @@ class KioskSplitScreenState extends State<KioskSplitScreen> {
   }
 
   Future<void> _playMainVideo() async {
-    if (widget.videos.isEmpty) return;
+    if (_menuVideos.isEmpty) return;
 
     print('[KIOSK SPLIT] Playing main video from beginning');
 
     try {
       // Reset to first video and play from beginning
       _currentVideoIndex = 0;
-      final video = widget.videos[_currentVideoIndex];
+      final video = _menuVideos[_currentVideoIndex];
       final actualPath = await _downloadService.getActualFilePath(video.localPath!);
 
       setState(() {
