@@ -1214,10 +1214,12 @@ class CoffeeKioskOverlayState extends State<CoffeeKioskOverlay> {
                       color: Colors.brown.shade700,
                     ),
                   ),
+                ],
+              ),
             ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
