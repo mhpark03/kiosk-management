@@ -148,8 +148,9 @@ class KioskSplitScreenState extends State<KioskSplitScreen> {
         _returnToSavedVideo();
       }
     } else {
-      // Regular video completed, play next
-      _playNextVideo();
+      // Regular video completed, replay the first (main) video
+      print('[KIOSK SPLIT] Main video completed, replaying from beginning');
+      _playMainVideo();
     }
   }
 
