@@ -75,10 +75,12 @@ class _AutoKioskScreenState extends State<AutoKioskScreen> {
     _focusNode = FocusNode();
 
     // Separate videos into advertisement and all videos
-    // Advertisement videos: menuId is null (not linked to menu items)
+    // Advertisement videos: menuId is null or empty (not linked to menu items)
     // All videos: used in kiosk mode for menu item videos
     _allVideos = widget.videos;
-    _advertisementVideos = widget.videos.where((video) => video.menuId == null).toList();
+    _advertisementVideos = widget.videos.where((video) =>
+      video.menuId == null || video.menuId!.isEmpty
+    ).toList();
 
     // If no advertisement videos, fallback to using all videos
     if (_advertisementVideos.isEmpty) {

@@ -51,6 +51,10 @@ class _IdleScreenState extends State<IdleScreen> {
 
     // Initialize focus node
     _focusNode = FocusNode();
+
+    // Initialize first video
+    _initializeVideo();
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       // Check if still mounted (widget might be disposed before callback executes)
       if (!mounted || _isDisposed) {
@@ -156,71 +160,84 @@ class _IdleScreenState extends State<IdleScreen> {
           child: Scaffold(
           backgroundColor: Colors.black,
           body: Container(
-            color: Colors.grey.shade900,
+            color: Colors.black,
             child: Stack(
               children: [
-                // Camera preview (Android only) - use camera from PersonDetectionService
-                if (Platform.isAndroid && _personDetection.isInitialized && _personDetection.cameraController != null) ...[
-                  Center(
-                    child: AspectRatio(
-                      aspectRatio: _personDetection.cameraController!.value.aspectRatio,
-                      child: CameraPreview(_personDetection.cameraController!),
-                    ),
+                // Video player - fullscreen advertisement videos
+                if (_currentVideoPath != null && !_hasError) ...[
+                  VideoPlayerWidget(
+                    key: ValueKey('idle_video_$_videoPlayerKeyCounter'),
+                    videoPath: _currentVideoPath!,
+                    onVideoEnd: _playNextVideo,
+                    autoPlay: true,
+                    loop: false,
+                    showControls: false, // Hide controls in idle mode
                   ),
                 ]
-                // Simple idle message for Windows or when camera not ready
+                // Error or loading state
                 else ...[
                   Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(
-                          Icons.camera_alt,
-                          color: Colors.white70,
-                          size: 80,
-                        ),
-                        const SizedBox(height: 40),
-                        Text(
-                          '카메라 준비 중...',
-                          style: TextStyle(
+                        if (_hasError) ...[
+                          Icon(
+                            Icons.error_outline,
+                            color: Colors.red,
+                            size: 80,
+                          ),
+                          const SizedBox(height: 20),
+                          Text(
+                            _errorMessage ?? '영상 재생 오류',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 24,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ] else ...[
+                          CircularProgressIndicator(
                             color: Colors.white,
-                            fontSize: 32,
-                            fontWeight: FontWeight.bold,
                           ),
-                        ),
-                        const SizedBox(height: 20),
-                        Text(
-                          '화면을 터치하여 시작하세요',
-                          style: TextStyle(
-                            color: Colors.white70,
-                            fontSize: 18,
+                          const SizedBox(height: 20),
+                          Text(
+                            '영상 로딩 중...',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 24,
+                            ),
                           ),
-                        ),
+                        ],
                       ],
                     ),
                   ),
                 ],
 
                 // Camera status overlay (shows detection confidence and stats)
-                if (Platform.isAndroid && _personDetection.isInitialized && _personDetection.isDetecting)
-                  StreamBuilder<DetectionStatus>(
-                    stream: _personDetection.detectionStatusStream,
-                    builder: (context, snapshot) {
-                      if (snapshot.hasData) {
-                        return CameraStatusOverlay(status: snapshot.data!);
-                      }
-                      // Show default status while waiting for first update
-                      return CameraStatusOverlay(
-                        status: DetectionStatus(
-                          personPresent: false,
-                          latestConfidence: 0.0,
-                          totalDetections: 0,
-                          successfulDetections: 0,
-                          isDetecting: _personDetection.isDetecting,
-                          isInitialized: _personDetection.isInitialized,
-                        ),
-                      );
-                    },
+                // Keep camera detection running in background for presence detection
+                if (kDebugMode && Platform.isAndroid && _personDetection.isInitialized && _personDetection.isDetecting)
+                  Positioned(
+                    top: 20,
+                    right: 20,
+                    child: StreamBuilder<DetectionStatus>(
+                      stream: _personDetection.detectionStatusStream,
+                      builder: (context, snapshot) {
+                        if (snapshot.hasData) {
+                          return CameraStatusOverlay(status: snapshot.data!);
+                        }
+                        // Show default status while waiting for first update
+                        return CameraStatusOverlay(
+                          status: DetectionStatus(
+                            personPresent: false,
+                            latestConfidence: 0.0,
+                            totalDetections: 0,
+                            successfulDetections: 0,
+                            isDetecting: _personDetection.isDetecting,
+                            isInitialized: _personDetection.isInitialized,
+                          ),
+                        );
+                      },
+                    ),
                   ),
 
                 // Hint overlay
