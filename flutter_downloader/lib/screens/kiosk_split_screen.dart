@@ -66,6 +66,12 @@ class KioskSplitScreenState extends State<KioskSplitScreen> {
       video.menuId != null && video.menuId!.isNotEmpty
     ).toList();
 
+    // If no menu videos found, use all videos as fallback
+    if (_menuVideos.isEmpty) {
+      print('[KIOSK SPLIT] No menu videos found, using all videos as fallback');
+      _menuVideos = widget.videos;
+    }
+
     print('[KIOSK SPLIT] Total videos: ${widget.videos.length}');
     print('[KIOSK SPLIT] Menu videos: ${_menuVideos.length}');
 
