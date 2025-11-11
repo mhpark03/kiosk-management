@@ -990,111 +990,228 @@ class CoffeeKioskOverlayState extends State<CoffeeKioskOverlay> {
   }
 
   Widget _buildCartItem(OrderItem item, int index) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade50,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      item.menuItem.name,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                      ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Use single-line layout for landscape mode (wider screens)
+        final bool isLandscape = constraints.maxWidth > 400;
+
+        if (isLandscape) {
+          // Compact single-line layout for landscape mode
+          return Container(
+            margin: const EdgeInsets.only(bottom: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade50,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.grey.shade200),
+            ),
+            child: Row(
+              children: [
+                // Item name (compact)
+                Expanded(
+                  flex: 2,
+                  child: Text(
+                    item.menuItem.name,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
                     ),
-                    const SizedBox(height: 4),
-                    if (item.menuItem.category != 'dessert')
-                      Text(
-                        '${CoffeeOptions.sizes.firstWhere((s) => s.id == item.size).name} / ${CoffeeOptions.temperatures.firstWhere((t) => t.id == item.temperature).name}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
-                    if (item.extras.isNotEmpty)
-                      Text(
-                        '옵션: ${item.extras.map((e) => CoffeeOptions.extras.firstWhere((ex) => ex.id == e).name).join(', ')}',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
-                  ],
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.delete_outline, size: 20),
-                onPressed: () {
-                  setState(() => _cartItems.removeAt(index));
-                  _playActionVideo('cancelItem');
-                },
-                color: Colors.red,
-              ),
-            ],
+                const SizedBox(width: 4),
+                // Options (compact)
+                if (item.menuItem.category != 'dessert')
+                  Expanded(
+                    flex: 2,
+                    child: Text(
+                      '${CoffeeOptions.sizes.firstWhere((s) => s.id == item.size).name.substring(0, 1)}/${CoffeeOptions.temperatures.firstWhere((t) => t.id == item.temperature).name.substring(0, 1)}${item.extras.isNotEmpty ? ' +${item.extras.length}' : ''}',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.grey.shade600,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                const SizedBox(width: 4),
+                // Quantity controls (compact)
+                Container(
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey.shade300),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      InkWell(
+                        onTap: () {
+                          setState(() {
+                            if (item.quantity > 1) {
+                              item.quantity--;
+                            }
+                          });
+                          _playActionVideo('decreaseQuantity');
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          child: const Icon(Icons.remove, size: 14),
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        child: Text(
+                          '${item.quantity}',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                        ),
+                      ),
+                      InkWell(
+                        onTap: () {
+                          setState(() {
+                            item.quantity++;
+                          });
+                          _playActionVideo('increaseQuantity');
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          child: const Icon(Icons.add, size: 14),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // Price
+                Text(
+                  '₩${item.totalPrice.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')}',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                    color: Colors.brown.shade700,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                // Delete button (compact)
+                InkWell(
+                  onTap: () {
+                    setState(() => _cartItems.removeAt(index));
+                    _playActionVideo('cancelItem');
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    child: const Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
+        // Original multi-line layout for portrait mode
+        return Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.grey.shade50,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.grey.shade200),
           ),
-          const SizedBox(height: 8),
-          Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Quantity controls
-              Container(
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey.shade300),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.remove, size: 16),
-                      onPressed: () {
-                        setState(() {
-                          if (item.quantity > 1) {
-                            item.quantity--;
-                          }
-                        });
-                        _playActionVideo('decreaseQuantity');
-                      },
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          item.menuItem.name,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        if (item.menuItem.category != 'dessert')
+                          Text(
+                            '${CoffeeOptions.sizes.firstWhere((s) => s.id == item.size).name} / ${CoffeeOptions.temperatures.firstWhere((t) => t.id == item.temperature).name}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                        if (item.extras.isNotEmpty)
+                          Text(
+                            '옵션: ${item.extras.map((e) => CoffeeOptions.extras.firstWhere((ex) => ex.id == e).name).join(', ')}',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                      ],
                     ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: Text(
-                        '${item.quantity}',
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.add, size: 16),
-                      onPressed: () {
-                        setState(() {
-                          item.quantity++;
-                        });
-                        _playActionVideo('increaseQuantity');
-                      },
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                    ),
-                  ],
-                ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline, size: 20),
+                    onPressed: () {
+                      setState(() => _cartItems.removeAt(index));
+                      _playActionVideo('cancelItem');
+                    },
+                    color: Colors.red,
+                  ),
+                ],
               ),
-              const Spacer(),
-              Text(
-                '₩${item.totalPrice.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')}',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.brown.shade700,
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  // Quantity controls
+                  Container(
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey.shade300),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Row(
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.remove, size: 16),
+                          onPressed: () {
+                            setState(() {
+                              if (item.quantity > 1) {
+                                item.quantity--;
+                              }
+                            });
+                            _playActionVideo('decreaseQuantity');
+                          },
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          child: Text(
+                            '${item.quantity}',
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.add, size: 16),
+                          onPressed: () {
+                            setState(() {
+                              item.quantity++;
+                            });
+                            _playActionVideo('increaseQuantity');
+                          },
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    '₩${item.totalPrice.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')}',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.brown.shade700,
                 ),
               ),
             ],
