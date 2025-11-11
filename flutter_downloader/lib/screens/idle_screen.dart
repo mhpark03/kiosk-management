@@ -212,7 +212,7 @@ class _IdleScreenState extends State<IdleScreen> {
 
                 // Camera status overlay (shows detection confidence and stats)
                 // Keep camera detection running in background for presence detection
-                if (kDebugMode && Platform.isAndroid && _personDetection.isInitialized && _personDetection.isDetecting)
+                if (Platform.isAndroid && _personDetection.isInitialized && _personDetection.isDetecting)
                   Positioned(
                     top: 20,
                     right: 20,
