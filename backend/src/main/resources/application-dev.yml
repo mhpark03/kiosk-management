@@ -11,13 +11,6 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.MySQLDialect
 
-# Swagger/OpenAPI disabled for memory optimization (30-50MB saved)
-springdoc:
-  api-docs:
-    enabled: false
-  swagger-ui:
-    enabled: false
-
 # Actuator endpoints restricted for memory optimization
 management:
   endpoints:

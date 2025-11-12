@@ -826,12 +826,12 @@ gradlew.bat test jacocoTestReport
 
 **Note:** Test coverage is minimal. Integration tests recommended for repository and service layers.
 
-## API Documentation
+## Health Monitoring
 
-After running the application, interactive API documentation may be available at:
+After running the application, health check endpoints are available at:
 
-- Swagger UI: `http://localhost:8080/swagger-ui.html` (if enabled)
-- Actuator: `http://localhost:8080/actuator`
+- Health Check: `http://localhost:8080/actuator/health`
+- Actuator Info: `http://localhost:8080/actuator/info`
 
 ## License
 

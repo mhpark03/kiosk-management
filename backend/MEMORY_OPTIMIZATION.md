@@ -57,18 +57,15 @@ datasource:
 
 ## ✅ 즉시 적용 가능한 최적화
 
-### 1. Swagger 프로덕션 비활성화 (우선순위: 높음)
+### 1. ~~Swagger 프로덕션 비활성화~~ ✅ 완료 (완전 제거됨)
 
-**application-prod.yml 또는 application-dev.yml에 추가**:
-```yaml
-springdoc:
-  api-docs:
-    enabled: false  # OpenAPI JSON 생성 비활성화
-  swagger-ui:
-    enabled: false  # Swagger UI 비활성화
-```
+**상태**: Swagger/OpenAPI가 프로젝트에서 완전히 제거되었습니다.
+- springdoc 의존성 제거 (build.gradle)
+- OpenApiConfig.java 삭제
+- SecurityConfig에서 swagger 경로 제거
+- application.yml 파일들에서 springdoc 설정 제거
 
-**예상 메모리 절감**: 30-50MB
+**메모리 절감**: 30-50MB
 
 ### 2. Actuator 엔드포인트 제한 (우선순위: 중간)
 
@@ -122,20 +119,9 @@ logging:
 
 ## 🚀 선택적 최적화 (추가 검토 필요)
 
-### 옵션 1: Swagger 완전 제거 (프로덕션)
+### 옵션 1: ~~Swagger 완전 제거~~ ✅ 완료
 
-**build.gradle에서 조건부 의존성**:
-```gradle
-dependencies {
-    // Swagger (dev/local only)
-    if (project.hasProperty('profile') && profile != 'prod') {
-        implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.3.0'
-    }
-}
-```
-
-**장점**: 메모리 50MB 절감
-**단점**: 빌드 복잡도 증가
+Swagger/OpenAPI가 프로젝트에서 완전히 제거되었습니다. 더 이상 조치 불필요.
 
 ### 옵션 2: WebSocket 비활성화 (사용하지 않는 경우)
 
@@ -173,27 +159,10 @@ WebSocket이 **실제로 사용 중**이므로 비활성화 권장하지 않음.
 
 ## 🔧 적용 방법
 
-### 1단계: 설정 파일 수정
+### 1단계: ~~설정 파일 수정~~ ✅ 완료
 
-```bash
-# application-dev.yml 수정 (dev 프로파일용)
-cat >> backend/src/main/resources/application-dev.yml <<EOF
-
-# Swagger 비활성화 (메모리 절감)
-springdoc:
-  api-docs:
-    enabled: false
-  swagger-ui:
-    enabled: false
-
-# Actuator 제한
-management:
-  endpoints:
-    web:
-      exposure:
-        include: health,info
-EOF
-```
+Swagger가 완전히 제거되었고, Actuator는 이미 최적화되어 있습니다.
+추가 설정 변경이 필요 없습니다.
 
 ### 2단계: 백업 파일 제거
 
@@ -303,9 +272,8 @@ eb scale 1 --instance-type t3.small
 - [Spring Boot Memory Tuning](https://spring.io/blog/2015/12/10/spring-boot-memory-performance)
 - [AWS EB Java Configuration](https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/java-se-platform.html)
 - [JVM Memory Parameters](https://docs.oracle.com/javase/8/docs/technotes/tools/unix/java.html)
-- [Springdoc Configuration](https://springdoc.org/#properties)
 
 ---
 
-**마지막 업데이트**: 2024-11-05
+**마지막 업데이트**: 2025-01-15 (Swagger 완전 제거)
 **작성자**: Claude Code Assistant
