@@ -125,6 +125,10 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
       _player = Player();
       _controller = media_kit_video.VideoController(_player!);
 
+      // Set volume to 100 (ensure audio is not muted)
+      await _player!.setVolume(100.0);
+      print('[VIDEO PLAYER WIDGET] Volume set to 100');
+
       // Listen to player state changes
       _playingSubscription = _player!.stream.playing.listen((playing) {
         if (mounted) {
