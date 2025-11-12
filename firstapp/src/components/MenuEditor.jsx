@@ -3688,13 +3688,13 @@ function ItemEditor({ item, onUpdate }) {
                   flexShrink: 0
                 }}
               />
-              {formData.imageId && images.find(img => img.id === parseInt(formData.imageId)) && (
+              {formData.imageId && menuImages.find(img => img.id === parseInt(formData.imageId)) && (
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: '600', fontSize: '14px', color: '#2d3748', marginBottom: '4px' }}>
-                    {images.find(img => img.id === parseInt(formData.imageId)).title}
+                    {menuImages.find(img => img.id === parseInt(formData.imageId)).title}
                   </div>
                   <div style={{ fontSize: '13px', color: '#718096', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {images.find(img => img.id === parseInt(formData.imageId)).description || '설명 없음'}
+                    {menuImages.find(img => img.id === parseInt(formData.imageId)).description || '설명 없음'}
                   </div>
                 </div>
               )}
