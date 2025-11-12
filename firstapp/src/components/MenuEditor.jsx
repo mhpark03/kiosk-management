@@ -1127,19 +1127,32 @@ function MenuInfoEditor({ menu, onUpdate }) {
               <td style={{ padding: '12px', fontWeight: '500' }}>메인 영상</td>
               <td style={{ padding: '12px' }}>
                 {currentVideoUrl ? (
-                  <video
-                    src={currentVideoUrl}
-                    preload="metadata"
-                    muted
-                    style={{
-                      width: '120px',
-                      height: '72px',
-                      objectFit: 'cover',
-                      borderRadius: '4px',
-                      border: '1px solid #e2e8f0',
-                      backgroundColor: '#000'
-                    }}
-                  />
+                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                    <video
+                      src={currentVideoUrl}
+                      preload="metadata"
+                      muted
+                      style={{
+                        width: '120px',
+                        height: '72px',
+                        objectFit: 'cover',
+                        borderRadius: '4px',
+                        border: '1px solid #e2e8f0',
+                        backgroundColor: '#000',
+                        flexShrink: 0
+                      }}
+                    />
+                    {formData.videoId && videos.find(v => v.id === parseInt(formData.videoId)) && (
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: '600', fontSize: '14px', color: '#2d3748', marginBottom: '4px' }}>
+                          {videos.find(v => v.id === parseInt(formData.videoId)).title}
+                        </div>
+                        <div style={{ fontSize: '13px', color: '#718096', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {videos.find(v => v.id === parseInt(formData.videoId)).description || '설명 없음'}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 ) : (
                   <span style={{ color: '#a0aec0', fontSize: '14px' }}>선택된 영상 없음</span>
                 )}
@@ -1193,19 +1206,32 @@ function MenuInfoEditor({ menu, onUpdate }) {
               <td style={{ padding: '12px', fontWeight: '500' }}>장바구니 추가</td>
               <td style={{ padding: '12px' }}>
                 {currentAddToCartVideoUrl ? (
-                  <video
-                    src={currentAddToCartVideoUrl}
-                    preload="metadata"
-                    muted
-                    style={{
-                      width: '120px',
-                      height: '72px',
-                      objectFit: 'cover',
-                      borderRadius: '4px',
-                      border: '1px solid #e2e8f0',
-                      backgroundColor: '#000'
-                    }}
-                  />
+                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                    <video
+                      src={currentAddToCartVideoUrl}
+                      preload="metadata"
+                      muted
+                      style={{
+                        width: '120px',
+                        height: '72px',
+                        objectFit: 'cover',
+                        borderRadius: '4px',
+                        border: '1px solid #e2e8f0',
+                        backgroundColor: '#000',
+                        flexShrink: 0
+                      }}
+                    />
+                    {formData.actions?.addToCart?.videoId && videos.find(v => v.id === parseInt(formData.actions.addToCart.videoId)) && (
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: '600', fontSize: '14px', color: '#2d3748', marginBottom: '4px' }}>
+                          {videos.find(v => v.id === parseInt(formData.actions.addToCart.videoId)).title}
+                        </div>
+                        <div style={{ fontSize: '13px', color: '#718096', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {videos.find(v => v.id === parseInt(formData.actions.addToCart.videoId)).description || '설명 없음'}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 ) : (
                   <span style={{ color: '#a0aec0', fontSize: '14px' }}>선택된 영상 없음</span>
                 )}
@@ -1260,19 +1286,32 @@ function MenuInfoEditor({ menu, onUpdate }) {
               <td style={{ padding: '12px', fontWeight: '500' }}>결제하기</td>
               <td style={{ padding: '12px' }}>
                 {currentCheckoutVideoUrl ? (
-                  <video
-                    src={currentCheckoutVideoUrl}
-                    preload="metadata"
-                    muted
-                    style={{
-                      width: '120px',
-                      height: '72px',
-                      objectFit: 'cover',
-                      borderRadius: '4px',
-                      border: '1px solid #e2e8f0',
-                      backgroundColor: '#000'
-                    }}
-                  />
+                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                    <video
+                      src={currentCheckoutVideoUrl}
+                      preload="metadata"
+                      muted
+                      style={{
+                        width: '120px',
+                        height: '72px',
+                        objectFit: 'cover',
+                        borderRadius: '4px',
+                        border: '1px solid #e2e8f0',
+                        backgroundColor: '#000',
+                        flexShrink: 0
+                      }}
+                    />
+                    {formData.actions?.checkout?.videoId && videos.find(v => v.id === parseInt(formData.actions.checkout.videoId)) && (
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: '600', fontSize: '14px', color: '#2d3748', marginBottom: '4px' }}>
+                          {videos.find(v => v.id === parseInt(formData.actions.checkout.videoId)).title}
+                        </div>
+                        <div style={{ fontSize: '13px', color: '#718096', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {videos.find(v => v.id === parseInt(formData.actions.checkout.videoId)).description || '설명 없음'}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 ) : (
                   <span style={{ color: '#a0aec0', fontSize: '14px' }}>선택된 영상 없음</span>
                 )}
@@ -1327,19 +1366,32 @@ function MenuInfoEditor({ menu, onUpdate }) {
               <td style={{ padding: '12px', fontWeight: '500' }}>수량 증가</td>
               <td style={{ padding: '12px' }}>
                 {currentIncreaseQuantityVideoUrl ? (
-                  <video
-                    src={currentIncreaseQuantityVideoUrl}
-                    preload="metadata"
-                    muted
-                    style={{
-                      width: '120px',
-                      height: '72px',
-                      objectFit: 'cover',
-                      borderRadius: '4px',
-                      border: '1px solid #e2e8f0',
-                      backgroundColor: '#000'
-                    }}
-                  />
+                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                    <video
+                      src={currentIncreaseQuantityVideoUrl}
+                      preload="metadata"
+                      muted
+                      style={{
+                        width: '120px',
+                        height: '72px',
+                        objectFit: 'cover',
+                        borderRadius: '4px',
+                        border: '1px solid #e2e8f0',
+                        backgroundColor: '#000',
+                        flexShrink: 0
+                      }}
+                    />
+                    {formData.actions?.increaseQuantity?.videoId && videos.find(v => v.id === parseInt(formData.actions.increaseQuantity.videoId)) && (
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: '600', fontSize: '14px', color: '#2d3748', marginBottom: '4px' }}>
+                          {videos.find(v => v.id === parseInt(formData.actions.increaseQuantity.videoId)).title}
+                        </div>
+                        <div style={{ fontSize: '13px', color: '#718096', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {videos.find(v => v.id === parseInt(formData.actions.increaseQuantity.videoId)).description || '설명 없음'}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 ) : (
                   <span style={{ color: '#a0aec0', fontSize: '14px' }}>선택된 영상 없음</span>
                 )}
@@ -1394,19 +1446,32 @@ function MenuInfoEditor({ menu, onUpdate }) {
               <td style={{ padding: '12px', fontWeight: '500' }}>수량 감소</td>
               <td style={{ padding: '12px' }}>
                 {currentDecreaseQuantityVideoUrl ? (
-                  <video
-                    src={currentDecreaseQuantityVideoUrl}
-                    preload="metadata"
-                    muted
-                    style={{
-                      width: '120px',
-                      height: '72px',
-                      objectFit: 'cover',
-                      borderRadius: '4px',
-                      border: '1px solid #e2e8f0',
-                      backgroundColor: '#000'
-                    }}
-                  />
+                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                    <video
+                      src={currentDecreaseQuantityVideoUrl}
+                      preload="metadata"
+                      muted
+                      style={{
+                        width: '120px',
+                        height: '72px',
+                        objectFit: 'cover',
+                        borderRadius: '4px',
+                        border: '1px solid #e2e8f0',
+                        backgroundColor: '#000',
+                        flexShrink: 0
+                      }}
+                    />
+                    {formData.actions?.decreaseQuantity?.videoId && videos.find(v => v.id === parseInt(formData.actions.decreaseQuantity.videoId)) && (
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: '600', fontSize: '14px', color: '#2d3748', marginBottom: '4px' }}>
+                          {videos.find(v => v.id === parseInt(formData.actions.decreaseQuantity.videoId)).title}
+                        </div>
+                        <div style={{ fontSize: '13px', color: '#718096', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {videos.find(v => v.id === parseInt(formData.actions.decreaseQuantity.videoId)).description || '설명 없음'}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 ) : (
                   <span style={{ color: '#a0aec0', fontSize: '14px' }}>선택된 영상 없음</span>
                 )}
@@ -1461,19 +1526,32 @@ function MenuInfoEditor({ menu, onUpdate }) {
               <td style={{ padding: '12px', fontWeight: '500' }}>취소</td>
               <td style={{ padding: '12px' }}>
                 {currentCancelItemVideoUrl ? (
-                  <video
-                    src={currentCancelItemVideoUrl}
-                    preload="metadata"
-                    muted
-                    style={{
-                      width: '120px',
-                      height: '72px',
-                      objectFit: 'cover',
-                      borderRadius: '4px',
-                      border: '1px solid #e2e8f0',
-                      backgroundColor: '#000'
-                    }}
-                  />
+                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                    <video
+                      src={currentCancelItemVideoUrl}
+                      preload="metadata"
+                      muted
+                      style={{
+                        width: '120px',
+                        height: '72px',
+                        objectFit: 'cover',
+                        borderRadius: '4px',
+                        border: '1px solid #e2e8f0',
+                        backgroundColor: '#000',
+                        flexShrink: 0
+                      }}
+                    />
+                    {formData.actions?.cancelItem?.videoId && videos.find(v => v.id === parseInt(formData.actions.cancelItem.videoId)) && (
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: '600', fontSize: '14px', color: '#2d3748', marginBottom: '4px' }}>
+                          {videos.find(v => v.id === parseInt(formData.actions.cancelItem.videoId)).title}
+                        </div>
+                        <div style={{ fontSize: '13px', color: '#718096', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {videos.find(v => v.id === parseInt(formData.actions.cancelItem.videoId)).description || '설명 없음'}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 ) : (
                   <span style={{ color: '#a0aec0', fontSize: '14px' }}>선택된 영상 없음</span>
                 )}
@@ -3003,21 +3081,34 @@ function CategoryEditor({ category, onUpdate }) {
 
       <div className="form-group">
         <label>카테고리 영상</label>
-        <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexDirection: 'column' }}>
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', flexDirection: 'column' }}>
           {currentVideoUrl && (
-            <video
-              src={currentVideoUrl}
-              preload="metadata"
-              muted
-              style={{
-                width: '120px',
-                height: '72px',
-                objectFit: 'cover',
-                borderRadius: '6px',
-                border: '2px solid #e2e8f0',
-                backgroundColor: '#000'
-              }}
-            />
+            <div style={{ display: 'flex', gap: '12px', alignItems: 'center', width: '100%' }}>
+              <video
+                src={currentVideoUrl}
+                preload="metadata"
+                muted
+                style={{
+                  width: '120px',
+                  height: '72px',
+                  objectFit: 'cover',
+                  borderRadius: '6px',
+                  border: '2px solid #e2e8f0',
+                  backgroundColor: '#000',
+                  flexShrink: 0
+                }}
+              />
+              {formData.videoId && videos.find(v => v.id === parseInt(formData.videoId)) && (
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: '600', fontSize: '14px', color: '#2d3748', marginBottom: '4px' }}>
+                    {videos.find(v => v.id === parseInt(formData.videoId)).title}
+                  </div>
+                  <div style={{ fontSize: '13px', color: '#718096', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {videos.find(v => v.id === parseInt(formData.videoId)).description || '설명 없음'}
+                  </div>
+                </div>
+              )}
+            </div>
           )}
           <div style={{ display: 'flex', gap: '10px' }}>
             <button
@@ -3582,21 +3673,34 @@ function ItemEditor({ item, onUpdate }) {
 
       <div className="form-group">
         <label>메뉴 이미지</label>
-        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', flexDirection: 'column', width: '100%' }}>
           {currentImageUrl && (
-            <img
-              src={currentImageUrl}
-              alt="선택된 이미지"
-              style={{
-                width: '80px',
-                height: '80px',
-                objectFit: 'cover',
-                borderRadius: '6px',
-                border: '2px solid #e2e8f0'
-              }}
-            />
+            <div style={{ display: 'flex', gap: '12px', alignItems: 'center', width: '100%' }}>
+              <img
+                src={currentImageUrl}
+                alt="선택된 이미지"
+                style={{
+                  width: '80px',
+                  height: '80px',
+                  objectFit: 'cover',
+                  borderRadius: '6px',
+                  border: '2px solid #e2e8f0',
+                  flexShrink: 0
+                }}
+              />
+              {formData.imageId && images.find(img => img.id === parseInt(formData.imageId)) && (
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: '600', fontSize: '14px', color: '#2d3748', marginBottom: '4px' }}>
+                    {images.find(img => img.id === parseInt(formData.imageId)).title}
+                  </div>
+                  <div style={{ fontSize: '13px', color: '#718096', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {images.find(img => img.id === parseInt(formData.imageId)).description || '설명 없음'}
+                  </div>
+                </div>
+              )}
+            </div>
           )}
-          <div style={{ flex: 1 }}>
+          <div style={{ display: 'flex', gap: '10px' }}>
             <button
               type="button"
               onClick={() => setShowImageSelector(true)}
@@ -3919,21 +4023,34 @@ function ItemEditor({ item, onUpdate }) {
 
       <div className="form-group">
         <label>메뉴 아이템 영상</label>
-        <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexDirection: 'column' }}>
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', flexDirection: 'column' }}>
           {currentVideoUrl && (
-            <video
-              src={currentVideoUrl}
-              preload="metadata"
-              muted
-              style={{
-                width: '120px',
-                height: '72px',
-                objectFit: 'cover',
-                borderRadius: '6px',
-                border: '2px solid #e2e8f0',
-                backgroundColor: '#000'
-              }}
-            />
+            <div style={{ display: 'flex', gap: '12px', alignItems: 'center', width: '100%' }}>
+              <video
+                src={currentVideoUrl}
+                preload="metadata"
+                muted
+                style={{
+                  width: '120px',
+                  height: '72px',
+                  objectFit: 'cover',
+                  borderRadius: '6px',
+                  border: '2px solid #e2e8f0',
+                  backgroundColor: '#000',
+                  flexShrink: 0
+                }}
+              />
+              {formData.videoId && videos.find(v => v.id === parseInt(formData.videoId)) && (
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: '600', fontSize: '14px', color: '#2d3748', marginBottom: '4px' }}>
+                    {videos.find(v => v.id === parseInt(formData.videoId)).title}
+                  </div>
+                  <div style={{ fontSize: '13px', color: '#718096', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {videos.find(v => v.id === parseInt(formData.videoId)).description || '설명 없음'}
+                  </div>
+                </div>
+              )}
+            </div>
           )}
           <div style={{ display: 'flex', gap: '10px' }}>
             <button
