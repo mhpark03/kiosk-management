@@ -8,7 +8,9 @@ class WebSocketService {
   String? _authToken;
   String? _serverUrl;
   Timer? _heartbeatTimer;
+  Timer? _offlineTimer;
   bool _isConnected = false;
+  bool _wasCompletelyOffline = true; // Track if we were completely offline (not just temporarily disconnected)
 
   // Callback for sync command from admin
   Function()? onSyncCommand;
@@ -17,7 +19,8 @@ class WebSocketService {
   Function()? onConfigUpdate;
 
   // Callback for connection status changes
-  Function(bool)? onConnectionStatusChanged;
+  // Parameters: (isConnected, wasOfflineToOnlineTransition)
+  Function(bool, bool)? onConnectionStatusChanged;
 
   bool get isConnected => _isConnected;
 
@@ -68,8 +71,25 @@ class WebSocketService {
 
   void _onConnect(StompFrame frame) {
     print('WebSocket: Connected successfully');
+
+    // Check if this is a transition from completely offline to online
+    final wasOfflineToOnline = _wasCompletelyOffline;
+
+    if (wasOfflineToOnline) {
+      print('WebSocket: Offline -> Online transition detected');
+    } else {
+      print('WebSocket: Reconnected (was temporarily disconnected)');
+    }
+
+    // Cancel offline timer if reconnected before becoming completely offline
+    _offlineTimer?.cancel();
+    _offlineTimer = null;
+
     _isConnected = true;
-    onConnectionStatusChanged?.call(true);
+    _wasCompletelyOffline = false;
+
+    // Notify with connection status and whether this was an offline->online transition
+    onConnectionStatusChanged?.call(true, wasOfflineToOnline);
 
     // Subscribe to kiosk-specific topic for commands
     _stompClient!.subscribe(
@@ -98,21 +118,33 @@ class WebSocketService {
 
   void _onDisconnect(StompFrame frame) {
     print('WebSocket: Disconnected');
-    _isConnected = false;
-    onConnectionStatusChanged?.call(false);
+    _handleDisconnection();
     _stopHeartbeat();
   }
 
   void _onStompError(StompFrame frame) {
     print('WebSocket STOMP Error: ${frame.body}');
-    _isConnected = false;
-    onConnectionStatusChanged?.call(false);
+    _handleDisconnection();
   }
 
   void _onWebSocketError(dynamic error) {
     print('WebSocket Error: $error');
+    _handleDisconnection();
+  }
+
+  void _handleDisconnection() {
     _isConnected = false;
-    onConnectionStatusChanged?.call(false);
+
+    // Start timer to mark as completely offline after 5 seconds
+    // If reconnected within 5 seconds, this is considered a temporary disconnect
+    _offlineTimer?.cancel();
+    _offlineTimer = Timer(const Duration(seconds: 5), () {
+      print('WebSocket: Marked as completely offline (disconnected for >5 seconds)');
+      _wasCompletelyOffline = true;
+    });
+
+    // Notify immediately about disconnection (but don't trigger sync)
+    onConnectionStatusChanged?.call(false, false);
   }
 
   void _handleMessage(Map<String, dynamic> message) {
@@ -193,6 +225,8 @@ class WebSocketService {
   void disconnect() {
     print('WebSocket: Disconnecting...');
     _stopHeartbeat();
+    _offlineTimer?.cancel();
+    _offlineTimer = null;
 
     if (_stompClient != null) {
       _stompClient!.deactivate();
@@ -200,7 +234,8 @@ class WebSocketService {
     }
 
     _isConnected = false;
-    onConnectionStatusChanged?.call(false);
+    _wasCompletelyOffline = true; // Manual disconnect = completely offline
+    onConnectionStatusChanged?.call(false, false);
   }
 
   void _reconnect() {
@@ -213,6 +248,8 @@ class WebSocketService {
   }
 
   void dispose() {
+    _offlineTimer?.cancel();
+    _offlineTimer = null;
     disconnect();
     onSyncCommand = null;
     onConfigUpdate = null;
