@@ -62,6 +62,14 @@ function VideoManagement() {
       // Load videos assigned to the selected kiosk from kiosk_videos table
       const data = await kioskService.getKioskVideos(parseInt(selectedKioskId));
 
+      // Ensure data is an array
+      if (!Array.isArray(data)) {
+        console.error('Expected array but got:', typeof data, data);
+        setVideos([]);
+        setError('비디오 목록을 불러올 수 없습니다.');
+        return;
+      }
+
       // Filter out audio files and non-video media types
       const videoOnlyData = data.filter(video => {
         const mediaType = video.mediaType?.toUpperCase() || '';
