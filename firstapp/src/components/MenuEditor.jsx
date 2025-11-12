@@ -1917,9 +1917,55 @@ function MenuInfoEditor({ menu, onUpdate }) {
                               flexShrink: 0
                             }}
                           />
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontWeight: '600', fontSize: '14px', color: '#2d3748' }}>
-                              {video.title}
+                          {/* Video Info */}
+                          <div style={{
+                            flex: 1,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '12px',
+                            minWidth: 0
+                          }}>
+                            <div style={{
+                              flex: '0 0 200px',
+                              minWidth: 0
+                            }}>
+                              <div style={{
+                                fontWeight: '600',
+                                fontSize: '14px',
+                                color: '#2d3748',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap'
+                              }}>
+                                {video.title}
+                              </div>
+                            </div>
+                            <div style={{
+                              flex: 1,
+                              minWidth: 0
+                            }}>
+                              <div style={{
+                                fontSize: '13px',
+                                color: '#718096',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap'
+                              }}>
+                                {video.description || '설명 없음'}
+                              </div>
+                            </div>
+                            <div style={{
+                              fontSize: '12px',
+                              color: '#a0aec0',
+                              flexShrink: 0,
+                              width: '90px',
+                              textAlign: 'right'
+                            }}>
+                              {new Date(video.uploadedAt).toLocaleDateString('ko-KR', {
+                                year: '2-digit',
+                                month: '2-digit',
+                                day: '2-digit'
+                              })}
                             </div>
                           </div>
                           {formData.actions?.addToCart?.videoUrl === video.presignedUrl && (
@@ -2080,9 +2126,55 @@ function MenuInfoEditor({ menu, onUpdate }) {
                               flexShrink: 0
                             }}
                           />
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontWeight: '600', fontSize: '14px', color: '#2d3748' }}>
-                              {video.title}
+                          {/* Video Info */}
+                          <div style={{
+                            flex: 1,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '12px',
+                            minWidth: 0
+                          }}>
+                            <div style={{
+                              flex: '0 0 200px',
+                              minWidth: 0
+                            }}>
+                              <div style={{
+                                fontWeight: '600',
+                                fontSize: '14px',
+                                color: '#2d3748',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap'
+                              }}>
+                                {video.title}
+                              </div>
+                            </div>
+                            <div style={{
+                              flex: 1,
+                              minWidth: 0
+                            }}>
+                              <div style={{
+                                fontSize: '13px',
+                                color: '#718096',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap'
+                              }}>
+                                {video.description || '설명 없음'}
+                              </div>
+                            </div>
+                            <div style={{
+                              fontSize: '12px',
+                              color: '#a0aec0',
+                              flexShrink: 0,
+                              width: '90px',
+                              textAlign: 'right'
+                            }}>
+                              {new Date(video.uploadedAt).toLocaleDateString('ko-KR', {
+                                year: '2-digit',
+                                month: '2-digit',
+                                day: '2-digit'
+                              })}
                             </div>
                           </div>
                           {formData.actions?.checkout?.videoUrl === video.presignedUrl && (
@@ -2243,9 +2335,55 @@ function MenuInfoEditor({ menu, onUpdate }) {
                               flexShrink: 0
                             }}
                           />
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontWeight: '600', fontSize: '14px', color: '#2d3748' }}>
-                              {video.title}
+                          {/* Video Info */}
+                          <div style={{
+                            flex: 1,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '12px',
+                            minWidth: 0
+                          }}>
+                            <div style={{
+                              flex: '0 0 200px',
+                              minWidth: 0
+                            }}>
+                              <div style={{
+                                fontWeight: '600',
+                                fontSize: '14px',
+                                color: '#2d3748',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap'
+                              }}>
+                                {video.title}
+                              </div>
+                            </div>
+                            <div style={{
+                              flex: 1,
+                              minWidth: 0
+                            }}>
+                              <div style={{
+                                fontSize: '13px',
+                                color: '#718096',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap'
+                              }}>
+                                {video.description || '설명 없음'}
+                              </div>
+                            </div>
+                            <div style={{
+                              fontSize: '12px',
+                              color: '#a0aec0',
+                              flexShrink: 0,
+                              width: '90px',
+                              textAlign: 'right'
+                            }}>
+                              {new Date(video.uploadedAt).toLocaleDateString('ko-KR', {
+                                year: '2-digit',
+                                month: '2-digit',
+                                day: '2-digit'
+                              })}
                             </div>
                           </div>
                           {formData.actions?.increaseQuantity?.videoUrl === video.presignedUrl && (
@@ -2406,9 +2544,55 @@ function MenuInfoEditor({ menu, onUpdate }) {
                               flexShrink: 0
                             }}
                           />
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontWeight: '600', fontSize: '14px', color: '#2d3748' }}>
-                              {video.title}
+                          {/* Video Info */}
+                          <div style={{
+                            flex: 1,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '12px',
+                            minWidth: 0
+                          }}>
+                            <div style={{
+                              flex: '0 0 200px',
+                              minWidth: 0
+                            }}>
+                              <div style={{
+                                fontWeight: '600',
+                                fontSize: '14px',
+                                color: '#2d3748',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap'
+                              }}>
+                                {video.title}
+                              </div>
+                            </div>
+                            <div style={{
+                              flex: 1,
+                              minWidth: 0
+                            }}>
+                              <div style={{
+                                fontSize: '13px',
+                                color: '#718096',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap'
+                              }}>
+                                {video.description || '설명 없음'}
+                              </div>
+                            </div>
+                            <div style={{
+                              fontSize: '12px',
+                              color: '#a0aec0',
+                              flexShrink: 0,
+                              width: '90px',
+                              textAlign: 'right'
+                            }}>
+                              {new Date(video.uploadedAt).toLocaleDateString('ko-KR', {
+                                year: '2-digit',
+                                month: '2-digit',
+                                day: '2-digit'
+                              })}
                             </div>
                           </div>
                           {formData.actions?.decreaseQuantity?.videoUrl === video.presignedUrl && (
@@ -2569,9 +2753,55 @@ function MenuInfoEditor({ menu, onUpdate }) {
                               flexShrink: 0
                             }}
                           />
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontWeight: '600', fontSize: '14px', color: '#2d3748' }}>
-                              {video.title}
+                          {/* Video Info */}
+                          <div style={{
+                            flex: 1,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '12px',
+                            minWidth: 0
+                          }}>
+                            <div style={{
+                              flex: '0 0 200px',
+                              minWidth: 0
+                            }}>
+                              <div style={{
+                                fontWeight: '600',
+                                fontSize: '14px',
+                                color: '#2d3748',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap'
+                              }}>
+                                {video.title}
+                              </div>
+                            </div>
+                            <div style={{
+                              flex: 1,
+                              minWidth: 0
+                            }}>
+                              <div style={{
+                                fontSize: '13px',
+                                color: '#718096',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap'
+                              }}>
+                                {video.description || '설명 없음'}
+                              </div>
+                            </div>
+                            <div style={{
+                              fontSize: '12px',
+                              color: '#a0aec0',
+                              flexShrink: 0,
+                              width: '90px',
+                              textAlign: 'right'
+                            }}>
+                              {new Date(video.uploadedAt).toLocaleDateString('ko-KR', {
+                                year: '2-digit',
+                                month: '2-digit',
+                                day: '2-digit'
+                              })}
                             </div>
                           </div>
                           {formData.actions?.cancelItem?.videoUrl === video.presignedUrl && (
