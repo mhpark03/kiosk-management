@@ -8635,7 +8635,14 @@ async function executeExportAudioToS3() {
     const fileUrl = `file:///${currentAudioFile.replace(/\\/g, '/')}`;
     const fileResponse = await fetch(fileUrl);
     const audioBlob = await fileResponse.blob();
-    const fileName = currentAudioFile.split('\\').pop().split('/').pop();
+
+    // Extract original file extension
+    const originalFileName = currentAudioFile.split('\\').pop().split('/').pop();
+    const fileExtension = originalFileName.substring(originalFileName.lastIndexOf('.'));
+
+    // Create filename from title (sanitize for filesystem)
+    const sanitizedTitle = title.replace(/[\\/:*?"<>|]/g, '_').trim();
+    const fileName = `${sanitizedTitle}${fileExtension}`;
 
     console.log('[Export Audio S3] Uploading to S3:', { title, description, fileName, size: audioBlob.size });
 
@@ -8854,7 +8861,14 @@ async function executeExportVideoToS3() {
     const fileUrl = `file:///${videoToUpload.replace(/\\/g, '/')}`;
     const fileResponse = await fetch(fileUrl);
     const videoBlob = await fileResponse.blob();
-    const fileName = videoToUpload.split('\\').pop().split('/').pop();
+
+    // Extract original file extension
+    const originalFileName = videoToUpload.split('\\').pop().split('/').pop();
+    const fileExtension = originalFileName.substring(originalFileName.lastIndexOf('.'));
+
+    // Create filename from title (sanitize for filesystem)
+    const sanitizedTitle = title.replace(/[\\/:*?"<>|]/g, '_').trim();
+    const fileName = `${sanitizedTitle}${fileExtension}`;
 
     console.log('[Export Video S3] Uploading to S3:', { title, description, fileName, size: videoBlob.size });
 
