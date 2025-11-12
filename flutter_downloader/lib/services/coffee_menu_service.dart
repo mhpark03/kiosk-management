@@ -279,15 +279,26 @@ class CoffeeMenuService {
       // URL decode the filename to handle special characters
       filename = Uri.decodeComponent(filename);
 
+      // Remove UUID prefix if present (e.g., "ce797d4b-..._카프치노.jpg" -> "카프치노.jpg")
+      // UUID format: 8-4-4-4-12 characters followed by underscore
+      final uuidPattern = RegExp(r'^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}_');
+      if (uuidPattern.hasMatch(filename)) {
+        filename = filename.replaceFirst(uuidPattern, '');
+      }
+
       print('[MENU IMAGE] Extracted filename from S3 URL: $filename');
+      print('[MENU IMAGE] Download path: $_downloadPath, Kiosk ID: $_kioskId');
 
       // First try to find in menu folder (for menu-related images)
       final menuDir = Directory('$_downloadPath/$_kioskId/menu');
+      print('[MENU IMAGE] Searching in menu folder: ${menuDir.path}');
       if (menuDir.existsSync()) {
         final menuFiles = menuDir.listSync();
+        print('[MENU IMAGE] Found ${menuFiles.length} files in menu folder');
         for (final file in menuFiles) {
           if (file is File) {
             final localFilename = file.path.split(Platform.pathSeparator).last;
+            print('[MENU IMAGE] Comparing: "$localFilename" with "$filename"');
             // Check for exact match
             if (localFilename == filename) {
               print('[MENU IMAGE] Found local image from S3 URL in menu folder: ${file.path}');
@@ -295,18 +306,25 @@ class CoffeeMenuService {
             }
           }
         }
+        print('[MENU IMAGE] No matching file found in menu folder');
+      } else {
+        print('[MENU IMAGE] Menu folder does not exist: ${menuDir.path}');
       }
 
       // If not found in menu folder, try kiosk folder
       final kioskDir = Directory('$_downloadPath/$_kioskId');
+      print('[MENU IMAGE] Searching in kiosk folder: ${kioskDir.path}');
       if (!kioskDir.existsSync()) {
+        print('[MENU IMAGE] Kiosk folder does not exist: ${kioskDir.path}');
         return null;
       }
 
       final files = kioskDir.listSync();
+      print('[MENU IMAGE] Found ${files.length} items in kiosk folder');
       for (final file in files) {
         if (file is File) {
           final localFilename = file.path.split(Platform.pathSeparator).last;
+          print('[MENU IMAGE] Comparing in kiosk folder: "$localFilename" with "$filename"');
           // Check for exact match
           if (localFilename == filename) {
             print('[MENU IMAGE] Found local image from S3 URL: ${file.path}');
