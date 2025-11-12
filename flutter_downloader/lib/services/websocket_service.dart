@@ -135,11 +135,11 @@ class WebSocketService {
   void _handleDisconnection() {
     _isConnected = false;
 
-    // Start timer to mark as completely offline after 5 seconds
-    // If reconnected within 5 seconds, this is considered a temporary disconnect
+    // Start timer to mark as completely offline after 1 hour
+    // If reconnected within 1 hour, this is considered a temporary disconnect
     _offlineTimer?.cancel();
-    _offlineTimer = Timer(const Duration(seconds: 5), () {
-      print('WebSocket: Marked as completely offline (disconnected for >5 seconds)');
+    _offlineTimer = Timer(const Duration(hours: 1), () {
+      print('WebSocket: Marked as completely offline (disconnected for >1 hour)');
       _wasCompletelyOffline = true;
     });
 
