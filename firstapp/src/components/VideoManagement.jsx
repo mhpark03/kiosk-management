@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import videoService from '../services/videoService';
-import kioskService from '../services/kioskService';
 import { FiUpload, FiTrash2, FiPlay, FiImage, FiEdit, FiDownload } from 'react-icons/fi';
 import './VideoManagement.css';
 import { formatKSTDate } from '../utils/dateUtils';
@@ -11,8 +10,6 @@ function VideoManagement() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [videos, setVideos] = useState([]);
-  const [kiosks, setKiosks] = useState([]);
-  const [selectedKioskId, setSelectedKioskId] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -26,69 +23,25 @@ function VideoManagement() {
   const itemsPerPage = 10;
 
   useEffect(() => {
-    loadKiosks();
+    loadVideos();
   }, []);
 
-  useEffect(() => {
-    if (kiosks.length > 0 && !selectedKioskId) {
-      // Auto-select first kiosk
-      setSelectedKioskId(kiosks[0].id.toString());
-    }
-  }, [kiosks]);
-
-  useEffect(() => {
-    if (selectedKioskId) {
-      loadVideos();
-    }
-  }, [selectedKioskId]);
-
-  const loadKiosks = async () => {
-    try {
-      const data = await kioskService.getAllKiosks(false);
-      setKiosks(data);
-    } catch (err) {
-      console.error('Failed to load kiosks:', err);
-      setError('키오스크 목록을 불러오지 못했습니다.');
-    }
-  };
-
   const loadVideos = async () => {
-    if (!selectedKioskId) {
-      return;
-    }
-
     try {
       setLoading(true);
-      // Load videos assigned to the selected kiosk from kiosk_videos table
-      const data = await kioskService.getKioskVideos(parseInt(selectedKioskId));
-
-      // Ensure data is an array
-      if (!Array.isArray(data)) {
-        console.error('Expected array but got:', typeof data, data);
-        setVideos([]);
-        setError('비디오 목록을 불러올 수 없습니다.');
-        return;
-      }
-
-      // Filter out audio files and non-video media types
+      const data = await videoService.getAllVideos();
+      // Filter out audio files (only show actual video files)
       const videoOnlyData = data.filter(video => {
-        const mediaType = video.mediaType?.toUpperCase() || '';
-        return mediaType === 'VIDEO';
+        const contentType = video.contentType?.toLowerCase() || '';
+        return !contentType.startsWith('audio/');
       });
-
-      // Sort by displayOrder (kiosk_videos table order)
-      const sortedData = [...videoOnlyData].sort((a, b) => {
-        if (a.displayOrder !== undefined && b.displayOrder !== undefined) {
-          return a.displayOrder - b.displayOrder;
-        }
-        return b.videoId - a.videoId; // Fallback to videoId DESC
-      });
-
+      // Sort by ID in descending order (newest first) - show all videos
+      const sortedData = [...videoOnlyData].sort((a, b) => b.id - a.id);
       setVideos(sortedData);
       setError('');
     } catch (err) {
       console.error('Failed to load videos:', err);
-      setError('영상 목록을 불러오지 못했습니다.');
+      setError('');
     } finally {
       setLoading(false);
     }
@@ -97,9 +50,7 @@ function VideoManagement() {
   const handlePlay = async (video) => {
     try {
       setError('');
-      // Use videoId from kiosk_videos or fallback to id
-      const videoIdToUse = video.videoId || video.id;
-      const urlData = await videoService.getPresignedUrl(videoIdToUse, 60);
+      const urlData = await videoService.getPresignedUrl(video.id, 60);
       setVideoUrl(urlData.url);
       setPlayingVideo(video);
     } catch (err) {
@@ -286,42 +237,7 @@ function VideoManagement() {
   return (
     <div className="store-management">
       <div className="store-header">
-        <h1>영상 관리 (키오스크별)</h1>
-
-        {/* Kiosk selector */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          marginLeft: '20px',
-          gap: '10px'
-        }}>
-          <label style={{
-            fontSize: '14px',
-            fontWeight: '500',
-            color: '#2d3748'
-          }}>
-            키오스크:
-          </label>
-          <select
-            value={selectedKioskId}
-            onChange={(e) => setSelectedKioskId(e.target.value)}
-            style={{
-              padding: '8px 12px',
-              border: '1px solid #cbd5e0',
-              borderRadius: '4px',
-              fontSize: '14px',
-              cursor: 'pointer',
-              minWidth: '200px'
-            }}
-          >
-            <option value="">키오스크를 선택하세요</option>
-            {kiosks.map(kiosk => (
-              <option key={kiosk.id} value={kiosk.id}>
-                {kiosk.kioskid} - {kiosk.posid} (키오스크 #{kiosk.kioskno})
-              </option>
-            ))}
-          </select>
-        </div>
+        <h1>영상 관리</h1>
 
         {/* Filter checkbox between title and button */}
         <label style={{
