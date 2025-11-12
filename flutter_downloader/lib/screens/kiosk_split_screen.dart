@@ -72,8 +72,22 @@ class KioskSplitScreenState extends State<KioskSplitScreen> {
       _menuVideos = widget.videos;
     }
 
+    print('[KIOSK SPLIT] ========== VIDEO FILTERING ==========');
     print('[KIOSK SPLIT] Total videos: ${widget.videos.length}');
-    print('[KIOSK SPLIT] Menu videos: ${_menuVideos.length}');
+    print('[KIOSK SPLIT] Menu videos (menuId != null): ${_menuVideos.length}');
+
+    // Log all videos with their menuId
+    for (var i = 0; i < widget.videos.length; i++) {
+      final video = widget.videos[i];
+      print('[KIOSK SPLIT] Video $i: "${video.title}" - menuId: ${video.menuId} - path: ${video.localPath}');
+    }
+
+    print('[KIOSK SPLIT] Filtered menu videos:');
+    for (var i = 0; i < _menuVideos.length; i++) {
+      final video = _menuVideos[i];
+      print('[KIOSK SPLIT] Menu video $i: "${video.title}" - menuId: ${video.menuId}');
+    }
+    print('[KIOSK SPLIT] ========================================');
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       _focusNode.requestFocus();
@@ -97,6 +111,9 @@ class KioskSplitScreenState extends State<KioskSplitScreen> {
   }
 
   Future<void> _initializeVideo() async {
+    print('[KIOSK SPLIT] ========== INITIALIZE VIDEO ==========');
+    print('[KIOSK SPLIT] Menu videos count: ${_menuVideos.length}');
+
     if (_menuVideos.isEmpty) {
       setState(() {
         _hasError = true;
@@ -111,9 +128,10 @@ class KioskSplitScreenState extends State<KioskSplitScreen> {
 
       // Try to get main video from menu XML first
       final mainVideoFilename = _menuService.getMainVideoFilename();
+      print('[KIOSK SPLIT] Main video filename from XML: $mainVideoFilename');
 
       if (mainVideoFilename != null && widget.downloadPath != null && widget.kioskId != null) {
-        print('[KIOSK SPLIT] Main video filename from menu: $mainVideoFilename');
+        print('[KIOSK SPLIT] Searching for main video file: $mainVideoFilename');
 
         // Check if main video file exists in menu folder first
         String mainVideoPath = '${widget.downloadPath}/${widget.kioskId}/menu/$mainVideoFilename';
@@ -140,8 +158,12 @@ class KioskSplitScreenState extends State<KioskSplitScreen> {
 
       // Fallback: use first menu video
       if (videoPath == null) {
-        print('[KIOSK SPLIT] Using first menu video as fallback');
+        print('[KIOSK SPLIT] ⚠️  FALLBACK: Main video not found in XML or file missing');
+        print('[KIOSK SPLIT] ⚠️  Using first menu video as fallback');
+        print('[KIOSK SPLIT] Current video index: $_currentVideoIndex');
+
         final video = _menuVideos[_currentVideoIndex];
+        print('[KIOSK SPLIT] Fallback video: "${video.title}" (menuId: ${video.menuId})');
 
         // Check if localPath exists
         if (video.localPath == null || video.localPath!.isEmpty) {
@@ -175,7 +197,10 @@ class KioskSplitScreenState extends State<KioskSplitScreen> {
         _videoPlayerKeyCounter++;
       });
 
-      print('[KIOSK SPLIT] Video path set successfully: $videoTitle');
+      print('[KIOSK SPLIT] ========== VIDEO INITIALIZED ==========');
+      print('[KIOSK SPLIT] ✅ Selected video: $videoTitle');
+      print('[KIOSK SPLIT] ✅ Video path: $videoPath');
+      print('[KIOSK SPLIT] ========================================');
     } catch (e) {
       print('[KIOSK SPLIT] Error initializing video: $e');
       setState(() {
