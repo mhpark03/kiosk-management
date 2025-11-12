@@ -3774,18 +3774,39 @@ ipcMain.handle('generate-imagen-image', async (event, params) => {
  */
 ipcMain.handle('read-audio-file', async (event, filePath) => {
   try {
+    // Check if file exists first
+    if (!fs.existsSync(filePath)) {
+      logError('FILE', `Audio file not found: ${filePath}`);
+      return {
+        success: false,
+        error: `File not found: ${filePath}`
+      };
+    }
+
+    // Get file stats
+    const stats = fs.statSync(filePath);
+    logInfo('FILE', `Reading audio file: ${filePath} (${stats.size} bytes)`);
+
+    // Read file
     const buffer = await fs.promises.readFile(filePath);
     const base64 = buffer.toString('base64');
+
+    logInfo('FILE', `Audio file read successfully: ${base64.length} characters in base64`);
+
     return {
       success: true,
       base64: base64,
-      mimeType: 'audio/mpeg' // Assuming MP3 for TTS
+      mimeType: 'audio/mpeg', // MP3 format from TTS
+      fileSize: stats.size
     };
   } catch (error) {
-    logError('FILE', `Failed to read audio file: ${error.message}`);
+    logError('FILE', `Failed to read audio file: ${error.message}`, {
+      filePath,
+      error: error.stack
+    });
     return {
       success: false,
-      error: error.message
+      error: `Failed to read audio file: ${error.message}`
     };
   }
 });
