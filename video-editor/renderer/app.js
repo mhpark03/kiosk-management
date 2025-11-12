@@ -527,40 +527,7 @@ function showToolProperties(tool) {
 
   switch (tool) {
     case 'import':
-      // Show import options in properties panel
-      const token = window.getAuthToken ? window.getAuthToken() : authToken;
-      const user = window.getCurrentUser ? window.getCurrentUser() : currentUser;
-
-      if (!token || !user) {
-        // Not logged in - show only local file option
-        propertiesPanel.innerHTML = `
-          <div class="property-group">
-            <h3 style="margin-top: 0;">영상 가져오기</h3>
-            <p style="color: #666; font-size: 14px; margin-bottom: 20px;">로컬 파일에서 영상을 선택하세요</p>
-            <button onclick="selectLocalVideoFile()" class="property-btn" style="width: 100%; padding: 15px; font-size: 16px; display: flex; align-items: center; justify-content: center; gap: 10px; background: #2196F3;">
-              <span style="font-size: 20px;">📁</span>
-              <span>로컬 파일 선택</span>
-            </button>
-            <p style="color: #888; font-size: 12px; margin-top: 15px; text-align: center;">S3에서 가져오려면 로그인이 필요합니다</p>
-          </div>
-        `;
-      } else {
-        // Logged in - show both options
-        propertiesPanel.innerHTML = `
-          <div class="property-group">
-            <h3 style="margin-top: 0;">영상 가져오기</h3>
-            <p style="color: #666; font-size: 14px; margin-bottom: 20px;">영상을 가져올 위치를 선택하세요</p>
-            <button onclick="selectS3Video()" class="property-btn" style="width: 100%; padding: 15px; font-size: 16px; display: flex; align-items: center; justify-content: center; gap: 10px; background: #4CAF50; margin-bottom: 12px;">
-              <span style="font-size: 20px;">☁️</span>
-              <span>S3에서 가져오기</span>
-            </button>
-            <button onclick="selectLocalVideoFile()" class="property-btn" style="width: 100%; padding: 15px; font-size: 16px; display: flex; align-items: center; justify-content: center; gap: 10px; background: #2196F3;">
-              <span style="font-size: 20px;">📁</span>
-              <span>로컬 파일 선택</span>
-            </button>
-          </div>
-        `;
-      }
+      importVideoFile();
       break;
 
     case 'import-audio':
@@ -6160,7 +6127,30 @@ function setupFFmpegProgressListener() {
 
 // Note: showProgress, hideProgress, updateProgress, updateStatus are now imported from UIHelpers module
 
-// Audio file editing functions
+// Video/Audio file import functions
+async function importVideoFile() {
+  // Get auth token from auth module
+  const token = window.getAuthToken ? window.getAuthToken() : authToken;
+  const user = window.getCurrentUser ? window.getCurrentUser() : currentUser;
+
+  // Check authentication
+  if (!token || !user) {
+    const useLocal = confirm('로그인이 필요합니다.\n\n로컬 파일을 선택하시겠습니까?\n(취소를 누르면 로그인 화면으로 이동합니다)');
+    if (useLocal) {
+      const videoPath = await window.electronAPI.selectVideo();
+      if (!videoPath) return;
+      await loadVideoWithAudioCheck(videoPath);
+    } else {
+      // Show login modal
+      showLoginModal();
+    }
+    return;
+  }
+
+  // Show video list from S3
+  await showVideoListFromS3();
+}
+
 async function importAudioFile() {
   // Get auth token from auth module
   const token = window.getAuthToken ? window.getAuthToken() : authToken;
