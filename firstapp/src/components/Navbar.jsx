@@ -201,7 +201,7 @@ function Navbar() {
                     </Link>
                   </li>
                   {user?.role === 'ADMIN' && (
-                    <li className="hide-mobile">
+                    <li>
                       <Link
                         to="/user-management"
                         className={location.pathname === '/user-management' ? 'active' : ''}
@@ -212,7 +212,7 @@ function Navbar() {
                     </li>
                   )}
                   {user?.role === 'ADMIN' && (
-                    <li className="hide-mobile">
+                    <li>
                       <Link
                         to="/batch-management"
                         className={location.pathname === '/batch-management' ? 'active' : ''}
@@ -236,7 +236,7 @@ function Navbar() {
               {isHistoryOpen && (
                 <ul className="dropdown-menu">
                   {user?.role === 'ADMIN' && (
-                    <li className="hide-mobile">
+                    <li>
                       <Link
                         to="/user-history"
                         className={location.pathname === '/user-history' ? 'active' : ''}
@@ -246,7 +246,7 @@ function Navbar() {
                       </Link>
                     </li>
                   )}
-                  <li className="hide-mobile">
+                  <li>
                     <Link
                       to="/history"
                       className={location.pathname === '/history' ? 'active' : ''}
@@ -256,7 +256,7 @@ function Navbar() {
                     </Link>
                   </li>
                   {user?.role === 'ADMIN' && (
-                    <li className="hide-mobile">
+                    <li>
                       <Link
                         to="/kiosk-events"
                         className={location.pathname === '/kiosk-events' ? 'active' : ''}
