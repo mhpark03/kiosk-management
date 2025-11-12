@@ -1421,6 +1421,30 @@ public class VideoService {
             }
         }
 
+        // Find videoId attributes in actions section
+        org.w3c.dom.NodeList actionsNodes = doc.getElementsByTagName("actions");
+        if (actionsNodes.getLength() > 0) {
+            org.w3c.dom.Element actionsElement = (org.w3c.dom.Element) actionsNodes.item(0);
+            String[] actionTypes = {"addToCart", "checkout", "increaseQuantity", "decreaseQuantity", "cancelItem"};
+
+            for (String actionType : actionTypes) {
+                org.w3c.dom.NodeList actionNodes = actionsElement.getElementsByTagName(actionType);
+                if (actionNodes.getLength() > 0) {
+                    org.w3c.dom.Element actionElement = (org.w3c.dom.Element) actionNodes.item(0);
+                    String videoIdStr = actionElement.getAttribute("videoId");
+                    if (videoIdStr != null && !videoIdStr.trim().isEmpty()) {
+                        try {
+                            Long videoId = Long.parseLong(videoIdStr.trim());
+                            videoIds.add(videoId);
+                            log.debug("Found action {} videoId: {}", actionType, videoId);
+                        } catch (NumberFormatException e) {
+                            log.warn("Invalid videoId format in action {}: {}", actionType, videoIdStr);
+                        }
+                    }
+                }
+            }
+        }
+
         log.info("Extracted {} videoIds from menu XML", videoIds.size());
         return videoIds;
     }
