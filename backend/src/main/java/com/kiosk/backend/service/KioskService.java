@@ -808,7 +808,7 @@ public class KioskService {
         switch (status.toUpperCase()) {
             case "DOWNLOADING":
                 return KioskEvent.EventType.DOWNLOAD_STARTED;
-            case "DOWNLOADED":
+            case "COMPLETED":  // Fixed: was "DOWNLOADED", should be "COMPLETED"
                 return KioskEvent.EventType.DOWNLOAD_COMPLETED;
             case "FAILED":
                 return KioskEvent.EventType.DOWNLOAD_FAILED;

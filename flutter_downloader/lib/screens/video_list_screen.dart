@@ -954,17 +954,20 @@ class _VideoListScreenState extends State<VideoListScreen> {
   }
 
   Future<void> _checkLocalFiles(List<Video> videos, dynamic config) async {
-    print('[CHECK FILES] Checking local file existence for ${videos.length} videos');
-    print('[CHECK FILES] Download path from config: ${config.downloadPath}');
+    print("[CHECK FILES] Checking local file existence for ${videos.length} videos");
+    print("[CHECK FILES] Download path from config: ${config.downloadPath}");
+
+    // Track videos that need server status update
+    final videosToUpdateOnServer = <Video>[];
 
     for (final video in videos) {
-      final fileName = '${video.filename}';
+      final fileName = "${video.filename}";
       // Files with menuId (menu-related media) are stored in menu/ subfolder
       String filePath;
       if (video.menuId != null && video.menuId!.isNotEmpty) {
-        filePath = '${config.downloadPath}/${config.kioskId}/menu/$fileName';
+        filePath = "${config.downloadPath}/${config.kioskId}/menu/$fileName";
       } else {
-        filePath = '${config.downloadPath}/${config.kioskId}/$fileName';
+        filePath = "${config.downloadPath}/${config.kioskId}/$fileName";
       }
 
       try {
@@ -972,22 +975,58 @@ class _VideoListScreenState extends State<VideoListScreen> {
         final exists = await file.exists();
 
         if (exists) {
-          // File exists locally - mark as completed and set path
-          video.downloadStatus = 'completed';
+          // File exists locally
+          // Check if server still thinks it's pending/downloading
+          final wasNotCompleted = video.downloadStatus != "completed";
+
+          // Mark as completed locally
+          video.downloadStatus = "completed";
           video.localPath = filePath;
+
+          // If server status was not 'completed', we need to update it
+          if (wasNotCompleted) {
+            print("[CHECK FILES] File ${video.filename} exists locally but server status was ${video.downloadStatus} - will update server");
+            videosToUpdateOnServer.add(video);
+          }
         } else {
           // File missing - mark as pending
-          video.downloadStatus = 'pending';
+          video.downloadStatus = "pending";
           video.localPath = null;
         }
       } catch (e) {
-        print('[CHECK FILES] Error checking file $fileName: $e');
-        video.downloadStatus = 'pending';
+        print("[CHECK FILES] Error checking file $fileName: $e");
+        video.downloadStatus = "pending";
         video.localPath = null;
       }
     }
 
-    print('[CHECK FILES] Completed checking ${videos.length} videos');
+    print("[CHECK FILES] Completed checking ${videos.length} videos");
+
+    // Update server status for videos that exist locally but server thinks they're pending
+    if (videosToUpdateOnServer.isNotEmpty) {
+      print("[CHECK FILES] Updating server status for ${videosToUpdateOnServer.length} videos that exist locally");
+
+      for (final video in videosToUpdateOnServer) {
+        try {
+          await widget.apiService.updateVideoDownloadStatus(
+            config.kioskId,
+            video.id,
+            "COMPLETED",
+          );
+          print("[CHECK FILES] Updated server status to COMPLETED for video ${video.id}: ${video.title}");
+
+          // Log the sync event
+          await EventLogger().logEvent(
+            eventType: "DOWNLOAD_STATUS_SYNCED",
+            message: "로컬 파일 존재 확인 후 서버 상태 동기화: ${video.title}",
+            metadata: "{\"videoId\": ${video.id}, \"title\": \"${video.title}\", \"filename\": \"${video.filename}\"}",
+          );
+        } catch (e) {
+          print("[CHECK FILES] Failed to update server status for video ${video.id}: $e");
+          // Continue with other videos even if one fails
+        }
+      }
+    }
   }
 
   Future<void> _removeUnassignedFiles(List<Video> videos, dynamic config) async {
