@@ -279,6 +279,13 @@ class CoffeeMenuService {
       // URL decode the filename to handle special characters
       filename = Uri.decodeComponent(filename);
 
+      // Remove UUID prefix if present (e.g., "ce797d4b-..._카프치노.jpg" -> "카프치노.jpg")
+      // UUID format: 8-4-4-4-12 characters followed by underscore
+      final uuidPattern = RegExp(r'^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}_');
+      if (uuidPattern.hasMatch(filename)) {
+        filename = filename.replaceFirst(uuidPattern, '');
+      }
+
       print('[MENU IMAGE] Extracted filename from S3 URL: $filename');
       print('[MENU IMAGE] Download path: $_downloadPath, Kiosk ID: $_kioskId');
 
