@@ -125,10 +125,6 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
       _player = Player();
       _controller = media_kit_video.VideoController(_player!);
 
-      // Set volume to 100 (ensure audio is not muted)
-      await _player!.setVolume(100.0);
-      print('[VIDEO PLAYER WIDGET] Volume set to 100');
-
       // Listen to player state changes
       _playingSubscription = _player!.stream.playing.listen((playing) {
         if (mounted) {
@@ -180,6 +176,16 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
 
       // Open media after Video widget has received layout constraints
       await _player!.open(Media(widget.videoPath));
+
+      // Check again if still mounted after opening media
+      if (!mounted || _isDisposing || _player == null) {
+        print('[VIDEO PLAYER WIDGET] Widget disposed after opening media');
+        return;
+      }
+
+      // Set volume to 100 after opening media (ensure audio is not muted)
+      await _player!.setVolume(100.0);
+      print('[VIDEO PLAYER WIDGET] Volume set to 100');
 
       print('[VIDEO PLAYER WIDGET] Media opened, starting playback...');
 
