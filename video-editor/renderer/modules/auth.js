@@ -37,12 +37,26 @@ export function initializeAuth() {
   const savedServerType = localStorage.getItem('serverType');
 
   if (savedToken && savedUser) {
+    const user = JSON.parse(savedUser);
+
+    // Check if saved user is ADMIN
+    if (user.role !== 'ADMIN') {
+      console.warn('[Auth] Non-admin user found in localStorage, logging out');
+      // Clear non-admin user data
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('currentUser');
+      localStorage.removeItem('backendUrl');
+      localStorage.removeItem('serverType');
+      showLoginModal();
+      return;
+    }
+
     authToken = savedToken;
-    currentUser = JSON.parse(savedUser);
+    currentUser = user;
     backendBaseUrl = savedBackendUrl || 'http://localhost:8080';
     selectedServerType = savedServerType || 'local';
     updateAuthUI();
-    console.log('[Auth] Restored session from localStorage');
+    console.log('[Auth] Restored admin session from localStorage');
   } else {
     // Show login modal on startup if not logged in
     showLoginModal();
@@ -155,6 +169,15 @@ export async function handleLogin() {
     });
 
     console.log('[Auth] Login successful');
+
+    // Check if user is ADMIN
+    if (!result.user || result.user.role !== 'ADMIN') {
+      console.error('[Auth] Non-admin user attempted login:', result.user);
+      showLoginError('관리자 계정만 비디오 에디터에 로그인할 수 있습니다.');
+      return;
+    }
+
+    console.log('[Auth] Admin user verified');
 
     // Save auth state
     authToken = result.token;
