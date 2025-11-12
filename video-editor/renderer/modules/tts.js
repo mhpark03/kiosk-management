@@ -493,33 +493,86 @@ export async function previewTTS() {
       throw new Error('Failed to read audio file: ' + fileResult.error);
     }
 
+    console.log('[TTS Preview] File read successful:', {
+      fileSize: fileResult.fileSize,
+      base64Length: fileResult.base64.length,
+      mimeType: fileResult.mimeType
+    });
+
     // Convert Base64 to binary data
-    const binaryString = atob(fileResult.base64);
-    const bytes = new Uint8Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
+    try {
+      const binaryString = atob(fileResult.base64);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+
+      console.log('[TTS Preview] Base64 decoded successfully:', {
+        binaryLength: binaryString.length,
+        bytesLength: bytes.length
+      });
+
+      // Create Blob URL
+      const blob = new Blob([bytes], { type: fileResult.mimeType });
+      const blobUrl = URL.createObjectURL(blob);
+      console.log('[TTS Preview] Blob created:', {
+        blobSize: blob.size,
+        blobType: blob.type,
+        blobUrl: blobUrl
+      });
+
+      // Create and play audio element
+      previewAudioElement = new Audio(blobUrl);
+      previewAudioElement.blobUrl = blobUrl; // Store for cleanup
+
+      previewAudioElement.onloadedmetadata = () => {
+        console.log('[TTS Preview] Audio metadata loaded:', {
+          duration: previewAudioElement.duration,
+          readyState: previewAudioElement.readyState
+        });
+      };
+
+      previewAudioElement.oncanplay = () => {
+        console.log('[TTS Preview] Audio can play');
+      };
+
+      previewAudioElement.onended = () => {
+        console.log('[TTS Preview] Playback ended');
+      };
+
+      previewAudioElement.onerror = (event) => {
+        const error = previewAudioElement.error;
+        let errorMessage = 'Unknown error';
+        if (error) {
+          // MediaError codes: 1=ABORTED, 2=NETWORK, 3=DECODE, 4=SRC_NOT_SUPPORTED
+          const errorCodes = {
+            1: 'MEDIA_ERR_ABORTED - 재생이 중단되었습니다',
+            2: 'MEDIA_ERR_NETWORK - 네트워크 오류가 발생했습니다',
+            3: 'MEDIA_ERR_DECODE - 오디오 디코딩 오류가 발생했습니다',
+            4: 'MEDIA_ERR_SRC_NOT_SUPPORTED - 오디오 형식이 지원되지 않습니다'
+          };
+          errorMessage = errorCodes[error.code] || `Error code: ${error.code}`;
+        }
+        console.error('[TTS Preview] Playback error:', {
+          errorCode: error?.code,
+          errorMessage,
+          event,
+          audioSrc: previewAudioElement.src,
+          readyState: previewAudioElement.readyState,
+          networkState: previewAudioElement.networkState
+        });
+        alert(`미리듣기 재생 중 오류가 발생했습니다.\n\n${errorMessage}\n\n파일 크기: ${fileResult.fileSize} bytes\nMIME 타입: ${fileResult.mimeType}`);
+      };
+
+      // Try to play
+      console.log('[TTS Preview] Starting playback...');
+      await previewAudioElement.play();
+      console.log('[TTS Preview] Playback started successfully');
+
+    } catch (decodeError) {
+      console.error('[TTS Preview] Base64 decode error:', decodeError);
+      throw new Error('Failed to decode audio data: ' + decodeError.message);
     }
-
-    // Create Blob URL
-    const blob = new Blob([bytes], { type: fileResult.mimeType });
-    const blobUrl = URL.createObjectURL(blob);
-    console.log('[TTS Preview] Blob URL created:', blobUrl);
-
-    // Create and play audio element
-    previewAudioElement = new Audio(blobUrl);
-    previewAudioElement.blobUrl = blobUrl; // Store for cleanup
-
-    previewAudioElement.onended = () => {
-      console.log('[TTS Preview] Playback ended');
-    };
-
-    previewAudioElement.onerror = (error) => {
-      console.error('[TTS Preview] Playback error:', error);
-      alert('미리듣기 재생 중 오류가 발생했습니다.');
-    };
-
-    await previewAudioElement.play();
-    console.log('[TTS Preview] Playing preview audio');
 
     alert('미리듣기 재생 중입니다.');
 
