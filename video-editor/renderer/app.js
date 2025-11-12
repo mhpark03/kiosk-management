@@ -2467,15 +2467,7 @@ async function loadVideo(path) {
       console.error('Playhead bar element not found!');
     }
 
-    const fileName = path.split('\\').pop();
-    document.getElementById('current-file').textContent = fileName;
-
-    // Extract filename without extension and save as title for export
-    const fileNameWithoutExtension = fileName.substring(0, fileName.lastIndexOf('.')) || fileName;
-    currentVideoMetadata = {
-      title: fileNameWithoutExtension,
-      description: ''
-    };
+    document.getElementById('current-file').textContent = path.split('\\').pop();
 
     // 도구 선택 초기화 (영상 자르기 설정 제거)
     activeTool = null;
