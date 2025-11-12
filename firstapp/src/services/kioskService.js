@@ -268,11 +268,11 @@ export const updateKioskConfigFromWeb = async (id, configData) => {
 /**
  * Get videos assigned to a specific kiosk (from kiosk_videos table)
  * @param {number} kioskId - Kiosk database ID
- * @returns {Promise<Array>} - Array of videos assigned to the kiosk
+ * @returns {Promise<Array>} - Array of videos assigned to the kiosk with full details
  */
 export const getKioskVideos = async (kioskId) => {
   try {
-    const response = await api.get(`/kiosks/${kioskId}/videos`);
+    const response = await api.get(`/kiosks/${kioskId}/videos-with-status`);
     return response.data;
   } catch (error) {
     console.error('Error getting kiosk videos:', error);
