@@ -266,6 +266,21 @@ export const updateKioskConfigFromWeb = async (id, configData) => {
 };
 
 /**
+ * Get videos assigned to a specific kiosk (from kiosk_videos table)
+ * @param {number} kioskId - Kiosk database ID
+ * @returns {Promise<Array>} - Array of videos assigned to the kiosk
+ */
+export const getKioskVideos = async (kioskId) => {
+  try {
+    const response = await api.get(`/kiosks/${kioskId}/videos`);
+    return response.data;
+  } catch (error) {
+    console.error('Error getting kiosk videos:', error);
+    throw error;
+  }
+};
+
+/**
  * Convert kiosk data from API format to app format
  * @param {Object} apiKiosk - Kiosk data from API
  * @returns {Object} - Converted kiosk data
@@ -356,5 +371,6 @@ export default {
   generateKioskNo,
   checkKioskDuplicate,
   getKioskConfig,
-  updateKioskConfig
+  updateKioskConfig,
+  getKioskVideos
 };

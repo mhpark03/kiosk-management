@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import videoService from '../services/videoService';
+import kioskService from '../services/kioskService';
 import { FiUpload, FiTrash2, FiPlay, FiImage, FiEdit, FiDownload } from 'react-icons/fi';
 import './VideoManagement.css';
 import { formatKSTDate } from '../utils/dateUtils';
@@ -10,6 +11,8 @@ function VideoManagement() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [videos, setVideos] = useState([]);
+  const [kiosks, setKiosks] = useState([]);
+  const [selectedKioskId, setSelectedKioskId] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -23,25 +26,61 @@ function VideoManagement() {
   const itemsPerPage = 10;
 
   useEffect(() => {
-    loadVideos();
+    loadKiosks();
   }, []);
 
+  useEffect(() => {
+    if (kiosks.length > 0 && !selectedKioskId) {
+      // Auto-select first kiosk
+      setSelectedKioskId(kiosks[0].id.toString());
+    }
+  }, [kiosks]);
+
+  useEffect(() => {
+    if (selectedKioskId) {
+      loadVideos();
+    }
+  }, [selectedKioskId]);
+
+  const loadKiosks = async () => {
+    try {
+      const data = await kioskService.getAllKiosks(false);
+      setKiosks(data);
+    } catch (err) {
+      console.error('Failed to load kiosks:', err);
+      setError('키오스크 목록을 불러오지 못했습니다.');
+    }
+  };
+
   const loadVideos = async () => {
+    if (!selectedKioskId) {
+      return;
+    }
+
     try {
       setLoading(true);
-      const data = await videoService.getAllVideos();
-      // Filter out audio files (only show actual video files)
+      // Load videos assigned to the selected kiosk from kiosk_videos table
+      const data = await kioskService.getKioskVideos(parseInt(selectedKioskId));
+
+      // Filter out audio files and non-video media types
       const videoOnlyData = data.filter(video => {
-        const contentType = video.contentType?.toLowerCase() || '';
-        return !contentType.startsWith('audio/');
+        const mediaType = video.mediaType?.toUpperCase() || '';
+        return mediaType === 'VIDEO';
       });
-      // Sort by ID in descending order (newest first) - show all videos
-      const sortedData = [...videoOnlyData].sort((a, b) => b.id - a.id);
+
+      // Sort by displayOrder (kiosk_videos table order)
+      const sortedData = [...videoOnlyData].sort((a, b) => {
+        if (a.displayOrder !== undefined && b.displayOrder !== undefined) {
+          return a.displayOrder - b.displayOrder;
+        }
+        return b.videoId - a.videoId; // Fallback to videoId DESC
+      });
+
       setVideos(sortedData);
       setError('');
     } catch (err) {
       console.error('Failed to load videos:', err);
-      setError('');
+      setError('영상 목록을 불러오지 못했습니다.');
     } finally {
       setLoading(false);
     }
@@ -50,7 +89,9 @@ function VideoManagement() {
   const handlePlay = async (video) => {
     try {
       setError('');
-      const urlData = await videoService.getPresignedUrl(video.id, 60);
+      // Use videoId from kiosk_videos or fallback to id
+      const videoIdToUse = video.videoId || video.id;
+      const urlData = await videoService.getPresignedUrl(videoIdToUse, 60);
       setVideoUrl(urlData.url);
       setPlayingVideo(video);
     } catch (err) {
@@ -64,14 +105,16 @@ function VideoManagement() {
     setVideoUrl(null);
   };
 
-  const handleDelete = async (videoId) => {
+  const handleDelete = async (video) => {
     if (!window.confirm('정말로 이 비디오를 삭제하시겠습니까?')) {
       return;
     }
 
     try {
       setError('');
-      await videoService.deleteVideo(videoId);
+      // Use videoId from kiosk_videos or fallback to id
+      const videoIdToUse = video.videoId || video.id;
+      await videoService.deleteVideo(videoIdToUse);
       setSuccess('비디오가 성공적으로 삭제되었습니다.');
       await loadVideos();
       setTimeout(() => setSuccess(''), 3000);
@@ -98,8 +141,10 @@ function VideoManagement() {
 
     try {
       setError('');
+      // Use videoId from kiosk_videos or fallback to id
+      const videoIdToUse = editingVideo.videoId || editingVideo.id;
       await videoService.updateVideo(
-        editingVideo.id,
+        videoIdToUse,
         editForm.title,
         editForm.description
       );
@@ -127,9 +172,12 @@ function VideoManagement() {
       setRegeneratingThumbnail(true);
       setError('');
 
+      // Use videoId from kiosk_videos or fallback to id
+      const videoIdToUse = editingVideo.videoId || editingVideo.id;
+
       // Log video details before regenerating thumbnail
       console.log('=== Regenerating Thumbnail ===');
-      console.log('Video ID:', editingVideo.id);
+      console.log('Video ID:', videoIdToUse);
       console.log('Original Filename:', editingVideo.originalFilename);
       console.log('Content Type:', editingVideo.contentType);
       console.log('Media Type:', editingVideo.mediaType);
@@ -138,7 +186,7 @@ function VideoManagement() {
       console.log('Full video object:', editingVideo);
       console.log('==============================');
 
-      const response = await videoService.regenerateThumbnail(editingVideo.id);
+      const response = await videoService.regenerateThumbnail(videoIdToUse);
       setSuccess('썸네일이 성공적으로 재생성되었습니다.');
 
       // Update the editing video with the response from API
@@ -159,10 +207,12 @@ function VideoManagement() {
     }
   };
 
-  const handleToggleDownloadable = async (videoId, currentDownloadable) => {
+  const handleToggleDownloadable = async (video, currentDownloadable) => {
     try {
-      await videoService.updateDownloadable(videoId, !currentDownloadable);
-      console.log(`Video ${videoId}: downloadable ${currentDownloadable} -> ${!currentDownloadable}`);
+      // Use videoId from kiosk_videos or fallback to id
+      const videoIdToUse = video.videoId || video.id;
+      await videoService.updateDownloadable(videoIdToUse, !currentDownloadable);
+      console.log(`Video ${videoIdToUse}: downloadable ${currentDownloadable} -> ${!currentDownloadable}`);
       await loadVideos();
     } catch (err) {
       console.error('Failed to toggle downloadable:', err);
@@ -228,7 +278,42 @@ function VideoManagement() {
   return (
     <div className="store-management">
       <div className="store-header">
-        <h1>영상 관리</h1>
+        <h1>영상 관리 (키오스크별)</h1>
+
+        {/* Kiosk selector */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          marginLeft: '20px',
+          gap: '10px'
+        }}>
+          <label style={{
+            fontSize: '14px',
+            fontWeight: '500',
+            color: '#2d3748'
+          }}>
+            키오스크:
+          </label>
+          <select
+            value={selectedKioskId}
+            onChange={(e) => setSelectedKioskId(e.target.value)}
+            style={{
+              padding: '8px 12px',
+              border: '1px solid #cbd5e0',
+              borderRadius: '4px',
+              fontSize: '14px',
+              cursor: 'pointer',
+              minWidth: '200px'
+            }}
+          >
+            <option value="">키오스크를 선택하세요</option>
+            {kiosks.map(kiosk => (
+              <option key={kiosk.id} value={kiosk.id}>
+                {kiosk.kioskid} - {kiosk.posid} (키오스크 #{kiosk.kioskno})
+              </option>
+            ))}
+          </select>
+        </div>
 
         {/* Filter checkbox between title and button */}
         <label style={{
@@ -285,9 +370,9 @@ function VideoManagement() {
               </tr>
             ) : (
               currentVideos.map((video) => (
-                <tr key={video.id}>
+                <tr key={video.videoId || video.id}>
                   <td style={{textAlign: 'center', fontWeight: '600'}}>
-                    {video.id}
+                    {video.videoId || video.id}
                   </td>
                   <td>
                     <div className="filename-wrapper">
@@ -321,7 +406,7 @@ function VideoManagement() {
                   <td>
                     <div className="action-buttons">
                       <button
-                        onClick={() => handleToggleDownloadable(video.id, video.downloadable)}
+                        onClick={() => handleToggleDownloadable(video, video.downloadable)}
                         className={video.downloadable ? "btn-download-active" : "btn-download-inactive"}
                         title={video.downloadable ? "키오스크 다운로드 활성화됨 (클릭하여 비활성화)" : "키오스크 다운로드 비활성화됨 (클릭하여 활성화)"}
                         style={{
@@ -343,7 +428,7 @@ function VideoManagement() {
                         <FiEdit />
                       </button>
                       <button
-                        onClick={() => handleDelete(video.id)}
+                        onClick={() => handleDelete(video)}
                         className="btn-deactivate"
                         title="삭제"
                       >
