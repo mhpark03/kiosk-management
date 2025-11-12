@@ -270,6 +270,12 @@ class CoffeeMenuService {
       // Get the last segment as filename
       String filename = pathSegments.last;
 
+      // Remove query parameters if any (e.g., ?X-Amz-Algorithm=...)
+      // This handles presigned URLs where query params might be included
+      if (filename.contains('?')) {
+        filename = filename.split('?').first;
+      }
+
       // URL decode the filename to handle special characters
       filename = Uri.decodeComponent(filename);
 
