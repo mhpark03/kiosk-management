@@ -433,22 +433,35 @@ class _VideoListScreenState extends State<VideoListScreen> {
       _handleConfigUpdate();
     };
 
-    _webSocketService.onConnectionStatusChanged = (connected) {
+    _webSocketService.onConnectionStatusChanged = (connected, wasOfflineToOnline) {
       if (mounted) {
         setState(() {
           _wsConnected = connected;
         });
         if (connected) {
-          print('[WebSocket] Connected successfully, triggering auto-sync...');
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('실시간 연결됨 - 자동 동기화 시작'),
-              duration: Duration(seconds: 2),
-              backgroundColor: Colors.green,
-            ),
-          );
-          // Auto-sync when WebSocket connects (especially useful after offline)
-          _loadVideos();
+          if (wasOfflineToOnline) {
+            // Complete offline -> online transition: trigger sync
+            print('[WebSocket] Offline -> Online transition detected, triggering auto-sync...');
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('실시간 연결됨 (동기화 중...)'),
+                duration: Duration(seconds: 2),
+                backgroundColor: Colors.green,
+              ),
+            );
+            // Auto-sync on offline -> online transition
+            _loadVideos();
+          } else {
+            // Temporary reconnection: don't sync
+            print('[WebSocket] Reconnected (temporary disconnect, no sync)');
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('실시간 연결됨'),
+                duration: Duration(seconds: 2),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
         }
       }
     };
