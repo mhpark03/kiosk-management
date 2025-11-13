@@ -192,9 +192,25 @@ public class UserService {
     @Transactional(readOnly = true)
     public User getCurrentUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+        if (authentication == null) {
+            log.error("No authentication found in security context");
+            throw new RuntimeException("No authentication found");
+        }
+
         String email = authentication.getName();
+        if (email == null || email.isEmpty() || email.equals("anonymousUser")) {
+            log.error("Invalid or anonymous authentication: {}", email);
+            throw new RuntimeException("Invalid authentication");
+        }
+
+        log.debug("Looking up user by email: {}", email);
+
         return userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> {
+                    log.error("User not found in database for email: {}", email);
+                    return new RuntimeException("User not found: " + email);
+                });
     }
 
     @Transactional
