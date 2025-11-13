@@ -23,8 +23,54 @@ public class JwtTokenProvider {
     @Value("${jwt.expiration}")
     private long jwtExpirationMs;
 
+    @Value("${jwt.access-token-expiration}")
+    private long accessTokenExpirationMs;
+
+    @Value("${jwt.refresh-token-expiration}")
+    private long refreshTokenExpirationMs;
+
     private SecretKey getSigningKey() {
         return Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
+    }
+
+    /**
+     * Generate Access Token (30 minutes expiration)
+     */
+    public String generateAccessToken(String email, Long tokenVersion) {
+        Date now = new Date();
+        Date expiryDate = new Date(now.getTime() + accessTokenExpirationMs);
+
+        return Jwts.builder()
+                .subject(email)
+                .claim("tokenVersion", tokenVersion)
+                .claim("tokenType", "ACCESS")
+                .issuedAt(now)
+                .expiration(expiryDate)
+                .signWith(getSigningKey())
+                .compact();
+    }
+
+    /**
+     * Generate Refresh Token (7 days expiration)
+     */
+    public String generateRefreshToken(String email) {
+        Date now = new Date();
+        Date expiryDate = new Date(now.getTime() + refreshTokenExpirationMs);
+
+        return Jwts.builder()
+                .subject(email)
+                .claim("tokenType", "REFRESH")
+                .issuedAt(now)
+                .expiration(expiryDate)
+                .signWith(getSigningKey())
+                .compact();
+    }
+
+    /**
+     * Get refresh token expiration in milliseconds
+     */
+    public long getRefreshTokenExpirationMs() {
+        return refreshTokenExpirationMs;
     }
 
     public String generateToken(Authentication authentication) {

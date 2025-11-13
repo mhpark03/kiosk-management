@@ -22,12 +22,15 @@ export function initializeModules() {
 
   // Expose auth functions to window for global access
   window.getAuthToken = Auth.getAuthToken;
+  window.getRefreshToken = Auth.getRefreshToken;
   window.getCurrentUser = Auth.getCurrentUser;
   window.getBackendUrl = Auth.getBackendUrl;
   window.isAuthenticated = Auth.isAuthenticated;
   window.selectServer = Auth.selectServer;
   window.handleLogin = Auth.handleLogin;
   window.logout = Auth.logout;
+  window.refreshAccessToken = Auth.refreshAccessToken;
+  window.fetchWithAuth = Auth.fetchWithAuth;
 
   // Expose TTS functions to window for global access
   window.updateTtsCharCount = TTS.updateTtsCharCount;

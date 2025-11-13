@@ -15,11 +15,16 @@ export const authService = {
   // Login
   async login(email, password) {
     try {
-      const response = await authApi.post('/auth/login', { email, password });
-      const { token, email: userEmail, displayName, role } = response.data;
+      const response = await authApi.post('/auth/login', {
+        email,
+        password,
+        appType: 'WEB'  // Identify this as web app for separate token management
+      });
+      const { token, refreshToken, email: userEmail, displayName, role } = response.data;
 
-      // Store token and user info
+      // Store access token, refresh token, and user info
       localStorage.setItem('jwtToken', token);
+      localStorage.setItem('refreshToken', refreshToken);
       localStorage.setItem('userEmail', userEmail);
       localStorage.setItem('displayName', displayName);
       localStorage.setItem('userRole', role);
@@ -72,6 +77,7 @@ export const authService = {
   // Logout
   logout() {
     localStorage.removeItem('jwtToken');
+    localStorage.removeItem('refreshToken');
     localStorage.removeItem('userEmail');
     localStorage.removeItem('displayName');
     localStorage.removeItem('userRole');
@@ -106,6 +112,33 @@ export const authService = {
     } catch (error) {
       console.error('Password reset error:', error);
       throw new Error(error.response?.data?.message || '비밀번호 재설정에 실패했습니다.');
+    }
+  },
+
+  // Refresh access token using refresh token
+  async refreshAccessToken() {
+    try {
+      const refreshToken = localStorage.getItem('refreshToken');
+      if (!refreshToken) {
+        throw new Error('No refresh token available');
+      }
+
+      const response = await authApi.post('/auth/refresh', { refreshToken });
+      const { token, refreshToken: newRefreshToken, email: userEmail, displayName, role } = response.data;
+
+      // Update tokens and user info
+      localStorage.setItem('jwtToken', token);
+      localStorage.setItem('refreshToken', newRefreshToken);
+      localStorage.setItem('userEmail', userEmail);
+      localStorage.setItem('displayName', displayName);
+      localStorage.setItem('userRole', role);
+
+      return response.data;
+    } catch (error) {
+      console.error('Token refresh error:', error);
+      // Clear all auth data on refresh failure
+      this.logout();
+      throw new Error(error.response?.data?.message || 'Token refresh failed');
     }
   },
 };

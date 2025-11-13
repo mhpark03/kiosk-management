@@ -3,9 +3,11 @@ package com.kiosk.backend.service;
 import com.kiosk.backend.dto.AuthResponse;
 import com.kiosk.backend.dto.LoginRequest;
 import com.kiosk.backend.dto.SignupRequest;
+import com.kiosk.backend.entity.AppType;
 import com.kiosk.backend.entity.EntityHistory;
 import com.kiosk.backend.entity.Kiosk;
 import com.kiosk.backend.entity.KioskEvent;
+import com.kiosk.backend.entity.RefreshToken;
 import com.kiosk.backend.entity.User;
 import com.kiosk.backend.repository.EntityHistoryRepository;
 import com.kiosk.backend.repository.KioskRepository;
@@ -37,6 +39,7 @@ public class UserService {
     private final EntityHistoryRepository entityHistoryRepository;
     private final KioskEventService kioskEventService;
     private final KioskRepository kioskRepository;
+    private final RefreshTokenService refreshTokenService;
 
         @Transactional
     public AuthResponse signup(SignupRequest request) {
@@ -115,12 +118,18 @@ public class UserService {
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        // Increment token version to invalidate all previous tokens
+        // Increment token version to invalidate all previous access tokens
         user.setTokenVersion(user.getTokenVersion() + 1);
         user = userRepository.save(user);
 
-        // Generate new token with updated version
-        String token = tokenProvider.generateToken(authentication, user.getTokenVersion());
+        // Get app type from request (default to WEB if not provided)
+        AppType appType = request.getAppType() != null ? request.getAppType() : AppType.WEB;
+
+        // Generate new Access Token (30 minutes) with updated version
+        String accessToken = tokenProvider.generateAccessToken(user.getEmail(), user.getTokenVersion());
+
+        // Generate new Refresh Token (7 days) for this specific app
+        RefreshToken refreshToken = refreshTokenService.createRefreshToken(user.getEmail(), appType);
 
         // Log login event
         logUserActivity(user.getEmail(), user.getDisplayName(), "LOGIN", "User logged in successfully");
@@ -148,7 +157,8 @@ public class UserService {
         }
 
         return AuthResponse.builder()
-                .token(token)
+                .token(accessToken)
+                .refreshToken(refreshToken.getToken())
                 .email(user.getEmail())
                 .displayName(user.getDisplayName())
                 .role(user.getRole().name())
@@ -157,6 +167,15 @@ public class UserService {
 
     @Transactional
     public void logout(String kioskId, String userEmail, String clientIp) {
+        // Delete refresh token for the user
+        if (userEmail != null && !userEmail.isEmpty()) {
+            try {
+                refreshTokenService.deleteByUserEmail(userEmail);
+            } catch (Exception e) {
+                log.error("Failed to delete refresh token for user {}: {}", userEmail, e.getMessage());
+            }
+        }
+
         // Record kiosk logout event if kiosk ID is provided
         if (kioskId != null && !kioskId.isEmpty()) {
             try {
@@ -167,7 +186,7 @@ public class UserService {
                 String userName = null;
                 if (userEmail != null && !userEmail.isEmpty()) {
                     Optional<User> userOpt = userRepository.findByEmail(userEmail);
-                    userName = userOpt.map(User::getDisplayName).orElse(null);
+                    userName = userOpt.map(User::getDisplayName()).orElse(null);
                 }
 
                 kioskEventService.recordEvent(
@@ -192,9 +211,25 @@ public class UserService {
     @Transactional(readOnly = true)
     public User getCurrentUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+        if (authentication == null) {
+            log.error("No authentication found in security context");
+            throw new RuntimeException("No authentication found");
+        }
+
         String email = authentication.getName();
+        if (email == null || email.isEmpty() || email.equals("anonymousUser")) {
+            log.error("Invalid or anonymous authentication: {}", email);
+            throw new RuntimeException("Invalid authentication");
+        }
+
+        log.debug("Looking up user by email: {}", email);
+
         return userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> {
+                    log.error("User not found in database for email: {}", email);
+                    return new RuntimeException("User not found: " + email);
+                });
     }
 
     @Transactional
@@ -524,5 +559,40 @@ public class UserService {
             "password", "***", "***");
 
         log.info("Password reset successful for user: {} (verified by email and name)", email);
+    }
+
+    /**
+     * Refresh access token using refresh token
+     * Access token: 30 minutes expiration
+     * Refresh token: Extended to 7 days from now on each refresh
+     */
+    @Transactional
+    public AuthResponse refreshAccessToken(String refreshTokenString) {
+        // Find and verify refresh token
+        RefreshToken refreshToken = refreshTokenService.findByToken(refreshTokenString)
+                .orElseThrow(() -> new RuntimeException("Refresh token not found"));
+
+        // Verify expiration
+        refreshToken = refreshTokenService.verifyExpiration(refreshToken);
+
+        // Get user
+        User user = userRepository.findByEmail(refreshToken.getUserEmail())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        // Generate new access token (30 minutes)
+        String newAccessToken = tokenProvider.generateAccessToken(user.getEmail(), user.getTokenVersion());
+
+        // Extend refresh token expiration (7 days from now)
+        refreshToken = refreshTokenService.extendExpiration(refreshToken);
+
+        log.info("Access token refreshed for user: {}", user.getEmail());
+
+        return AuthResponse.builder()
+                .token(newAccessToken)
+                .refreshToken(refreshToken.getToken())
+                .email(user.getEmail())
+                .displayName(user.getDisplayName())
+                .role(user.getRole().name())
+                .build();
     }
 }

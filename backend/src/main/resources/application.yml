@@ -70,7 +70,9 @@ server:
 
 jwt:
   secret: ${JWT_SECRET}  # Must be set via environment variable
-  expiration: ${JWT_EXPIRATION:86400000} # 24 hours in milliseconds (default)
+  expiration: ${JWT_EXPIRATION:86400000} # 24 hours in milliseconds (default, for backward compatibility)
+  access-token-expiration: ${JWT_ACCESS_TOKEN_EXPIRATION:1800000} # 30 minutes in milliseconds
+  refresh-token-expiration: ${JWT_REFRESH_TOKEN_EXPIRATION:604800000} # 7 days in milliseconds
 
 aws:
   s3:

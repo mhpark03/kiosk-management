@@ -227,19 +227,11 @@ function App() {
           />
           <Route
             path="/user-guide"
-            element={
-              <ProtectedRoute>
-                <UserGuide />
-              </ProtectedRoute>
-            }
+            element={<UserGuide />}
           />
           <Route
             path="/downloader-guide"
-            element={
-              <ProtectedRoute>
-                <DownloaderGuide />
-              </ProtectedRoute>
-            }
+            element={<DownloaderGuide />}
           />
         </Routes>
       </Router>
