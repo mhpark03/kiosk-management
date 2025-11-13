@@ -46,6 +46,8 @@ public class SecurityConfig {
                 .requestMatchers("/api/kiosk-auth/token").permitAll()
                 // H2 Console (for development/testing only - REMOVE IN PRODUCTION!)
                 .requestMatchers("/h2-console/**").permitAll()
+                // Swagger/OpenAPI endpoints (for local development only)
+                .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
                 // Actuator endpoints (for AWS health checks)
                 .requestMatchers("/actuator/health", "/actuator/info").permitAll()
                 // WebSocket endpoints
