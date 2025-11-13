@@ -6,6 +6,7 @@ import '../models/video.dart';
 import '../models/coffee_order.dart';
 import '../widgets/coffee_kiosk_overlay.dart';
 import '../widgets/video_player_widget.dart';
+import '../widgets/detection_status_overlay.dart';
 import '../services/download_service.dart';
 import '../services/coffee_menu_service.dart';
 
@@ -468,7 +469,13 @@ class KioskSplitScreenState extends State<KioskSplitScreen> {
       },
       child: Scaffold(
         backgroundColor: Colors.black,
-        body: isPortrait ? _buildPortraitLayout() : _buildLandscapeLayout(),
+        body: Stack(
+          children: [
+            isPortrait ? _buildPortraitLayout() : _buildLandscapeLayout(),
+            // Show detection status overlay (top-right corner)
+            const DetectionStatusOverlay(),
+          ],
+        ),
       ),
     );
   }

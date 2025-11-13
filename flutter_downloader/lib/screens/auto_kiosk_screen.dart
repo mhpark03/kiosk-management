@@ -7,6 +7,7 @@ import '../models/video.dart';
 import '../services/presence_detection_service.dart';
 import '../services/person_detection_service.dart';
 import '../widgets/kiosk_loading_screen.dart';
+import '../widgets/detection_status_overlay.dart';
 import 'idle_screen.dart';
 import 'kiosk_split_screen.dart';
 
@@ -306,7 +307,13 @@ class _AutoKioskScreenState extends State<AutoKioskScreen> {
         return KeyEventResult.ignored;
       },
       child: Scaffold(
-        body: _isKioskMode ? _buildKioskMode() : _buildIdleMode(),
+        body: Stack(
+          children: [
+            _isKioskMode ? _buildKioskMode() : _buildIdleMode(),
+            // Show detection status overlay (top-right corner)
+            const DetectionStatusOverlay(),
+          ],
+        ),
       ),
     );
     return widget;
