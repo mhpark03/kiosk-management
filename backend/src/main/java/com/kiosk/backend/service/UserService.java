@@ -186,7 +186,7 @@ public class UserService {
                 String userName = null;
                 if (userEmail != null && !userEmail.isEmpty()) {
                     Optional<User> userOpt = userRepository.findByEmail(userEmail);
-                    userName = userOpt.map(User::getDisplayName()).orElse(null);
+                    userName = userOpt.map(User::getDisplayName).orElse(null);
                 }
 
                 kioskEventService.recordEvent(
