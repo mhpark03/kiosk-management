@@ -27,6 +27,11 @@ class DetectionStatus {
   final bool isDetecting;
   final bool isInitialized;
 
+  // Gender detection (automatic, no user action required)
+  final String? gender; // 'male', 'female', 'unknown'
+  final double? genderConfidence; // 0.0 to 1.0
+  final int? facePixelSize; // Detected face size in pixels (for debugging)
+
   DetectionStatus({
     required this.personPresent,
     required this.latestConfidence,
@@ -34,9 +39,18 @@ class DetectionStatus {
     required this.successfulDetections,
     required this.isDetecting,
     required this.isInitialized,
+    this.gender,
+    this.genderConfidence,
+    this.facePixelSize,
   });
 
   double get successRate => totalDetections > 0 ? successfulDetections / totalDetections : 0.0;
+
+  /// Check if gender detection is reliable enough for content customization
+  bool get isGenderReliable => genderConfidence != null && genderConfidence! >= 0.4;
+
+  /// Check if gender detection is highly confident
+  bool get isGenderHighlyConfident => genderConfidence != null && genderConfidence! >= 0.7;
 }
 
 /// Service for detecting person presence using ONNX Runtime on all platforms
@@ -73,15 +87,24 @@ class PersonDetectionService {
   int _totalDetections = 0; // Total number of detection attempts
   int _successfulDetections = 0; // Number of successful person detections
 
+  // Gender detection state
+  String? _latestGender; // 'male', 'female', 'unknown'
+  double? _latestGenderConfidence; // 0.0 to 1.0
+  int? _latestFacePixelSize; // Face size in pixels
+
   // ONNX objects
-  OrtSession? _ortSession;
+  OrtSession? _ortSession; // Person detection model
   OrtSessionOptions? _sessionOptions;
+  OrtSession? _genderSession; // Gender classification model
+  OrtSessionOptions? _genderSessionOptions;
 
   // Configuration
   static const Duration _detectionTimeout = Duration(seconds: 30); // 30 seconds timeout for kiosk use
   static const Duration _detectionInterval = Duration(milliseconds: 500);
-  static const double _confidenceThreshold = 0.6; // 60% confidence threshold
+  static const double _confidenceThreshold = 0.6; // 60% confidence threshold for person detection
+  static const double _genderConfidenceThreshold = 0.4; // 40% threshold for gender (lower for automatic detection)
   static const int _personClassIndex = 1; // "person" class in COCO dataset
+  static const int _minFaceSizeForGender = 40; // Minimum face size (pixels) to attempt gender detection
 
   Timer? _timeoutTimer;
   bool _isProcessing = false;
@@ -180,20 +203,36 @@ class PersonDetectionService {
       OrtEnv.instance.init();
       print('[PERSON DETECTION] ONNX Runtime environment initialized');
 
-      // Create session options
+      // Create session options for person detection
       _sessionOptions = OrtSessionOptions();
       print('[PERSON DETECTION] ONNX session options created');
 
-      // Load ONNX model from assets
-      print('[PERSON DETECTION] Loading ONNX model from assets...');
+      // Load person detection ONNX model from assets
+      print('[PERSON DETECTION] Loading person detection model from assets...');
       final modelBytes = await rootBundle.load('assets/detect.onnx');
       final modelData = modelBytes.buffer.asUint8List();
-      print('[PERSON DETECTION] ONNX model loaded: ${modelData.length} bytes');
+      print('[PERSON DETECTION] Person detection model loaded: ${modelData.length} bytes');
 
-      // Create ONNX Runtime session
-      print('[PERSON DETECTION] Creating ONNX session...');
+      // Create ONNX Runtime session for person detection
+      print('[PERSON DETECTION] Creating person detection session...');
       _ortSession = OrtSession.fromBuffer(modelData, _sessionOptions!);
-      print('[PERSON DETECTION] ONNX session created successfully');
+      print('[PERSON DETECTION] Person detection session created successfully');
+
+      // Load gender classification model (optional - will continue if not found)
+      try {
+        print('[GENDER DETECTION] Loading gender classification model...');
+        _genderSessionOptions = OrtSessionOptions();
+        final genderModelBytes = await rootBundle.load('assets/gender_classifier.onnx');
+        final genderModelData = genderModelBytes.buffer.asUint8List();
+        print('[GENDER DETECTION] Gender model loaded: ${genderModelData.length} bytes');
+
+        _genderSession = OrtSession.fromBuffer(genderModelData, _genderSessionOptions!);
+        print('[GENDER DETECTION] Gender classification session created successfully');
+      } catch (e) {
+        print('[GENDER DETECTION] Gender model not found or failed to load: $e');
+        print('[GENDER DETECTION] Continuing without gender detection...');
+        _genderSession = null;
+      }
     } catch (e, stackTrace) {
       print('[PERSON DETECTION] Error loading ONNX model: $e');
       print('[PERSON DETECTION] Stack trace: $stackTrace');
@@ -652,6 +691,9 @@ class PersonDetectionService {
         successfulDetections: _successfulDetections,
         isDetecting: _isDetecting,
         isInitialized: _isInitialized,
+        gender: _latestGender,
+        genderConfidence: _latestGenderConfidence,
+        facePixelSize: _latestFacePixelSize,
       ));
     }
   }
@@ -704,6 +746,8 @@ class PersonDetectionService {
 
     _ortSession?.release();
     _sessionOptions?.release();
+    _genderSession?.release();
+    _genderSessionOptions?.release();
 
     // Don't close the stream controller for singleton - just reset state
     _personPresent = false;
@@ -711,6 +755,8 @@ class PersonDetectionService {
     _isInitialized = false;
     _ortSession = null;
     _sessionOptions = null;
+    _genderSession = null;
+    _genderSessionOptions = null;
     _consecutiveFailures = 0;
     _cameraWarmedUp = false;
     _latestFrameData = null;
@@ -718,5 +764,157 @@ class PersonDetectionService {
     _latestConfidence = 0.0;
     _totalDetections = 0;
     _successfulDetections = 0;
+    _latestGender = null;
+    _latestGenderConfidence = null;
+    _latestFacePixelSize = null;
+  }
+
+  /// Extract face region from person bounding box
+  /// Assumes face is in top 30% of person bbox
+  img.Image? _extractFaceRegion(img.Image fullImage, List<double> personBbox) {
+    try {
+      // personBbox format: [x1, y1, x2, y2] normalized (0-1)
+      final int imageWidth = fullImage.width;
+      final int imageHeight = fullImage.height;
+
+      // Convert normalized coords to pixels
+      final int x1 = (personBbox[0] * imageWidth).round().clamp(0, imageWidth - 1);
+      final int y1 = (personBbox[1] * imageHeight).round().clamp(0, imageHeight - 1);
+      final int x2 = (personBbox[2] * imageWidth).round().clamp(0, imageWidth - 1);
+      final int y2 = (personBbox[3] * imageHeight).round().clamp(0, imageHeight - 1);
+
+      final int bboxWidth = x2 - x1;
+      final int bboxHeight = y2 - y1;
+
+      // Estimate face region: top 30% of person bbox, centered horizontally
+      final int faceHeight = (bboxHeight * 0.3).round();
+      final int faceWidth = (bboxWidth * 0.8).round(); // 80% width for face
+      final int faceX = x1 + ((bboxWidth - faceWidth) / 2).round();
+      final int faceY = y1;
+
+      // Store face size for debugging
+      _latestFacePixelSize = faceHeight;
+
+      // Check minimum face size
+      if (faceWidth < _minFaceSizeForGender || faceHeight < _minFaceSizeForGender) {
+        print('[GENDER DETECTION] Face too small: ${faceWidth}x${faceHeight} (min: $_minFaceSizeForGender)');
+        return null;
+      }
+
+      // Crop face region
+      final faceImage = img.copyCrop(
+        fullImage,
+        x: faceX.clamp(0, imageWidth - 1),
+        y: faceY.clamp(0, imageHeight - 1),
+        width: faceWidth.clamp(1, imageWidth),
+        height: faceHeight.clamp(1, imageHeight),
+      );
+
+      return faceImage;
+    } catch (e) {
+      print('[GENDER DETECTION] Error extracting face region: $e');
+      return null;
+    }
+  }
+
+  /// Detect gender from face image using ONNX model
+  Future<(String, double)?> _detectGender(img.Image faceImage) async {
+    if (_genderSession == null) {
+      return null; // Gender model not loaded
+    }
+
+    OrtValueTensor? inputOrt;
+    OrtRunOptions? runOptions;
+    List<OrtValue?>? outputs;
+
+    try {
+      // Resize face to model input size (typically 224x224 or 112x112)
+      // Adjust this based on your gender model's input size
+      const int inputSize = 112;
+      final resizedFace = img.copyResize(faceImage, width: inputSize, height: inputSize);
+
+      // Convert to tensor format (NHWC, normalized 0-1)
+      final tensorData = Float32List(1 * inputSize * inputSize * 3);
+      int index = 0;
+
+      for (int y = 0; y < inputSize; y++) {
+        for (int x = 0; x < inputSize; x++) {
+          final pixel = resizedFace.getPixel(x, y);
+          tensorData[index++] = pixel.r.toDouble() / 255.0; // R
+          tensorData[index++] = pixel.g.toDouble() / 255.0; // G
+          tensorData[index++] = pixel.b.toDouble() / 255.0; // B
+        }
+      }
+
+      // Create ONNX tensor
+      inputOrt = OrtValueTensor.createTensorWithDataList(
+        tensorData,
+        [1, inputSize, inputSize, 3], // NHWC format
+      );
+
+      // Run inference
+      // Note: Input name may need to be adjusted based on your model
+      final inputs = {'input': inputOrt};
+      runOptions = OrtRunOptions();
+      outputs = _genderSession!.run(runOptions, inputs);
+
+      // Parse output
+      // Assumes binary classification: [male_prob, female_prob] or single value
+      if (outputs.isNotEmpty && outputs[0] != null) {
+        final outputData = outputs[0]!.value as List<dynamic>;
+
+        double maleProb = 0.0;
+        double femaleProb = 0.0;
+
+        if (outputData.length == 2) {
+          // Binary output: [male_prob, female_prob]
+          maleProb = (outputData[0] is num) ? (outputData[0] as num).toDouble() : 0.0;
+          femaleProb = (outputData[1] is num) ? (outputData[1] as num).toDouble() : 0.0;
+        } else if (outputData.length == 1) {
+          // Single sigmoid output: > 0.5 = female, < 0.5 = male
+          final value = (outputData[0] is num) ? (outputData[0] as num).toDouble() : 0.5;
+          femaleProb = value;
+          maleProb = 1.0 - value;
+        }
+
+        // Determine gender
+        final isMale = maleProb > femaleProb;
+        final confidence = isMale ? maleProb : femaleProb;
+
+        // Only return if confidence is above threshold
+        if (confidence >= _genderConfidenceThreshold) {
+          final gender = isMale ? 'male' : 'female';
+          print('[GENDER DETECTION] ✓ Gender detected: $gender (${(confidence * 100).toStringAsFixed(1)}%)');
+          return (gender, confidence);
+        } else {
+          print('[GENDER DETECTION] Confidence too low: ${(confidence * 100).toStringAsFixed(1)}%');
+          return ('unknown', confidence);
+        }
+      }
+
+      // Clean up
+      for (var output in outputs ?? []) {
+        output?.release();
+      }
+      inputOrt?.release();
+      runOptions?.release();
+
+      return null;
+    } catch (e) {
+      print('[GENDER DETECTION] Error in gender detection: $e');
+
+      // Clean up on error
+      try {
+        for (var output in outputs ?? []) {
+          output?.release();
+        }
+        inputOrt?.release();
+        runOptions?.release();
+      } catch (cleanupError) {
+        print('[GENDER DETECTION] Error cleaning up: $cleanupError');
+      }
+
+      return null;
+    }
   }
 }
