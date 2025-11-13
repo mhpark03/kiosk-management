@@ -1,5 +1,6 @@
 package com.kiosk.backend.service;
 
+import com.kiosk.backend.entity.KioskVideo;
 import com.kiosk.backend.entity.User;
 import com.kiosk.backend.entity.Video;
 import com.kiosk.backend.repository.KioskVideoRepository;
