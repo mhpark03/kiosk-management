@@ -27,6 +27,10 @@ public class RefreshToken {
     @Column(nullable = false, length = 255)
     private String userEmail;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private AppType appType;
+
     @Column(nullable = false)
     private LocalDateTime expiryDate;
 

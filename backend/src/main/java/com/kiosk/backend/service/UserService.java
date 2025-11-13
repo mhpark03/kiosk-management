@@ -3,6 +3,7 @@ package com.kiosk.backend.service;
 import com.kiosk.backend.dto.AuthResponse;
 import com.kiosk.backend.dto.LoginRequest;
 import com.kiosk.backend.dto.SignupRequest;
+import com.kiosk.backend.entity.AppType;
 import com.kiosk.backend.entity.EntityHistory;
 import com.kiosk.backend.entity.Kiosk;
 import com.kiosk.backend.entity.KioskEvent;
@@ -121,11 +122,14 @@ public class UserService {
         user.setTokenVersion(user.getTokenVersion() + 1);
         user = userRepository.save(user);
 
+        // Get app type from request (default to WEB if not provided)
+        AppType appType = request.getAppType() != null ? request.getAppType() : AppType.WEB;
+
         // Generate new Access Token (30 minutes) with updated version
         String accessToken = tokenProvider.generateAccessToken(user.getEmail(), user.getTokenVersion());
 
-        // Generate new Refresh Token (7 days)
-        RefreshToken refreshToken = refreshTokenService.createRefreshToken(user.getEmail());
+        // Generate new Refresh Token (7 days) for this specific app
+        RefreshToken refreshToken = refreshTokenService.createRefreshToken(user.getEmail(), appType);
 
         // Log login event
         logUserActivity(user.getEmail(), user.getDisplayName(), "LOGIN", "User logged in successfully");

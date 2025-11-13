@@ -3172,7 +3172,8 @@ ipcMain.handle('backend-login', async (event, params) => {
       `${backendUrl}/api/auth/login`,
       {
         email,
-        password
+        password,
+        appType: 'EDITOR'  // Identify this as editor app for separate token management
       },
       {
         headers: {

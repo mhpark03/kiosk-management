@@ -1,5 +1,6 @@
 package com.kiosk.backend.service;
 
+import com.kiosk.backend.entity.AppType;
 import com.kiosk.backend.entity.RefreshToken;
 import com.kiosk.backend.repository.RefreshTokenRepository;
 import com.kiosk.backend.security.JwtTokenProvider;
@@ -21,12 +22,13 @@ public class RefreshTokenService {
     private final JwtTokenProvider jwtTokenProvider;
 
     /**
-     * Create a new refresh token for the user
+     * Create a new refresh token for the user and app type
      */
     @Transactional
-    public RefreshToken createRefreshToken(String userEmail) {
-        // Delete existing refresh token for the user
-        refreshTokenRepository.deleteByUserEmail(userEmail);
+    public RefreshToken createRefreshToken(String userEmail, AppType appType) {
+        // Delete existing refresh token for the user and app type only
+        // This allows multiple apps to have separate refresh tokens
+        refreshTokenRepository.deleteByUserEmailAndAppType(userEmail, appType);
 
         // Generate new refresh token
         String token = jwtTokenProvider.generateRefreshToken(userEmail);
@@ -36,11 +38,13 @@ public class RefreshTokenService {
         RefreshToken refreshToken = RefreshToken.builder()
                 .token(token)
                 .userEmail(userEmail)
+                .appType(appType)
                 .expiryDate(expiryDate)
                 .build();
 
         RefreshToken saved = refreshTokenRepository.save(refreshToken);
-        log.info("Created refresh token for user: {}, expires at: {}", userEmail, expiryDate);
+        log.info("Created refresh token for user: {}, appType: {}, expires at: {}",
+                 userEmail, appType, expiryDate);
         return saved;
     }
 

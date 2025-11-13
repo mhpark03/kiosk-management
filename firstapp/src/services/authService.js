@@ -15,7 +15,11 @@ export const authService = {
   // Login
   async login(email, password) {
     try {
-      const response = await authApi.post('/auth/login', { email, password });
+      const response = await authApi.post('/auth/login', {
+        email,
+        password,
+        appType: 'WEB'  // Identify this as web app for separate token management
+      });
       const { token, refreshToken, email: userEmail, displayName, role } = response.data;
 
       // Store access token, refresh token, and user info
