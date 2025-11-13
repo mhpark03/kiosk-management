@@ -133,13 +133,16 @@ function Dashboard() {
 
       // Count kiosks with incomplete downloads
       // A kiosk has incomplete downloads if:
-      // 1. It has videoId or menuId assigned but never synced (lastSync is null)
-      // 2. OR it has resources assigned but last sync was more than 7 days ago (indicating possible sync issues)
-      const hasAssignedResources = kiosk.videoId || kiosk.menuId;
-      const lastSync = kiosk.lastSync ? new Date(kiosk.lastSync) : null;
-      const sevenDaysAgo = new Date(now - 7 * 24 * 60 * 60 * 1000);
+      // 1. It has videos assigned (totalVideoCount > 0) but not all are downloaded
+      // 2. OR it has menu assigned (menuId) but menu download is not COMPLETED
+      const hasIncompleteVideos =
+        kiosk.totalVideoCount > 0 &&
+        kiosk.downloadedVideoCount < kiosk.totalVideoCount;
+      const hasIncompleteMenu =
+        kiosk.menuId &&
+        kiosk.menuDownloadStatus !== 'COMPLETED';
 
-      if (hasAssignedResources && (!lastSync || lastSync < sevenDaysAgo)) {
+      if (hasIncompleteVideos || hasIncompleteMenu) {
         stats.downloadIncomplete++;
       }
     });
