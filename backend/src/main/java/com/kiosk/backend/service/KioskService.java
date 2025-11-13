@@ -89,7 +89,7 @@ public class KioskService {
         dto.setTotalVideoCount(kioskVideos.size());
 
         long downloadedCount = kioskVideos.stream()
-                .filter(kv -> "COMPLETED".equals(kv.getDownloadStatus()))
+                .filter(kv -> "COMPLETED".equalsIgnoreCase(kv.getDownloadStatus()))
                 .count();
         dto.setDownloadedVideoCount((int) downloadedCount);
 

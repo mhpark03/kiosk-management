@@ -307,6 +307,7 @@ function convertKioskFromAPI(apiKiosk) {
     videoId: apiKiosk.videoId || null,
     menuFilename: apiKiosk.menuFilename || null,
     videoFilename: apiKiosk.videoFilename || null,
+    menuDownloadStatus: apiKiosk.menuDownloadStatus || null,
     // Status fields
     lastSync: apiKiosk.lastSync || null,
     lastHeartbeat: apiKiosk.lastHeartbeat || null,
