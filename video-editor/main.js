@@ -3184,12 +3184,14 @@ ipcMain.handle('backend-login', async (event, params) => {
 
     logInfo('BACKEND_LOGIN', 'Login successful', {
       email,
-      hasToken: !!response.data?.token
+      hasToken: !!response.data?.token,
+      hasRefreshToken: !!response.data?.refreshToken
     });
 
     return {
       success: true,
       token: response.data.token,
+      refreshToken: response.data.refreshToken,
       user: {
         email: response.data.email || email,
         name: response.data.displayName || response.data.email || email,

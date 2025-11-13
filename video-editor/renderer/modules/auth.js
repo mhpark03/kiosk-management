@@ -5,6 +5,7 @@
 
 // Global authentication state
 let authToken = null;
+let refreshToken = null;
 let currentUser = null;
 let backendBaseUrl = 'http://localhost:8080';
 let selectedServerType = 'local'; // 'local', 'dev', 'custom'
@@ -32,6 +33,7 @@ export function initializeAuth() {
 
   // Check for saved auth token
   const savedToken = localStorage.getItem('authToken');
+  const savedRefreshToken = localStorage.getItem('refreshToken');
   const savedUser = localStorage.getItem('currentUser');
   const savedBackendUrl = localStorage.getItem('backendUrl');
   const savedServerType = localStorage.getItem('serverType');
@@ -44,6 +46,7 @@ export function initializeAuth() {
       console.warn('[Auth] Non-admin user found in localStorage, logging out');
       // Clear non-admin user data
       localStorage.removeItem('authToken');
+      localStorage.removeItem('refreshToken');
       localStorage.removeItem('currentUser');
       localStorage.removeItem('backendUrl');
       localStorage.removeItem('serverType');
@@ -52,6 +55,7 @@ export function initializeAuth() {
     }
 
     authToken = savedToken;
+    refreshToken = savedRefreshToken;
     currentUser = user;
     backendBaseUrl = savedBackendUrl || 'http://localhost:8080';
     selectedServerType = savedServerType || 'local';
@@ -181,11 +185,13 @@ export async function handleLogin() {
 
     // Save auth state
     authToken = result.token;
+    refreshToken = result.refreshToken;
     currentUser = result.user;
     backendBaseUrl = backendUrl;
 
     // Save to localStorage
     localStorage.setItem('authToken', authToken);
+    localStorage.setItem('refreshToken', refreshToken);
     localStorage.setItem('currentUser', JSON.stringify(currentUser));
     localStorage.setItem('backendUrl', backendBaseUrl);
     localStorage.setItem('serverType', selectedServerType);
@@ -235,10 +241,12 @@ export function logout() {
 
   // Clear auth state
   authToken = null;
+  refreshToken = null;
   currentUser = null;
 
   // Clear localStorage
   localStorage.removeItem('authToken');
+  localStorage.removeItem('refreshToken');
   localStorage.removeItem('currentUser');
 
   // Update UI
@@ -294,6 +302,14 @@ export function getAuthToken() {
 }
 
 /**
+ * Get current refresh token
+ * @returns {string|null} - Current refresh token
+ */
+export function getRefreshToken() {
+  return refreshToken;
+}
+
+/**
  * Get current user
  * @returns {object|null} - Current user object
  */
@@ -315,4 +331,95 @@ export function getBackendUrl() {
  */
 export function isAuthenticated() {
   return authToken !== null && currentUser !== null;
+}
+
+/**
+ * Refresh access token using refresh token
+ * @returns {Promise<string>} - New access token
+ */
+export async function refreshAccessToken() {
+  console.log('[Auth] Attempting to refresh access token');
+
+  if (!refreshToken) {
+    throw new Error('No refresh token available');
+  }
+
+  try {
+    const response = await fetch(`${backendBaseUrl}/api/auth/refresh`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ refreshToken })
+    });
+
+    if (!response.ok) {
+      throw new Error('Token refresh failed');
+    }
+
+    const data = await response.json();
+
+    // Update tokens
+    authToken = data.token;
+    refreshToken = data.refreshToken;
+
+    // Save to localStorage
+    localStorage.setItem('authToken', authToken);
+    localStorage.setItem('refreshToken', refreshToken);
+
+    console.log('[Auth] Access token refreshed successfully');
+    return authToken;
+
+  } catch (error) {
+    console.error('[Auth] Token refresh failed:', error);
+    // Clear auth state and show login modal
+    logout();
+    throw error;
+  }
+}
+
+/**
+ * Fetch with automatic token refresh on 401 error
+ * @param {string} url - URL to fetch
+ * @param {object} options - Fetch options
+ * @returns {Promise<Response>} - Fetch response
+ */
+export async function fetchWithAuth(url, options = {}) {
+  // Add Authorization header if not present
+  if (!options.headers) {
+    options.headers = {};
+  }
+
+  if (authToken && !options.headers['Authorization']) {
+    options.headers['Authorization'] = `Bearer ${authToken}`;
+  }
+
+  try {
+    let response = await fetch(url, options);
+
+    // If 401 (Unauthorized), try to refresh token and retry
+    if (response.status === 401 && refreshToken) {
+      console.log('[Auth] 401 error, attempting token refresh');
+
+      try {
+        // Refresh the access token
+        const newToken = await refreshAccessToken();
+
+        // Retry original request with new token
+        options.headers['Authorization'] = `Bearer ${newToken}`;
+        response = await fetch(url, options);
+
+        console.log('[Auth] Request retried successfully with new token');
+      } catch (refreshError) {
+        console.error('[Auth] Token refresh failed, logging out');
+        // refreshAccessToken already calls logout() on failure
+        throw refreshError;
+      }
+    }
+
+    return response;
+  } catch (error) {
+    console.error('[Auth] Fetch error:', error);
+    throw error;
+  }
 }
