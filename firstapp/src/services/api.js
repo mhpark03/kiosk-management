@@ -42,9 +42,37 @@ api.interceptors.response.use(
   },
   (error) => {
     if (error.response) {
-      // Server responded with error status
-      console.error('API Error:', error.response.data);
-      throw new Error(error.response.data.message || 'An error occurred');
+      const { status, data } = error.response;
+
+      // Handle authentication/authorization errors
+      if (status === 401 || status === 403) {
+        console.error('Authentication error:', data);
+        // Clear auth data
+        localStorage.removeItem('jwtToken');
+        localStorage.removeItem('userEmail');
+        localStorage.removeItem('displayName');
+        localStorage.removeItem('userRole');
+        // Redirect to login page
+        window.location.href = '/login';
+        return Promise.reject(new Error('Authentication failed. Please log in again.'));
+      }
+
+      // Handle 500 errors with "User not found" message (stale token)
+      if (status === 500 && data.message && data.message.includes('User not found')) {
+        console.error('User not found in database - clearing stale token');
+        // Clear auth data
+        localStorage.removeItem('jwtToken');
+        localStorage.removeItem('userEmail');
+        localStorage.removeItem('displayName');
+        localStorage.removeItem('userRole');
+        // Redirect to login page
+        window.location.href = '/login';
+        return Promise.reject(new Error('User session expired. Please log in again.'));
+      }
+
+      // Server responded with other error status
+      console.error('API Error:', data);
+      throw new Error(data.message || 'An error occurred');
     } else if (error.request) {
       // Request was made but no response received
       console.error('Network Error:', error.request);
