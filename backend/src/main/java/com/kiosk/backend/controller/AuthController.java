@@ -6,9 +6,11 @@ import com.kiosk.backend.dto.LoginRequest;
 import com.kiosk.backend.dto.PasswordChangeRequest;
 import com.kiosk.backend.dto.PasswordResetRequest;
 import com.kiosk.backend.dto.ProfileUpdateRequest;
+import com.kiosk.backend.dto.RefreshTokenRequest;
 import com.kiosk.backend.dto.SignupRequest;
 import com.kiosk.backend.entity.EntityHistory;
 import com.kiosk.backend.entity.User;
+import com.kiosk.backend.service.RefreshTokenService;
 import com.kiosk.backend.service.UserService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -27,6 +29,7 @@ import java.util.Map;
 public class AuthController {
 
     private final UserService userService;
+    private final RefreshTokenService refreshTokenService;
 
     @PostMapping("/signup")
     public ResponseEntity<AuthResponse> signup(@Valid @RequestBody SignupRequest request) {
@@ -162,5 +165,11 @@ public class AuthController {
     public ResponseEntity<Void> resetPassword(@Valid @RequestBody PasswordResetRequest request) {
         userService.resetPasswordWithVerification(request.getEmail(), request.getDisplayName(), request.getNewPassword());
         return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<AuthResponse> refreshToken(@Valid @RequestBody RefreshTokenRequest request) {
+        AuthResponse response = userService.refreshAccessToken(request.getRefreshToken());
+        return ResponseEntity.ok(response);
     }
 }
