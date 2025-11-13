@@ -13,7 +13,7 @@ class Video {
   final DateTime updatedAt;
 
   // Download status (local only, not from API)
-  String downloadStatus; // pending, downloading, completed, failed
+  String downloadStatus; // PENDING, DOWNLOADING, COMPLETED, FAILED (uppercase to match backend)
   double downloadProgress; // 0.0 to 1.0
   String? localPath;
 
@@ -30,7 +30,7 @@ class Video {
     this.menuId,
     required this.createdAt,
     required this.updatedAt,
-    this.downloadStatus = 'pending',
+    this.downloadStatus = 'PENDING',
     this.downloadProgress = 0.0,
     this.localPath,
   });

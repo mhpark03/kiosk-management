@@ -97,4 +97,11 @@ public class Video {
     @Column(nullable = false)
     @Builder.Default
     private Boolean downloadable = false; // Whether this video/image can be downloaded to kiosks
+
+    // Kiosk assignment statistics (not persisted, calculated on-demand)
+    @Transient
+    private Integer assignedKioskCount; // Number of kiosks this video is assigned to
+
+    @Transient
+    private Integer downloadedKioskCount; // Number of kiosks that have downloaded this video
 }

@@ -912,7 +912,7 @@ class _VideoListScreenState extends State<VideoListScreen> {
               videoType: 'UPLOAD', // Mark as UPLOAD type for local files
               createdAt: DateTime.now(),
               updatedAt: DateTime.now(),
-              downloadStatus: 'completed',
+              downloadStatus: 'COMPLETED',
               localPath: entity.path,
               menuId: menuId,
             );
@@ -976,26 +976,26 @@ class _VideoListScreenState extends State<VideoListScreen> {
 
         if (exists) {
           // File exists locally
-          // Check if server still thinks it's pending/downloading
-          final wasNotCompleted = video.downloadStatus != "completed";
+          // Check if server still thinks it's pending/downloading (case-insensitive)
+          final wasNotCompleted = video.downloadStatus.toUpperCase() != "COMPLETED";
 
           // Mark as completed locally
-          video.downloadStatus = "completed";
+          video.downloadStatus = "COMPLETED";
           video.localPath = filePath;
 
-          // If server status was not 'completed', we need to update it
+          // If server status was not 'COMPLETED', we need to update it
           if (wasNotCompleted) {
             print("[CHECK FILES] File ${video.filename} exists locally but server status was ${video.downloadStatus} - will update server");
             videosToUpdateOnServer.add(video);
           }
         } else {
           // File missing - mark as pending
-          video.downloadStatus = "pending";
+          video.downloadStatus = "PENDING";
           video.localPath = null;
         }
       } catch (e) {
         print("[CHECK FILES] Error checking file $fileName: $e");
-        video.downloadStatus = "pending";
+        video.downloadStatus = "PENDING";
         video.localPath = null;
       }
     }

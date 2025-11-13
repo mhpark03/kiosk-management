@@ -140,7 +140,7 @@ function Dashboard() {
         kiosk.downloadedVideoCount < kiosk.totalVideoCount;
       const hasIncompleteMenu =
         kiosk.menuId &&
-        kiosk.menuDownloadStatus !== 'COMPLETED';
+        kiosk.menuDownloadStatus?.toUpperCase() !== 'COMPLETED';
 
       if (hasIncompleteVideos || hasIncompleteMenu) {
         stats.downloadIncomplete++;
