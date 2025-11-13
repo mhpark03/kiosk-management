@@ -85,6 +85,7 @@ class ApiService {
         data: {
           'email': email,
           'password': password,
+          'appType': 'KIOSK',  // Identify as kiosk app for separate token management
         },
       );
 
