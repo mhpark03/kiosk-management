@@ -673,10 +673,24 @@ public class VideoService {
 
     /**
      * Get all videos ordered by upload date (newest first)
-     * @return List of all videos
+     * Includes kiosk assignment statistics
+     * @return List of all videos with kiosk statistics
      */
     public List<Video> getAllVideos() {
-        return videoRepository.findAllByOrderByUploadedAtDesc();
+        List<Video> videos = videoRepository.findAllByOrderByUploadedAtDesc();
+
+        // Calculate kiosk assignment statistics for each video
+        for (Video video : videos) {
+            List<KioskVideo> kioskVideos = kioskVideoRepository.findByVideoId(video.getId());
+            video.setAssignedKioskCount(kioskVideos.size());
+
+            long downloadedCount = kioskVideos.stream()
+                    .filter(kv -> "COMPLETED".equalsIgnoreCase(kv.getDownloadStatus()))
+                    .count();
+            video.setDownloadedKioskCount((int) downloadedCount);
+        }
+
+        return videos;
     }
 
     /**

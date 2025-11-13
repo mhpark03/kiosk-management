@@ -71,9 +71,8 @@ function VideoManagement() {
 
     try {
       setError('');
-      // Use videoId from kiosk_videos or fallback to id
-      const videoIdToUse = video.videoId || video.id;
-      await videoService.deleteVideo(videoIdToUse);
+      // VideoManagement handles videos table directly, always use video.id
+      await videoService.deleteVideo(video.id);
       setSuccess('비디오가 성공적으로 삭제되었습니다.');
       await loadVideos();
       setTimeout(() => setSuccess(''), 3000);
